@@ -15,7 +15,7 @@ import:
 - package: github.com/openshift/client-go
   version: master
 - package: github.com/openshift/library-go
-  version: mster
+  version: master
 
 #for bindata
 - package: github.com/jteeuwen/go-bindata
