@@ -1,5 +1,5 @@
-hash: 7b582dc9e0385cf7dec8dd5c042018a69700464955db526dd5d80ff6fc910833
-updated: 2018-08-21T08:21:41.328929718-04:00
+hash: 83822b238beb0aab019a52c48fc7201aaee51fb198c7e87ba1820fe3e2b5e11b
+updated: 2018-08-27T16:30:37.142375+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -68,10 +68,11 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: cb68976b78d5fdc64c52646f55d78bf6ea95883a
+  version: bccfa651752a8a9f963b9899b477dcffbe9be786
   subpackages:
   - config/v1
   - operator/v1alpha1
+  - servicecertsigner/v1alpha1
 - name: github.com/openshift/client-go
   version: 5b198a036f098f34fbf0c42768382d80708cd2a9
 - name: github.com/openshift/library-go
@@ -299,6 +300,12 @@ imports:
   - util/flowcontrol
   - util/homedir
   - util/integer
+- name: k8s.io/code-generator
+  version: 6702109cc68eb6fe6350b83e14407c8d7309fd1a
+- name: k8s.io/gengo
+  version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
+  subpackages:
+  - args
 - name: k8s.io/kube-aggregator
   version: bd6e1ad75c9758cad2069bb2f65880cf805ad8e9
 - name: k8s.io/kube-openapi
