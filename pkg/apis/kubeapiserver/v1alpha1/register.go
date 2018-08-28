@@ -23,6 +23,12 @@ var (
 	AddToScheme = schemeBuilder.AddToScheme
 )
 
+// Resource generated code relies on this being here, but it logically belongs to the group
+// DEPRECATED
+func Resource(resource string) schema.GroupResource {
+	return schema.GroupResource{Group: GroupName, Resource: resource}
+}
+
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
 		&KubeApiserverConfig{},
