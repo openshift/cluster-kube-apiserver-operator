@@ -3,9 +3,9 @@ package operator
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
 )
 
 func NewOperator() *cobra.Command {

@@ -10,13 +10,15 @@ import:
   version: kubernetes-1.11.0
 - package: k8s.io/kube-aggregator
   version: kubernetes-1.11.0
+- package: k8s.io/code-generator
+  version: kubernetes-1.11.0
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go
   version: master
 - package: github.com/openshift/library-go
   version: master
-
-#for bindata
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
+- package: k8s.io/gengo/args
+  version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
