@@ -127,7 +127,7 @@ func (c KubeApiserverOperator) sync() error {
 		var versionAvailability operatorsv1alpha1.VersionAvailablity
 		operatorConfig.Status.TaskSummary = "sync-[3.11.0,3.12.0)"
 		operatorConfig.Status.TargetAvailability = nil
-		// TODO: implement: versionAvailability, errors = sync_v311_00_to_latest(c, operatorConfig, operatorConfig.Status.CurrentAvailability)
+		versionAvailability, errors = syncKubeApiserver_v311_00_to_latest(c, operatorConfig, operatorConfig.Status.CurrentAvailability)
 		operatorConfig.Status.CurrentAvailability = &versionAvailability
 
 	default:
