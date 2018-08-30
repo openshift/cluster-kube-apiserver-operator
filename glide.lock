@@ -1,5 +1,5 @@
-hash: 83822b238beb0aab019a52c48fc7201aaee51fb198c7e87ba1820fe3e2b5e11b
-updated: 2018-08-28T12:19:10.931802+02:00
+hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
+updated: 2018-08-30T18:25:17.046154+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,19 +74,21 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: bccfa651752a8a9f963b9899b477dcffbe9be786
+  version: 5ad8479f64f1b60ee9c62ce8ef1fe6638838725e
   subpackages:
   - config/v1
   - operator/v1alpha1
-  - servicecertsigner/v1alpha1
 - name: github.com/openshift/client-go
-  version: 5b198a036f098f34fbf0c42768382d80708cd2a9
+  version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: 1d4fa7d16c15c6b51312c990be28c5976acb0380
+  version: 0b8367a4679859036c27a30dbe010d76409e7075
   subpackages:
   - pkg/config/client
   - pkg/config/leaderelection
   - pkg/controller/controllercmd
+  - pkg/operator/resource/resourceapply
+  - pkg/operator/resource/resourcecread
+  - pkg/operator/resource/resourcemerge
   - pkg/operator/v1alpha1helpers
   - pkg/operator/versioning
   - pkg/serviceability
@@ -203,9 +205,15 @@ imports:
   - storage/v1
   - storage/v1alpha1
   - storage/v1beta1
+- name: k8s.io/apiextensions-apiserver
+  version: 3de98c57bc05a81cf463e0ad7a0af4cec8a5b510
+  subpackages:
+  - pkg/apis/apiextensions
+  - pkg/apis/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:
+  - pkg/api/equality
   - pkg/api/errors
   - pkg/api/meta
   - pkg/api/resource
