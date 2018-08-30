@@ -32,18 +32,6 @@ func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig
 		errors = append(errors, fmt.Errorf("%q: %v", "ns", err))
 	}
 
-	requiredClusterRole := resourceread.ReadClusterRoleV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/clusterrole.yaml"))
-	_, _, err = resourceapply.ApplyClusterRole(c.rbacv1Client, requiredClusterRole)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "svc", err))
-	}
-
-	requiredClusterRoleBinding := resourceread.ReadClusterRoleBindingV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/clusterrolebinding.yaml"))
-	_, _, err = resourceapply.ApplyClusterRoleBinding(c.rbacv1Client, requiredClusterRoleBinding)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "svc", err))
-	}
-
 	requiredService := resourceread.ReadServiceV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/svc.yaml"))
 	_, _, err = resourceapply.ApplyService(c.corev1Client, requiredService)
 	if err != nil {
@@ -83,7 +71,7 @@ func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig
 func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "controller-config.yaml", nil, defaultConfig, operatorConfig.Spec.KubeApiserverConfig.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.KubeApiserverConfig.Raw)
 	if err != nil {
 		return nil, false, err
 	}

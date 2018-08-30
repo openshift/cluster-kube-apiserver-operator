@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: openshift-service-cert-signer
-  name: service-serving-cert-signer
+  namespace: openshift-kube-apiserver
+  name: apiserver
   annotations:
-    service.alpha.openshift.io/serving-cert-secret-name: service-serving-cert-signer-serving-cert
+    service.alpha.openshift.io/serving-cert-secret-name: serving-cert
     prometheus.io/scrape: "true"
     prometheus.io/scheme: https
 spec:
   selector:
-    service-serving-cert-signer: "true"
+    apiserver: "true"
   ports:
   - name: https
     port: 443
