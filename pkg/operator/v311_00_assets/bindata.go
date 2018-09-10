@@ -73,12 +73,8 @@ func v3110KubeApiserverCmYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDefaultconfigYaml = []byte(`# TODO this will change to KubeAPIServerConfig
-apiVersion: v1
-kind: MasterConfig
-signer:
-  certFile: /var/run/secrets/signing-key/tls.crt
-  keyFile: /var/run/secrets/signing-key/tls.key
+var _v3110KubeApiserverDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
 `)
 
 func v3110KubeApiserverDefaultconfigYamlBytes() ([]byte, error) {
@@ -131,15 +127,55 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/configmaps/aggregator-client-ca
+          name: aggregator-client-ca
+        - mountPath: /var/run/configmaps/client-ca
+          name: client-ca
+        - mountPath: /var/run/configmaps/etcd-serving-ca
+          name: etcd-serving-ca
+        - mountPath: /var/run/configmaps/kubelet-serving-ca
+          name: kubelet-serving-ca
+        - mountPath: /var/run/configmaps/sa-token-signing-certs
+          name: sa-token-signing-certs
+        - mountPath: /var/run/secrets/aggregator-client
+          name: aggregator-client
+        - mountPath: /var/run/secrets/etcd-client
+          name: etcd-client
+        - mountPath: /var/run/secrets/kubelet-client
+          name: kubelet-client
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
       volumes:
-      - name: serving-cert
-        secret:
-          secretName: serving-cert
       - name: config
         configMap:
           name: deployment-apiserver-config
+      - name: aggregator-client-ca
+        configMap:
+          name: aggregator-client-ca
+      - name: client-ca
+        configMap:
+          name: client-ca
+      - name: etcd-serving-ca
+        configMap:
+          name: etcd-serving-ca
+      - name: kubelet-serving-ca
+        configMap:
+          name: kubelet-serving-ca
+      - name: sa-token-signing-certs
+        configMap:
+          name: sa-token-signing-certs
+      - name: aggregator-client
+        secret:
+          secretName: aggregator-client
+      - name: etcd-client
+        secret:
+          secretName: etcd-client
+      - name: kubelet-client
+        secret:
+          secretName: kubelet-client
+      - name: serving-cert
+        secret:
+          secretName: serving-cert
 
 
 

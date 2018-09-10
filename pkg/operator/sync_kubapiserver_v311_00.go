@@ -44,7 +44,6 @@ func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig
 		errors = append(errors, fmt.Errorf("%q: %v", "sa", err))
 	}
 
-	// TODO create a new configmap whenever the data value changes
 	_, configMapModified, err := manageKubeApiserverConfigMap_v311_00_to_latest(c.corev1Client, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
