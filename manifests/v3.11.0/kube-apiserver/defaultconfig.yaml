@@ -1,6 +1,2 @@
-# TODO this will change to KubeAPIServerConfig
-apiVersion: v1
-kind: MasterConfig
-signer:
-  certFile: /var/run/secrets/signing-key/tls.crt
-  keyFile: /var/run/secrets/signing-key/tls.key
+apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig

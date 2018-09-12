@@ -4,6 +4,9 @@
 // manifests/v3.11.0/kube-apiserver/defaultconfig.yaml
 // manifests/v3.11.0/kube-apiserver/deployment.yaml
 // manifests/v3.11.0/kube-apiserver/ns.yaml
+// manifests/v3.11.0/kube-apiserver/public-info-role.yaml
+// manifests/v3.11.0/kube-apiserver/public-info-rolebinding.yaml
+// manifests/v3.11.0/kube-apiserver/public-info.yaml
 // manifests/v3.11.0/kube-apiserver/sa.yaml
 // manifests/v3.11.0/kube-apiserver/svc.yaml
 // DO NOT EDIT!
@@ -73,12 +76,8 @@ func v3110KubeApiserverCmYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDefaultconfigYaml = []byte(`# TODO this will change to KubeAPIServerConfig
-apiVersion: v1
-kind: MasterConfig
-signer:
-  certFile: /var/run/secrets/signing-key/tls.crt
-  keyFile: /var/run/secrets/signing-key/tls.key
+var _v3110KubeApiserverDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
 `)
 
 func v3110KubeApiserverDefaultconfigYamlBytes() ([]byte, error) {
@@ -131,15 +130,55 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/configmaps/aggregator-client-ca
+          name: aggregator-client-ca
+        - mountPath: /var/run/configmaps/client-ca
+          name: client-ca
+        - mountPath: /var/run/configmaps/etcd-serving-ca
+          name: etcd-serving-ca
+        - mountPath: /var/run/configmaps/kubelet-serving-ca
+          name: kubelet-serving-ca
+        - mountPath: /var/run/configmaps/sa-token-signing-certs
+          name: sa-token-signing-certs
+        - mountPath: /var/run/secrets/aggregator-client
+          name: aggregator-client
+        - mountPath: /var/run/secrets/etcd-client
+          name: etcd-client
+        - mountPath: /var/run/secrets/kubelet-client
+          name: kubelet-client
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
       volumes:
-      - name: serving-cert
-        secret:
-          secretName: serving-cert
       - name: config
         configMap:
           name: deployment-apiserver-config
+      - name: aggregator-client-ca
+        configMap:
+          name: aggregator-client-ca
+      - name: client-ca
+        configMap:
+          name: client-ca
+      - name: etcd-serving-ca
+        configMap:
+          name: etcd-serving-ca
+      - name: kubelet-serving-ca
+        configMap:
+          name: kubelet-serving-ca
+      - name: sa-token-signing-certs
+        configMap:
+          name: sa-token-signing-certs
+      - name: aggregator-client
+        secret:
+          secretName: aggregator-client
+      - name: etcd-client
+        secret:
+          secretName: etcd-client
+      - name: kubelet-client
+        secret:
+          secretName: kubelet-client
+      - name: serving-cert
+        secret:
+          secretName: serving-cert
 
 
 
@@ -178,6 +217,101 @@ func v3110KubeApiserverNsYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/ns.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPublicInfoRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: openshift-kube-apiserver
+  name: system:openshift:operator:kube-apiserver:public
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  resourceNames:
+  - public-info
+`)
+
+func v3110KubeApiserverPublicInfoRoleYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPublicInfoRoleYaml, nil
+}
+
+func v3110KubeApiserverPublicInfoRoleYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPublicInfoRoleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/public-info-role.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPublicInfoRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: openshift-kube-apiserver
+  name: system:openshift:operator:kube-apiserver:public
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: system:openshift:operator:kube-apiserver:public
+subjects:
+- kind: Group
+  name: system:authenticated
+`)
+
+func v3110KubeApiserverPublicInfoRolebindingYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPublicInfoRolebindingYaml, nil
+}
+
+func v3110KubeApiserverPublicInfoRolebindingYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPublicInfoRolebindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/public-info-rolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPublicInfoYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: public-info
+data:
+  # version is the current of the kube-apiserver.  It is updated *after* it is being served consistently.
+  version:
+  # imagePolicyConfig.internalRegistryHostname is internal registry used for imagePolicyAdmission
+  # TODO this probably won't make it to 4.0, we're likely to stuff the entire imagePolicyAdmission config in here
+  imagePolicyConfig.internalRegistryHostname:
+  # imagePolicyConfig.externalRegistryHostname is external registry used for imagePolicyAdmission
+  # TODO this probably won't make it to 4.0, we're likely to stuff the entire imagePolicyAdmission config in here
+  imagePolicyConfig.externalRegistryHostname:
+  # defaultNodeSelector is used when no specific node selector is on a namespace
+  # TODO we'd really like to see this collapsed onto upstream values
+  projectConfig.defaultNodeSelector:`)
+
+func v3110KubeApiserverPublicInfoYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPublicInfoYaml, nil
+}
+
+func v3110KubeApiserverPublicInfoYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPublicInfoYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/public-info.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -293,6 +427,9 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
 	"v3.11.0/kube-apiserver/deployment.yaml": v3110KubeApiserverDeploymentYaml,
 	"v3.11.0/kube-apiserver/ns.yaml": v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/public-info-role.yaml": v3110KubeApiserverPublicInfoRoleYaml,
+	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml": v3110KubeApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/kube-apiserver/public-info.yaml": v3110KubeApiserverPublicInfoYaml,
 	"v3.11.0/kube-apiserver/sa.yaml": v3110KubeApiserverSaYaml,
 	"v3.11.0/kube-apiserver/svc.yaml": v3110KubeApiserverSvcYaml,
 }
@@ -343,6 +480,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml": &bintree{v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"deployment.yaml": &bintree{v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
 			"ns.yaml": &bintree{v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"public-info-role.yaml": &bintree{v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml": &bintree{v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml": &bintree{v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
 			"sa.yaml": &bintree{v3110KubeApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml": &bintree{v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
