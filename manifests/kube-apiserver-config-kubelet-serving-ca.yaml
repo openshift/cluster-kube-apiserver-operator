@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-apiserver-kubelet-serving-ca
+  namespace: {{ .Namespace }}
+data:
+  ca-bundle.crt: {{ .KubeletServingCA }}
+
