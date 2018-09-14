@@ -15,13 +15,15 @@ spec:
     matchLabels:
       tier: control-plane
       k8s-app: kube-apiserver
+      openshift.io/control-plane: true
+      openshift.io/component: api
   template:
     metadata:
       labels:
         tier: control-plane
         k8s-app: kube-apiserver
-      annotations:
-        checkpointer.alpha.coreos.com/checkpoint: "true"
+        openshift.io/control-plane: true
+        openshift.io/component: api
     spec:
       containers:
       - name: kube-apiserver
@@ -37,11 +39,6 @@ spec:
             source /etc/origin/master/master.env
           fi
           exec hypershift openshift-kube-apiserver --config=/etc/origin/master/config.json
-        env:
-        - name: POD_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.podIP
         volumeMounts:
         - mountPath: /etc/ssl/certs
           name: ssl-certs-host
