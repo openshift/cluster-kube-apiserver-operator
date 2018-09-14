@@ -37,7 +37,7 @@ func NewRenderCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-output-dir", "", "Output path for rendered assets.")
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
-	cmd.Flags().StringVar(&renderOpts.manifestTemplatesDir, "manifest-templates-dir", "/manifest-templates", "A path to directory with manifest templates.")
+	cmd.Flags().StringVar(&renderOpts.manifestTemplatesDir, "manifest-templates-dir", "/usr/share/bootkube/manifests", "A path to directory with manifest templates.")
 
 	cmd.Flags().StringVar(&renderOpts.configDir, "config-dir", "/etc/kubernetes/config", "A path to directory with a KubeApiServerConfig configuration file.")
 	cmd.Flags().StringVar(&renderOpts.cloudProviderDir, "cloud-provider-dir", "/etc/kubernetes/cloud", "A path to directory with cloud provider configuration.")
