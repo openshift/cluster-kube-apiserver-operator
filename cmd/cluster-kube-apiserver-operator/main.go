@@ -13,6 +13,7 @@ import (
 	utilflag "k8s.io/apiserver/pkg/util/flag"
 	"k8s.io/apiserver/pkg/util/logs"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 )
 
@@ -25,14 +26,14 @@ func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
-	command := NewSSCSCommand()
+	command := NewOperatorCommand()
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func NewSSCSCommand() *cobra.Command {
+func NewOperatorCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster-kube-apiserver-operator",
 		Short: "OpenShift cluster kube-apiserver operator",
@@ -43,6 +44,7 @@ func NewSSCSCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(operator.NewOperator())
+	cmd.AddCommand(render.NewRenderCommand())
 
 	return cmd
 }
