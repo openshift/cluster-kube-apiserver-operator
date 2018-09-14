@@ -83,6 +83,27 @@ func (c KubeApiserverOperator) sync() error {
 	case operatorsv1alpha1.Unmanaged:
 		return nil
 
+	case operatorsv1alpha1.Managed:
+		targetNamespace := &corev1.Namespace{}
+		targetNamespace.Name = targetNamespaceName
+		if _, err := c.corev1Client.Namespaces().Create(targetNamespace); err != nil && !apierrors.IsAlreadyExists(err) {
+			operatorConfig.Status.TaskSummary = "CreateNamespace"
+			operatorConfig.Status.CurrentAvailability = &operatorsv1alpha1.VersionAvailablity{}
+			operatorConfig.Status.CurrentAvailability.Errors = []string{
+				fmt.Sprintf("unable to create target namespace %s: %v", targetNamespace, err),
+			}
+			operatorConfig.Status.Conditions = []operatorsv1alpha1.OperatorCondition{
+				{
+					Type:   operatorsv1alpha1.OperatorStatusTypeAvailable,
+					Status: operatorsv1alpha1.ConditionFalse,
+				},
+			}
+			if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Update(operatorConfig); err != nil {
+				return err
+			}
+			return err
+		}
+
 	case operatorsv1alpha1.Removed:
 		// TODO probably need to watch until the NS is really gone
 		if err := c.corev1Client.Namespaces().Delete(targetNamespaceName, nil); err != nil && !apierrors.IsNotFound(err) {
@@ -103,14 +124,14 @@ func (c KubeApiserverOperator) sync() error {
 		return nil
 	}
 
-	var currentActualVerion *semver.Version
+	var currentActualVersion *semver.Version
 
 	if operatorConfig.Status.CurrentAvailability != nil {
 		ver, err := semver.Parse(operatorConfig.Status.CurrentAvailability.Version)
 		if err != nil {
 			utilruntime.HandleError(err)
 		} else {
-			currentActualVerion = &ver
+			currentActualVersion = &ver
 		}
 	}
 	desiredVersion, err := semver.Parse(operatorConfig.Spec.Version)
@@ -123,7 +144,7 @@ func (c KubeApiserverOperator) sync() error {
 
 	errors := []error{}
 	switch {
-	case v311_00_to_unknown.BetweenOrEmpty(currentActualVerion) && v311_00_to_unknown.Between(&desiredVersion):
+	case v311_00_to_unknown.BetweenOrEmpty(currentActualVersion) && v311_00_to_unknown.Between(&desiredVersion):
 		var versionAvailability operatorsv1alpha1.VersionAvailablity
 		operatorConfig.Status.TaskSummary = "sync-[3.11.0,3.12.0)"
 		operatorConfig.Status.TargetAvailability = nil

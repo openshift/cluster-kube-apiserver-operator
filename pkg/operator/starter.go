@@ -23,7 +23,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	}
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, targetNamespaceName, nil)
+	kubeInformersNamespaced := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10 * time.Minute, informers.WithNamespace(targetNamespaceName), nil)
 
 	operator := NewKubeApiserverOperator(
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
