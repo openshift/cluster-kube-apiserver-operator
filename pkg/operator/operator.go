@@ -2,12 +2,12 @@ package operator
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/blang/semver"
 	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +79,9 @@ func (c KubeApiserverOperator) sync() error {
 	if err != nil {
 		return err
 	}
+
+	operatorConfigOriginal := operatorConfig.DeepCopy()
+
 	switch operatorConfig.Spec.ManagementState {
 	case operatorsv1alpha1.Unmanaged:
 		return nil
@@ -172,8 +175,10 @@ func (c KubeApiserverOperator) sync() error {
 		operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
 	}
 
-	if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
-		errors = append(errors, err)
+	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
+		if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	return utilerrors.NewAggregate(errors)

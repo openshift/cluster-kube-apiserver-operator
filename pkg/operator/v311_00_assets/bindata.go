@@ -348,6 +348,7 @@ metadata:
     prometheus.io/scrape: "true"
     prometheus.io/scheme: https
 spec:
+  type: ClusterIP
   selector:
     apiserver: "true"
   ports:
