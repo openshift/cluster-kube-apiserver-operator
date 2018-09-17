@@ -2,10 +2,12 @@ package assets
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/golang/glog"
@@ -52,8 +54,22 @@ func MustCreateAssetFromTemplate(name string, template []byte, data interface{})
 	return a
 }
 
+var templateFuncs = map[string]interface{}{
+	"base64": base64encode,
+	"indent": indent,
+}
+
+func indent(indention int, v []byte) string {
+	newline := "\n" + strings.Repeat(" ", indention)
+	return strings.Replace(string(v), "\n", newline, -1)
+}
+
+func base64encode(v []byte) string {
+	return base64.StdEncoding.EncodeToString([]byte(v))
+}
+
 func assetFromTemplate(name string, tb []byte, data interface{}) (Asset, error) {
-	tmpl, err := template.New(name).Parse(string(tb))
+	tmpl, err := template.New(name).Funcs(templateFuncs).Parse(string(tb))
 	if err != nil {
 		return Asset{}, err
 	}

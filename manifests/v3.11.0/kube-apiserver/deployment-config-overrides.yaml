@@ -1,0 +1,27 @@
+apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /var/run/secrets/aggregator-client/tls.crt
+    keyFile: /var/run/secrets/aggregator-client/tls.key
+authConfig:
+  requestHeader:
+    clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
+kubeletClientInfo:
+  ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/kubelet-client/tls.crt
+  keyFile: /var/run/secrets/kubelet-client/tls.key
+oauthConfig:
+  masterCA: /var/run/configmaps/client-ca/ca-bundle.crt
+serviceAccountPublicKeyFiles:
+- /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
+servingInfo:
+  certFile: /var/run/secrets/serving-cert/tls.crt
+  clientCA: /var/run/configmaps/client-ca/ca-bundle.crt
+  keyFile: /var/run/secrets/serving-cert/tls.key
+storageConfig:
+  ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/etcd-client/tls.crt
+  keyFile: /var/run/secrets/etcd-client/tls.key
+  urls:
+  - https://etcd.openshift-kube-apiserver.svc.cluster.local:4001

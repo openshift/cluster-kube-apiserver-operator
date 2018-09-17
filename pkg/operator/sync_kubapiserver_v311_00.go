@@ -79,7 +79,7 @@ func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig
 	}
 
 	configData := ""
-	if apiserverConfig != nil{
+	if apiserverConfig != nil {
 		configData = apiserverConfig.Data["config.yaml"]
 	}
 	_, _, err = manageKubeApiserverPublicConfigMap_v311_00_to_latest(c.corev1Client, configData, operatorConfig)
@@ -93,7 +93,8 @@ func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig
 func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.KubeApiserverConfig.Raw)
+	deploymentOverrides := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/deployment-config-overrides.yaml")
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, deploymentOverrides, operatorConfig.Spec.KubeApiserverConfig.Raw)
 	if err != nil {
 		return nil, false, err
 	}
@@ -110,28 +111,27 @@ func manageKubeApiserverDeployment_v311_00_to_latest(client appsclientv1.Deploym
 
 func manageKubeApiserverPublicConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, apiserverConfigString string, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	uncastUnstructured, err := runtime.Decode(unstructured.UnstructuredJSONScheme, []byte(apiserverConfigString))
-	if err != nil{
+	if err != nil {
 		return nil, false, err
 	}
 	apiserverConfig := uncastUnstructured.(runtime.Unstructured)
 
-
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/public-info.yaml"))
-	if operatorConfig.Status.CurrentAvailability != nil{
+	if operatorConfig.Status.CurrentAvailability != nil {
 		configMap.Data["version"] = operatorConfig.Status.CurrentAvailability.Version
-	} else{
+	} else {
 		configMap.Data["version"] = ""
 	}
 	configMap.Data["imagePolicyConfig.internalRegistryHostname"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "imagePolicyConfig", "internalRegistryHostname")
-	if err != nil{
+	if err != nil {
 		return nil, false, err
 	}
-	configMap.Data["imagePolicyConfig.externalRegistryHostname"], _, err  =  unstructured.NestedString(apiserverConfig.UnstructuredContent(), "imagePolicyConfig", "externalRegistryHostname")
-	if err != nil{
+	configMap.Data["imagePolicyConfig.externalRegistryHostname"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "imagePolicyConfig", "externalRegistryHostname")
+	if err != nil {
 		return nil, false, err
 	}
-	configMap.Data["projectConfig.defaultNodeSelector"] , _, err =  unstructured.NestedString(apiserverConfig.UnstructuredContent(), "projectConfig", "defaultNodeSelector")
-	if err != nil{
+	configMap.Data["projectConfig.defaultNodeSelector"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "projectConfig", "defaultNodeSelector")
+	if err != nil {
 		return nil, false, err
 	}
 

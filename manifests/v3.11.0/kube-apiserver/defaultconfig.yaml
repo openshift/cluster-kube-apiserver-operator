@@ -1,2 +1,106 @@
 apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
+admissionPluginConfig:
+  ExternalIPRanger:
+    configuration:
+      allowIngressIP: true
+      apiVersion: v1
+      externalIPNetworkCIDRs: null
+      kind: ExternalIPRangerAdmissionConfig
+    location: ""
+  openshift.io/RestrictedEndpointsAdmission:
+    configuration:
+      apiVersion: v1
+      kind: RestrictedEndpointsAdmissionConfig
+      restrictedCIDRs:
+      - 10.3.0.0/16 # ServiceCIDR
+      - 10.2.0.0/16 # ClusterCIDR
+    location: ""
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
+    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
+apiServerArguments:
+  storage-backend:
+  - etcd3
+  storage-media-type:
+  - application/vnd.kubernetes.protobuf
+auditConfig:
+  auditFilePath: ""
+  enabled: false
+  logFormat: ""
+  maximumFileRetentionDays: 0
+  maximumFileSizeMegabytes: 0
+  maximumRetainedFiles: 0
+  policyConfiguration: null
+  policyFile: ""
+  webHookKubeConfig: ""
+  webHookMode: ""
+authConfig:
+  oauthMetadataFile: ""
+  requestHeader:
+    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt
+    clientCommonNames:
+    - kube-apiserver-proxy
+    - system:openshift-aggregator
+    extraHeaderPrefixes:
+    - X-Remote-Extra-
+    groupHeaders:
+    - X-Remote-Group
+    usernameHeaders:
+    - X-Remote-User
+  webhookTokenAuthenticators: null
+consolePublicURL: ""
+corsAllowedOrigins:
+- //127\.0\.0\.1(:|$)
+- //localhost(:|$)
+imagePolicyConfig:
+  externalRegistryHostname: ""
+  internalRegistryHostname: docker-registry.default.svc:5000
+kubeletClientInfo:
+  ca: ""
+  certFile: /etc/kubernetes/secrets/apiserver.crt
+  keyFile: /etc/kubernetes/secrets/apiserver.key
+  port: 10250
+oauthConfig:
+  alwaysShowProviderSelection: false
+  assetPublicURL: # To be filled
+  grantConfig:
+    method: auto
+    serviceAccountMethod: prompt
+  masterCA: /etc/kubernetes/secrets/root-ca.crt
+  masterPublicURL: # To be filled
+  masterURL: # To be filled
+  sessionConfig:
+    sessionMaxAgeSeconds: 300
+    sessionName: ssn
+    sessionSecretsFile: ""
+  templates: null
+  tokenConfig:
+    accessTokenMaxAgeSeconds: 86400
+    authorizeTokenMaxAgeSeconds: 300
+projectConfig:
+  defaultNodeSelector: ""
+serviceAccountPublicKeyFiles:
+- /etc/kubernetes/secrets/service-account.pub
+servicesNodePortRange: 30000-32767
+servicesSubnet: 10.3.0.0/16 # ServiceCIDR
+servingInfo:
+  bindAddress: 0.0.0.0:8443
+  bindNetwork: tcp4
+  certFile: # To be filled
+  clientCA: # To be filled
+  keyFile: # To be filled
+  maxRequestsInFlight: 1200
+  namedCertificates: null
+  requestTimeoutSeconds: 3600
+storageConfig:
+  ca: # To be filled
+  certFile: # To be filled
+  keyFile: # To be filled
+  storagePrefix: openshift.io
+  urls: null
+userAgentMatchingConfig:
+  defaultRejectionMessage: ""
+  deniedClients: null
+  requiredClients: null
