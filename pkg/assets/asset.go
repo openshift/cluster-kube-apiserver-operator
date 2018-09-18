@@ -65,7 +65,7 @@ func indent(indention int, v []byte) string {
 }
 
 func base64encode(v []byte) string {
-	return base64.StdEncoding.EncodeToString([]byte(v))
+	return base64.StdEncoding.EncodeToString(v)
 }
 
 func assetFromTemplate(name string, tb []byte, data interface{}) (Asset, error) {
