@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sa-token-signing-certs
+  namespace: {{ .Namespace }}
+data:
+  ca-bundle.crt: |
+    {{ .SATokenSigningCerts | indent 4 }}
+

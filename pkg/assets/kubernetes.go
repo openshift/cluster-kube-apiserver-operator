@@ -12,8 +12,10 @@ var (
 	kubeStaticAssets = []string{
 		// bootstrap manifests
 		"bootstrap-manifests/bootstrap-apiserver.yaml",
+		// main namespace
+		"manifests/ns.yaml",
 		// daemonset manifests
-		"kube-apiserver.yaml",
+		"manifests/kube-apiserver.yaml",
 	}
 )
 

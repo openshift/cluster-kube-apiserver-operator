@@ -9,18 +9,19 @@ import (
 
 var (
 	configMapAssets = []string{
-		"kube-apiserver-config-aggregator-client-ca.yaml",
-		"kube-apiserver-config-client-ca.yaml",
-		"kube-apiserver-config-etcd-serving-ca.yaml",
-		"kube-apiserver-config-kubelet-serving-ca.yaml",
-		"kube-apiserver-config-sa-token-signing-certs.yaml",
+		"manifests/kube-apiserver-config-daemonset-apiserver-config.yaml",
+		"manifests/kube-apiserver-config-aggregator-client-ca.yaml",
+		"manifests/kube-apiserver-config-client-ca.yaml",
+		"manifests/kube-apiserver-config-etcd-serving-ca.yaml",
+		"manifests/kube-apiserver-config-kubelet-serving-ca.yaml",
+		"manifests/kube-apiserver-config-sa-token-signing-certs.yaml",
 	}
 )
 
 func LoadLocalConfigMaps(configDir string) KubeAPIServerConfigMapsConfig {
 	conf := KubeAPIServerConfigMapsConfig{}
 
-	body := mustReadFile(configDir, "etcd-client-ca.crt")
+	body := mustReadFile(configDir, "master.etcd-client-ca.crt")
 	conf.EtcdServingCA = body
 
 	body = mustReadFile(configDir, "ca.crt")
@@ -30,7 +31,7 @@ func LoadLocalConfigMaps(configDir string) KubeAPIServerConfigMapsConfig {
 	body = mustReadFile(configDir, "frontproxy-ca.crt")
 	conf.AggregatorClientCA = body
 
-	body = mustReadFile(configDir, "serviceaccounts.public.pub")
+	body = mustReadFile(configDir, "serviceaccounts.public.key")
 	conf.SATokenSigningCerts = body
 
 	return conf

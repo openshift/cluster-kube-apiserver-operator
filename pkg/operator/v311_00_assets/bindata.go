@@ -2,6 +2,7 @@
 // sources:
 // manifests/v3.11.0/kube-apiserver/cm.yaml
 // manifests/v3.11.0/kube-apiserver/defaultconfig.yaml
+// manifests/v3.11.0/kube-apiserver/deployment-config-overrides.yaml
 // manifests/v3.11.0/kube-apiserver/deployment.yaml
 // manifests/v3.11.0/kube-apiserver/ns.yaml
 // manifests/v3.11.0/kube-apiserver/public-info-role.yaml
@@ -78,6 +79,110 @@ func v3110KubeApiserverCmYaml() (*asset, error) {
 
 var _v3110KubeApiserverDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
+admissionPluginConfig:
+  ExternalIPRanger:
+    configuration:
+      allowIngressIP: true
+      apiVersion: v1
+      externalIPNetworkCIDRs: null
+      kind: ExternalIPRangerAdmissionConfig
+    location: ""
+  openshift.io/RestrictedEndpointsAdmission:
+    configuration:
+      apiVersion: v1
+      kind: RestrictedEndpointsAdmissionConfig
+      restrictedCIDRs:
+      - 10.3.0.0/16 # ServiceCIDR
+      - 10.2.0.0/16 # ClusterCIDR
+    location: ""
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
+    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
+apiServerArguments:
+  storage-backend:
+  - etcd3
+  storage-media-type:
+  - application/vnd.kubernetes.protobuf
+auditConfig:
+  auditFilePath: ""
+  enabled: false
+  logFormat: ""
+  maximumFileRetentionDays: 0
+  maximumFileSizeMegabytes: 0
+  maximumRetainedFiles: 0
+  policyConfiguration: null
+  policyFile: ""
+  webHookKubeConfig: ""
+  webHookMode: ""
+authConfig:
+  oauthMetadataFile: ""
+  requestHeader:
+    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt
+    clientCommonNames:
+    - kube-apiserver-proxy
+    - system:openshift-aggregator
+    extraHeaderPrefixes:
+    - X-Remote-Extra-
+    groupHeaders:
+    - X-Remote-Group
+    usernameHeaders:
+    - X-Remote-User
+  webhookTokenAuthenticators: null
+consolePublicURL: ""
+corsAllowedOrigins:
+- //127\.0\.0\.1(:|$)
+- //localhost(:|$)
+imagePolicyConfig:
+  externalRegistryHostname: ""
+  internalRegistryHostname: docker-registry.default.svc:5000
+kubeletClientInfo:
+  ca: ""
+  certFile: /etc/kubernetes/secrets/apiserver.crt
+  keyFile: /etc/kubernetes/secrets/apiserver.key
+  port: 10250
+oauthConfig:
+  alwaysShowProviderSelection: false
+  assetPublicURL: # To be filled
+  grantConfig:
+    method: auto
+    serviceAccountMethod: prompt
+  masterCA: /etc/kubernetes/secrets/root-ca.crt
+  masterPublicURL: # To be filled
+  masterURL: # To be filled
+  sessionConfig:
+    sessionMaxAgeSeconds: 300
+    sessionName: ssn
+    sessionSecretsFile: ""
+  templates: null
+  tokenConfig:
+    accessTokenMaxAgeSeconds: 86400
+    authorizeTokenMaxAgeSeconds: 300
+projectConfig:
+  defaultNodeSelector: ""
+serviceAccountPublicKeyFiles:
+- /etc/kubernetes/secrets/service-account.pub
+servicesNodePortRange: 30000-32767
+servicesSubnet: 10.3.0.0/16 # ServiceCIDR
+servingInfo:
+  bindAddress: 0.0.0.0:8443
+  bindNetwork: tcp4
+  certFile: # To be filled
+  clientCA: # To be filled
+  keyFile: # To be filled
+  maxRequestsInFlight: 1200
+  namedCertificates: null
+  requestTimeoutSeconds: 3600
+storageConfig:
+  ca: # To be filled
+  certFile: # To be filled
+  keyFile: # To be filled
+  storagePrefix: openshift.io
+  urls: null
+userAgentMatchingConfig:
+  defaultRejectionMessage: ""
+  deniedClients: null
+  requiredClients: null
 `)
 
 func v3110KubeApiserverDefaultconfigYamlBytes() ([]byte, error) {
@@ -91,6 +196,50 @@ func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/defaultconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverDeploymentConfigOverridesYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /var/run/secrets/aggregator-client/tls.crt
+    keyFile: /var/run/secrets/aggregator-client/tls.key
+authConfig:
+  requestHeader:
+    clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
+kubeletClientInfo:
+  ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/kubelet-client/tls.crt
+  keyFile: /var/run/secrets/kubelet-client/tls.key
+oauthConfig:
+  masterCA: /var/run/configmaps/client-ca/ca-bundle.crt
+serviceAccountPublicKeyFiles:
+- /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
+servingInfo:
+  certFile: /var/run/secrets/serving-cert/tls.crt
+  clientCA: /var/run/configmaps/client-ca/ca-bundle.crt
+  keyFile: /var/run/secrets/serving-cert/tls.key
+storageConfig:
+  ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/etcd-client/tls.crt
+  keyFile: /var/run/secrets/etcd-client/tls.key
+  urls:
+  - https://etcd.openshift-kube-apiserver.svc.cluster.local:4001
+`)
+
+func v3110KubeApiserverDeploymentConfigOverridesYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverDeploymentConfigOverridesYaml, nil
+}
+
+func v3110KubeApiserverDeploymentConfigOverridesYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverDeploymentConfigOverridesYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/deployment-config-overrides.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -426,6 +575,7 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/cm.yaml": v3110KubeApiserverCmYaml,
 	"v3.11.0/kube-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
 	"v3.11.0/kube-apiserver/deployment.yaml": v3110KubeApiserverDeploymentYaml,
 	"v3.11.0/kube-apiserver/ns.yaml": v3110KubeApiserverNsYaml,
 	"v3.11.0/kube-apiserver/public-info-role.yaml": v3110KubeApiserverPublicInfoRoleYaml,
@@ -479,6 +629,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kube-apiserver": &bintree{nil, map[string]*bintree{
 			"cm.yaml": &bintree{v3110KubeApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml": &bintree{v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"deployment-config-overrides.yaml": &bintree{v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
 			"deployment.yaml": &bintree{v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
 			"ns.yaml": &bintree{v3110KubeApiserverNsYaml, map[string]*bintree{}},
 			"public-info-role.yaml": &bintree{v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},

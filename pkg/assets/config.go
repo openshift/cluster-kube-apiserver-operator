@@ -3,13 +3,16 @@ package assets
 type Config struct {
 	KubeAPIServerConfig
 
-	// ConfigDir is the directory where the "config.json" must be located
-	ConfigDir string
+	// ConfigHostPath is a host path mounted into the apiserver pods to hold the config file.
+	ConfigHostPath string
 
-	// CloudProviderDir is the directory with cloud provider specific data
-	CloudProviderDir string
+	// ConfigFileName is the filename of config file inside ConfigHostPath.
+	ConfigFileName string
 
-	// Namespace is the target namespace for the bootstrap kubeapi server to be created
+	// CloudProviderHostPath is a host path mounted into the apiserver pods to hold cloud provider configuration.
+	CloudProviderHostPath string
+
+	// Namespace is the target namespace for the bootstrap kubeapi server to be created.
 	Namespace string
 
 	// Image is the pull spec of the image to use for the api server.
@@ -43,6 +46,7 @@ type KubeAPIServerSecretsConfig struct {
 type KubeAPIServerConfigMapsConfig struct {
 	Namespace string
 
+	KubeAPIServerConfig []byte
 	SATokenSigningCerts []byte
 	AggregatorClientCA  []byte
 	KubeletServingCA    []byte
