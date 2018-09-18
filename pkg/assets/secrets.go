@@ -1,7 +1,6 @@
 package assets
 
 import (
-	"encoding/base64"
 	"io/ioutil"
 	"path/filepath"
 
@@ -58,10 +57,5 @@ func mustReadKeyPairFile(configDir string, filename string) ([]byte, []byte) {
 	if err != nil {
 		glog.Fatalf("Unable to read required crt file %q: %v", crtFilePath, err)
 	}
-	var (
-		keyEncoded, crtEncoded []byte
-	)
-	base64.StdEncoding.Encode(key, keyEncoded)
-	base64.StdEncoding.Encode(crt, crtEncoded)
-	return keyEncoded, crtEncoded
+	return key, crt
 }
