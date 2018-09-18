@@ -16,6 +16,7 @@ var (
 		"manifests/ns.yaml",
 		// daemonset manifests
 		"manifests/kube-apiserver.yaml",
+		"manifests/etcd-service.yaml",
 	}
 )
 

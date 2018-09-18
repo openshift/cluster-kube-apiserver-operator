@@ -24,4 +24,4 @@ storageConfig:
   certFile: /var/run/secrets/etcd-client/tls.crt
   keyFile: /var/run/secrets/etcd-client/tls.key
   urls:
-  - https://etcd.openshift-kube-apiserver.svc.cluster.local:4001
+  - https://etcd.kube-system.svc.cluster.local:2379
