@@ -83,8 +83,6 @@ function os::build::image::internal::generic() {
 		fi
 	fi
 
-	# ensure the temporary contents are cleaned up
-	git clean -fdx "${directory}"
 	return "${result}"
 }
 readonly -f os::build::image::internal::generic
