@@ -11,14 +11,37 @@ metadata:
 spec:
   restartPolicy: Always
   hostNetwork: true
+  securityContext:
+    supplementalGroups: [65534]
+  initContainers:
+  - name: setup-lock-dir
+    image: {{ .Image }}
+    command: ["/bin/bash", "-c"]
+    args:
+    - |
+      chgrp 65534 /var/lock
+      chmod 775 /var/lock
+      rm -f /var/lock/* || true
+    securityContext:
+      #privileged: true
+      runAsNonRoot: false
+    volumeMounts:
+    - mountPath: /var/lock
+      name: var-lock
   containers:
   - name: kube-apiserver
     image: {{ .Image }}
     imagePullPolicy: {{ .ImagePullPolicy }}
-    command: ["/bin/bash", "-c"]
+    command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
     args:
     - exec hypershift openshift-kube-apiserver --config=/etc/origin/master/{{ .ConfigFileName }}
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
     volumeMounts:
+    - mountPath: /var/lock
+      name: var-lock
+      readOnly: false
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
       readOnly: true
@@ -34,6 +57,9 @@ spec:
         port: 8443
         path: healthz
   volumes:
+  - hostPath:
+      path: /var/run/openshift/lock
+    name: var-lock
   - name: ssl-certs-host
     hostPath:
       path: /usr/share/ca-certificates

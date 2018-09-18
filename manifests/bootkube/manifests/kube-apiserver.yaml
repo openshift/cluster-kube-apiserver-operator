@@ -25,14 +25,22 @@ spec:
         openshift.io/control-plane: "true"
         openshift.io/component: "api"
     spec:
+      securityContext:
+        supplementalGroups: [65534]
       containers:
       - name: kube-apiserver
         image: {{ .Image }}
         imagePullPolicy: {{ .ImagePullPolicy }}
-        command: ["/bin/bash", "-c"]
+        command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
         args:
         - exec hypershift openshift-kube-apiserver --config=/var/run/configmaps/config/config.yaml
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
         volumeMounts:
+        - mountPath: /var/lock
+          name: var-lock
+          readOnly: false
         - mountPath: /etc/ssl/certs
           name: ssl-certs-host
           readOnly: true
@@ -64,6 +72,9 @@ spec:
         operator: Exists
         effect: NoSchedule
       volumes:
+      - hostPath:
+          path: /var/run/openshift/lock
+        name: var-lock
       - name: ssl-certs-host
         hostPath:
           path: /usr/share/ca-certificates
@@ -97,9 +108,6 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65534
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1
