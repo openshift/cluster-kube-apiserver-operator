@@ -9,10 +9,10 @@ import (
 
 var (
 	secretAssets = []string{
-		"manifests/kube-apiserver-secret-aggregator-client.yaml",
-		"manifests/kube-apiserver-secret-etcd-client.yaml",
-		"manifests/kube-apiserver-secret-kubelet-client.yaml",
-		"manifests/kube-apiserver-secret-serving-cert.yaml",
+		"manifests/secret-aggregator-client.yaml",
+		"manifests/secret-etcd-client.yaml",
+		"manifests/secret-kubelet-client.yaml",
+		"manifests/secret-serving-cert.yaml",
 	}
 )
 

@@ -9,12 +9,12 @@ import (
 
 var (
 	configMapAssets = []string{
-		"manifests/kube-apiserver-config-daemonset-apiserver-config.yaml",
-		"manifests/kube-apiserver-config-aggregator-client-ca.yaml",
-		"manifests/kube-apiserver-config-client-ca.yaml",
-		"manifests/kube-apiserver-config-etcd-serving-ca.yaml",
-		"manifests/kube-apiserver-config-kubelet-serving-ca.yaml",
-		"manifests/kube-apiserver-config-sa-token-signing-certs.yaml",
+		"manifests/configmap-kube-apiserver-config.yaml",
+		"manifests/configmap-aggregator-client-ca.yaml",
+		"manifests/configmap-client-ca.yaml",
+		"manifests/configmap-etcd-serving-ca.yaml",
+		"manifests/configmap-kubelet-serving-ca.yaml",
+		"manifests/configmap-sa-token-signing-certs.yaml",
 	}
 )
 

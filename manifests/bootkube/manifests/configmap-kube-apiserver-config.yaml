@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: daemonset-apiserver-config
+  name: kube-apiserver-config
   namespace: {{ .Namespace }}
 data:
   config.yaml: |
