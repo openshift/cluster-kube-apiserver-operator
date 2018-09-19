@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Namespace }}
 data:
   config.yaml: |
-    {{ .KubeAPIServerConfig | indent 4 }}
+    {{ .PostBootstrapKubeAPIServerConfig | indent 4 }}

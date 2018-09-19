@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Namespace }}
 data:
   ca-bundle.crt: |
-    {{ .AggregatorClientCA | indent 4 }}
+    {{ .Assets | load "aggregator-ca.crt" | indent 4 }}
