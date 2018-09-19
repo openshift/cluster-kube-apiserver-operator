@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: bootstrap-kube-controller-manager
-  namespace: kube-system
+  namespace: {{ .Namespace }}
   annotations:
     openshift.io/run-level: "1"
 spec:

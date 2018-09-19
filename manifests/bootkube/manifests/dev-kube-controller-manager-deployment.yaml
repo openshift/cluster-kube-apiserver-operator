@@ -9,7 +9,7 @@ metadata:
   annotations:
     openshift.io/run-level: "1"
   name: kube-controller-manager
-  namespace: kube-system
+  namespace: {{ .Namespace }}
 spec:
   selector:
     matchLabels:
@@ -39,7 +39,7 @@ spec:
               matchLabels:
                 pod-anti-affinity: kube-controller-manager-0
             namespaces:
-            - kube-system
+            - {{ .Namespace }}
             topologyKey: kubernetes.io/hostname
       containers:
       - name: kube-controller-manager

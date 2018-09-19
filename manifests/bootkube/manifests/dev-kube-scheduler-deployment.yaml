@@ -10,7 +10,7 @@ metadata:
   annotations:
     openshift.io/run-level: "1"
   name: kube-scheduler
-  namespace: kube-system
+  namespace: {{ .Namespace }}
 spec:
   selector:
     matchLabels:
@@ -40,7 +40,7 @@ spec:
               matchLabels:
                 pod-anti-affinity: kube-scheduler-0
             namespaces:
-            - kube-system
+            - {{ .Namespace }}
             topologyKey: kubernetes.io/hostname
       containers:
       - name: kube-scheduler
