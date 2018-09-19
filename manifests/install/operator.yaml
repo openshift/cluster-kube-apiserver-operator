@@ -20,6 +20,8 @@ items:
       kind: KubeApiserverOperatorConfig
       plural: kubeapiserveroperatorconfigs
       singular: kubeapiserveroperatorconfig
+      categories:
+      - coreoperators
     subresources:
       status: {}
 
