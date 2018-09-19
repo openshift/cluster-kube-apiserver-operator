@@ -11,11 +11,12 @@ var (
 	// kubeStaticAssets defines the source template (relative to manifest dir) and the path to output file (relative to asset dir).
 	kubeStaticAssets = []string{
 		// bootstrap manifests
-		"bootstrap-manifests/bootstrap-apiserver.yaml",
+		"bootstrap-manifests/kube-apiserver-pod.yaml",
 		// main namespace
 		"manifests/ns.yaml",
 		// daemonset manifests
-		"manifests/kube-apiserver.yaml",
+		"manifests/kube-apiserver-daemonset.yaml",
+		"manifests/etcd-service.yaml",
 	}
 )
 
