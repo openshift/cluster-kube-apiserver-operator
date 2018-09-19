@@ -23,6 +23,7 @@ const (
 type manifestOpts struct {
 	namespace             string
 	image                 string
+	hyperkubeImage        string
 	imagePullPolicy       string
 	configHostPath        string
 	configFileName        string
@@ -56,8 +57,13 @@ func NewRenderCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&renderOpts.manifest.namespace, "manifest-namespace", "openshift-kube-apiserver", "Target namespace for API server pods.")
-	cmd.Flags().StringVar(&renderOpts.manifest.image, "manifest-image", "openshift/origin-hypershift:latest", "Image to use for the API server.")
+	cmd.Flags().StringVar(&renderOpts.manifest.namespace, "manifest-namespace", "kube-system", "Target namespace for API server pods.")
+	cmd.Flags().StringVar(&renderOpts.manifest.image, "manifest-image", "openshift/origin-hypershift:latest", "Image to use for the API server manifest.")
+
+	// TODO: remove this when we removed the temporary controller-manager and scheduler
+	cmd.Flags().StringVar(&renderOpts.manifest.hyperkubeImage, "manifest-hyperkube-image", "openshift/origin-hyperkube:latest", "Image to use for the temporary controller-manager and scheduler manifests.")
+	cmd.Flags().MarkHidden("manifest-hyperkube-image")
+
 	cmd.Flags().StringVar(&renderOpts.manifest.imagePullPolicy, "manifest-image-pull-policy", "IfNotPresent", "Image pull policy to use for the API server.")
 	cmd.Flags().StringVar(&renderOpts.manifest.configHostPath, "manifest-config-host-path", "/etc/kubernetes/bootstrap-configs", "A host path mounted into the apiserver pods to hold a config file.")
 	cmd.Flags().StringVar(&renderOpts.manifest.secretsHostPath, "manifest-secrets-host-path", "/etc/kubernetes/bootstrap-secrets", "A host path mounted into the apiserver pods to hold secrets.")
@@ -128,6 +134,7 @@ func (r *renderOpts) Run() error {
 	renderConfig := Config{
 		Namespace:             r.manifest.namespace,
 		Image:                 r.manifest.image,
+		HyperKubeImage:        r.manifest.hyperkubeImage,
 		ImagePullPolicy:       r.manifest.imagePullPolicy,
 		ConfigHostPath:        r.manifest.configHostPath,
 		ConfigFileName:        r.manifest.configFileName,

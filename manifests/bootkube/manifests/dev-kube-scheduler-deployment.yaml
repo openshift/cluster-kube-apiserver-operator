@@ -44,7 +44,7 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
       - name: kube-scheduler
-        image: {{ .Image }}
+        image: {{ .HyperKubeImage }}
         imagePullPolicy: {{ .ImagePullPolicy }}
         command:
         - hyperkube

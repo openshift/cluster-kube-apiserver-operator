@@ -8,7 +8,7 @@ metadata:
 spec:
   containers:
   - name: kube-controller-manager
-    image: {{ .Image }}
+    image: {{ .HyperKubeImage }}
     imagePullPolicy: {{ .ImagePullPolicy }}
     command:
     - hyperkube
