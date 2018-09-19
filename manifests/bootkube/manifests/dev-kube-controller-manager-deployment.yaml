@@ -1,0 +1,110 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: kube-controller-manager
+    tier: control-plane
+    openshift.io/control-plane: "true"
+    openshift.io/component: "kube-controller-manager"
+  annotations:
+    openshift.io/run-level: "1"
+  name: kube-controller-manager
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      k8s-app: kube-controller-manager
+      tier: control-plane
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        openshift.io/run-level: "1"
+      creationTimestamp: null
+      labels:
+        k8s-app: kube-controller-manager
+        tier: control-plane
+        openshift.io/control-plane: "true"
+        openshift.io/component: "kube-controller-manager"
+        pod-anti-affinity: kube-controller-manager-0
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                pod-anti-affinity: kube-controller-manager-0
+            namespaces:
+            - kube-system
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: kube-controller-manager
+        image: {{ .Image }}
+        imagePullPolicy: {{ .ImagePullPolicy }}
+        command:
+        - hyperkube
+        - kube-controller-manager
+        - --enable-dynamic-provisioning=true
+        - --allocate-node-cidrs=true
+        - --cloud-config=/etc/kubernetes/cloud/config
+        - --cloud-provider=geocities
+        - --configure-cloud-routes=false
+        - --cluster-cidr=10.2.0.0/16
+        - --service-cluster-ip-range=10.3.0.0/24
+        - --use-service-account-credentials=true
+        - --leader-elect=true
+        - --leader-elect-retry-period=3s
+        - --leader-elect-resource-lock=configmaps
+        - --controllers=*
+        - --controllers=-ttl
+        - --controllers=-bootstrapsigner
+        - --controllers=-tokencleaner
+        - --controllers=-horizontalpodautoscaling
+        - --node-monitor-grace-period=5m
+        - --pod-eviction-timeout=5m
+        - --experimental-cluster-signing-duration=720h
+        - --root-ca-file=/etc/kubernetes/secrets/root-ca.crt
+        - --service-account-private-key-file=/etc/kubernetes/secrets/service-account.key
+        - --cluster-signing-cert-file=/etc/kubernetes/secrets/kube-ca.crt
+        - --cluster-signing-key-file=/etc/kubernetes/secrets/kube-ca.key
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10252
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/kubernetes/secrets
+          name: secrets
+          readOnly: true
+        - mountPath: /etc/kubernetes/cloud
+          name: cloud-config
+          readOnly: true
+        - mountPath: /etc/ssl/certs
+          name: ssl-host
+          readOnly: true
+      dnsPolicy: Default
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      serviceAccountName: kube-controller-manager
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: {{ .SecretsHostPath }}
+        name: secrets
+      - hostPath:
+          path: {{ .CloudProviderHostPath }}
+        name: etc-kubernetes-cloud
+      - hostPath:
+          path: /etc/ssl/certs
+        name: ssl-host
+status: {}
