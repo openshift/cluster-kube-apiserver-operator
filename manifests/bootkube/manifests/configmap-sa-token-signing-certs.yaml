@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Namespace }}
 data:
   ca-bundle.crt: |
-    {{ .Assets | load "serviceaccounts.public.key" | indent 4 }}
+    {{ .Assets | load "service-account.pub" | indent 4 }}

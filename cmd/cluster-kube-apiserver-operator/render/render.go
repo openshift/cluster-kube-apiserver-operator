@@ -27,6 +27,7 @@ type manifestOpts struct {
 	configHostPath        string
 	configFileName        string
 	cloudProviderHostPath string
+	secretsHostPath       string
 }
 
 // renderOpts holds values to drive the render command.
@@ -58,7 +59,8 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.manifest.namespace, "manifest-namespace", "openshift-kube-apiserver", "Target namespace for API server pods.")
 	cmd.Flags().StringVar(&renderOpts.manifest.image, "manifest-image", "openshift/origin-hypershift:latest", "Image to use for the API server.")
 	cmd.Flags().StringVar(&renderOpts.manifest.imagePullPolicy, "manifest-image-pull-policy", "IfNotPresent", "Image pull policy to use for the API server.")
-	cmd.Flags().StringVar(&renderOpts.manifest.configHostPath, "manifest-config-host-path", "/etc/kubernetes/config", "A host path mounted into the apiserver pods to hold a config file.")
+	cmd.Flags().StringVar(&renderOpts.manifest.configHostPath, "manifest-config-host-path", "/etc/kubernetes/bootstrap-configs", "A host path mounted into the apiserver pods to hold a config file.")
+	cmd.Flags().StringVar(&renderOpts.manifest.secretsHostPath, "manifest-secrets-host-path", "/etc/kubernetes/bootstrap-secrets", "A host path mounted into the apiserver pods to hold secrets.")
 	cmd.Flags().StringVar(&renderOpts.manifest.configFileName, "manifest-config-file-name", "kube-apiserver-config.yaml", "The config file name inside the manifest-config-host-path.")
 	cmd.Flags().StringVar(&renderOpts.manifest.cloudProviderHostPath, "manifest-cloud-provider-host-path", "/etc/kubernetes/cloud", "A host path mounted into the apiserver pods to hold cloud provider configuration.")
 
@@ -89,6 +91,9 @@ func (r *renderOpts) Validate() error {
 	}
 	if len(r.manifest.cloudProviderHostPath) == 0 {
 		return errors.New("missing required flag: --manifest-cloud-provider-host-path")
+	}
+	if len(r.manifest.secretsHostPath) == 0 {
+		return errors.New("missing required flag: --manifest-secrets-host-path")
 	}
 
 	if len(r.assetInputDir) == 0 {
@@ -127,6 +132,7 @@ func (r *renderOpts) Run() error {
 		ConfigHostPath:        r.manifest.configHostPath,
 		ConfigFileName:        r.manifest.configFileName,
 		CloudProviderHostPath: r.manifest.cloudProviderHostPath,
+		SecretsHostPath:       r.manifest.secretsHostPath,
 	}
 
 	// create post-poststrap configuration

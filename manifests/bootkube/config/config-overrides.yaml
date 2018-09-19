@@ -2,26 +2,26 @@ apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
 aggregatorConfig:
   proxyClientInfo:
-    certFile: openshift-aggregator.crt
-    keyFile: openshift-aggregator.key
+    certFile: apiserver-proxy.crt # origin 3.11: openshift-aggregator.crt
+    keyFile: apiserver-proxy.key # origin 3.11: openshift-aggregator.key
 authConfig:
   requestHeader:
-    clientCA: frontproxy-ca.crt
+    clientCA: aggregator-ca.crt # origin 3.11: frontproxy-ca.crt
 kubeletClientInfo:
-  ca: ca.crt
-  certFile: master.kubelet-client.crt
-  keyFile: master.kubelet-client.key
+  ca: kube-ca.crt # origin 3.11: ca.crt
+  certFile: apiserver.crt # origin 3.11: master.kubelet-client.crt
+  keyFile: apiserver.key # origin 3.11: master.kubelet-client.key
 oauthConfig:
-  masterCA: ca.crt
+  masterCA: root-ca.crt # origin 3.11: ca.crt
 serviceAccountPublicKeyFiles:
-- serviceaccounts.public.key
+- service-account.pub # origin 3.11: serviceaccounts.public.key
 servingInfo:
-  certFile: master.server.crt
-  clientCA: ca.crt
-  keyFile: master.server.key
+  certFile: apiserver.crt # origin 3.11: master.server.crt
+  clientCA: kube-ca.crt # origin 3.11: ca.crt
+  keyFile: apiserver.key # origin 3.11: master.server.key
 storageConfig:
-  ca: master.etcd-client-ca.crt
-  certFile: master.etcd-client.crt
-  keyFile: master.etcd-client.key
+  ca: etcd-client-ca.crt # origin 3.11: master.etcd-client-ca.crt
+  certFile: etcd-client.crt # origin 3.11: master.etcd-client.crt
+  keyFile: etcd-client.key # origin 3.11: master.etcd-client.key
   urls:
   - https://127.0.0.1:2379

@@ -33,7 +33,7 @@ spec:
         imagePullPolicy: {{ .ImagePullPolicy }}
         command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
         args:
-        - exec hypershift openshift-kube-apiserver --config=/etc/origin/master/{{ .ConfigFileName }}
+        - exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/config/{{ .ConfigFileName }}
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
@@ -44,11 +44,14 @@ spec:
         - mountPath: /etc/ssl/certs
           name: ssl-certs-host
           readOnly: true
-        - mountPath: /etc/origin/master/
-          name: master-config
+        - mountPath: /etc/kubernetes/secrets
+          name: secrets
           readOnly: true
-        - mountPath: /etc/origin/cloudprovider/
-          name: cloud-provider-config
+        - mountPath: /etc/kubernetes/cloud
+          name: etc-kubernetes-cloud
+          readOnly: true
+        - mountPath: /etc/kubernetes/config
+          name: config
           readOnly: true
       hostNetwork: true
       nodeSelector:
@@ -58,18 +61,21 @@ spec:
         operator: Exists
         effect: NoSchedule
       volumes:
-      - name: var-lock
-        hostPath:
-          path: /var/run/openshift/lock
-      - name: ssl-certs-host
-        hostPath:
-          path: /usr/share/ca-certificates
-      - name: master-config
-        hostPath:
-          path: {{ .ConfigHostPath }}
-      - name: cloud-provider-config
-        hostPath:
+      - hostPath:
+          path: /var/run/kubernetes/lock
+        name: var-lock
+      - hostPath:
+          path: {{ .SecretsHostPath }}
+        name: secrets
+      - hostPath:
           path: {{ .CloudProviderHostPath }}
+        name: etc-kubernetes-cloud
+      - hostPath:
+          path: {{ .ConfigHostPath }}
+        name: config
+      - hostPath:
+          path: /etc/ssl/certs
+        name: ssl-certs-host
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 1

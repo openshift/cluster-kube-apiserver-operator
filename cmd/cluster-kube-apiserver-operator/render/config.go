@@ -10,6 +10,9 @@ type Config struct {
 	// CloudProviderHostPath is a host path mounted into the apiserver pods to hold cloud provider configuration.
 	CloudProviderHostPath string
 
+	// SecretsHostPath holds certs and keys
+	SecretsHostPath string
+
 	// Namespace is the target namespace for the bootstrap kubeapi server to be created.
 	Namespace string
 
