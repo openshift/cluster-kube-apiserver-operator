@@ -10,8 +10,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 )
 
@@ -120,48 +120,40 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	assetsConfig := assets.Config{
+	renderConfig := Config{
 		Namespace:             r.manifest.namespace,
 		Image:                 r.manifest.image,
 		ImagePullPolicy:       r.manifest.imagePullPolicy,
-		KubeAPIServerConfig:   assets.KubeAPIServerConfig{},
 		ConfigHostPath:        r.manifest.configHostPath,
 		ConfigFileName:        r.manifest.configFileName,
 		CloudProviderHostPath: r.manifest.cloudProviderHostPath,
 	}
 
-	// Create configuration from defaultconfig.yaml and optional overrides
-	mergedConfig, err := r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "bootstrap-manifests", "config-overrides.yaml"))
+	// create post-poststrap configuration
+	var err error
+	renderConfig.PostBootstrapKubeAPIServerConfig, err = r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "config", "config-overrides.yaml"))
+
+	// load and render templates
+	if renderConfig.Assets, err = assets.LoadFilesRecursively(r.assetInputDir); err != nil {
+		return fmt.Errorf("failed loading assets from %q: %v", r.assetInputDir, err)
+	}
+	for _, manifestDir := range []string{"bootstrap-manifests", "manifests"} {
+		manifests, err := assets.New(filepath.Join(r.templatesDir, manifestDir), renderConfig, assets.OnlyYaml)
+		if err != nil {
+			return fmt.Errorf("failed rendering assets: %v", err)
+		}
+		if err := manifests.WriteFiles(filepath.Join(r.assetOutputDir, manifestDir)); err != nil {
+			return fmt.Errorf("failed writing assets to %q: %v", filepath.Join(r.assetOutputDir, manifestDir), err)
+		}
+	}
+
+	// create bootstrap configuration
+	mergedConfig, err := r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "config", "bootstrap-config-overrides.yaml"))
 	if err != nil {
 		return fmt.Errorf("failed to generated bootstrap config: %v", err)
 	}
-	if err := ioutil.WriteFile(r.configOutputFile, mergedConfig, 644); err != nil {
+	if err := ioutil.WriteFile(r.configOutputFile, mergedConfig, 0644); err != nil {
 		return fmt.Errorf("failed to write merged config to %q: %v", r.configOutputFile, err)
-	}
-
-	// Generate the kubernetes secrets
-	assetsConfig.Secrets = assets.LoadLocalSecrets(r.assetInputDir)
-	assetsConfig.Secrets.Namespace = assetsConfig.Namespace
-
-	secretAssets := assets.NewSecretStaticAssets(r.templatesDir, assetsConfig)
-	if err := secretAssets.WriteFiles(r.assetOutputDir); err != nil {
-		return err
-	}
-
-	// Generate the kubernetes config maps
-	assetsConfig.ConfigMaps = assets.LoadLocalConfigMaps(r.assetInputDir)
-	assetsConfig.ConfigMaps.Namespace = assetsConfig.Namespace
-	assetsConfig.ConfigMaps.KubeAPIServerConfig, err = r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "manifests", "config-overrides.yaml"))
-
-	configAssets := assets.NewConfigStaticAssets(r.templatesDir, assetsConfig)
-	if err := configAssets.WriteFiles(r.assetOutputDir); err != nil {
-		return err
-	}
-
-	// Generate the kubernetes manifests
-	kubeAssets := assets.NewKubernetesStaticAssets(r.templatesDir, assetsConfig)
-	if err := kubeAssets.WriteFiles(r.assetOutputDir); err != nil {
-		return err
 	}
 
 	return nil

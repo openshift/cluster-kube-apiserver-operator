@@ -5,5 +5,5 @@ metadata:
   namespace: {{ .Namespace }}
 data:
   ca-bundle.crt: |
-    {{ .EtcdServingCA | indent 4 }}
+    {{ .Assets | load "master.etcd-client-ca.crt" | indent 4 }}
 
