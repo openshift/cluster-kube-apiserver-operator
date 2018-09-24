@@ -1,33 +1,23 @@
 #!/bin/bash
-STARTTIME=$(date +%s)
-source "$(dirname "${BASH_SOURCE}")/lib/init.sh"
+set -e
+set -u
+set -o pipefail
 
-os::build::setup_env
+cd $( readlink -f "$( dirname "${0}" )/.." )
 
-OUTPUT_PARENT=${OUTPUT_ROOT:-$OS_ROOT}
+# Setup temporary GOPATH so we can install go-bindata from vendor
+export GOPATH=$( mktemp -d )
+ln -s $( pwd )/vendor "${GOPATH}/src"
+go install "./vendor/github.com/jteeuwen/go-bindata/..."
 
-pushd vendor/github.com/jteeuwen/go-bindata > /dev/null
-  go install ./...
-popd > /dev/null
-os::util::ensure::gopath_binary_exists 'go-bindata'
-
-pushd "${OS_ROOT}" > /dev/null
-"$(os::util::find::gopath_binary go-bindata)" \
+OUTDIR=${OUTDIR:-"."}
+output="${OUTDIR}/pkg/operator/v311_00_assets/bindata.go"
+${GOPATH}/bin/go-bindata \
     -nocompress \
     -nometadata \
     -prefix "manifests" \
     -pkg "v311_00_assets" \
-    -o "${OUTPUT_PARENT}/pkg/operator/v311_00_assets/bindata.go" \
+    -o "${output}" \
     -ignore "OWNERS" \
     manifests/v3.11.0/...
-
-popd > /dev/null
-
-# If you hit this, please reduce other tests instead of importing more
-# TODO: reactivate
-#if [[ "$( cat "${OUTPUT_PARENT}/test/extended/testdata/bindata.go" | wc -c )" -gt 1500000 ]]; then
-#    echo "error: extended bindata is $( cat "${OUTPUT_PARENT}/test/extended/testdata/bindata.go" | wc -c ) bytes, reduce the size of the import" 1>&2
-#    exit 1
-#fi
-
-ret=$?; ENDTIME=$(date +%s); echo "$0 took $(($ENDTIME - $STARTTIME)) seconds"; exit "$ret"
+gofmt -s -w "${output}"
