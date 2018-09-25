@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -573,16 +574,16 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml": v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":                          v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml":               v3110KubeApiserverDefaultconfigYaml,
 	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
-	"v3.11.0/kube-apiserver/deployment.yaml": v3110KubeApiserverDeploymentYaml,
-	"v3.11.0/kube-apiserver/ns.yaml": v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/public-info-role.yaml": v3110KubeApiserverPublicInfoRoleYaml,
-	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml": v3110KubeApiserverPublicInfoRolebindingYaml,
-	"v3.11.0/kube-apiserver/public-info.yaml": v3110KubeApiserverPublicInfoYaml,
-	"v3.11.0/kube-apiserver/sa.yaml": v3110KubeApiserverSaYaml,
-	"v3.11.0/kube-apiserver/svc.yaml": v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/deployment.yaml":                  v3110KubeApiserverDeploymentYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":                          v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/public-info-role.yaml":            v3110KubeApiserverPublicInfoRoleYaml,
+	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":     v3110KubeApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/kube-apiserver/public-info.yaml":                 v3110KubeApiserverPublicInfoYaml,
+	"v3.11.0/kube-apiserver/sa.yaml":                          v3110KubeApiserverSaYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":                         v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -624,19 +625,20 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
-	"v3.11.0": &bintree{nil, map[string]*bintree{
-		"kube-apiserver": &bintree{nil, map[string]*bintree{
-			"cm.yaml": &bintree{v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml": &bintree{v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"deployment-config-overrides.yaml": &bintree{v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
-			"deployment.yaml": &bintree{v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
-			"ns.yaml": &bintree{v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"public-info-role.yaml": &bintree{v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
-			"public-info-rolebinding.yaml": &bintree{v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
-			"public-info.yaml": &bintree{v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
-			"sa.yaml": &bintree{v3110KubeApiserverSaYaml, map[string]*bintree{}},
-			"svc.yaml": &bintree{v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+	"v3.11.0": {nil, map[string]*bintree{
+		"kube-apiserver": {nil, map[string]*bintree{
+			"cm.yaml":                          {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":               {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"deployment-config-overrides.yaml": {v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
+			"deployment.yaml":                  {v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
+			"ns.yaml":                          {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"public-info-role.yaml":            {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml":     {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml":                 {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
+			"sa.yaml":                          {v3110KubeApiserverSaYaml, map[string]*bintree{}},
+			"svc.yaml":                         {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
@@ -687,4 +689,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-
