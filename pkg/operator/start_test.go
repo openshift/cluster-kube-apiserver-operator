@@ -2,5 +2,5 @@ package operator
 
 import "testing"
 
-func TestNothing(t *testing.T){
+func TestNothing(t *testing.T) {
 }
