@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: openshift-core-operators
+  name: openshift-cluster-kube-apiserver-operator
+  labels:
+    app: openshift-cluster-kube-apiserver-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openshift-cluster-kube-apiserver-operator
+  template:
+    metadata:
+      name: openshift-cluster-kube-apiserver-operator
+      labels:
+        app: openshift-cluster-kube-apiserver-operator
+    spec:
+      serviceAccountName: openshift-cluster-kube-apiserver-operator
+      containers:
+      - name: operator
+        image: openshift/origin-cluster-kube-apiserver-operator:latest
+        imagePullPolicy: IfNotPresent
+        command: ["cluster-kube-apiserver-operator", "operator"]
+        args:
+        - "--config=/var/run/configmaps/config/config.yaml"
+        - "-v=4"
+        volumeMounts:
+        - mountPath: /var/run/configmaps/config
+          name: config
+      volumes:
+      - name: serving-cert
+        secret:
+          defaultMode: 400
+          secretName: openshift-cluster-kube-apiserver-operator-serving-cert
+          optional: true
+      - name: config
+        configMap:
+          defaultMode: 440
+          name: openshift-cluster-kube-apiserver-operator-config
