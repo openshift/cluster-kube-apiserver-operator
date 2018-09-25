@@ -1,0 +1,17 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: kube-scheduler
+  namespace: {{ .Namespace }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      k8s-app: kube-scheduler
+      tier: control-plane
+status:
+  currentHealthy: 0
+  desiredHealthy: 0
+  disruptedPods: null
+  disruptionsAllowed: 0
+  expectedPods: 0

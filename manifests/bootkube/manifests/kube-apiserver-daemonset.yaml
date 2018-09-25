@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kube-apiserver
-  namespace: kube-system
+  namespace: {{ .Namespace }}
   labels:
     tier: "control-plane"
     k8s-app: "kube-apiserver"
