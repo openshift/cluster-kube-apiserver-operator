@@ -3,7 +3,7 @@ set -e
 set -u
 set -o pipefail
 
-cd $( readlink -f "$( dirname "${0}" )/.." )
+cd "$(dirname "${0}")/.."
 
 # Setup temporary GOPATH so we can install go-bindata from vendor
 export GOPATH=$( mktemp -d )
