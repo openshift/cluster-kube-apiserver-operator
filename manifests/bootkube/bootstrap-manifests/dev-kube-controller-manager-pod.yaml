@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bootstrap-kube-controller-manager
+  namespace: {{ .Namespace }}
+  annotations:
+    openshift.io/run-level: "1"
+spec:
+  containers:
+  - name: kube-controller-manager
+    image: {{ .HyperKubeImage }}
+    imagePullPolicy: {{ .ImagePullPolicy }}
+    command:
+    - hyperkube
+    - kube-controller-manager
+    - --enable-dynamic-provisioning=true
+    - --allocate-node-cidrs=true
+    - --cloud-config=/etc/kubernetes/cloud/config
+    - --cloud-provider=geocities
+    - --configure-cloud-routes=false
+    - --cluster-cidr=10.2.0.0/16
+    - --use-service-account-credentials=true
+    - --leader-elect=true
+    - --leader-elect-retry-period=3s
+    - --leader-elect-resource-lock=configmaps
+    - --controllers=*
+    - --controllers=-ttl
+    - --controllers=-bootstrapsigner
+    - --controllers=-tokencleaner
+    - --controllers=-horizontalpodautoscaling
+    - --pod-eviction-timeout=5m
+    - --experimental-cluster-signing-duration=720h
+    - --root-ca-file=/etc/kubernetes/secrets/root-ca.crt
+    - --service-account-private-key-file=/etc/kubernetes/secrets/service-account.key
+    - --kubeconfig=/etc/kubernetes/secrets/kubeconfig
+    - --cluster-signing-cert-file=/etc/kubernetes/secrets/kube-ca.crt
+    - --cluster-signing-key-file=/etc/kubernetes/secrets/kube-ca.key
+    volumeMounts:
+    - mountPath: /etc/kubernetes/secrets
+      name: secrets
+      readOnly: true
+    - mountPath: /etc/ssl/certs
+      name: ssl-host
+      readOnly: true
+    - mountPath: /etc/kubernetes/cloud
+      name: etc-kubernetes-cloud
+      readOnly: true
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: {{ .SecretsHostPath }}
+    name: secrets
+  - hostPath:
+      path: {{ .CloudProviderHostPath }}
+    name: etc-kubernetes-cloud
+  - hostPath:
+      path: /etc/ssl/certs
+    name: ssl-host

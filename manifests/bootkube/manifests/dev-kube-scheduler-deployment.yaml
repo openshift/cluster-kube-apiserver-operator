@@ -1,0 +1,67 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: kube-scheduler
+    tectonic-operators.coreos.com/managed-by: kube-core-operator
+    tier: control-plane
+    openshift.io/control-plane: "true"
+    openshift.io/component: "kube-scheduler"
+  annotations:
+    openshift.io/run-level: "1"
+  name: kube-scheduler
+  namespace: {{ .Namespace }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: kube-scheduler
+      tier: control-plane
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        openshift.io/run-level: "1"
+      creationTimestamp: null
+      labels:
+        k8s-app: kube-scheduler
+        pod-anti-affinity: kube-scheduler-0
+        tier: control-plane
+        openshift.io/control-plane: "true"
+        openshift.io/component: "kube-scheduler"
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                pod-anti-affinity: kube-scheduler-0
+            namespaces:
+            - {{ .Namespace }}
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - name: kube-scheduler
+        image: {{ .HyperKubeImage }}
+        imagePullPolicy: {{ .ImagePullPolicy }}
+        command:
+        - hyperkube
+        - kube-scheduler
+        - --leader-elect=true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10251
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists

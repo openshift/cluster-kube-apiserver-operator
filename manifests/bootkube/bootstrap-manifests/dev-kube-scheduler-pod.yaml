@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bootstrap-kube-scheduler
+  namespace: {{ .Namespace }}
+  annotations:
+    openshift.io/run-level: "1"
+spec:
+  containers:
+  - name: kube-scheduler
+    image: {{ .HyperKubeImage }}
+    imagePullPolicy: {{ .ImagePullPolicy }}
+    command:
+    - hyperkube
+    - kube-scheduler
+    - --kubeconfig=/etc/kubernetes/secrets/kubeconfig
+    - --leader-elect=true
+    - --policy-config-file=
+    volumeMounts:
+    - mountPath: /etc/kubernetes/secrets
+      name: secrets
+      readOnly: true
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: {{ .SecretsHostPath }}
+    name: secrets
+

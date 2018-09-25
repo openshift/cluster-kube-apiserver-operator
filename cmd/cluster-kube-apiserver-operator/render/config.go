@@ -19,6 +19,10 @@ type Config struct {
 	// Image is the pull spec of the image to use for the api server.
 	Image string
 
+	// HyperKubeImage
+	// TODO: remove this when we removed the temporary controller-manager and scheduler
+	HyperKubeImage string
+
 	// ImagePullPolicy specifies the image pull policy to use for the images.
 	ImagePullPolicy string
 
