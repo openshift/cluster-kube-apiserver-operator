@@ -1,5 +1,5 @@
 #!/bin/bash
-pushd $( readlink -f "$( dirname "${0}" )/.." )
+pushd "$(dirname "${0}")/.."
 
 go_files=$( find . -name '*.go' -not -path './vendor/*' -print )
 bad_files=$(gofmt -s -l ${go_files})

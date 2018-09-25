@@ -4,7 +4,7 @@
 // manifests/v3.11.0/kube-apiserver/defaultconfig.yaml
 // manifests/v3.11.0/kube-apiserver/deployment-config-overrides.yaml
 // manifests/v3.11.0/kube-apiserver/deployment.yaml
-// manifests/v3.11.0/kube-apiserver/ns.yaml
+// manifests/v3.11.0/kube-apiserver/openshift-kube-apiserver-ns.yaml
 // manifests/v3.11.0/kube-apiserver/public-info-role.yaml
 // manifests/v3.11.0/kube-apiserver/public-info-rolebinding.yaml
 // manifests/v3.11.0/kube-apiserver/public-info.yaml
@@ -349,24 +349,24 @@ func v3110KubeApiserverDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverNsYaml = []byte(`apiVersion: v1
+var _v3110KubeApiserverOpenshiftKubeApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  name: openshift-kube-apiserver
+  name: openshift-kube-controller-manager
   labels:
     openshift.io/run-level: "0"`)
 
-func v3110KubeApiserverNsYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverNsYaml, nil
+func v3110KubeApiserverOpenshiftKubeApiserverNsYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverOpenshiftKubeApiserverNsYaml, nil
 }
 
-func v3110KubeApiserverNsYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverNsYamlBytes()
+func v3110KubeApiserverOpenshiftKubeApiserverNsYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverOpenshiftKubeApiserverNsYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/ns.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/openshift-kube-apiserver-ns.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -578,7 +578,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/defaultconfig.yaml":               v3110KubeApiserverDefaultconfigYaml,
 	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
 	"v3.11.0/kube-apiserver/deployment.yaml":                  v3110KubeApiserverDeploymentYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":                          v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/openshift-kube-apiserver-ns.yaml": v3110KubeApiserverOpenshiftKubeApiserverNsYaml,
 	"v3.11.0/kube-apiserver/public-info-role.yaml":            v3110KubeApiserverPublicInfoRoleYaml,
 	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":     v3110KubeApiserverPublicInfoRolebindingYaml,
 	"v3.11.0/kube-apiserver/public-info.yaml":                 v3110KubeApiserverPublicInfoYaml,
@@ -633,7 +633,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":               {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"deployment-config-overrides.yaml": {v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
 			"deployment.yaml":                  {v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
-			"ns.yaml":                          {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"openshift-kube-apiserver-ns.yaml": {v3110KubeApiserverOpenshiftKubeApiserverNsYaml, map[string]*bintree{}},
 			"public-info-role.yaml":            {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
 			"public-info-rolebinding.yaml":     {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
 			"public-info.yaml":                 {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
