@@ -20,8 +20,8 @@ servingInfo:
   clientCA: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
   keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.server.key
 storageConfig:
-  ca: /etc/kubernetes/secrets/etcd-client-ca.crt # origin 3.11: master.etcd-client-ca.crt
+  ca: /etc/kubernetes/secrets/root-ca.crt # origin 3.11: ca.crt
   certFile: /etc/kubernetes/secrets/etcd-client.crt # origin 3.11: master.etcd-client.crt
   keyFile: /etc/kubernetes/secrets/etcd-client.key # origin 3.11: master.etcd-client.key
-  urls:
-  - https://127.0.0.1:2379
+  urls: {{range .EtcdServerURLs}}
+  - {{.}}{{end}}

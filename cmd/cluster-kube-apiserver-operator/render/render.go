@@ -1,10 +1,12 @@
 package render
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"text/template"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
@@ -28,6 +30,7 @@ type manifestOpts struct {
 	configFileName        string
 	cloudProviderHostPath string
 	secretsHostPath       string
+	etcdServerURLs        []string
 }
 
 // renderOpts holds values to drive the render command.
@@ -63,6 +66,7 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.manifest.secretsHostPath, "manifest-secrets-host-path", "/etc/kubernetes/bootstrap-secrets", "A host path mounted into the apiserver pods to hold secrets.")
 	cmd.Flags().StringVar(&renderOpts.manifest.configFileName, "manifest-config-file-name", "kube-apiserver-config.yaml", "The config file name inside the manifest-config-host-path.")
 	cmd.Flags().StringVar(&renderOpts.manifest.cloudProviderHostPath, "manifest-cloud-provider-host-path", "/etc/kubernetes/cloud", "A host path mounted into the apiserver pods to hold cloud provider configuration.")
+	cmd.Flags().StringArrayVar(&renderOpts.manifest.etcdServerURLs, "manifest-etcd-server-urls", []string{"https://127.0.0.1:2379"}, "The etcd server URL, comma separated.")
 
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-output-dir", "", "Output path for rendered manifests.")
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
@@ -94,6 +98,9 @@ func (r *renderOpts) Validate() error {
 	}
 	if len(r.manifest.secretsHostPath) == 0 {
 		return errors.New("missing required flag: --manifest-secrets-host-path")
+	}
+	if len(r.manifest.etcdServerURLs) == 0 {
+		return errors.New("missing etcd server URLs: --manifest-etcd-server-urls")
 	}
 
 	if len(r.assetInputDir) == 0 {
@@ -133,11 +140,12 @@ func (r *renderOpts) Run() error {
 		ConfigFileName:        r.manifest.configFileName,
 		CloudProviderHostPath: r.manifest.cloudProviderHostPath,
 		SecretsHostPath:       r.manifest.secretsHostPath,
+		EtcdServerURLs:        r.manifest.etcdServerURLs,
 	}
 
 	// create post-poststrap configuration
 	var err error
-	renderConfig.PostBootstrapKubeAPIServerConfig, err = r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "config", "config-overrides.yaml"))
+	renderConfig.PostBootstrapKubeAPIServerConfig, err = r.configFromDefaultsPlusOverride(&renderConfig, filepath.Join(r.templatesDir, "config", "config-overrides.yaml"))
 
 	// load and render templates
 	if renderConfig.Assets, err = assets.LoadFilesRecursively(r.assetInputDir); err != nil {
@@ -154,7 +162,7 @@ func (r *renderOpts) Run() error {
 	}
 
 	// create bootstrap configuration
-	mergedConfig, err := r.configFromDefaultsPlusOverride(filepath.Join(r.templatesDir, "config", "bootstrap-config-overrides.yaml"))
+	mergedConfig, err := r.configFromDefaultsPlusOverride(&renderConfig, filepath.Join(r.templatesDir, "config", "bootstrap-config-overrides.yaml"))
 	if err != nil {
 		return fmt.Errorf("failed to generated bootstrap config: %v", err)
 	}
@@ -165,18 +173,19 @@ func (r *renderOpts) Run() error {
 	return nil
 }
 
-func (r *renderOpts) configFromDefaultsPlusOverride(tlsOverride string) ([]byte, error) {
+func (r *renderOpts) configFromDefaultsPlusOverride(data *Config, tlsOverride string) ([]byte, error) {
 	defaultConfig := v311_00_assets.MustAsset(filepath.Join(bootstrapVersion, "kube-apiserver", "defaultconfig.yaml"))
-	bootstrapOverrides, err := ioutil.ReadFile(tlsOverride)
+	bootstrapOverrides, err := readFileTemplate(tlsOverride, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config override file %q: %v", tlsOverride, err)
 	}
 	configs := [][]byte{defaultConfig, bootstrapOverrides}
 	if len(r.configOverrideFile) > 0 {
-		overrides, err := ioutil.ReadFile(r.configOverrideFile)
+		overrides, err := readFileTemplate(r.configOverrideFile, data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config overrides at %q: %v", r.configOverrideFile, err)
 		}
+
 		configs = append(configs, overrides)
 	}
 	mergedConfig, err := resourcemerge.MergeProcessConfig(nil, configs...)
@@ -189,4 +198,22 @@ func (r *renderOpts) configFromDefaultsPlusOverride(tlsOverride string) ([]byte,
 	}
 
 	return yml, nil
+}
+
+func readFileTemplate(fname string, data interface{}) ([]byte, error) {
+	tpl, err := ioutil.ReadFile(fname)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %q: %v", fname, err)
+	}
+
+	tmpl, err := template.New(fname).Parse(string(tpl))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

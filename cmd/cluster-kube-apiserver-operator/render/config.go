@@ -13,6 +13,9 @@ type Config struct {
 	// SecretsHostPath holds certs and keys
 	SecretsHostPath string
 
+	// EtcdServerURLs is a list of etcd server URLs.
+	EtcdServerURLs []string
+
 	// Namespace is the target namespace for the bootstrap kubeapi server to be created.
 	Namespace string
 
