@@ -15,9 +15,9 @@ output="${OUTDIR}/pkg/operator/v311_00_assets/bindata.go"
 ${GOPATH}/bin/go-bindata \
     -nocompress \
     -nometadata \
-    -prefix "manifests" \
+    -prefix "bindata" \
     -pkg "v311_00_assets" \
     -o "${output}" \
     -ignore "OWNERS" \
-    manifests/v3.11.0/...
+    bindata/v3.11.0/...
 gofmt -s -w "${output}"
