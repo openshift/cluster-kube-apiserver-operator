@@ -30,6 +30,7 @@ type manifestOpts struct {
 	configFileName        string
 	cloudProviderHostPath string
 	secretsHostPath       string
+	lockHostPath          string
 	etcdServerURLs        []string
 }
 
@@ -64,6 +65,7 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.manifest.imagePullPolicy, "manifest-image-pull-policy", "IfNotPresent", "Image pull policy to use for the API server.")
 	cmd.Flags().StringVar(&renderOpts.manifest.configHostPath, "manifest-config-host-path", "/etc/kubernetes/bootstrap-configs", "A host path mounted into the apiserver pods to hold a config file.")
 	cmd.Flags().StringVar(&renderOpts.manifest.secretsHostPath, "manifest-secrets-host-path", "/etc/kubernetes/bootstrap-secrets", "A host path mounted into the apiserver pods to hold secrets.")
+	cmd.Flags().StringVar(&renderOpts.manifest.lockHostPath, "manifest-lock-host-path", "/var/run/kubernetes/lock", "A host path mounted into the apiserver pods to hold lock.")
 	cmd.Flags().StringVar(&renderOpts.manifest.configFileName, "manifest-config-file-name", "kube-apiserver-config.yaml", "The config file name inside the manifest-config-host-path.")
 	cmd.Flags().StringVar(&renderOpts.manifest.cloudProviderHostPath, "manifest-cloud-provider-host-path", "/etc/kubernetes/cloud", "A host path mounted into the apiserver pods to hold cloud provider configuration.")
 	cmd.Flags().StringArrayVar(&renderOpts.manifest.etcdServerURLs, "manifest-etcd-server-urls", []string{"https://127.0.0.1:2379"}, "The etcd server URL, comma separated.")
@@ -99,6 +101,9 @@ func (r *renderOpts) Validate() error {
 	if len(r.manifest.secretsHostPath) == 0 {
 		return errors.New("missing required flag: --manifest-secrets-host-path")
 	}
+	if len(r.manifest.lockHostPath) == 0 {
+		return errors.New("missing required flag: --manifest-lock-host-path")
+	}
 	if len(r.manifest.etcdServerURLs) == 0 {
 		return errors.New("missing etcd server URLs: --manifest-etcd-server-urls")
 	}
@@ -123,7 +128,6 @@ func (r *renderOpts) complete() error {
 	if len(r.configOverrideFile) == 0 {
 		r.configOverrideFile = filepath.Join(r.assetInputDir, "kube-apiserver-config-overrides.yaml")
 	}
-
 	return nil
 }
 
@@ -140,6 +144,7 @@ func (r *renderOpts) Run() error {
 		ConfigFileName:        r.manifest.configFileName,
 		CloudProviderHostPath: r.manifest.cloudProviderHostPath,
 		SecretsHostPath:       r.manifest.secretsHostPath,
+		LockHostPath:          r.manifest.lockHostPath,
 		EtcdServerURLs:        r.manifest.etcdServerURLs,
 	}
 
