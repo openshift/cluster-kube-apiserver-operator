@@ -60,7 +60,7 @@ spec:
         path: healthz
   volumes:
   - hostPath:
-      path: /var/run/kubernetes/lock
+      path: {{ .LockHostPath }}
     name: var-lock
   - hostPath:
       path: {{ .SecretsHostPath }}

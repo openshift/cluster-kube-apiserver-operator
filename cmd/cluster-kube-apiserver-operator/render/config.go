@@ -13,6 +13,9 @@ type Config struct {
 	// SecretsHostPath holds certs and keys
 	SecretsHostPath string
 
+	// LockHostPath holds the api server lock file for bootstrap
+	LockHostPath string
+
 	// EtcdServerURLs is a list of etcd server URLs.
 	EtcdServerURLs []string
 
