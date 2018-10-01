@@ -24,6 +24,7 @@ spec:
       rm -f /var/lock/* || true
     securityContext:
       runAsNonRoot: false
+      privileged: true
     volumeMounts:
     - mountPath: /var/lock
       name: var-lock
@@ -36,6 +37,7 @@ spec:
     - exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/config/{{ .ConfigFileName }}
     securityContext:
       runAsNonRoot: true
+      privileged: true
       runAsUser: 65534
     volumeMounts:
     - mountPath: /var/lock
