@@ -16,6 +16,7 @@ spec:
   initContainers:
   - name: setup-lock-dir
     image: {{ .Image }}
+    imagePullPolicy: {{ .ImagePullPolicy }}
     command: ["/bin/bash", "-c"]
     args:
     - |
