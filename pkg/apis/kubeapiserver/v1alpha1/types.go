@@ -30,11 +30,15 @@ type KubeApiserverOperatorConfig struct {
 type KubeApiserverOperatorConfigSpec struct {
 	operatorsv1alpha1api.OperatorSpec `json:",inline" protobuf:"bytes,1,opt,name=operatorSpec"`
 
-	// kubeApiserverConfig holds a sparse config that the user wants for this component.  It only needs to be the overrides from the defaults
+	// userConfig holds a sparse config that the user wants for this component.  It only needs to be the overrides from the defaults
 	// it will end up overlaying in the following order:
 	// 1. hardcoded default
 	// 2. this config
-	KubeApiserverConfig runtime.RawExtension `json:"kubeApiserverConfig" protobuf:"bytes,2,opt,name=kubeApiserverConfig"`
+	UserConfig runtime.RawExtension `json:"userConfig"`
+
+	// observedConfig holds a sparse config that controller has observed from the cluster state.  It exists in spec because
+	// it causes action for the operator
+	ObservedConfig runtime.RawExtension `json:"observedConfig"`
 }
 
 type KubeApiserverOperatorConfigStatus struct {
