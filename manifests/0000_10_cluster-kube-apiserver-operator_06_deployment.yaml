@@ -38,3 +38,5 @@ spec:
         configMap:
           defaultMode: 440
           name: openshift-cluster-kube-apiserver-operator-config
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
