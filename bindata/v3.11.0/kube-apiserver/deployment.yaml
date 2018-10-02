@@ -29,7 +29,7 @@ spec:
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         ports:
-        - containerPort: 8443
+        - containerPort: 6443
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
@@ -82,6 +82,5 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
-
-
-
+      nodeSelector:
+        node-role.kubernetes.io/master: ""

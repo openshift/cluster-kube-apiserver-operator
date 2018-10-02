@@ -167,7 +167,7 @@ serviceAccountPublicKeyFiles:
 servicesNodePortRange: 30000-32767
 servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
-  bindAddress: 0.0.0.0:8443
+  bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
   certFile: # To be filled
   clientCA: # To be filled
@@ -277,7 +277,7 @@ spec:
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         ports:
-        - containerPort: 8443
+        - containerPort: 6443
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
@@ -330,9 +330,8 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
-
-
-
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
 `)
 
 func v3110KubeApiserverDeploymentYamlBytes() ([]byte, error) {
@@ -528,7 +527,7 @@ spec:
   ports:
   - name: https
     port: 443
-    targetPort: 8443
+    targetPort: 6443
 `)
 
 func v3110KubeApiserverSvcYamlBytes() ([]byte, error) {
