@@ -21,7 +21,7 @@ spec:
     - |
       chgrp 65534 /var/lock
       chmod 775 /var/lock
-      rm -f /var/lock/* || true
+      rm -f /var/lock/api-server.lock || true
     securityContext:
       runAsNonRoot: false
       privileged: true
