@@ -98,7 +98,8 @@ func (in *KubeApiserverOperatorConfigList) DeepCopyObject() runtime.Object {
 func (in *KubeApiserverOperatorConfigSpec) DeepCopyInto(out *KubeApiserverOperatorConfigSpec) {
 	*out = *in
 	out.OperatorSpec = in.OperatorSpec
-	in.KubeApiserverConfig.DeepCopyInto(&out.KubeApiserverConfig)
+	in.UserConfig.DeepCopyInto(&out.UserConfig)
+	in.ObservedConfig.DeepCopyInto(&out.ObservedConfig)
 	return
 }
 
