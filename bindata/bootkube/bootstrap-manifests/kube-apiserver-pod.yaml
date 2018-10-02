@@ -59,7 +59,7 @@ spec:
     livenessProbe:
       httpGet:
         scheme: HTTPS
-        port: 8443
+        port: 6443
         path: healthz
   volumes:
   - hostPath:
