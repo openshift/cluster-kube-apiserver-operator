@@ -32,6 +32,7 @@ type manifestOpts struct {
 	secretsHostPath       string
 	lockHostPath          string
 	etcdServerURLs        []string
+	masterIpAddress       string
 }
 
 // renderOpts holds values to drive the render command.
@@ -69,6 +70,9 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.manifest.configFileName, "manifest-config-file-name", "kube-apiserver-config.yaml", "The config file name inside the manifest-config-host-path.")
 	cmd.Flags().StringVar(&renderOpts.manifest.cloudProviderHostPath, "manifest-cloud-provider-host-path", "/etc/kubernetes/cloud", "A host path mounted into the apiserver pods to hold cloud provider configuration.")
 	cmd.Flags().StringArrayVar(&renderOpts.manifest.etcdServerURLs, "manifest-etcd-server-urls", []string{"https://127.0.0.1:2379"}, "The etcd server URL, comma separated.")
+	cmd.Flags().StringVar(&renderOpts.manifest.masterIpAddress, "temporary-never-use-in-production-create-etcd-endpoints", "", "The IP address of the master0 host")
+	cmd.Flags().MarkDeprecated("temporary-never-use-in-production-create-etcd-endpoints", "This flag is meant to provide a temporary workaround for obtaining the IP address of the first master node running an etcd service")
+	cmd.Flags().MarkHidden("temporary-never-use-in-production-create-etcd-endpoints")
 
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-output-dir", "", "Output path for rendered manifests.")
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
@@ -146,6 +150,7 @@ func (r *renderOpts) Run() error {
 		SecretsHostPath:       r.manifest.secretsHostPath,
 		LockHostPath:          r.manifest.lockHostPath,
 		EtcdServerURLs:        r.manifest.etcdServerURLs,
+		MasterIPAddress:       r.manifest.masterIpAddress,
 	}
 
 	// create post-poststrap configuration

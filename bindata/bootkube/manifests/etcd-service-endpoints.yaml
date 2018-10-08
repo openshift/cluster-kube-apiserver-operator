@@ -1,14 +1,12 @@
 apiVersion: v1
-kind: Service
+kind: Endpoints
 metadata:
   name: etcd
   namespace: kube-system
-spec:
+subsets:
+- addresses:
+  - ip: {{ .MasterIPAddress }}
   ports:
   - name: etcd
     port: 2379
-    protocol: TCP
-  - name: legacy-etcd
-    port: 4001
-    targetPort: 2379
     protocol: TCP

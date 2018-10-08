@@ -19,6 +19,9 @@ type Config struct {
 	// EtcdServerURLs is a list of etcd server URLs.
 	EtcdServerURLs []string
 
+	// MasterIPAddress is an ip address pointing to the master0 host.
+	MasterIPAddress string
+
 	// Namespace is the target namespace for the bootstrap kubeapi server to be created.
 	Namespace string
 
