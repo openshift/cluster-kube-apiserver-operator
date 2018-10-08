@@ -20,8 +20,8 @@ import (
 
 // syncKubeApiserver_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func syncKubeApiserver_v311_00_to_latest(c KubeApiserverOperator, operatorConfig *v1alpha1.KubeApiserverOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailablity) (operatorsv1alpha1.VersionAvailablity, []error) {
-	versionAvailability := operatorsv1alpha1.VersionAvailablity{
+func syncKubeApiserver_v311_00_to_latest(c KubeAPIServerOperator, operatorConfig *v1alpha1.KubeApiserverOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailability) (operatorsv1alpha1.VersionAvailability, []error) {
+	versionAvailability := operatorsv1alpha1.VersionAvailability{
 		Version: operatorConfig.Spec.Version,
 	}
 
@@ -101,7 +101,7 @@ func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(client, requiredConfigMap)
 }
 
-func manageKubeApiserverDeployment_v311_00_to_latest(client appsclientv1.DeploymentsGetter, options *v1alpha1.KubeApiserverOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailablity, forceDeployment bool) (*appsv1.Deployment, bool, error) {
+func manageKubeApiserverDeployment_v311_00_to_latest(client appsclientv1.DeploymentsGetter, options *v1alpha1.KubeApiserverOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailability, forceDeployment bool) (*appsv1.Deployment, bool, error) {
 	required := resourceread.ReadDeploymentV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/deployment.yaml"))
 	required.Spec.Template.Spec.Containers[0].Image = options.Spec.ImagePullSpec
 	required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", options.Spec.Logging.Level))

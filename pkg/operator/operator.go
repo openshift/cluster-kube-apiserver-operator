@@ -3,7 +3,6 @@ package operator
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/blang/semver"
@@ -34,7 +33,7 @@ const (
 	workQueueKey        = "key"
 )
 
-type KubeApiserverOperator struct {
+type KubeAPIServerOperator struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
 	appsv1Client appsclientv1.AppsV1Interface
@@ -52,14 +51,14 @@ func NewKubeApiserverOperator(
 	appsv1Client appsclientv1.AppsV1Interface,
 	corev1Client coreclientv1.CoreV1Interface,
 	rbacv1Client rbacclientv1.RbacV1Interface,
-) *KubeApiserverOperator {
-	c := &KubeApiserverOperator{
+) *KubeAPIServerOperator {
+	c := &KubeAPIServerOperator{
 		operatorConfigClient: operatorConfigClient,
 		appsv1Client:         appsv1Client,
 		corev1Client:         corev1Client,
 		rbacv1Client:         rbacv1Client,
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "KubeApiserverOperator"),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "KubeAPIServerOperator"),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
@@ -74,7 +73,7 @@ func NewKubeApiserverOperator(
 	return c
 }
 
-func (c KubeApiserverOperator) sync() error {
+func (c KubeAPIServerOperator) sync() error {
 	operatorConfig, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -124,14 +123,13 @@ func (c KubeApiserverOperator) sync() error {
 
 	v311_00_to_unknown := versioning.NewRangeOrDie("3.11.0", "3.12.0")
 
+	var versionAvailability operatorsv1alpha1.VersionAvailability
 	errors := []error{}
 	switch {
 	case v311_00_to_unknown.BetweenOrEmpty(currentActualVerion) && v311_00_to_unknown.Between(&desiredVersion):
-		var versionAvailability operatorsv1alpha1.VersionAvailablity
 		operatorConfig.Status.TaskSummary = "sync-[3.11.0,3.12.0)"
 		operatorConfig.Status.TargetAvailability = nil
 		versionAvailability, errors = syncKubeApiserver_v311_00_to_latest(c, operatorConfig, operatorConfig.Status.CurrentAvailability)
-		operatorConfig.Status.CurrentAvailability = &versionAvailability
 
 	default:
 		operatorConfig.Status.TaskSummary = "unrecognized"
@@ -142,39 +140,7 @@ func (c KubeApiserverOperator) sync() error {
 		return fmt.Errorf("unrecognized state")
 	}
 
-	// given the VersionAvailability and the status.Version, we can compute availability
-	availableCondition := operatorsv1alpha1.OperatorCondition{
-		Type:   operatorsv1alpha1.OperatorStatusTypeAvailable,
-		Status: operatorsv1alpha1.ConditionUnknown,
-	}
-	if operatorConfig.Status.CurrentAvailability != nil && operatorConfig.Status.CurrentAvailability.ReadyReplicas > 0 {
-		availableCondition.Status = operatorsv1alpha1.ConditionTrue
-	} else {
-		availableCondition.Status = operatorsv1alpha1.ConditionFalse
-	}
-	v1alpha1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, availableCondition)
-
-	syncSuccessfulCondition := operatorsv1alpha1.OperatorCondition{
-		Type:   operatorsv1alpha1.OperatorStatusTypeSyncSuccessful,
-		Status: operatorsv1alpha1.ConditionTrue,
-	}
-	if operatorConfig.Status.CurrentAvailability != nil && len(operatorConfig.Status.CurrentAvailability.Errors) > 0 {
-		syncSuccessfulCondition.Status = operatorsv1alpha1.ConditionFalse
-		syncSuccessfulCondition.Message = strings.Join(operatorConfig.Status.CurrentAvailability.Errors, "\n")
-	}
-	if operatorConfig.Status.TargetAvailability != nil && len(operatorConfig.Status.TargetAvailability.Errors) > 0 {
-		syncSuccessfulCondition.Status = operatorsv1alpha1.ConditionFalse
-		if len(syncSuccessfulCondition.Message) == 0 {
-			syncSuccessfulCondition.Message = strings.Join(operatorConfig.Status.TargetAvailability.Errors, "\n")
-		} else {
-			syncSuccessfulCondition.Message = availableCondition.Message + "\n" + strings.Join(operatorConfig.Status.TargetAvailability.Errors, "\n")
-		}
-	}
-	v1alpha1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, syncSuccessfulCondition)
-	if syncSuccessfulCondition.Status == operatorsv1alpha1.ConditionTrue {
-		operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
-	}
-
+	v1alpha1helpers.SetStatusFromAvailability(&operatorConfig.Status.OperatorStatus, operatorConfig.ObjectMeta.Generation, &versionAvailability)
 	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
 		if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
 			errors = append(errors, err)
@@ -185,12 +151,12 @@ func (c KubeApiserverOperator) sync() error {
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.
-func (c *KubeApiserverOperator) Run(workers int, stopCh <-chan struct{}) {
+func (c *KubeAPIServerOperator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting KubeApiserverOperator")
-	defer glog.Infof("Shutting down KubeApiserverOperator")
+	glog.Infof("Starting KubeAPIServerOperator")
+	defer glog.Infof("Shutting down KubeAPIServerOperator")
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
@@ -198,12 +164,12 @@ func (c *KubeApiserverOperator) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-func (c *KubeApiserverOperator) runWorker() {
+func (c *KubeAPIServerOperator) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *KubeApiserverOperator) processNextWorkItem() bool {
+func (c *KubeAPIServerOperator) processNextWorkItem() bool {
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
@@ -223,7 +189,7 @@ func (c *KubeApiserverOperator) processNextWorkItem() bool {
 }
 
 // eventHandler queues the operator to check spec and status
-func (c *KubeApiserverOperator) eventHandler() cache.ResourceEventHandler {
+func (c *KubeAPIServerOperator) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
@@ -234,7 +200,7 @@ func (c *KubeApiserverOperator) eventHandler() cache.ResourceEventHandler {
 // this set of namespaces will include things like logging and metrics which are used to drive
 var interestingNamespaces = sets.NewString(targetNamespaceName)
 
-func (c *KubeApiserverOperator) namespaceEventHandler() cache.ResourceEventHandler {
+func (c *KubeAPIServerOperator) namespaceEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ns, ok := obj.(*corev1.Namespace)
