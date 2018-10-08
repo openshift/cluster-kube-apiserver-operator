@@ -42,12 +42,23 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		kubeClient.RbacV1(),
 	)
 
+	kubeInformersEtcdNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, etcdNamespaceName, nil)
+	configObserver := NewConfigObserver(
+		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
+		kubeInformersEtcdNamespaced,
+		operatorConfigClient.KubeapiserverV1alpha1(),
+		kubeClient,
+	)
+
 	ensureOperatorConfigExists(operator.operatorConfigClient, "v3.11.0/kube-apiserver/operator-config.yaml")
 
 	operatorConfigInformers.Start(stopCh)
 	kubeInformersNamespaced.Start(stopCh)
 
-	operator.Run(1, stopCh)
+	go operator.Run(1, stopCh)
+	go configObserver.Run(1, stopCh)
+
+	<-stopCh
 	return fmt.Errorf("stopped")
 }
 
