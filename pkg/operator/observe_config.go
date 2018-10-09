@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -64,10 +65,10 @@ func (c ConfigObserver) sync() error {
 		return err
 	}
 	observedConfig := map[string]interface{}{}
-	etcdURLs := []string{}
 
 	// we read the etcd endpoints from the endpoints object and then manually pull out the hostnames to get the etcd urls for our config.
 	// Setting them observed config causes the normal reconciliation loop to run
+	etcdURLs := []string{}
 	etcdEndpoints, err := c.kubeClient.CoreV1().Endpoints(etcdNamespaceName).Get("etcd", metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -75,16 +76,19 @@ func (c ConfigObserver) sync() error {
 	if etcdEndpoints != nil {
 		for _, subset := range etcdEndpoints.Subsets {
 			for _, address := range subset.Addresses {
-				etcdURLs = append(etcdURLs, "https://"+address.Hostname+":2379")
+				etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]+":2379")
 			}
 		}
 	}
-	unstructured.SetNestedField(observedConfig, etcdURLs, "storageConfig", "urls")
+	if len(etcdURLs) > 0 {
+		unstructured.SetNestedField(observedConfig, etcdURLs, "storageConfig", "urls")
+	}
 
-	// TODO fix the comparison here, I think we're constantly updating
 	if reflect.DeepEqual(operatorConfig.Spec.ObservedConfig.Object, observedConfig) {
 		return nil
 	}
+
+	glog.Info("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
 	operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
 	if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Update(operatorConfig); err != nil {
 		return err

@@ -54,6 +54,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	operatorConfigInformers.Start(stopCh)
 	kubeInformersNamespaced.Start(stopCh)
+	kubeInformersEtcdNamespaced.Start(stopCh)
 
 	go operator.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
