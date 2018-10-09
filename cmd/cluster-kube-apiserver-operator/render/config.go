@@ -19,6 +19,9 @@ type Config struct {
 	// EtcdServerURLs is a list of etcd server URLs.
 	EtcdServerURLs []string
 
+	// EtcdServingCA is the serving CA used by the etcd servers.
+	EtcdServingCA string
+
 	// Namespace is the target namespace for the bootstrap kubeapi server to be created.
 	Namespace string
 
