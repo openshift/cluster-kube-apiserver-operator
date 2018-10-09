@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -81,10 +83,13 @@ func (c ConfigObserver) sync() error {
 		}
 	}
 	if len(etcdURLs) > 0 {
-		unstructured.SetNestedField(observedConfig, etcdURLs, "storageConfig", "urls")
+		unstructured.SetNestedStringSlice(observedConfig, etcdURLs, "storageConfig", "urls")
 	}
 
-	if reflect.DeepEqual(operatorConfig.Spec.ObservedConfig.Object, observedConfig) {
+	// don't worry about errors
+	currentConfig := map[string]interface{}{}
+	json.NewDecoder(bytes.NewBuffer(operatorConfig.Spec.ObservedConfig.Raw)).Decode(&currentConfig)
+	if reflect.DeepEqual(currentConfig, observedConfig) {
 		return nil
 	}
 
