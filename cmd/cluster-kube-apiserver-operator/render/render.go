@@ -32,6 +32,7 @@ type manifestOpts struct {
 	secretsHostPath       string
 	lockHostPath          string
 	etcdServerURLs        []string
+	etcdServingCA         string
 }
 
 // renderOpts holds values to drive the render command.
@@ -69,6 +70,7 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.manifest.configFileName, "manifest-config-file-name", "kube-apiserver-config.yaml", "The config file name inside the manifest-config-host-path.")
 	cmd.Flags().StringVar(&renderOpts.manifest.cloudProviderHostPath, "manifest-cloud-provider-host-path", "/etc/kubernetes/cloud", "A host path mounted into the apiserver pods to hold cloud provider configuration.")
 	cmd.Flags().StringArrayVar(&renderOpts.manifest.etcdServerURLs, "manifest-etcd-server-urls", []string{"https://127.0.0.1:2379"}, "The etcd server URL, comma separated.")
+	cmd.Flags().StringVar(&renderOpts.manifest.etcdServingCA, "manifest-etcd-serving-ca", "root-ca.crt", "The etcd serving ca.")
 
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-output-dir", "", "Output path for rendered manifests.")
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
@@ -106,6 +108,9 @@ func (r *renderOpts) Validate() error {
 	}
 	if len(r.manifest.etcdServerURLs) == 0 {
 		return errors.New("missing etcd server URLs: --manifest-etcd-server-urls")
+	}
+	if len(r.manifest.etcdServingCA) == 0 {
+		return errors.New("missing etcd serving CA: --manifest-etcd-serving-ca")
 	}
 
 	if len(r.assetInputDir) == 0 {
@@ -146,6 +151,7 @@ func (r *renderOpts) Run() error {
 		SecretsHostPath:       r.manifest.secretsHostPath,
 		LockHostPath:          r.manifest.lockHostPath,
 		EtcdServerURLs:        r.manifest.etcdServerURLs,
+		EtcdServingCA:         r.manifest.etcdServingCA,
 	}
 
 	// create post-poststrap configuration
