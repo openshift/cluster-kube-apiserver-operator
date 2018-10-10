@@ -19,7 +19,7 @@ spec:
       serviceAccountName: openshift-cluster-kube-apiserver-operator
       containers:
       - name: operator
-        image: openshift/origin-cluster-kube-apiserver-operator:latest
+        image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
         imagePullPolicy: IfNotPresent
         command: ["cluster-kube-apiserver-operator", "operator"]
         args:
@@ -28,6 +28,9 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
+        env:
+        - name: IMAGE
+          value: quay.io/openshift/origin-hypershift:v4.0
       volumes:
       - name: serving-cert
         secret:
