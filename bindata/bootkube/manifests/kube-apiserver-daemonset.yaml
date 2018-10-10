@@ -27,6 +27,21 @@ spec:
     spec:
       securityContext:
         supplementalGroups: [65534]
+      initContainers:
+      - name: setup-lock-dir
+        image: {{ .Image }}
+        imagePullPolicy: {{ .ImagePullPolicy }}
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          chgrp 65534 /var/lock
+          chmod 775 /var/lock
+        securityContext:
+          runAsNonRoot: false
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/lock
+          name: var-lock
       containers:
       - name: kube-apiserver
         image: {{ .Image }}
@@ -37,6 +52,7 @@ spec:
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
+          privileged: true
         volumeMounts:
         - mountPath: /var/lock
           name: var-lock
