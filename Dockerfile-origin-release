@@ -1,0 +1,9 @@
+FROM registry.svc.ci.openshift.org/openshift/origin-release:v4.0 as origin-release
+
+FROM fedora:29 as jq
+RUN yum install -y jq
+COPY --from=origin-release release-manifests/image-references .
+RUN jq '.spec.tags |= map(if .name == "cluster-kube-apiserver-operator" then .from.name |= "docker.io/DOCKER_ORG/origin-cluster-kube-apiserver-operator:latest" else . end)' image-references > image-references-updated
+
+FROM registry.svc.ci.openshift.org/openshift/origin-release:v4.0
+COPY --from=jq image-references-updated release-manifests/image-references

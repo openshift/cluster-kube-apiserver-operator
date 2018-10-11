@@ -1,4 +1,5 @@
 GOFLAGS :=
+DOCKER_ORG ?= $(USER)
 
 all build:
 	go build $(GOFLAGS) ./cmd/cluster-kube-apiserver-operator
@@ -32,3 +33,15 @@ images:
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
+
+origin-release:
+	docker pull registry.svc.ci.openshift.org/openshift/origin-release:v4.0
+	bash -c 'docker build -f <(sed "s/DOCKER_ORG/$(DOCKER_ORG)/" Dockerfile-origin-release) -t "$(DOCKER_ORG)/origin-release:latest" .'
+	docker push $(DOCKER_ORG)/origin-release:latest
+	@echo
+	@echo "To install:"
+	@echo
+	@echo "  make images"
+	@echo "  docker tag openshift/origin-cluster-kube-apiserver-operator $(DOCKER_ORG)/origin-cluster-kube-apiserver-operator"
+	@echo "  docker push $(DOCKER_ORG)/origin-cluster-kube-apiserver-operator"
+	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/$(DOCKER_ORG)/origin-release:latest bin/openshift-install cluster --log-level=debug"
