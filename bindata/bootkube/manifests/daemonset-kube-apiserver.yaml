@@ -48,7 +48,7 @@ spec:
         imagePullPolicy: {{ .ImagePullPolicy }}
         command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
         args:
-        - exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/config/{{ .ConfigFileName }}
+        - exec hypershift openshift-kube-apiserver --config=/var/run/configmaps/config/config.yaml
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
