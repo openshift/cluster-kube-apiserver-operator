@@ -1,0 +1,12 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+spec:
+  tags:
+  - name: cluster-kube-apiserver-operator
+    from:
+      kind: DockerImage
+      name: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
+  - name: hyperkube
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-hypershift:v4.0
