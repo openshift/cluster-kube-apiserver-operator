@@ -103,6 +103,13 @@ func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMa
 
 func manageKubeApiserverDeployment_v311_00_to_latest(client appsclientv1.DeploymentsGetter, options *v1alpha1.KubeApiserverOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailability, forceDeployment bool) (*appsv1.Deployment, bool, error) {
 	required := resourceread.ReadDeploymentV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/deployment.yaml"))
+	switch corev1.PullPolicy(options.Spec.ImagePullPolicy) {
+	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
+		required.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(options.Spec.ImagePullPolicy)
+	case "":
+	default:
+		return nil, false, fmt.Errorf("invalid imagePullPolicy specified: %v", options.Spec.ImagePullPolicy)
+	}
 	required.Spec.Template.Spec.Containers[0].Image = options.Spec.ImagePullSpec
 	required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", options.Spec.Logging.Level))
 

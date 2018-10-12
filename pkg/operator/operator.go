@@ -106,14 +106,14 @@ func (c KubeAPIServerOperator) sync() error {
 		return nil
 	}
 
-	var currentActualVerion *semver.Version
+	var currentActualVersion *semver.Version
 
 	if operatorConfig.Status.CurrentAvailability != nil {
 		ver, err := semver.Parse(operatorConfig.Status.CurrentAvailability.Version)
 		if err != nil {
 			utilruntime.HandleError(err)
 		} else {
-			currentActualVerion = &ver
+			currentActualVersion = &ver
 		}
 	}
 	desiredVersion, err := semver.Parse(operatorConfig.Spec.Version)
@@ -127,7 +127,7 @@ func (c KubeAPIServerOperator) sync() error {
 	var versionAvailability operatorsv1alpha1.VersionAvailability
 	errors := []error{}
 	switch {
-	case v311_00_to_unknown.BetweenOrEmpty(currentActualVerion) && v311_00_to_unknown.Between(&desiredVersion):
+	case v311_00_to_unknown.BetweenOrEmpty(currentActualVersion) && v311_00_to_unknown.Between(&desiredVersion):
 		operatorConfig.Status.TaskSummary = "sync-[3.11.0,3.12.0)"
 		operatorConfig.Status.TargetAvailability = nil
 		versionAvailability, errors = syncKubeApiserver_v311_00_to_latest(c, operatorConfig, operatorConfig.Status.CurrentAvailability)

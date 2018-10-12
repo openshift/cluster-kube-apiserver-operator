@@ -93,7 +93,7 @@ func (c ConfigObserver) sync() error {
 		return nil
 	}
 
-	glog.Info("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
+	glog.Infof("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
 	operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
 	if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Update(operatorConfig); err != nil {
 		return err
