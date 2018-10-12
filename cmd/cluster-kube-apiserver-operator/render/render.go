@@ -75,7 +75,7 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-output-dir", "", "Output path for rendered manifests.")
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
 	cmd.Flags().StringVar(&renderOpts.templatesDir, "templates-input-dir", "/usr/share/bootkube/manifests", "A path to a directory with manifest templates.")
-	cmd.Flags().StringVar(&renderOpts.configOverrideFile, "config-override-file", "", "A sparse KubeAPIConfig.kubecontrolplane.config.openshift.io/v1 file (default: kube-apiserver-config-overrides.yaml in the asset-input-dir)")
+	cmd.Flags().StringVar(&renderOpts.configOverrideFile, "config-override-file", "", "An additional sparse KubeAPIConfig.kubecontrolplane.config.openshift.io/v1 file for customiziation through the installer.")
 	cmd.Flags().StringVar(&renderOpts.configOutputFile, "config-output-file", "", "Output path for the KubeAPIServerConfig yaml file.")
 
 	return cmd
@@ -130,9 +130,6 @@ func (r *renderOpts) Validate() error {
 }
 
 func (r *renderOpts) complete() error {
-	if len(r.configOverrideFile) == 0 {
-		r.configOverrideFile = filepath.Join(r.assetInputDir, "kube-apiserver-config-overrides.yaml")
-	}
 	return nil
 }
 
