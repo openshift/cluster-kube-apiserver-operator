@@ -39,11 +39,12 @@ type manifestOpts struct {
 type renderOpts struct {
 	manifest manifestOpts
 
-	templatesDir       string
-	assetInputDir      string
-	assetOutputDir     string
-	configOverrideFile string
-	configOutputFile   string
+	templatesDir                 string
+	assetInputDir                string
+	assetOutputDir               string
+	configOverrideFiles          []string
+	deprecatedConfigOverrideFile string
+	configOutputFile             string
 }
 
 func NewRenderCommand() *cobra.Command {
@@ -75,8 +76,13 @@ func NewRenderCommand() *cobra.Command {
 	cmd.Flags().StringVar(&renderOpts.assetOutputDir, "asset-output-dir", "", "Output path for rendered manifests.")
 	cmd.Flags().StringVar(&renderOpts.assetInputDir, "asset-input-dir", "", "A path to directory with certificates and secrets.")
 	cmd.Flags().StringVar(&renderOpts.templatesDir, "templates-input-dir", "/usr/share/bootkube/manifests", "A path to a directory with manifest templates.")
-	cmd.Flags().StringVar(&renderOpts.configOverrideFile, "config-override-file", "", "An additional sparse KubeAPIConfig.kubecontrolplane.config.openshift.io/v1 file for customiziation through the installer.")
+	cmd.Flags().StringSliceVar(&renderOpts.configOverrideFiles, "config-override-files", nil, "Additional sparse KubeAPIConfig.kubecontrolplane.config.openshift.io/v1 files for customiziation through the installer, merged into the default config in the given order.")
 	cmd.Flags().StringVar(&renderOpts.configOutputFile, "config-output-file", "", "Output path for the KubeAPIServerConfig yaml file.")
+
+	// TODO: Remove these once we break the flag dependency loop in installer
+	cmd.Flags().StringVar(&renderOpts.deprecatedConfigOverrideFile, "config-override-file", "", "")
+	cmd.Flags().MarkHidden("config-override-file")
+	cmd.Flags().MarkDeprecated("config-override-file", "Use 'config-override-files' flag instead")
 
 	return cmd
 }
@@ -187,11 +193,15 @@ func (r *renderOpts) configFromDefaultsPlusOverride(data *Config, tlsOverride st
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config override file %q: %v", tlsOverride, err)
 	}
+	// TODO: Remove this when the flag is gone
+	if len(r.deprecatedConfigOverrideFile) > 0 {
+		r.configOverrideFiles = append(r.configOverrideFiles, r.deprecatedConfigOverrideFile)
+	}
 	configs := [][]byte{defaultConfig, bootstrapOverrides}
-	if len(r.configOverrideFile) > 0 {
-		overrides, err := readFileTemplate(r.configOverrideFile, data)
+	for _, fname := range r.configOverrideFiles {
+		overrides, err := readFileTemplate(fname, data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load config overrides at %q: %v", r.configOverrideFile, err)
+			return nil, fmt.Errorf("failed to load config overrides at %q: %v", fname, err)
 		}
 
 		configs = append(configs, overrides)
