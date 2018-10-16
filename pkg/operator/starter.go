@@ -34,8 +34,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		return err
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, targetNamespaceName, nil)
-	kubeInformersEtcdNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, etcdNamespaceName, nil)
+	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
+	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
 
 	v1alpha1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
@@ -46,7 +46,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	operator := NewKubeApiserverOperator(
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
-		kubeInformersNamespaced,
+		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient.AppsV1(),
 		kubeClient.CoreV1(),
@@ -54,8 +54,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	configObserver := NewConfigObserver(
-		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
-		kubeInformersEtcdNamespaced,
+		operatorConfigInformers,
+		kubeInformersForKubeSystemNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 	)
@@ -68,8 +68,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers.Start(stopCh)
-	kubeInformersNamespaced.Start(stopCh)
-	kubeInformersEtcdNamespaced.Start(stopCh)
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(stopCh)
+	kubeInformersForKubeSystemNamespace.Start(stopCh)
 
 	go operator.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
