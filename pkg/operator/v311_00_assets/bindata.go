@@ -59,7 +59,7 @@ var _v3110KubeApiserverCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: openshift-kube-apiserver
-  name: deployment-apiserver-config
+  name: deployment-kube-apiserver-config
 data:
   config.yaml:
 `)
@@ -302,7 +302,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: deployment-apiserver-config
+          name: deployment-kube-apiserver-config
       - name: aggregator-client-ca
         configMap:
           name: aggregator-client-ca

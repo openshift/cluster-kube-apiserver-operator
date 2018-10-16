@@ -54,7 +54,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: deployment-apiserver-config
+          name: deployment-kube-apiserver-config
       - name: aggregator-client-ca
         configMap:
           name: aggregator-client-ca
