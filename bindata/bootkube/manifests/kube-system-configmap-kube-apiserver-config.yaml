@@ -10,4 +10,4 @@ metadata:
     openshift.io/component: "api"
 data:
   config.yaml: |
-    {{ .PostBootstrapKubeAPIServerConfig | indent 4 }}
+    {{ .PostBootstrapConfig | indent 4 }}
