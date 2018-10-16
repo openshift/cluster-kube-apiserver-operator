@@ -2,26 +2,26 @@ apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
 aggregatorConfig:
   proxyClientInfo:
-    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt # origin 3.11: openshift-aggregator.crt
-    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key # origin 3.11: openshift-aggregator.key
+    certFile: /var/run/secrets/aggregator-client/tls.crt
+    keyFile: /var/run/secrets/aggregator-client/tls.key
 authConfig:
   requestHeader:
-    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt # origin 3.11: frontproxy-ca.crt
+    clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
 kubeletClientInfo:
-  ca: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
-  certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.kubelet-client.crt
-  keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.kubelet-client.key
+  ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/kubelet-client/tls.crt
+  keyFile: /var/run/secrets/kubelet-client/tls.key
 oauthConfig:
-  masterCA: /etc/kubernetes/secrets/root-ca.crt # origin 3.11: ca.crt
+  masterCA: /var/run/configmaps/client-ca/ca-bundle.crt
 serviceAccountPublicKeyFiles:
-- /etc/kubernetes/secrets/service-account.pub # origin 3.11: serviceaccounts.public.key
+- /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
 servingInfo:
-  certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.server.crt
-  clientCA: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
-  keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.server.key
+  certFile: /var/run/secrets/serving-cert/tls.crt
+  clientCA: /var/run/configmaps/client-ca/ca-bundle.crt
+  keyFile: /var/run/secrets/serving-cert/tls.key
 storageConfig:
-  ca: /etc/kubernetes/secrets/{{.EtcdServingCA}} # origin 3.11: ca.crt
-  certFile: /etc/kubernetes/secrets/etcd-client.crt # origin 3.11: master.etcd-client.crt
-  keyFile: /etc/kubernetes/secrets/etcd-client.key # origin 3.11: master.etcd-client.key
+  ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt
+  certFile: /var/run/secrets/etcd-client/tls.crt
+  keyFile: /var/run/secrets/etcd-client/tls.key
   urls: {{range .EtcdServerURLs}}
   - {{.}}{{end}}

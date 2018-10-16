@@ -48,7 +48,7 @@ spec:
         imagePullPolicy: {{ .ImagePullPolicy }}
         command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
         args:
-        - exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/config/{{ .ConfigFileName }}
+        - exec hypershift openshift-kube-apiserver --config=/var/run/configmaps/config/config.yaml
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
@@ -60,15 +60,26 @@ spec:
         - mountPath: /etc/ssl/certs
           name: ssl-certs-host
           readOnly: true
-        - mountPath: /etc/kubernetes/secrets
-          name: secrets
-          readOnly: true
-        - mountPath: /etc/kubernetes/cloud
-          name: etc-kubernetes-cloud
-          readOnly: true
-        - mountPath: /etc/kubernetes/config
+        - mountPath: /var/run/configmaps/config
           name: config
-          readOnly: true
+        - mountPath: /var/run/configmaps/aggregator-client-ca
+          name: aggregator-client-ca
+        - mountPath: /var/run/configmaps/client-ca
+          name: client-ca
+        - mountPath: /var/run/configmaps/etcd-serving-ca
+          name: etcd-serving-ca
+        - mountPath: /var/run/configmaps/kubelet-serving-ca
+          name: kubelet-serving-ca
+        - mountPath: /var/run/configmaps/sa-token-signing-certs
+          name: sa-token-signing-certs
+        - mountPath: /var/run/secrets/aggregator-client
+          name: aggregator-client
+        - mountPath: /var/run/secrets/etcd-client
+          name: etcd-client
+        - mountPath: /var/run/secrets/kubelet-client
+          name: kubelet-client
+        - mountPath: /var/run/secrets/serving-cert
+          name: serving-cert
       hostNetwork: true
       nodeSelector:
         node-role.kubernetes.io/master: ""
@@ -77,18 +88,39 @@ spec:
         operator: Exists
         effect: NoSchedule
       volumes:
+      - name: config
+        configMap:
+          name: kube-apiserver-config
+      - name: aggregator-client-ca
+        configMap:
+          name: aggregator-client-ca
+      - name: client-ca
+        configMap:
+          name: client-ca
+      - name: etcd-serving-ca
+        configMap:
+          name: etcd-serving-ca
+      - name: kubelet-serving-ca
+        configMap:
+          name: kubelet-serving-ca
+      - name: sa-token-signing-certs
+        configMap:
+          name: sa-token-signing-certs
+      - name: aggregator-client
+        secret:
+          secretName: aggregator-client
+      - name: etcd-client
+        secret:
+          secretName: etcd-client
+      - name: kubelet-client
+        secret:
+          secretName: kubelet-client
+      - name: serving-cert
+        secret:
+          secretName: serving-cert
       - hostPath:
           path: {{ .LockHostPath }}
         name: var-lock
-      - hostPath:
-          path: {{ .SecretsHostPath }}
-        name: secrets
-      - hostPath:
-          path: {{ .CloudProviderHostPath }}
-        name: etc-kubernetes-cloud
-      - hostPath:
-          path: {{ .ConfigHostPath }}
-        name: config
       - hostPath:
           path: /etc/ssl/certs
         name: ssl-certs-host
