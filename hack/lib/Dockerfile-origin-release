@@ -1,9 +1,13 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-release:v4.0 as origin-release
 
-FROM fedora:29 as jq
+FROM centos:7 as jq
 ARG IMAGES
 ARG IMAGE_REPOSITORY_NAME
-RUN yum install -y jq
+RUN curl -sLk https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o /tmp/jq-linux64 && \
+    cp /tmp/jq-linux64 /usr/bin/jq && \
+    chmod +x /usr/bin/jq && \
+    rm -f /tmp/jq-linux64
+
 COPY --from=origin-release release-manifests/image-references .
 RUN jq '.spec.tags |= map(.name as $name | if (['$IMAGES'] | index($name)) then .from.name |= "'$IMAGE_REPOSITORY_NAME'/origin-"+$name+":latest" else . end)' image-references > image-references-updated
 
