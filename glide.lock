@@ -1,5 +1,5 @@
 hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-10-12T14:44:56.253697+02:00
+updated: 2018-10-18T10:27:52.99012618-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,7 +74,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: 8c94a0d082abb4111a0e8981b7f463dd578878d3
+  version: a46029836bdc207f9949fc5f4907f0bfd3cf7763
   subpackages:
   - apps
   - apps/v1
@@ -121,7 +121,7 @@ imports:
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: 9db5c2bbee9c8568a5022b14ae152606d08c2667
+  version: dd6554843a719fcb151deb612e2116371adedcb6
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -142,7 +142,7 @@ imports:
 - name: github.com/pkg/profile
   version: 057bc52a47ec3c79498dda63f4a6f8298725e976
 - name: github.com/prometheus/client_golang
-  version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
+  version: 6373fd93345740fc045eab648524bcbb65c3e690
   subpackages:
   - prometheus
 - name: github.com/prometheus/client_model
@@ -162,9 +162,9 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/cobra
-  version: 8d114be902bc9f08717804830a55c48378108a28
+  version: 7c674d9e72017ed25f6d2b5e497a1368086b6a6f
 - name: github.com/spf13/pflag
-  version: 298182f68c66c05229eb03ac171abe6e309ee79a
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: golang.org/x/crypto
   version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
@@ -309,6 +309,7 @@ imports:
   subpackages:
   - discovery
   - discovery/fake
+  - dynamic
   - informers
   - informers/admissionregistration
   - informers/admissionregistration/v1alpha1
