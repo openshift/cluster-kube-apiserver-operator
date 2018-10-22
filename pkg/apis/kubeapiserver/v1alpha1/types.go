@@ -62,7 +62,6 @@ type KubeletState struct {
 
 	// errors is a list of the errors during the deployment installation
 	Errors []string `json:"errors"`
->>>>>>> dc92bdf... add types for static pod management
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

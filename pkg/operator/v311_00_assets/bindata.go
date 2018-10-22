@@ -3,13 +3,13 @@
 // bindata/v3.11.0/kube-apiserver/cm.yaml
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/kube-apiserver/deployment-config-overrides.yaml
-// bindata/v3.11.0/kube-apiserver/deployment.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
+// bindata/v3.11.0/kube-apiserver/pod-cm.yaml
+// bindata/v3.11.0/kube-apiserver/pod.yaml
 // bindata/v3.11.0/kube-apiserver/public-info-role.yaml
 // bindata/v3.11.0/kube-apiserver/public-info-rolebinding.yaml
 // bindata/v3.11.0/kube-apiserver/public-info.yaml
-// bindata/v3.11.0/kube-apiserver/sa.yaml
 // bindata/v3.11.0/kube-apiserver/svc.yaml
 // DO NOT EDIT!
 
@@ -246,111 +246,6 @@ func v3110KubeApiserverDeploymentConfigOverridesYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDeploymentYaml = []byte(`apiVersion: apps/v1
-kind: Deployment
-metadata:
-  namespace: openshift-kube-apiserver
-  name: apiserver
-  labels:
-    app: openshift-kube-apiserver
-    apiserver: "true"
-spec:
-  strategy:
-    type: RollingUpdate
-  selector:
-    matchLabels:
-      app: openshift-kube-apiserver
-      apiserver: "true"
-  template:
-    metadata:
-      name: openshift-kube-apiserver
-      labels:
-        app: openshift-kube-apiserver
-        apiserver: "true"
-    spec:
-      serviceAccountName: openshift-kube-apiserver-sa
-      containers:
-      - name: apiserver
-        image: ${IMAGE}
-        imagePullPolicy: IfNotPresent
-        command: ["hypershift", "openshift-kube-apiserver"]
-        args:
-        - "--config=/var/run/configmaps/config/config.yaml"
-        ports:
-        - containerPort: 6443
-        volumeMounts:
-        - mountPath: /var/run/configmaps/config
-          name: config
-        - mountPath: /var/run/configmaps/aggregator-client-ca
-          name: aggregator-client-ca
-        - mountPath: /var/run/configmaps/client-ca
-          name: client-ca
-        - mountPath: /var/run/configmaps/etcd-serving-ca
-          name: etcd-serving-ca
-        - mountPath: /var/run/configmaps/kubelet-serving-ca
-          name: kubelet-serving-ca
-        - mountPath: /var/run/configmaps/sa-token-signing-certs
-          name: sa-token-signing-certs
-        - mountPath: /var/run/secrets/aggregator-client
-          name: aggregator-client
-        - mountPath: /var/run/secrets/etcd-client
-          name: etcd-client
-        - mountPath: /var/run/secrets/kubelet-client
-          name: kubelet-client
-        - mountPath: /var/run/secrets/serving-cert
-          name: serving-cert
-      volumes:
-      - name: config
-        configMap:
-          name: deployment-kube-apiserver-config
-      - name: aggregator-client-ca
-        configMap:
-          name: aggregator-client-ca
-      - name: client-ca
-        configMap:
-          name: client-ca
-      - name: etcd-serving-ca
-        configMap:
-          name: etcd-serving-ca
-      - name: kubelet-serving-ca
-        configMap:
-          name: kubelet-serving-ca
-      - name: sa-token-signing-certs
-        configMap:
-          name: sa-token-signing-certs
-      - name: aggregator-client
-        secret:
-          secretName: aggregator-client
-      - name: etcd-client
-        secret:
-          secretName: etcd-client
-      - name: kubelet-client
-        secret:
-          secretName: kubelet-client
-      - name: serving-cert
-        secret:
-          secretName: serving-cert
-      nodeSelector:
-        node-role.kubernetes.io/master: ""
-      tolerations:
-      - operator: Exists
-`)
-
-func v3110KubeApiserverDeploymentYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverDeploymentYaml, nil
-}
-
-func v3110KubeApiserverDeploymentYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverDeploymentYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/deployment.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v3110KubeApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
@@ -398,6 +293,118 @@ func v3110KubeApiserverOperatorConfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/operator-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPodCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: kube-apiserver-pod
+data:
+  pod.yaml:
+`)
+
+func v3110KubeApiserverPodCmYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPodCmYaml, nil
+}
+
+func v3110KubeApiserverPodCmYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPodCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/pod-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPodYaml = []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: openshift-kube-apiserver
+  labels:
+    app: openshift-kube-apiserver
+    apiserver: "true"
+spec:
+  serviceAccountName: openshift-kube-apiserver-sa
+  containers:
+  - name: apiserver
+    image: ${IMAGE}
+    imagePullPolicy: IfNotPresent
+    command: ["hypershift", "openshift-kube-apiserver"]
+    args:
+    - "--config=/var/run/configmaps/config/config.yaml"
+    ports:
+    - containerPort: 6443
+    volumeMounts:
+    - mountPath: /var/run/configmaps/config
+      name: config
+    - mountPath: /var/run/configmaps/aggregator-client-ca
+      name: aggregator-client-ca
+    - mountPath: /var/run/configmaps/client-ca
+      name: client-ca
+    - mountPath: /var/run/configmaps/etcd-serving-ca
+      name: etcd-serving-ca
+    - mountPath: /var/run/configmaps/kubelet-serving-ca
+      name: kubelet-serving-ca
+    - mountPath: /var/run/configmaps/sa-token-signing-certs
+      name: sa-token-signing-certs
+    - mountPath: /var/run/secrets/aggregator-client
+      name: aggregator-client
+    - mountPath: /var/run/secrets/etcd-client
+      name: etcd-client
+    - mountPath: /var/run/secrets/kubelet-client
+      name: kubelet-client
+    - mountPath: /var/run/secrets/serving-cert
+      name: serving-cert
+  volumes:
+  - name: config
+    configMap:
+      name: deployment-kube-apiserver-config
+  - name: aggregator-client-ca
+    configMap:
+      name: aggregator-client-ca
+  - name: client-ca
+    configMap:
+      name: client-ca
+  - name: etcd-serving-ca
+    configMap:
+      name: etcd-serving-ca
+  - name: kubelet-serving-ca
+    configMap:
+      name: kubelet-serving-ca
+  - name: sa-token-signing-certs
+    configMap:
+      name: sa-token-signing-certs
+  - name: aggregator-client
+    secret:
+      secretName: aggregator-client
+  - name: etcd-client
+    secret:
+      secretName: etcd-client
+  - name: kubelet-client
+    secret:
+      secretName: kubelet-client
+  - name: serving-cert
+    secret:
+      secretName: serving-cert
+`)
+
+func v3110KubeApiserverPodYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPodYaml, nil
+}
+
+func v3110KubeApiserverPodYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPodYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -497,28 +504,6 @@ func v3110KubeApiserverPublicInfoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverSaYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver-sa
-`)
-
-func v3110KubeApiserverSaYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverSaYaml, nil
-}
-
-func v3110KubeApiserverSaYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverSaYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/sa.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v3110KubeApiserverSvcYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
@@ -608,13 +593,13 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/cm.yaml":                          v3110KubeApiserverCmYaml,
 	"v3.11.0/kube-apiserver/defaultconfig.yaml":               v3110KubeApiserverDefaultconfigYaml,
 	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
-	"v3.11.0/kube-apiserver/deployment.yaml":                  v3110KubeApiserverDeploymentYaml,
 	"v3.11.0/kube-apiserver/ns.yaml":                          v3110KubeApiserverNsYaml,
 	"v3.11.0/kube-apiserver/operator-config.yaml":             v3110KubeApiserverOperatorConfigYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":                      v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":                         v3110KubeApiserverPodYaml,
 	"v3.11.0/kube-apiserver/public-info-role.yaml":            v3110KubeApiserverPublicInfoRoleYaml,
 	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":     v3110KubeApiserverPublicInfoRolebindingYaml,
 	"v3.11.0/kube-apiserver/public-info.yaml":                 v3110KubeApiserverPublicInfoYaml,
-	"v3.11.0/kube-apiserver/sa.yaml":                          v3110KubeApiserverSaYaml,
 	"v3.11.0/kube-apiserver/svc.yaml":                         v3110KubeApiserverSvcYaml,
 }
 
@@ -664,13 +649,13 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                          {v3110KubeApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":               {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"deployment-config-overrides.yaml": {v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
-			"deployment.yaml":                  {v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
 			"ns.yaml":                          {v3110KubeApiserverNsYaml, map[string]*bintree{}},
 			"operator-config.yaml":             {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                      {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                         {v3110KubeApiserverPodYaml, map[string]*bintree{}},
 			"public-info-role.yaml":            {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
 			"public-info-rolebinding.yaml":     {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
 			"public-info.yaml":                 {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
-			"sa.yaml":                          {v3110KubeApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                         {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
