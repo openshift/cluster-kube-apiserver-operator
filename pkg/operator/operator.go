@@ -29,9 +29,10 @@ import (
 )
 
 const (
-	etcdNamespaceName   = "kube-system"
-	targetNamespaceName = "openshift-kube-apiserver"
-	workQueueKey        = "key"
+	etcdNamespaceName              = "kube-system"
+	targetNamespaceName            = "openshift-kube-apiserver"
+	serviceCertSignerNamespaceName = "openshift-service-cert-signer"
+	workQueueKey                   = "key"
 )
 
 type KubeAPIServerOperator struct {

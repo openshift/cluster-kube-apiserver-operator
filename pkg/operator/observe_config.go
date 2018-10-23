@@ -33,7 +33,8 @@ type observeConfigFunc func(kubernetes.Interface, *rest.Config, map[string]inter
 type ConfigObserver struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
-	kubeClient kubernetes.Interface
+	kubeClient   kubernetes.Interface
+	clientConfig *rest.Config
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -48,11 +49,14 @@ func NewConfigObserver(
 	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
+	kubeInformersForOpenshiftServiceCertSignerNamespace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
+	clientConfig *rest.Config,
 ) *ConfigObserver {
 	c := &ConfigObserver{
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
+		clientConfig:         clientConfig,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 
@@ -60,12 +64,14 @@ func NewConfigObserver(
 		observers: []observeConfigFunc{
 			observeEtcdEndpoints,
 			observeClusterConfig,
+			observeCABundleConfig,
 		},
 	}
 
 	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftServiceCertSignerNamespace.Core().V1().Namespaces().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -78,7 +84,7 @@ func (c ConfigObserver) sync() error {
 	var err error
 
 	for _, observer := range c.observers {
-		observedConfig, err = observer(c.kubeClient, &rest.Config{}, observedConfig)
+		observedConfig, err = observer(c.kubeClient, c.clientConfig, observedConfig)
 		if err != nil {
 			return err
 		}
@@ -103,6 +109,19 @@ func (c ConfigObserver) sync() error {
 	}
 
 	return nil
+}
+
+func observeCABundleConfig(kubeClient kubernetes.Interface, clientConfig *rest.Config, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+	caBundleConfig, err := kubeClient.CoreV1().ConfigMaps(serviceCertSignerNamespaceName).Get("signing-cabundle", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	if caBundleConfig != nil {
+		if val := caBundleConfig.Data["cabundle.crt"]; len(val) > 0 {
+			// TODO: what is the nested field path? Where do we store the service-ca info?
+		}
+	}
+	return observedConfig, nil
 }
 
 // observeEtcdEndpoints reads the etcd endpoints from the endpoints object and then manually pull out the hostnames to

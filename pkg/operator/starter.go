@@ -36,6 +36,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
+	kubeInformersForOpenshiftServiceCertSignerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(serviceCertSignerNamespaceName))
 
 	v1alpha1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
@@ -57,7 +58,9 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigInformers,
 		kubeInformersForKubeSystemNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
+		kubeInformersForOpenshiftServiceCertSignerNamespace,
 		kubeClient,
+		clientConfig,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -70,6 +73,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	operatorConfigInformers.Start(stopCh)
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(stopCh)
 	kubeInformersForKubeSystemNamespace.Start(stopCh)
+	kubeInformersForOpenshiftServiceCertSignerNamespace.Start(stopCh)
 
 	go operator.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
