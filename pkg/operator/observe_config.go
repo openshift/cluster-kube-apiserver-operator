@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	"github.com/imdario/mergo"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -24,11 +27,19 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/openshift/api/operator/v1alpha1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
-type observeConfigFunc func(kubernetes.Interface, *rest.Config, map[string]interface{}) (map[string]interface{}, error)
+const configObservationErrorConditionReason = "ConfigObservationError"
+
+// observeConfigFunc observes configuration and returns the observedConfig. This function should not return an
+// observedConfig that would cause the service being managed by the operator to crash. For example, if a required
+// configuration key cannot be observed, consider reusing the configuration key's previous value. Errors that occur
+// while attempting to generate the observedConfig should be returned in the errs slice.
+type observeConfigFunc func(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
 
 type ConfigObserver struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
@@ -39,8 +50,8 @@ type ConfigObserver struct {
 	queue workqueue.RateLimitingInterface
 
 	rateLimiter flowcontrol.RateLimiter
-	// observers are used to build the observed configuration. They are called in
-	// order and are expected to mutate the config based on cluster state.
+	// observers are called in an undefined order and their results are merged to
+	// determine the observed configuration.
 	observers []observeConfigFunc
 }
 
@@ -58,8 +69,8 @@ func NewConfigObserver(
 
 		rateLimiter: flowcontrol.NewTokenBucketRateLimiter(0.05 /*3 per minute*/, 4),
 		observers: []observeConfigFunc{
-			observeEtcdEndpoints,
-			observeClusterConfig,
+			observeStorageURLs,
+			observeRestrictedCIDRs,
 		},
 	}
 
@@ -74,16 +85,6 @@ func NewConfigObserver(
 // must be information that is logically "owned" by another component.
 func (c ConfigObserver) sync() error {
 
-	observedConfig := map[string]interface{}{}
-	var err error
-
-	for _, observer := range c.observers {
-		observedConfig, err = observer(c.kubeClient, &rest.Config{}, observedConfig)
-		if err != nil {
-			return err
-		}
-	}
-
 	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -92,63 +93,134 @@ func (c ConfigObserver) sync() error {
 	// don't worry about errors
 	currentConfig := map[string]interface{}{}
 	json.NewDecoder(bytes.NewBuffer(operatorConfig.Spec.ObservedConfig.Raw)).Decode(&currentConfig)
-	if reflect.DeepEqual(currentConfig, observedConfig) {
-		return nil
+
+	var errs []error
+	var observedConfigs []map[string]interface{}
+	for _, i := range rand.Perm(len(c.observers)) {
+		var currErrs []error
+		observedConfig, currErrs := c.observers[i](c.kubeClient, &rest.Config{}, currentConfig)
+		observedConfigs = append(observedConfigs, observedConfig)
+		errs = append(errs, currErrs...)
 	}
 
-	glog.Infof("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
-	operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
-	if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
-		return err
+	mergedObservedConfig := map[string]interface{}{}
+	for _, observedConfig := range observedConfigs {
+		mergo.Merge(&mergedObservedConfig, observedConfig)
+	}
+
+	if !equality.Semantic.DeepEqual(currentConfig, mergedObservedConfig) {
+		glog.Infof("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, mergedObservedConfig))
+		operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: mergedObservedConfig}}
+		operatorConfig, err = c.operatorConfigClient.KubeAPIServerOperatorConfigs().Update(operatorConfig)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("kubeapiserveroperatorconfigs/instance: error writing updated observed config: %v", err))
+		}
+	}
+
+	status := operatorConfig.Status.DeepCopy()
+	if len(errs) > 0 {
+		var messages []string
+		for _, currentError := range errs {
+			messages = append(messages, currentError.Error())
+		}
+		v1alpha1helpers.SetOperatorCondition(&status.Conditions, v1alpha1.OperatorCondition{
+			Type:    v1alpha1.OperatorStatusTypeFailing,
+			Status:  v1alpha1.ConditionTrue,
+			Reason:  configObservationErrorConditionReason,
+			Message: strings.Join(messages, "\n"),
+		})
+	} else {
+		condition := v1alpha1helpers.FindOperatorCondition(status.Conditions, v1alpha1.OperatorStatusTypeFailing)
+		if condition != nil && condition.Status != v1alpha1.ConditionFalse && condition.Reason == configObservationErrorConditionReason {
+			condition.Status = v1alpha1.ConditionFalse
+			condition.Reason = ""
+			condition.Message = ""
+		}
+	}
+
+	if !equality.Semantic.DeepEqual(operatorConfig.Status, status) {
+		operatorConfig.Status = *status
+		_, err = c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// observeEtcdEndpoints reads the etcd endpoints from the endpoints object and then manually pull out the hostnames to
-// get the etcd urls for our config. Setting them observed config causes the normal reconciliation loop to run
-func observeEtcdEndpoints(kubeClient kubernetes.Interface, clientConfig *rest.Config, observedConfig map[string]interface{}) (map[string]interface{}, error) {
-	etcdURLs := []string{}
+// observeStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
+// then the previously observed storage config URLs will be re-used.
+func observeStorageURLs(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+	observedConfig = map[string]interface{}{}
+	storageConfigURLsPath := []string{"storageConfig", "urls"}
+	if currentEtcdURLs, found, _ := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...); found {
+		unstructured.SetNestedStringSlice(observedConfig, currentEtcdURLs, storageConfigURLsPath...)
+	}
+
+	var etcdURLs []string
 	etcdEndpoints, err := kubeClient.CoreV1().Endpoints(etcdNamespaceName).Get("etcd", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		return observedConfig, nil
+		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: not found"))
+		return
 	}
 	if err != nil {
-		return observedConfig, err
+		errs = append(errs, err)
+		return
 	}
-	for _, subset := range etcdEndpoints.Subsets {
-		for _, address := range subset.Addresses {
-			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]+":2379")
+	dnsSuffix := etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]
+	if len(dnsSuffix) == 0 {
+		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: alpha.installer.openshift.io/dns-suffix annotation not found"))
+		return
+	}
+	for subsetIndex, subset := range etcdEndpoints.Subsets {
+		for addressIndex, address := range subset.Addresses {
+			if address.Hostname == "" {
+				errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: subsets[%v]addresses[%v].hostname not found", subsetIndex, addressIndex))
+				continue
+			}
+			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+dnsSuffix+":2379")
 		}
 	}
-	if len(etcdURLs) > 0 {
-		unstructured.SetNestedStringSlice(observedConfig, etcdURLs, "storageConfig", "urls")
-	} else {
-		glog.Warningf("no etcd endpoints found")
+
+	if len(etcdURLs) == 0 {
+		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: no etcd endpoint addresses found"))
 	}
-	return observedConfig, nil
+	if len(errs) > 0 {
+		return
+	}
+	unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...)
+	return
 }
 
-// observeClusterConfig observes CIDRs from cluster-config-v1 in order to populate list of restrictedCIDRs
-func observeClusterConfig(kubeClient kubernetes.Interface, clientConfig *rest.Config, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+// observeRestrictedCIDRs observes list of restrictedCIDRs.
+func observeRestrictedCIDRs(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+	observedConfig = map[string]interface{}{}
+	restrictedCIDRsPath := []string{"admissionPluginConfig", "openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs"}
+	//if currentRestrictedCIDRs, found, _ := unstructured.NestedStringSlice(currentConfig, restrictedCIDRsPath...); found {
+	//	unstructured.SetNestedStringSlice(observedConfig, currentRestrictedCIDRs, restrictedCIDRsPath...)
+	//}
+
 	clusterConfig, err := kubeClient.CoreV1().ConfigMaps("kube-system").Get("cluster-config-v1", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		glog.Warningf("cluster-config-v1 not found in the kube-system namespace")
-		return observedConfig, nil
+		errs = append(errs, fmt.Errorf("configmap/cluster-config-v1.kube-system: not found"))
+		return
 	}
 	if err != nil {
-		return observedConfig, err
+		errs = append(errs, err)
+		return
 	}
 
 	installConfigYaml, ok := clusterConfig.Data["install-config"]
 	if !ok {
-		return observedConfig, nil
+		errs = append(errs, fmt.Errorf("configmap/cluster-config-v1.kube-system: install-config not found"))
+		return
 	}
 	installConfig := map[string]interface{}{}
 	err = yaml.Unmarshal([]byte(installConfigYaml), &installConfig)
 	if err != nil {
-		glog.Warningf("Unable to parse install-config: %s", err)
-		return observedConfig, nil
+		errs = append(errs, err)
+		return
 	}
 
 	// extract needed values
@@ -157,21 +229,20 @@ func observeClusterConfig(kubeClient kubernetes.Interface, clientConfig *rest.Co
 	//     networking:
 	//       podCIDR: 10.2.0.0/16
 	//       serviceCIDR: 10.3.0.0/16
-	restrictedCIDRs := []string{}
-	networking, ok := installConfig["networking"].(map[string]interface{})
-	if !ok {
-		return observedConfig, nil
-	}
-	if cidr := networking["podCIDR"]; cidr != nil {
-		restrictedCIDRs = append(restrictedCIDRs, fmt.Sprintf("%v", cidr))
+	var restrictedCIDRs []string
+	podCIDR, found, _ := unstructured.NestedString(installConfig, "networking", "podCIDR")
+	if found {
+		restrictedCIDRs = append(restrictedCIDRs, podCIDR)
 	} else {
-		glog.Warningf("No value found for install-config/networking/podCIDR.")
+		errs = append(errs, fmt.Errorf("configmap/cluster-config-v1.kube-system: install-config/networking/podCIDR not found"))
 	}
-	if cidr := networking["serviceCIDR"]; cidr != nil {
-		restrictedCIDRs = append(restrictedCIDRs, fmt.Sprintf("%v", cidr))
+	serviceCIDR, found, _ := unstructured.NestedString(installConfig, "networking", "serviceCIDR")
+	if found {
+		restrictedCIDRs = append(restrictedCIDRs, serviceCIDR)
 	} else {
-		glog.Warningf("No value found for install-config/networking/serviceCIDR.")
+		errs = append(errs, fmt.Errorf("configmap/cluster-config-v1.kube-system: install-config/networking/serviceCIDR not found"))
 	}
+
 	// set observed values
 	//  admissionPluginConfig:
 	//    openshift.io/RestrictedEndpointsAdmission:
@@ -180,11 +251,10 @@ func observeClusterConfig(kubeClient kubernetes.Interface, clientConfig *rest.Co
 	//	    - 10.3.0.0/16 # ServiceCIDR
 	//	    - 10.2.0.0/16 # ClusterCIDR
 	if len(restrictedCIDRs) > 0 {
-		unstructured.SetNestedStringSlice(observedConfig, restrictedCIDRs,
-			"admissionPluginConfig", "openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
+		unstructured.SetNestedStringSlice(observedConfig, restrictedCIDRs, restrictedCIDRsPath...)
 	}
 
-	return observedConfig, nil
+	return
 }
 
 func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
