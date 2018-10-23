@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: installer-<deployment-id>-<nodeName>
+  labels:
+    app: installer
+spec:
+  # TODO change this
+  serviceAccountName: openshift-kube-apiserver-sa
+  containers:
+  - name: apiserver
+    image: ${IMAGE}
+    imagePullPolicy: Always
+    command: ["cluster-kube-apiserver-operator", "operator"]
+  restartPolicy: Never

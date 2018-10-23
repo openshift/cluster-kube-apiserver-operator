@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/blang/semver"
 	"github.com/golang/glog"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -47,7 +47,7 @@ func NewDeploymentController(
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 	namespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
+	namespacedKubeInformers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
