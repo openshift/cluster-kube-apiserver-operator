@@ -3,6 +3,7 @@
 // bindata/v3.11.0/kube-apiserver/cm.yaml
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/kube-apiserver/deployment-config-overrides.yaml
+// bindata/v3.11.0/kube-apiserver/installer-pod.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
@@ -242,6 +243,39 @@ func v3110KubeApiserverDeploymentConfigOverridesYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/deployment-config-overrides.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverInstallerPodYaml = []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: installer-<deployment-id>-<nodeName>
+  labels:
+    app: installer
+spec:
+  # TODO change this
+  serviceAccountName: openshift-kube-apiserver-sa
+  containers:
+  - name: apiserver
+    image: ${IMAGE}
+    imagePullPolicy: Always
+    command: ["cluster-kube-apiserver-operator", "operator"]
+  restartPolicy: Never
+`)
+
+func v3110KubeApiserverInstallerPodYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverInstallerPodYaml, nil
+}
+
+func v3110KubeApiserverInstallerPodYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverInstallerPodYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -593,6 +627,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/cm.yaml":                          v3110KubeApiserverCmYaml,
 	"v3.11.0/kube-apiserver/defaultconfig.yaml":               v3110KubeApiserverDefaultconfigYaml,
 	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
+	"v3.11.0/kube-apiserver/installer-pod.yaml":               v3110KubeApiserverInstallerPodYaml,
 	"v3.11.0/kube-apiserver/ns.yaml":                          v3110KubeApiserverNsYaml,
 	"v3.11.0/kube-apiserver/operator-config.yaml":             v3110KubeApiserverOperatorConfigYaml,
 	"v3.11.0/kube-apiserver/pod-cm.yaml":                      v3110KubeApiserverPodCmYaml,
@@ -649,6 +684,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                          {v3110KubeApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":               {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"deployment-config-overrides.yaml": {v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
+			"installer-pod.yaml":               {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
 			"ns.yaml":                          {v3110KubeApiserverNsYaml, map[string]*bintree{}},
 			"operator-config.yaml":             {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
 			"pod-cm.yaml":                      {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},

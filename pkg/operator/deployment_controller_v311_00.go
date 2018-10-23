@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"reflect"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/golang/glog"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
@@ -62,9 +61,10 @@ func createDeploymentController_v311_00_to_latest(c DeploymentController, operat
 	return false, nil
 }
 
-// directCopyConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller
+// deploymentConfigMaps_v311_00_to_latest is a list of configmaps that are directly copied for the current values.  A different actor/controller
 // modifies these.
-var directCopyConfigMaps = []string{
+// the first element should be the configmap that contains the static pod manifest
+var deploymentConfigMaps_v311_00_to_latest = []string{
 	"kube-apiserver-pod",
 	"deployment-kube-apiserver-config",
 	"aggregator-client-ca",
@@ -74,9 +74,9 @@ var directCopyConfigMaps = []string{
 	"sa-token-signing-certs",
 }
 
-// directCopySecrets is a list of secrets that are directly copied for the current values.  A different actor/controller
+// deploymentSecrets_v311_00_to_latest is a list of secrets that are directly copied for the current values.  A different actor/controller
 // modifies these.
-var directCopySecrets = []string{
+var deploymentSecrets_v311_00_to_latest = []string{
 	"aggregator-client",
 	"etcd-client",
 	"kubelet-client",
@@ -89,7 +89,7 @@ func nameFor(name string, deploymentID int32) string {
 
 // isLatestDeploymentCurrent returns whether the latest deployment is up to date and an optional reason
 func isLatestDeploymentCurrent(c kubernetes.Interface, deploymentID int32) (bool, string) {
-	for _, name := range directCopyConfigMaps {
+	for _, name := range deploymentConfigMaps_v311_00_to_latest {
 		required, err := c.CoreV1().ConfigMaps(targetNamespaceName).Get(name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, err.Error()
@@ -102,7 +102,7 @@ func isLatestDeploymentCurrent(c kubernetes.Interface, deploymentID int32) (bool
 			return false, fmt.Sprintf("configmap/%s has changed", required.Name)
 		}
 	}
-	for _, name := range directCopySecrets {
+	for _, name := range deploymentSecrets_v311_00_to_latest {
 		required, err := c.CoreV1().Secrets(targetNamespaceName).Get(name, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, err.Error()
@@ -120,7 +120,7 @@ func isLatestDeploymentCurrent(c kubernetes.Interface, deploymentID int32) (bool
 }
 
 func createNewDeploymentController(c kubernetes.Interface, deploymentID int32) error {
-	for _, name := range directCopyConfigMaps {
+	for _, name := range deploymentConfigMaps_v311_00_to_latest {
 		obj, _, err := resourceapply.SyncConfigMap(c.CoreV1(), targetNamespaceName, name, targetNamespaceName, nameFor(name, deploymentID))
 		if err != nil {
 			return err
@@ -129,7 +129,7 @@ func createNewDeploymentController(c kubernetes.Interface, deploymentID int32) e
 			return apierrors.NewNotFound(corev1.Resource("configmaps"), name)
 		}
 	}
-	for _, name := range directCopySecrets {
+	for _, name := range deploymentSecrets_v311_00_to_latest {
 		obj, _, err := resourceapply.SyncSecret(c.CoreV1(), targetNamespaceName, name, targetNamespaceName, nameFor(name, deploymentID))
 		if err != nil {
 			return err

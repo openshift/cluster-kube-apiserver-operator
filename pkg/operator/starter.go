@@ -34,6 +34,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		return err
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
+	kubeInformersClusterScoped := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
 	kubeInformersNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, targetNamespaceName, nil)
 	kubeInformersEtcdNamespaced := informers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, etcdNamespaceName, nil)
 
@@ -60,9 +61,21 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 	)
-	deploymentContent := NewDeploymentController(
+	deploymentController := NewDeploymentController(
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
 		kubeInformersNamespaced,
+		operatorConfigClient.KubeapiserverV1alpha1(),
+		kubeClient,
+	)
+	installerController := NewInstallerController(
+		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
+		kubeInformersNamespaced,
+		operatorConfigClient.KubeapiserverV1alpha1(),
+		kubeClient,
+	)
+	nodeController := NewNodeController(
+		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
+		kubeInformersClusterScoped,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 	)
@@ -82,11 +95,14 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers.Start(stopCh)
+	kubeInformersClusterScoped.Start(stopCh)
 	kubeInformersNamespaced.Start(stopCh)
 	kubeInformersEtcdNamespaced.Start(stopCh)
 
 	go prereqs.Run(1, stopCh)
-	go deploymentContent.Run(1, stopCh)
+	go deploymentController.Run(1, stopCh)
+	go installerController.Run(1, stopCh)
+	go nodeController.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
 	go clusterOperatorStatus.Run(1, stopCh)
 

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -61,7 +61,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 			message = message + err.Error() + "\n"
 		}
 		v1alpha1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1alpha1.OperatorCondition{
-			Type:    "TargetConfigReconiclerFailing",
+			Type:    "TargetConfigReconcilerFailing",
 			Status:  operatorv1alpha1.ConditionTrue,
 			Reason:  "SynchronizationError",
 			Message: message,
@@ -74,7 +74,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	}
 
 	v1alpha1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1alpha1.OperatorCondition{
-		Type:   "TargetConfigReconiclerFailing",
+		Type:   "TargetConfigReconcilerFailing",
 		Status: operatorv1alpha1.ConditionFalse,
 	})
 	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {

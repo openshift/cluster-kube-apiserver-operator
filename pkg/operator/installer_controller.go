@@ -23,7 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/versioning"
 )
 
-type DeploymentController struct {
+type InstallerController struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
 	kubeClient kubernetes.Interface
@@ -32,27 +32,26 @@ type DeploymentController struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewDeploymentController(
+func NewInstallerController(
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeApiserverOperatorConfigInformer,
 	namespacedKubeInformers informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
-) *DeploymentController {
-	c := &DeploymentController{
+) *InstallerController {
+	c := &InstallerController{
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DeploymentController"),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InstallerController"),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
+	namespacedKubeInformers.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
 
-func (c DeploymentController) sync() error {
+func (c InstallerController) sync() error {
 	operatorConfig, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -89,7 +88,7 @@ func (c DeploymentController) sync() error {
 
 	switch {
 	case v311_00_to_unknown.BetweenOrEmpty(currentActualVersion) && v311_00_to_unknown.Between(&desiredVersion):
-		requeue, syncErr := createDeploymentController_v311_00_to_latest(c, operatorConfig)
+		requeue, syncErr := createInstallerController_v311_00_to_latest(c, operatorConfig)
 		if requeue && syncErr == nil {
 			return fmt.Errorf("synthetic requeue request")
 		}
@@ -123,12 +122,12 @@ func (c DeploymentController) sync() error {
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.
-func (c *DeploymentController) Run(workers int, stopCh <-chan struct{}) {
+func (c *InstallerController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting DeploymentController")
-	defer glog.Infof("Shutting down DeploymentController")
+	glog.Infof("Starting InstallerController")
+	defer glog.Infof("Shutting down InstallerController")
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
@@ -136,12 +135,12 @@ func (c *DeploymentController) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-func (c *DeploymentController) runWorker() {
+func (c *InstallerController) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *DeploymentController) processNextWorkItem() bool {
+func (c *InstallerController) processNextWorkItem() bool {
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
@@ -161,7 +160,7 @@ func (c *DeploymentController) processNextWorkItem() bool {
 }
 
 // eventHandler queues the operator to check spec and status
-func (c *DeploymentController) eventHandler() cache.ResourceEventHandler {
+func (c *InstallerController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
