@@ -1,5 +1,5 @@
 hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-10-18T10:27:52.99012618-04:00
+updated: 2018-10-23T10:17:18.74089+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -121,12 +121,14 @@ imports:
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: dd6554843a719fcb151deb612e2116371adedcb6
+  version: f3f0227935c44b469d34c3c202a634938a85c315
   subpackages:
   - pkg/assets
   - pkg/config/client
   - pkg/config/leaderelection
   - pkg/controller/controllercmd
+  - pkg/operator/render
+  - pkg/operator/render/options
   - pkg/operator/resource/resourceapply
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
@@ -142,7 +144,7 @@ imports:
 - name: github.com/pkg/profile
   version: 057bc52a47ec3c79498dda63f4a6f8298725e976
 - name: github.com/prometheus/client_golang
-  version: 6373fd93345740fc045eab648524bcbb65c3e690
+  version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
   - prometheus
 - name: github.com/prometheus/client_model
@@ -162,9 +164,9 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/cobra
-  version: 7c674d9e72017ed25f6d2b5e497a1368086b6a6f
+  version: fe5e611709b0c57fa4a89136deaa8e1d4004d053
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: 298182f68c66c05229eb03ac171abe6e309ee79a
 - name: golang.org/x/crypto
   version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
