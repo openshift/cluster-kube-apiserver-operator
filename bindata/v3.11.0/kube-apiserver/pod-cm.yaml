@@ -1,5 +1,7 @@
 apiVersion: v1
-kind: ServiceAccount
+kind: ConfigMap
 metadata:
   namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver-sa
+  name: kube-apiserver-pod
+data:
+  pod.yaml:
