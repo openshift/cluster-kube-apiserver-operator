@@ -30,6 +30,11 @@ type KubeAPIServerOperatorConfig struct {
 type KubeAPIServerOperatorConfigSpec struct {
 	operatorsv1alpha1api.OperatorSpec `json:",inline"`
 
+	// forceRedeploymentReason can be used to force the redeployment of the kube-apiserver by providing a unique string.
+	// This provides a mechanism to kick a previously failed deployment and provide a reason why you think it will work
+	// this time instead of failing again on the same config.
+	ForceRedeploymentReason string `json:"forceRedeploymentReason"`
+
 	// userConfig holds a sparse config that the user wants for this component.  It only needs to be the overrides from the defaults
 	// it will end up overlaying in the following order:
 	// 1. hardcoded default
