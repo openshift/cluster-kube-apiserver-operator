@@ -18,8 +18,8 @@ admissionPluginConfig:
     location: ""
 aggregatorConfig:
   proxyClientInfo:
-    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
-    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
+    certFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.crt
+    keyFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.key
 apiServerArguments:
   storage-backend:
   - etcd3
@@ -39,7 +39,7 @@ auditConfig:
 authConfig:
   oauthMetadataFile: ""
   requestHeader:
-    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt
+    clientCA: /etc/kubernetes/static-pod-resources/configmaps/aggregator-client-ca/ca-bundle.crt
     clientCommonNames:
     - kube-apiserver-proxy
     - system:openshift-aggregator
@@ -58,9 +58,10 @@ imagePolicyConfig:
   externalRegistryHostname: ""
   internalRegistryHostname: docker-registry.default.svc:5000
 kubeletClientInfo:
+  # empty until it's properly secured
   ca: ""
-  certFile: /etc/kubernetes/secrets/apiserver.crt
-  keyFile: /etc/kubernetes/secrets/apiserver.key
+  certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
   port: 10250
 oauthConfig:
   alwaysShowProviderSelection: false
@@ -82,22 +83,22 @@ oauthConfig:
 projectConfig:
   defaultNodeSelector: ""
 serviceAccountPublicKeyFiles:
-- /etc/kubernetes/secrets/service-account.pub
+- /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs/ca-bundle.crt
 servicesNodePortRange: 30000-32767
 servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
   bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
-  certFile: # To be filled
-  clientCA: # To be filled
-  keyFile: # To be filled
+  certFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt
+  clientCA: /etc/kubernetes/static-pod-resources/configmaps/client-ca/ca-bundle.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key
   maxRequestsInFlight: 1200
   namedCertificates: null
   requestTimeoutSeconds: 3600
 storageConfig:
-  ca: # To be filled
-  certFile: # To be filled
-  keyFile: # To be filled
+  ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
+  certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
   storagePrefix: openshift.io
   urls: null
 userAgentMatchingConfig:
