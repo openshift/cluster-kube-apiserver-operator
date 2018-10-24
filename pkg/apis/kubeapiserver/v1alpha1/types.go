@@ -9,8 +9,8 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// KubeApiserverConfig provides information to configure kube-apiserver
-type KubeApiserverConfig struct {
+// KubeAPISConfig provides information to configure kube-apiserver
+type KubeAPIServerConfig struct {
 	metav1.TypeMeta `json:",inline"`
 }
 
@@ -18,17 +18,17 @@ type KubeApiserverConfig struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// KubeApiserverOperatorConfig provides information to configure an operator to manage kube-apiserver.
-type KubeApiserverOperatorConfig struct {
+// KubeAPISOperatorConfig provides information to configure an operator to manage kube-apiserver.
+type KubeAPIServerOperatorConfig struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata" protobuf:"bytes,1,opt,name=metadata"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   KubeApiserverOperatorConfigSpec   `json:"spec" protobuf:"bytes,2,opt,name=spec"`
-	Status KubeApiserverOperatorConfigStatus `json:"status" protobuf:"bytes,3,opt,name=status"`
+	Spec   KubeAPIServerOperatorConfigSpec   `json:"spec"`
+	Status KubeAPIServerOperatorConfigStatus `json:"status"`
 }
 
-type KubeApiserverOperatorConfigSpec struct {
-	operatorsv1alpha1api.OperatorSpec `json:",inline" protobuf:"bytes,1,opt,name=operatorSpec"`
+type KubeAPIServerOperatorConfigSpec struct {
+	operatorsv1alpha1api.OperatorSpec `json:",inline"`
 
 	// userConfig holds a sparse config that the user wants for this component.  It only needs to be the overrides from the defaults
 	// it will end up overlaying in the following order:
@@ -41,17 +41,17 @@ type KubeApiserverOperatorConfigSpec struct {
 	ObservedConfig runtime.RawExtension `json:"observedConfig"`
 }
 
-type KubeApiserverOperatorConfigStatus struct {
-	operatorsv1alpha1api.OperatorStatus `json:",inline" protobuf:"bytes,1,opt,name=operatorStatus"`
+type KubeAPIServerOperatorConfigStatus struct {
+	operatorsv1alpha1api.OperatorStatus `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// KubeApiserverOperatorConfigList is a collection of items
-type KubeApiserverOperatorConfigList struct {
+// KubeAPISOperatorConfigList is a collection of items
+type KubeAPIServerOperatorConfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	// Items contains the items
-	Items []KubeApiserverOperatorConfig `json:"items" protobuf:"bytes,2,rep,name=items"`
+	Items []KubeAPIServerOperatorConfig `json:"items"`
 }

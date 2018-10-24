@@ -7,7 +7,7 @@ spec:
   group: kubeapiserver.operator.openshift.io
   version: v1alpha1
   names:
-    kind: KubeApiserverOperatorConfig
+    kind: KubeAPIServerOperatorConfig
     plural: kubeapiserveroperatorconfigs
     singular: kubeapiserveroperatorconfig
     categories:

@@ -11,41 +11,41 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-// KubeApiserverOperatorConfigsGetter has a method to return a KubeApiserverOperatorConfigInterface.
+// KubeAPIServerOperatorConfigsGetter has a method to return a KubeAPIServerOperatorConfigInterface.
 // A group's client should implement this interface.
-type KubeApiserverOperatorConfigsGetter interface {
-	KubeApiserverOperatorConfigs() KubeApiserverOperatorConfigInterface
+type KubeAPIServerOperatorConfigsGetter interface {
+	KubeAPIServerOperatorConfigs() KubeAPIServerOperatorConfigInterface
 }
 
-// KubeApiserverOperatorConfigInterface has methods to work with KubeApiserverOperatorConfig resources.
-type KubeApiserverOperatorConfigInterface interface {
-	Create(*v1alpha1.KubeApiserverOperatorConfig) (*v1alpha1.KubeApiserverOperatorConfig, error)
-	Update(*v1alpha1.KubeApiserverOperatorConfig) (*v1alpha1.KubeApiserverOperatorConfig, error)
-	UpdateStatus(*v1alpha1.KubeApiserverOperatorConfig) (*v1alpha1.KubeApiserverOperatorConfig, error)
+// KubeAPIServerOperatorConfigInterface has methods to work with KubeAPIServerOperatorConfig resources.
+type KubeAPIServerOperatorConfigInterface interface {
+	Create(*v1alpha1.KubeAPIServerOperatorConfig) (*v1alpha1.KubeAPIServerOperatorConfig, error)
+	Update(*v1alpha1.KubeAPIServerOperatorConfig) (*v1alpha1.KubeAPIServerOperatorConfig, error)
+	UpdateStatus(*v1alpha1.KubeAPIServerOperatorConfig) (*v1alpha1.KubeAPIServerOperatorConfig, error)
 	Delete(name string, options *v1.DeleteOptions) error
 	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.KubeApiserverOperatorConfig, error)
-	List(opts v1.ListOptions) (*v1alpha1.KubeApiserverOperatorConfigList, error)
+	Get(name string, options v1.GetOptions) (*v1alpha1.KubeAPIServerOperatorConfig, error)
+	List(opts v1.ListOptions) (*v1alpha1.KubeAPIServerOperatorConfigList, error)
 	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeApiserverOperatorConfig, err error)
-	KubeApiserverOperatorConfigExpansion
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeAPIServerOperatorConfig, err error)
+	KubeAPIServerOperatorConfigExpansion
 }
 
-// kubeApiserverOperatorConfigs implements KubeApiserverOperatorConfigInterface
-type kubeApiserverOperatorConfigs struct {
+// kubeAPIServerOperatorConfigs implements KubeAPIServerOperatorConfigInterface
+type kubeAPIServerOperatorConfigs struct {
 	client rest.Interface
 }
 
-// newKubeApiserverOperatorConfigs returns a KubeApiserverOperatorConfigs
-func newKubeApiserverOperatorConfigs(c *KubeapiserverV1alpha1Client) *kubeApiserverOperatorConfigs {
-	return &kubeApiserverOperatorConfigs{
+// newKubeAPIServerOperatorConfigs returns a KubeAPIServerOperatorConfigs
+func newKubeAPIServerOperatorConfigs(c *KubeapiserverV1alpha1Client) *kubeAPIServerOperatorConfigs {
+	return &kubeAPIServerOperatorConfigs{
 		client: c.RESTClient(),
 	}
 }
 
-// Get takes name of the kubeApiserverOperatorConfig, and returns the corresponding kubeApiserverOperatorConfig object, and an error if there is any.
-func (c *kubeApiserverOperatorConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfig{}
+// Get takes name of the kubeAPIServerOperatorConfig, and returns the corresponding kubeAPIServerOperatorConfig object, and an error if there is any.
+func (c *kubeAPIServerOperatorConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfig{}
 	err = c.client.Get().
 		Resource("kubeapiserveroperatorconfigs").
 		Name(name).
@@ -55,9 +55,9 @@ func (c *kubeApiserverOperatorConfigs) Get(name string, options v1.GetOptions) (
 	return
 }
 
-// List takes label and field selectors, and returns the list of KubeApiserverOperatorConfigs that match those selectors.
-func (c *kubeApiserverOperatorConfigs) List(opts v1.ListOptions) (result *v1alpha1.KubeApiserverOperatorConfigList, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfigList{}
+// List takes label and field selectors, and returns the list of KubeAPIServerOperatorConfigs that match those selectors.
+func (c *kubeAPIServerOperatorConfigs) List(opts v1.ListOptions) (result *v1alpha1.KubeAPIServerOperatorConfigList, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfigList{}
 	err = c.client.Get().
 		Resource("kubeapiserveroperatorconfigs").
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -66,8 +66,8 @@ func (c *kubeApiserverOperatorConfigs) List(opts v1.ListOptions) (result *v1alph
 	return
 }
 
-// Watch returns a watch.Interface that watches the requested kubeApiserverOperatorConfigs.
-func (c *kubeApiserverOperatorConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
+// Watch returns a watch.Interface that watches the requested kubeAPIServerOperatorConfigs.
+func (c *kubeAPIServerOperatorConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
 	return c.client.Get().
 		Resource("kubeapiserveroperatorconfigs").
@@ -75,24 +75,24 @@ func (c *kubeApiserverOperatorConfigs) Watch(opts v1.ListOptions) (watch.Interfa
 		Watch()
 }
 
-// Create takes the representation of a kubeApiserverOperatorConfig and creates it.  Returns the server's representation of the kubeApiserverOperatorConfig, and an error, if there is any.
-func (c *kubeApiserverOperatorConfigs) Create(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfig{}
+// Create takes the representation of a kubeAPIServerOperatorConfig and creates it.  Returns the server's representation of the kubeAPIServerOperatorConfig, and an error, if there is any.
+func (c *kubeAPIServerOperatorConfigs) Create(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfig{}
 	err = c.client.Post().
 		Resource("kubeapiserveroperatorconfigs").
-		Body(kubeApiserverOperatorConfig).
+		Body(kubeAPIServerOperatorConfig).
 		Do().
 		Into(result)
 	return
 }
 
-// Update takes the representation of a kubeApiserverOperatorConfig and updates it. Returns the server's representation of the kubeApiserverOperatorConfig, and an error, if there is any.
-func (c *kubeApiserverOperatorConfigs) Update(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfig{}
+// Update takes the representation of a kubeAPIServerOperatorConfig and updates it. Returns the server's representation of the kubeAPIServerOperatorConfig, and an error, if there is any.
+func (c *kubeAPIServerOperatorConfigs) Update(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfig{}
 	err = c.client.Put().
 		Resource("kubeapiserveroperatorconfigs").
-		Name(kubeApiserverOperatorConfig.Name).
-		Body(kubeApiserverOperatorConfig).
+		Name(kubeAPIServerOperatorConfig.Name).
+		Body(kubeAPIServerOperatorConfig).
 		Do().
 		Into(result)
 	return
@@ -101,20 +101,20 @@ func (c *kubeApiserverOperatorConfigs) Update(kubeApiserverOperatorConfig *v1alp
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
-func (c *kubeApiserverOperatorConfigs) UpdateStatus(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfig{}
+func (c *kubeAPIServerOperatorConfigs) UpdateStatus(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfig{}
 	err = c.client.Put().
 		Resource("kubeapiserveroperatorconfigs").
-		Name(kubeApiserverOperatorConfig.Name).
+		Name(kubeAPIServerOperatorConfig.Name).
 		SubResource("status").
-		Body(kubeApiserverOperatorConfig).
+		Body(kubeAPIServerOperatorConfig).
 		Do().
 		Into(result)
 	return
 }
 
-// Delete takes name of the kubeApiserverOperatorConfig and deletes it. Returns an error if one occurs.
-func (c *kubeApiserverOperatorConfigs) Delete(name string, options *v1.DeleteOptions) error {
+// Delete takes name of the kubeAPIServerOperatorConfig and deletes it. Returns an error if one occurs.
+func (c *kubeAPIServerOperatorConfigs) Delete(name string, options *v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("kubeapiserveroperatorconfigs").
 		Name(name).
@@ -124,7 +124,7 @@ func (c *kubeApiserverOperatorConfigs) Delete(name string, options *v1.DeleteOpt
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *kubeApiserverOperatorConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *kubeAPIServerOperatorConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	return c.client.Delete().
 		Resource("kubeapiserveroperatorconfigs").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
@@ -133,9 +133,9 @@ func (c *kubeApiserverOperatorConfigs) DeleteCollection(options *v1.DeleteOption
 		Error()
 }
 
-// Patch applies the patch and returns the patched kubeApiserverOperatorConfig.
-func (c *kubeApiserverOperatorConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
-	result = &v1alpha1.KubeApiserverOperatorConfig{}
+// Patch applies the patch and returns the patched kubeAPIServerOperatorConfig.
+func (c *kubeAPIServerOperatorConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
+	result = &v1alpha1.KubeAPIServerOperatorConfig{}
 	err = c.client.Patch(pt).
 		Resource("kubeapiserveroperatorconfigs").
 		SubResource(subresources...).

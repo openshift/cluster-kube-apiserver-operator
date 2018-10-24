@@ -45,7 +45,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operator := NewKubeApiserverOperator(
-		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs(),
+		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient.AppsV1(),
@@ -84,11 +84,11 @@ type operatorStatusProvider struct {
 }
 
 func (p *operatorStatusProvider) Informer() cache.SharedIndexInformer {
-	return p.informers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs().Informer()
+	return p.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer()
 }
 
 func (p *operatorStatusProvider) CurrentStatus() (operatorv1alpha1.OperatorStatus, error) {
-	instance, err := p.informers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs().Lister().Get("instance")
+	instance, err := p.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
 	if err != nil {
 		return operatorv1alpha1.OperatorStatus{}, err
 	}
