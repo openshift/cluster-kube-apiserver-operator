@@ -141,5 +141,6 @@ func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, options *
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
+	configMap.Data["forceRedeploymentReason"] = options.Spec.ForceRedeploymentReason
 	return resourceapply.ApplyConfigMap(client, configMap)
 }
