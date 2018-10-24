@@ -6,3 +6,4 @@ metadata:
 data:
   pod.yaml:
   forceRedeploymentReason:
+  version:

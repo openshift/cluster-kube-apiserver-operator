@@ -5,6 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -44,10 +47,15 @@ func NewInstaller() *cobra.Command {
 		Use:   "installer",
 		Short: "Install static pod and related resources",
 		Run: func(cmd *cobra.Command, args []string) {
+			glog.V(1).Info(cmd.Flags())
+			glog.V(1).Info(spew.Sdump(o))
+
+			if err := o.Complete(); err != nil {
+				glog.Fatal(err)
+			}
 			if err := o.Validate(); err != nil {
 				glog.Fatal(err)
 			}
-
 			if err := o.Run(); err != nil {
 				glog.Fatal(err)
 			}
@@ -110,6 +118,10 @@ func (o *InstallOptions) nameFor(prefix string) string {
 	return fmt.Sprintf("%s-%s", prefix, o.DeploymentID)
 }
 
+func (o *InstallOptions) prefixFor(name string) string {
+	return name[0 : len(name)-len(fmt.Sprintf("-%s", o.DeploymentID))]
+}
+
 func (o *InstallOptions) copyContent() error {
 	// gather all secrets
 	secrets := []*corev1.Secret{}
@@ -137,6 +149,7 @@ func (o *InstallOptions) copyContent() error {
 		return err
 	}
 	podContent := podConfigMap.Data["pod.yaml"]
+	podContent = strings.Replace(podContent, "DEPLOYMENT_ID", o.DeploymentID, -1)
 
 	// write secrets, configmaps, static pods
 	resourceDir := path.Join(o.ResourceDir, o.nameFor(o.PodConfigMapNamePrefix))
@@ -144,7 +157,7 @@ func (o *InstallOptions) copyContent() error {
 		return err
 	}
 	for _, secret := range secrets {
-		contentDir := path.Join(resourceDir, "secrets", secret.Name)
+		contentDir := path.Join(resourceDir, "secrets", o.prefixFor(secret.Name))
 		if err := os.MkdirAll(contentDir, 0755); err != nil {
 			return err
 		}
@@ -156,7 +169,7 @@ func (o *InstallOptions) copyContent() error {
 		}
 	}
 	for _, configmap := range configmaps {
-		contentDir := path.Join(resourceDir, "configmaps", configmap.Name)
+		contentDir := path.Join(resourceDir, "configmaps", o.prefixFor(configmap.Name))
 		if err := os.MkdirAll(contentDir, 0755); err != nil {
 			return err
 		}

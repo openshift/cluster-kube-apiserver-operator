@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+
 	corev1 "k8s.io/api/core/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -14,8 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // createTargetConfigReconciler_v311_00_to_latest takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
@@ -29,6 +29,8 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 		"v3.11.0/kube-apiserver/public-info-role.yaml",
 		"v3.11.0/kube-apiserver/public-info-rolebinding.yaml",
 		"v3.11.0/kube-apiserver/svc.yaml",
+		"v3.11.0/kube-apiserver/installer-sa.yaml",
+		"v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml",
 	)
 
 	for _, currResult := range directResourceResults {
@@ -90,8 +92,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
-	deploymentOverrides := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/deployment-config-overrides.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, deploymentOverrides, operatorConfig.Spec.UserConfig.Raw, operatorConfig.Spec.ObservedConfig.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.UserConfig.Raw, operatorConfig.Spec.ObservedConfig.Raw)
 	if err != nil {
 		return nil, false, err
 	}
@@ -99,48 +100,31 @@ func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMa
 }
 
 func manageKubeApiserverPublicConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, apiserverConfigString string, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
-	uncastUnstructured, err := runtime.Decode(unstructured.UnstructuredJSONScheme, []byte(apiserverConfigString))
-	if err != nil {
-		return nil, false, err
-	}
-	apiserverConfig := uncastUnstructured.(runtime.Unstructured)
-
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/public-info.yaml"))
 	if operatorConfig.Status.CurrentAvailability != nil {
 		configMap.Data["version"] = operatorConfig.Status.CurrentAvailability.Version
 	} else {
 		configMap.Data["version"] = ""
 	}
-	configMap.Data["imagePolicyConfig.internalRegistryHostname"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "imagePolicyConfig", "internalRegistryHostname")
-	if err != nil {
-		return nil, false, err
-	}
-	configMap.Data["imagePolicyConfig.externalRegistryHostname"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "imagePolicyConfig", "externalRegistryHostname")
-	if err != nil {
-		return nil, false, err
-	}
-	configMap.Data["projectConfig.defaultNodeSelector"], _, err = unstructured.NestedString(apiserverConfig.UnstructuredContent(), "projectConfig", "defaultNodeSelector")
-	if err != nil {
-		return nil, false, err
-	}
 
 	return resourceapply.ApplyConfigMap(client, configMap)
 }
 
-func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, options *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
+func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
-	switch corev1.PullPolicy(options.Spec.ImagePullPolicy) {
+	switch corev1.PullPolicy(operatorConfig.Spec.ImagePullPolicy) {
 	case corev1.PullAlways, corev1.PullIfNotPresent, corev1.PullNever:
-		required.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(options.Spec.ImagePullPolicy)
+		required.Spec.Containers[0].ImagePullPolicy = corev1.PullPolicy(operatorConfig.Spec.ImagePullPolicy)
 	case "":
 	default:
-		return nil, false, fmt.Errorf("invalid imagePullPolicy specified: %v", options.Spec.ImagePullPolicy)
+		return nil, false, fmt.Errorf("invalid imagePullPolicy specified: %v", operatorConfig.Spec.ImagePullPolicy)
 	}
-	required.Spec.Containers[0].Image = options.Spec.ImagePullSpec
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", options.Spec.Logging.Level))
+	required.Spec.Containers[0].Image = operatorConfig.Spec.ImagePullSpec
+	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", operatorConfig.Spec.Logging.Level))
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
-	configMap.Data["forceRedeploymentReason"] = options.Spec.ForceRedeploymentReason
+	configMap.Data["forceRedeploymentReason"] = operatorConfig.Spec.ForceRedeploymentReason
+	configMap.Data["version"] = version.Get().String()
 	return resourceapply.ApplyConfigMap(client, configMap)
 }
