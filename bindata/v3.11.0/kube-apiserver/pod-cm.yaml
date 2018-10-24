@@ -5,3 +5,4 @@ metadata:
   name: kube-apiserver-pod
 data:
   pod.yaml:
+  forceRedeploymentReason:

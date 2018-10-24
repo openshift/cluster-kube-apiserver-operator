@@ -338,6 +338,7 @@ metadata:
   name: kube-apiserver-pod
 data:
   pod.yaml:
+  forceRedeploymentReason:
 `)
 
 func v3110KubeApiserverPodCmYamlBytes() ([]byte, error) {
