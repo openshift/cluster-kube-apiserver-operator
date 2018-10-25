@@ -13,7 +13,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -23,10 +22,12 @@ import (
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions/kubeapiserver/v1alpha1"
 )
 
+// NodeController watches for new master nodes and adds them to the list for an operator
 type NodeController struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
-	nodeLister corelisterv1.NodeLister
+	nodeListerSynced cache.InformerSynced
+	nodeLister       corelisterv1.NodeLister
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -36,10 +37,10 @@ func NewNodeController(
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
-	kubeClient kubernetes.Interface,
 ) *NodeController {
 	c := &NodeController{
 		operatorConfigClient: operatorConfigClient,
+		nodeListerSynced:     kubeInformersClusterScoped.Core().V1().Nodes().Informer().HasSynced,
 		nodeLister:           kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "NodeController"),
@@ -113,6 +114,9 @@ func (c *NodeController) Run(workers int, stopCh <-chan struct{}) {
 
 	glog.Infof("Starting NodeController")
 	defer glog.Infof("Shutting down NodeController")
+	if !cache.WaitForCacheSync(stopCh, c.nodeListerSynced) {
+		return
+	}
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)

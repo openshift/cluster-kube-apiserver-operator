@@ -37,7 +37,7 @@ func createInstallerController_v311_00_to_latest(c InstallerController, operator
 		// if we are in a transition, check to see if our installer pod completed
 		if currKubeletState.TargetDeploymentID > currKubeletState.CurrentDeploymentID {
 			// TODO check to see if our installer pod completed.  Success or failure there indicates whether we should be failed.
-			newCurrKubeletState, err := checkIfInstallComplete(c.kubeClient, currKubeletState)
+			newCurrKubeletState, err := newKubeletStateForInstallInProgress(c.kubeClient, currKubeletState)
 			if err != nil {
 				return true, err
 			}
@@ -97,8 +97,8 @@ func createInstallerController_v311_00_to_latest(c InstallerController, operator
 	return false, nil
 }
 
-// checkIfInstallComplete returns the new KubeletState or and error
-func checkIfInstallComplete(c kubernetes.Interface, currKubeletState *v1alpha1.KubeletState) (*v1alpha1.KubeletState, error) {
+// newKubeletStateForInstallInProgress returns the new KubeletState or error
+func newKubeletStateForInstallInProgress(c kubernetes.Interface, currKubeletState *v1alpha1.KubeletState) (*v1alpha1.KubeletState, error) {
 	ret := currKubeletState.DeepCopy()
 	installerPod, err := c.CoreV1().Pods(targetNamespaceName).Get(getInstallerPodName(currKubeletState.TargetDeploymentID, currKubeletState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -177,13 +177,15 @@ func createInstallerPod(c kubernetes.Interface, currKubeletState *v1alpha1.Kubel
 	required.Name = getInstallerPodName(deploymentID, currKubeletState.NodeName)
 	required.Spec.NodeName = currKubeletState.NodeName
 	required.Spec.Containers[0].Image = getInstallerPodImage()
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", operatorConfig.Spec.Logging.Level))
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--deployment-id=%d", deploymentID))
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--namespace=%s", targetNamespaceName))
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--pod=%s", deploymentConfigMaps_v311_00_to_latest[0]))
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--resource-dir=%s", "/etc/kubernetes/static-pod-resources"))
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--pod-manifest-dir=%s", "/etc/kubernetes/manifests"))
-	for _, name := range deploymentConfigMaps_v311_00_to_latest[1:] {
+	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
+		fmt.Sprintf("-v=%d", operatorConfig.Spec.Logging.Level),
+		fmt.Sprintf("--deployment-id=%d", deploymentID),
+		fmt.Sprintf("--namespace=%s", targetNamespaceName),
+		fmt.Sprintf("--pod=%s", deploymentConfigMaps_v311_00_to_latest[0]),
+		fmt.Sprintf("--resource-dir=%s", "/etc/kubernetes/static-pod-resources"),
+		fmt.Sprintf("--pod-manifest-dir=%s", "/etc/kubernetes/manifests"),
+	)
+	for _, name := range deploymentConfigMaps_v311_00_to_latest {
 		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("--configmaps=%s", name))
 	}
 	for _, name := range deploymentSecrets_v311_00_to_latest {

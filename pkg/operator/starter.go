@@ -54,6 +54,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	// 3. installerController - this watches the latestDeploymentID and the list of kubeletStatus (alpha-sorted list).  When a latestDeploymentID
 	//    appears that doesn't match the current latest for first kubeletStatus and the first kubeletStatus isn't already transitioning,
 	//    it kicks off an installer pod.  If the next kubeletStatus doesn't match the immediate prior one, it kicks off that transition.
+	// 4. nodeController - watches nodes for master nodes and keeps the operator status up to date
 
 	prereqs := NewTargetConfigReconciler(
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
@@ -77,7 +78,6 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
 		kubeInformersClusterScoped,
 		operatorConfigClient.KubeapiserverV1alpha1(),
-		kubeClient,
 	)
 
 	configObserver := NewConfigObserver(
