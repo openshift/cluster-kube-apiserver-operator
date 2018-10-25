@@ -4,9 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
+	"github.com/openshift/library-go/pkg/assets"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -28,6 +31,7 @@ type renderOpts struct {
 	lockHostPath   string
 	etcdServerURLs []string
 	etcdServingCA  string
+	disablePhase2  bool
 }
 
 // NewRenderCommand creates a render command.
@@ -68,6 +72,10 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.lockHostPath, "manifest-lock-host-path", r.lockHostPath, "A host path mounted into the apiserver pods to hold lock.")
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
+
+	fs.BoolVar(&r.disablePhase2, "disable-phase-2", r.disablePhase2, "Disable rendering of the phase 2 daemonset and dependencies.")
+	fs.MarkHidden("disable-phase-2")
+	fs.MarkDeprecated("disable-phase-2", "Only used temporarily to synchronize roll out of the phase 2 removal.")
 }
 
 // Validate verifies the inputs.
@@ -137,7 +145,20 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig)
+	var filters []assets.FileInfoPredicate
+	if r.disablePhase2 {
+		filters = append(filters, func(info os.FileInfo) bool {
+			if strings.HasPrefix(info.Name(), "kube-system-") {
+				return false
+			}
+			if info.Name() == "daemonset-kube-apiserver.yaml" {
+				return false
+			}
+			return true
+		})
+	}
+
+	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig, filters...)
 }
 
 func mustReadTemplateFile(fname string) genericrenderoptions.Template {
