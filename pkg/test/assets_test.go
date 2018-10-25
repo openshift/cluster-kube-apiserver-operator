@@ -14,7 +14,7 @@ func TestYamlCorrectness(t *testing.T) {
 	readAllYaml("../../bindata/", t)
 }
 func readAllYaml(path string, t *testing.T) {
-	manifests, err := assets.New(path, render.Config{}, assets.OnlyYaml)
+	manifests, err := assets.New(path, render.TemplateData{}, assets.OnlyYaml)
 	if err != nil {
 		t.Errorf("Unexpected error reading manifests from %s: %v", path, err)
 	}
