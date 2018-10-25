@@ -6,11 +6,23 @@ metadata:
   labels:
     app: installer
 spec:
-  # TODO change this
-  serviceAccountName: openshift-kube-apiserver-sa
+  serviceAccountName: installer-sa
   containers:
   - name: apiserver
     image: ${IMAGE}
     imagePullPolicy: Always
-    command: ["cluster-kube-apiserver-operator", "operator"]
+    command: ["cluster-kube-apiserver-operator", "installer"]
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/kubernetes/
+      name: kubelet-dir
   restartPolicy: Never
+  securityContext:
+    runAsUser: 0
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/
+    name: kubelet-dir

@@ -2,8 +2,9 @@
 // sources:
 // bindata/v3.11.0/kube-apiserver/cm.yaml
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
-// bindata/v3.11.0/kube-apiserver/deployment-config-overrides.yaml
+// bindata/v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml
 // bindata/v3.11.0/kube-apiserver/installer-pod.yaml
+// bindata/v3.11.0/kube-apiserver/installer-sa.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
@@ -100,8 +101,8 @@ admissionPluginConfig:
     location: ""
 aggregatorConfig:
   proxyClientInfo:
-    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
-    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
+    certFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.crt
+    keyFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.key
 apiServerArguments:
   storage-backend:
   - etcd3
@@ -121,7 +122,7 @@ auditConfig:
 authConfig:
   oauthMetadataFile: ""
   requestHeader:
-    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt
+    clientCA: /etc/kubernetes/static-pod-resources/configmaps/aggregator-client-ca/ca-bundle.crt
     clientCommonNames:
     - kube-apiserver-proxy
     - system:openshift-aggregator
@@ -140,9 +141,10 @@ imagePolicyConfig:
   externalRegistryHostname: ""
   internalRegistryHostname: docker-registry.default.svc:5000
 kubeletClientInfo:
+  # empty until it's properly secured
   ca: ""
-  certFile: /etc/kubernetes/secrets/apiserver.crt
-  keyFile: /etc/kubernetes/secrets/apiserver.key
+  certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
   port: 10250
 oauthConfig:
   alwaysShowProviderSelection: false
@@ -164,22 +166,22 @@ oauthConfig:
 projectConfig:
   defaultNodeSelector: ""
 serviceAccountPublicKeyFiles:
-- /etc/kubernetes/secrets/service-account.pub
+- /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs/ca-bundle.crt
 servicesNodePortRange: 30000-32767
 servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
   bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
-  certFile: # To be filled
-  clientCA: # To be filled
-  keyFile: # To be filled
+  certFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt
+  clientCA: /etc/kubernetes/static-pod-resources/configmaps/client-ca/ca-bundle.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key
   maxRequestsInFlight: 1200
   namedCertificates: null
   requestTimeoutSeconds: 3600
 storageConfig:
-  ca: # To be filled
-  certFile: # To be filled
-  keyFile: # To be filled
+  ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
+  certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
   storagePrefix: openshift.io
   urls: null
 userAgentMatchingConfig:
@@ -203,46 +205,30 @@ func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDeploymentConfigOverridesYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
-kind: KubeAPIServerConfig
-aggregatorConfig:
-  proxyClientInfo:
-    certFile: /var/run/secrets/aggregator-client/tls.crt
-    keyFile: /var/run/secrets/aggregator-client/tls.key
-authConfig:
-  requestHeader:
-    clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
-kubeletClientInfo:
-  ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
-  certFile: /var/run/secrets/kubelet-client/tls.crt
-  keyFile: /var/run/secrets/kubelet-client/tls.key
-oauthConfig:
-  masterCA: /var/run/configmaps/client-ca/ca-bundle.crt
-serviceAccountPublicKeyFiles:
-- /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
-servingInfo:
-  certFile: /var/run/secrets/serving-cert/tls.crt
-  clientCA: /var/run/configmaps/client-ca/ca-bundle.crt
-  keyFile: /var/run/secrets/serving-cert/tls.key
-storageConfig:
-  ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt
-  certFile: /var/run/secrets/etcd-client/tls.crt
-  keyFile: /var/run/secrets/etcd-client/tls.key
-  urls:
-  - https://etcd.kube-system.svc.cluster.local:2379
+var _v3110KubeApiserverInstallerClusterRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:openshift:operator:cluster-kube-apiserver-installer
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  namespace: openshift-kube-apiserver
+  name: installer-sa
 `)
 
-func v3110KubeApiserverDeploymentConfigOverridesYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverDeploymentConfigOverridesYaml, nil
+func v3110KubeApiserverInstallerClusterRolebindingYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverInstallerClusterRolebindingYaml, nil
 }
 
-func v3110KubeApiserverDeploymentConfigOverridesYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverDeploymentConfigOverridesYamlBytes()
+func v3110KubeApiserverInstallerClusterRolebindingYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverInstallerClusterRolebindingYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/deployment-config-overrides.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -255,14 +241,26 @@ metadata:
   labels:
     app: installer
 spec:
-  # TODO change this
-  serviceAccountName: openshift-kube-apiserver-sa
+  serviceAccountName: installer-sa
   containers:
   - name: apiserver
     image: ${IMAGE}
     imagePullPolicy: Always
-    command: ["cluster-kube-apiserver-operator", "operator"]
+    command: ["cluster-kube-apiserver-operator", "installer"]
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/kubernetes/
+      name: kubelet-dir
   restartPolicy: Never
+  securityContext:
+    runAsUser: 0
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/
+    name: kubelet-dir
 `)
 
 func v3110KubeApiserverInstallerPodYamlBytes() ([]byte, error) {
@@ -276,6 +274,28 @@ func v3110KubeApiserverInstallerPodYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverInstallerSaYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: openshift-kube-apiserver
+  name: installer-sa
+`)
+
+func v3110KubeApiserverInstallerSaYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverInstallerSaYaml, nil
+}
+
+func v3110KubeApiserverInstallerSaYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverInstallerSaYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-sa.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -338,6 +358,8 @@ metadata:
   name: kube-apiserver-pod
 data:
   pod.yaml:
+  forceRedeploymentReason:
+  version:
 `)
 
 func v3110KubeApiserverPodCmYamlBytes() ([]byte, error) {
@@ -364,68 +386,24 @@ metadata:
     app: openshift-kube-apiserver
     apiserver: "true"
 spec:
-  serviceAccountName: openshift-kube-apiserver-sa
   containers:
   - name: apiserver
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
     command: ["hypershift", "openshift-kube-apiserver"]
     args:
-    - "--config=/var/run/configmaps/config/config.yaml"
+    - "--config=/etc/kubernetes/static-pod-resources/configmaps/deployment-kube-apiserver-config/config.yaml"
     ports:
     - containerPort: 6443
     volumeMounts:
-    - mountPath: /var/run/configmaps/config
-      name: config
-    - mountPath: /var/run/configmaps/aggregator-client-ca
-      name: aggregator-client-ca
-    - mountPath: /var/run/configmaps/client-ca
-      name: client-ca
-    - mountPath: /var/run/configmaps/etcd-serving-ca
-      name: etcd-serving-ca
-    - mountPath: /var/run/configmaps/kubelet-serving-ca
-      name: kubelet-serving-ca
-    - mountPath: /var/run/configmaps/sa-token-signing-certs
-      name: sa-token-signing-certs
-    - mountPath: /var/run/secrets/aggregator-client
-      name: aggregator-client
-    - mountPath: /var/run/secrets/etcd-client
-      name: etcd-client
-    - mountPath: /var/run/secrets/kubelet-client
-      name: kubelet-client
-    - mountPath: /var/run/secrets/serving-cert
-      name: serving-cert
+    - mountPath: /etc/kubernetes/static-pod-resources
+      name: resource-dir
+  hostNetwork: true
   volumes:
-  - name: config
-    configMap:
-      name: deployment-kube-apiserver-config
-  - name: aggregator-client-ca
-    configMap:
-      name: aggregator-client-ca
-  - name: client-ca
-    configMap:
-      name: client-ca
-  - name: etcd-serving-ca
-    configMap:
-      name: etcd-serving-ca
-  - name: kubelet-serving-ca
-    configMap:
-      name: kubelet-serving-ca
-  - name: sa-token-signing-certs
-    configMap:
-      name: sa-token-signing-certs
-  - name: aggregator-client
-    secret:
-      secretName: aggregator-client
-  - name: etcd-client
-    secret:
-      secretName: etcd-client
-  - name: kubelet-client
-    secret:
-      secretName: kubelet-client
-  - name: serving-cert
-    secret:
-      secretName: serving-cert
+  - hostPath:
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-DEPLOYMENT_ID
+    name: resource-dir
 `)
 
 func v3110KubeApiserverPodYamlBytes() ([]byte, error) {
@@ -624,18 +602,19 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml":                          v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml":               v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/kube-apiserver/deployment-config-overrides.yaml": v3110KubeApiserverDeploymentConfigOverridesYaml,
-	"v3.11.0/kube-apiserver/installer-pod.yaml":               v3110KubeApiserverInstallerPodYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":                          v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/operator-config.yaml":             v3110KubeApiserverOperatorConfigYaml,
-	"v3.11.0/kube-apiserver/pod-cm.yaml":                      v3110KubeApiserverPodCmYaml,
-	"v3.11.0/kube-apiserver/pod.yaml":                         v3110KubeApiserverPodYaml,
-	"v3.11.0/kube-apiserver/public-info-role.yaml":            v3110KubeApiserverPublicInfoRoleYaml,
-	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":     v3110KubeApiserverPublicInfoRolebindingYaml,
-	"v3.11.0/kube-apiserver/public-info.yaml":                 v3110KubeApiserverPublicInfoYaml,
-	"v3.11.0/kube-apiserver/svc.yaml":                         v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":                            v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml":                 v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml": v3110KubeApiserverInstallerClusterRolebindingYaml,
+	"v3.11.0/kube-apiserver/installer-pod.yaml":                 v3110KubeApiserverInstallerPodYaml,
+	"v3.11.0/kube-apiserver/installer-sa.yaml":                  v3110KubeApiserverInstallerSaYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":                            v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/operator-config.yaml":               v3110KubeApiserverOperatorConfigYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":                        v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":                           v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/public-info-role.yaml":              v3110KubeApiserverPublicInfoRoleYaml,
+	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":       v3110KubeApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/kube-apiserver/public-info.yaml":                   v3110KubeApiserverPublicInfoYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":                           v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -681,18 +660,19 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":                          {v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":               {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"deployment-config-overrides.yaml": {v3110KubeApiserverDeploymentConfigOverridesYaml, map[string]*bintree{}},
-			"installer-pod.yaml":               {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
-			"ns.yaml":                          {v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"operator-config.yaml":             {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
-			"pod-cm.yaml":                      {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":                         {v3110KubeApiserverPodYaml, map[string]*bintree{}},
-			"public-info-role.yaml":            {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
-			"public-info-rolebinding.yaml":     {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
-			"public-info.yaml":                 {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
-			"svc.yaml":                         {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml":                            {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":                 {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"installer-cluster-rolebinding.yaml": {v3110KubeApiserverInstallerClusterRolebindingYaml, map[string]*bintree{}},
+			"installer-pod.yaml":                 {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
+			"installer-sa.yaml":                  {v3110KubeApiserverInstallerSaYaml, map[string]*bintree{}},
+			"ns.yaml":                            {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"operator-config.yaml":               {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                        {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                           {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"public-info-role.yaml":              {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml":       {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml":                   {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
+			"svc.yaml":                           {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
