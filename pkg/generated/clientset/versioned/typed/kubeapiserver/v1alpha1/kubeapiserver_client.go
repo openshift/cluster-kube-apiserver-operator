@@ -11,7 +11,7 @@ import (
 
 type KubeapiserverV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	KubeApiserverOperatorConfigsGetter
+	KubeAPIServerOperatorConfigsGetter
 }
 
 // KubeapiserverV1alpha1Client is used to interact with features provided by the kubeapiserver.operator.openshift.io group.
@@ -19,8 +19,8 @@ type KubeapiserverV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *KubeapiserverV1alpha1Client) KubeApiserverOperatorConfigs() KubeApiserverOperatorConfigInterface {
-	return newKubeApiserverOperatorConfigs(c)
+func (c *KubeapiserverV1alpha1Client) KubeAPIServerOperatorConfigs() KubeAPIServerOperatorConfigInterface {
+	return newKubeAPIServerOperatorConfigs(c)
 }
 
 // NewForConfig creates a new KubeapiserverV1alpha1Client for the given config.

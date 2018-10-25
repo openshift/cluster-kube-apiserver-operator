@@ -46,7 +46,7 @@ type KubeAPIServerOperator struct {
 }
 
 func NewKubeApiserverOperator(
-	operatorConfigInformer operatorconfiginformerv1alpha1.KubeApiserverOperatorConfigInformer,
+	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
 	namespacedKubeInformers informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	appsv1Client appsclientv1.AppsV1Interface,
@@ -75,7 +75,7 @@ func NewKubeApiserverOperator(
 }
 
 func (c KubeAPIServerOperator) sync() error {
-	operatorConfig, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Get("instance", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (c KubeAPIServerOperator) sync() error {
 				Status: operatorsv1alpha1.ConditionFalse,
 			},
 		}
-		if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Update(operatorConfig); err != nil {
+		if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
 			return err
 		}
 		return nil
@@ -134,7 +134,7 @@ func (c KubeAPIServerOperator) sync() error {
 
 	default:
 		operatorConfig.Status.TaskSummary = "unrecognized"
-		if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
+		if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
 			utilruntime.HandleError(err)
 		}
 
@@ -143,7 +143,7 @@ func (c KubeAPIServerOperator) sync() error {
 
 	v1alpha1helpers.SetStatusFromAvailability(&operatorConfig.Status.OperatorStatus, operatorConfig.ObjectMeta.Generation, &versionAvailability)
 	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-		if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
+		if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
 			errors = append(errors, err)
 		}
 	}

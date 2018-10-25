@@ -31,9 +31,9 @@ func Resource(resource string) schema.GroupResource {
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
-		&KubeApiserverConfig{},
-		&KubeApiserverOperatorConfig{},
-		&KubeApiserverOperatorConfigList{},
+		&KubeAPIServerConfig{},
+		&KubeAPIServerOperatorConfig{},
+		&KubeAPIServerOperatorConfigList{},
 	)
 	metav1.AddToGroupVersion(scheme, GroupVersion)
 

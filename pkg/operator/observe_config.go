@@ -63,7 +63,7 @@ func NewConfigObserver(
 		},
 	}
 
-	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeApiserverOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
+	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 
@@ -84,7 +84,7 @@ func (c ConfigObserver) sync() error {
 		}
 	}
 
-	operatorConfig, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Get("instance", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (c ConfigObserver) sync() error {
 
 	glog.Infof("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
 	operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
-	if _, err := c.operatorConfigClient.KubeApiserverOperatorConfigs().Update(operatorConfig); err != nil {
+	if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
 		return err
 	}
 

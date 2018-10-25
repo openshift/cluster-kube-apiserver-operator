@@ -12,29 +12,29 @@ import (
 	testing "k8s.io/client-go/testing"
 )
 
-// FakeKubeApiserverOperatorConfigs implements KubeApiserverOperatorConfigInterface
-type FakeKubeApiserverOperatorConfigs struct {
+// FakeKubeAPIServerOperatorConfigs implements KubeAPIServerOperatorConfigInterface
+type FakeKubeAPIServerOperatorConfigs struct {
 	Fake *FakeKubeapiserverV1alpha1
 }
 
 var kubeapiserveroperatorconfigsResource = schema.GroupVersionResource{Group: "kubeapiserver.operator.openshift.io", Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"}
 
-var kubeapiserveroperatorconfigsKind = schema.GroupVersionKind{Group: "kubeapiserver.operator.openshift.io", Version: "v1alpha1", Kind: "KubeApiserverOperatorConfig"}
+var kubeapiserveroperatorconfigsKind = schema.GroupVersionKind{Group: "kubeapiserver.operator.openshift.io", Version: "v1alpha1", Kind: "KubeAPIServerOperatorConfig"}
 
-// Get takes name of the kubeApiserverOperatorConfig, and returns the corresponding kubeApiserverOperatorConfig object, and an error if there is any.
-func (c *FakeKubeApiserverOperatorConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
+// Get takes name of the kubeAPIServerOperatorConfig, and returns the corresponding kubeAPIServerOperatorConfig object, and an error if there is any.
+func (c *FakeKubeAPIServerOperatorConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(kubeapiserveroperatorconfigsResource, name), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootGetAction(kubeapiserveroperatorconfigsResource, name), &v1alpha1.KubeAPIServerOperatorConfig{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.KubeApiserverOperatorConfig), err
+	return obj.(*v1alpha1.KubeAPIServerOperatorConfig), err
 }
 
-// List takes label and field selectors, and returns the list of KubeApiserverOperatorConfigs that match those selectors.
-func (c *FakeKubeApiserverOperatorConfigs) List(opts v1.ListOptions) (result *v1alpha1.KubeApiserverOperatorConfigList, err error) {
+// List takes label and field selectors, and returns the list of KubeAPIServerOperatorConfigs that match those selectors.
+func (c *FakeKubeAPIServerOperatorConfigs) List(opts v1.ListOptions) (result *v1alpha1.KubeAPIServerOperatorConfigList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(kubeapiserveroperatorconfigsResource, kubeapiserveroperatorconfigsKind, opts), &v1alpha1.KubeApiserverOperatorConfigList{})
+		Invokes(testing.NewRootListAction(kubeapiserveroperatorconfigsResource, kubeapiserveroperatorconfigsKind, opts), &v1alpha1.KubeAPIServerOperatorConfigList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -43,8 +43,8 @@ func (c *FakeKubeApiserverOperatorConfigs) List(opts v1.ListOptions) (result *v1
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.KubeApiserverOperatorConfigList{ListMeta: obj.(*v1alpha1.KubeApiserverOperatorConfigList).ListMeta}
-	for _, item := range obj.(*v1alpha1.KubeApiserverOperatorConfigList).Items {
+	list := &v1alpha1.KubeAPIServerOperatorConfigList{ListMeta: obj.(*v1alpha1.KubeAPIServerOperatorConfigList).ListMeta}
+	for _, item := range obj.(*v1alpha1.KubeAPIServerOperatorConfigList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -52,64 +52,64 @@ func (c *FakeKubeApiserverOperatorConfigs) List(opts v1.ListOptions) (result *v1
 	return list, err
 }
 
-// Watch returns a watch.Interface that watches the requested kubeApiserverOperatorConfigs.
-func (c *FakeKubeApiserverOperatorConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
+// Watch returns a watch.Interface that watches the requested kubeAPIServerOperatorConfigs.
+func (c *FakeKubeAPIServerOperatorConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewRootWatchAction(kubeapiserveroperatorconfigsResource, opts))
 }
 
-// Create takes the representation of a kubeApiserverOperatorConfig and creates it.  Returns the server's representation of the kubeApiserverOperatorConfig, and an error, if there is any.
-func (c *FakeKubeApiserverOperatorConfigs) Create(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
+// Create takes the representation of a kubeAPIServerOperatorConfig and creates it.  Returns the server's representation of the kubeAPIServerOperatorConfig, and an error, if there is any.
+func (c *FakeKubeAPIServerOperatorConfigs) Create(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(kubeapiserveroperatorconfigsResource, kubeApiserverOperatorConfig), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootCreateAction(kubeapiserveroperatorconfigsResource, kubeAPIServerOperatorConfig), &v1alpha1.KubeAPIServerOperatorConfig{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.KubeApiserverOperatorConfig), err
+	return obj.(*v1alpha1.KubeAPIServerOperatorConfig), err
 }
 
-// Update takes the representation of a kubeApiserverOperatorConfig and updates it. Returns the server's representation of the kubeApiserverOperatorConfig, and an error, if there is any.
-func (c *FakeKubeApiserverOperatorConfigs) Update(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
+// Update takes the representation of a kubeAPIServerOperatorConfig and updates it. Returns the server's representation of the kubeAPIServerOperatorConfig, and an error, if there is any.
+func (c *FakeKubeAPIServerOperatorConfigs) Update(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(kubeapiserveroperatorconfigsResource, kubeApiserverOperatorConfig), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootUpdateAction(kubeapiserveroperatorconfigsResource, kubeAPIServerOperatorConfig), &v1alpha1.KubeAPIServerOperatorConfig{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.KubeApiserverOperatorConfig), err
+	return obj.(*v1alpha1.KubeAPIServerOperatorConfig), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeKubeApiserverOperatorConfigs) UpdateStatus(kubeApiserverOperatorConfig *v1alpha1.KubeApiserverOperatorConfig) (*v1alpha1.KubeApiserverOperatorConfig, error) {
+func (c *FakeKubeAPIServerOperatorConfigs) UpdateStatus(kubeAPIServerOperatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*v1alpha1.KubeAPIServerOperatorConfig, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(kubeapiserveroperatorconfigsResource, "status", kubeApiserverOperatorConfig), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootUpdateSubresourceAction(kubeapiserveroperatorconfigsResource, "status", kubeAPIServerOperatorConfig), &v1alpha1.KubeAPIServerOperatorConfig{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.KubeApiserverOperatorConfig), err
+	return obj.(*v1alpha1.KubeAPIServerOperatorConfig), err
 }
 
-// Delete takes name of the kubeApiserverOperatorConfig and deletes it. Returns an error if one occurs.
-func (c *FakeKubeApiserverOperatorConfigs) Delete(name string, options *v1.DeleteOptions) error {
+// Delete takes name of the kubeAPIServerOperatorConfig and deletes it. Returns an error if one occurs.
+func (c *FakeKubeAPIServerOperatorConfigs) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(kubeapiserveroperatorconfigsResource, name), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootDeleteAction(kubeapiserveroperatorconfigsResource, name), &v1alpha1.KubeAPIServerOperatorConfig{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeKubeApiserverOperatorConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *FakeKubeAPIServerOperatorConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	action := testing.NewRootDeleteCollectionAction(kubeapiserveroperatorconfigsResource, listOptions)
 
-	_, err := c.Fake.Invokes(action, &v1alpha1.KubeApiserverOperatorConfigList{})
+	_, err := c.Fake.Invokes(action, &v1alpha1.KubeAPIServerOperatorConfigList{})
 	return err
 }
 
-// Patch applies the patch and returns the patched kubeApiserverOperatorConfig.
-func (c *FakeKubeApiserverOperatorConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeApiserverOperatorConfig, err error) {
+// Patch applies the patch and returns the patched kubeAPIServerOperatorConfig.
+func (c *FakeKubeAPIServerOperatorConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.KubeAPIServerOperatorConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(kubeapiserveroperatorconfigsResource, name, data, subresources...), &v1alpha1.KubeApiserverOperatorConfig{})
+		Invokes(testing.NewRootPatchSubresourceAction(kubeapiserveroperatorconfigsResource, name, data, subresources...), &v1alpha1.KubeAPIServerOperatorConfig{})
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v1alpha1.KubeApiserverOperatorConfig), err
+	return obj.(*v1alpha1.KubeAPIServerOperatorConfig), err
 }

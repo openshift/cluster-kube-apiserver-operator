@@ -15,58 +15,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// KubeApiserverOperatorConfigInformer provides access to a shared informer and lister for
-// KubeApiserverOperatorConfigs.
-type KubeApiserverOperatorConfigInformer interface {
+// KubeAPIServerOperatorConfigInformer provides access to a shared informer and lister for
+// KubeAPIServerOperatorConfigs.
+type KubeAPIServerOperatorConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.KubeApiserverOperatorConfigLister
+	Lister() v1alpha1.KubeAPIServerOperatorConfigLister
 }
 
-type kubeApiserverOperatorConfigInformer struct {
+type kubeAPIServerOperatorConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewKubeApiserverOperatorConfigInformer constructs a new informer for KubeApiserverOperatorConfig type.
+// NewKubeAPIServerOperatorConfigInformer constructs a new informer for KubeAPIServerOperatorConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewKubeApiserverOperatorConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredKubeApiserverOperatorConfigInformer(client, resyncPeriod, indexers, nil)
+func NewKubeAPIServerOperatorConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredKubeAPIServerOperatorConfigInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredKubeApiserverOperatorConfigInformer constructs a new informer for KubeApiserverOperatorConfig type.
+// NewFilteredKubeAPIServerOperatorConfigInformer constructs a new informer for KubeAPIServerOperatorConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredKubeApiserverOperatorConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredKubeAPIServerOperatorConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeapiserverV1alpha1().KubeApiserverOperatorConfigs().List(options)
+				return client.KubeapiserverV1alpha1().KubeAPIServerOperatorConfigs().List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KubeapiserverV1alpha1().KubeApiserverOperatorConfigs().Watch(options)
+				return client.KubeapiserverV1alpha1().KubeAPIServerOperatorConfigs().Watch(options)
 			},
 		},
-		&kubeapiserver_v1alpha1.KubeApiserverOperatorConfig{},
+		&kubeapiserver_v1alpha1.KubeAPIServerOperatorConfig{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *kubeApiserverOperatorConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredKubeApiserverOperatorConfigInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *kubeAPIServerOperatorConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredKubeAPIServerOperatorConfigInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *kubeApiserverOperatorConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kubeapiserver_v1alpha1.KubeApiserverOperatorConfig{}, f.defaultInformer)
+func (f *kubeAPIServerOperatorConfigInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kubeapiserver_v1alpha1.KubeAPIServerOperatorConfig{}, f.defaultInformer)
 }
 
-func (f *kubeApiserverOperatorConfigInformer) Lister() v1alpha1.KubeApiserverOperatorConfigLister {
-	return v1alpha1.NewKubeApiserverOperatorConfigLister(f.Informer().GetIndexer())
+func (f *kubeAPIServerOperatorConfigInformer) Lister() v1alpha1.KubeAPIServerOperatorConfigLister {
+	return v1alpha1.NewKubeAPIServerOperatorConfigLister(f.Informer().GetIndexer())
 }
