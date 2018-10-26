@@ -20,17 +20,20 @@ spec:
       containers:
       - name: operator
         image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command: ["cluster-kube-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
-        - "-v=4"
+        - "-v=2"
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
         env:
         - name: IMAGE
           value: quay.io/openshift/origin-hypershift:v4.0
+        - name: OPERATOR_IMAGE
+          value: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
+        terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - name: serving-cert
         secret:

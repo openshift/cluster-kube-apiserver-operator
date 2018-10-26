@@ -2,4 +2,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver-sa
+  name: installer-sa

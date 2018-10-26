@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: installer-<deployment-id>-<nodeName>
+  labels:
+    app: installer
+spec:
+  serviceAccountName: installer-sa
+  containers:
+  - name: apiserver
+    image: ${IMAGE}
+    imagePullPolicy: Always
+    command: ["cluster-kube-apiserver-operator", "installer"]
+    securityContext:
+      privileged: true
+      runAsUser: 0
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/kubernetes/
+      name: kubelet-dir
+  restartPolicy: Never
+  securityContext:
+    runAsUser: 0
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/
+    name: kubelet-dir

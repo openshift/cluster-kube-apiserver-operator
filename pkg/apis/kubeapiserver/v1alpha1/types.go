@@ -30,6 +30,11 @@ type KubeAPIServerOperatorConfig struct {
 type KubeAPIServerOperatorConfigSpec struct {
 	operatorsv1alpha1api.OperatorSpec `json:",inline"`
 
+	// forceRedeploymentReason can be used to force the redeployment of the kube-apiserver by providing a unique string.
+	// This provides a mechanism to kick a previously failed deployment and provide a reason why you think it will work
+	// this time instead of failing again on the same config.
+	ForceRedeploymentReason string `json:"forceRedeploymentReason"`
+
 	// userConfig holds a sparse config that the user wants for this component.  It only needs to be the overrides from the defaults
 	// it will end up overlaying in the following order:
 	// 1. hardcoded default
@@ -43,6 +48,25 @@ type KubeAPIServerOperatorConfigSpec struct {
 
 type KubeAPIServerOperatorConfigStatus struct {
 	operatorsv1alpha1api.OperatorStatus `json:",inline"`
+
+	// latestDeploymentID is the deploymentID of the most recent deployment
+	LatestDeploymentID int32 `json:"latestDeploymentID"`
+
+	TargetKubeletStates []KubeletState `json:"kubeletStates"`
+}
+
+type KubeletState struct {
+	NodeName string `json:"nodeName"`
+
+	// currentDeploymentID is the ID of the most recently successful deployment
+	CurrentDeploymentID int32 `json:"currentDeploymentID"`
+	// targetDeploymentID is the ID of the deployment we're trying to apply
+	TargetDeploymentID int32 `json:"targetDeploymentID"`
+	// lastFailedDeploymentID is the ID of the deployment we tried and failed to deploy.
+	LastFailedDeploymentID int32 `json:"lastFailedDeploymentID"`
+
+	// errors is a list of the errors during the deployment installation
+	Errors []string `json:"errors"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
