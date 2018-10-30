@@ -65,6 +65,6 @@ func ReadPodV1OrDie(objBytes []byte) *corev1.Pod {
 	return requiredObj.(*corev1.Pod)
 }
 
-func WritePodV1OrDie(obj *corev1.Pod ) string{
+func WritePodV1OrDie(obj *corev1.Pod) string {
 	return runtime.EncodeOrDie(coreCodecs.LegacyCodec(corev1.SchemeGroupVersion), obj)
 }
