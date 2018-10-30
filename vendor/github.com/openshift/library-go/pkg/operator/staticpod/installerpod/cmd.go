@@ -1,4 +1,4 @@
-package installer
+package installerpod
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"

@@ -1,4 +1,4 @@
-package operator
+package staticpodcontroller
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,15 +16,13 @@ import (
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
-	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
-	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions/kubeapiserver/v1alpha1"
 )
+
+const nodeControllerWorkQueueKey = "key"
 
 // NodeController watches for new master nodes and adds them to the list for an operator
 type NodeController struct {
-	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
+	operatorConfigClient OperatorClient
 
 	nodeListerSynced cache.InformerSynced
 	nodeLister       corelisterv1.NodeLister
@@ -34,9 +32,8 @@ type NodeController struct {
 }
 
 func NewNodeController(
-	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
+	operatorConfigClient OperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
-	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 ) *NodeController {
 	c := &NodeController{
 		operatorConfigClient: operatorConfigClient,
@@ -46,19 +43,18 @@ func NewNodeController(
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "NodeController"),
 	}
 
-	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
+	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersClusterScoped.Core().V1().Nodes().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
 
 func (c NodeController) sync() error {
-	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
+	_, originalOperatorStatus, resourceVersion, err := c.operatorConfigClient.Get()
 	if err != nil {
 		return err
 	}
-
-	operatorConfigOriginal := operatorConfig.DeepCopy()
+	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	selector, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Equals, []string{""})
 	if err != nil {
@@ -69,25 +65,25 @@ func (c NodeController) sync() error {
 		return err
 	}
 
-	newTargetKubeletStates := []v1alpha1.KubeletState{}
+	newTargetNodeStates := []operatorv1alpha1.NodeStatus{}
 	// remove entries for missing nodes
-	for i, kubeletState := range operatorConfigOriginal.Status.TargetKubeletStates {
+	for i, nodeState := range originalOperatorStatus.NodeStatuses {
 		found := false
 		for _, node := range nodes {
-			if kubeletState.NodeName == node.Name {
+			if nodeState.NodeName == node.Name {
 				found = true
 			}
 		}
 		if found {
-			newTargetKubeletStates = append(newTargetKubeletStates, operatorConfigOriginal.Status.TargetKubeletStates[i])
+			newTargetNodeStates = append(newTargetNodeStates, originalOperatorStatus.NodeStatuses[i])
 		}
 	}
 
 	// add entries for new nodes
 	for _, node := range nodes {
 		found := false
-		for _, kubeletState := range operatorConfigOriginal.Status.TargetKubeletStates {
-			if kubeletState.NodeName == node.Name {
+		for _, nodeState := range originalOperatorStatus.NodeStatuses {
+			if nodeState.NodeName == node.Name {
 				found = true
 			}
 		}
@@ -95,12 +91,12 @@ func (c NodeController) sync() error {
 			continue
 		}
 
-		newTargetKubeletStates = append(newTargetKubeletStates, v1alpha1.KubeletState{NodeName: node.Name})
+		newTargetNodeStates = append(newTargetNodeStates, operatorv1alpha1.NodeStatus{NodeName: node.Name})
 	}
-	operatorConfig.Status.TargetKubeletStates = newTargetKubeletStates
+	operatorStatus.NodeStatuses = newTargetNodeStates
 
-	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-		_, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
+	if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
+		_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
 		return updateError
 	}
 
@@ -151,8 +147,8 @@ func (c *NodeController) processNextWorkItem() bool {
 // eventHandler queues the operator to check spec and status
 func (c *NodeController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
+		AddFunc:    func(obj interface{}) { c.queue.Add(nodeControllerWorkQueueKey) },
+		UpdateFunc: func(old, new interface{}) { c.queue.Add(nodeControllerWorkQueueKey) },
+		DeleteFunc: func(obj interface{}) { c.queue.Add(nodeControllerWorkQueueKey) },
 	}
 }

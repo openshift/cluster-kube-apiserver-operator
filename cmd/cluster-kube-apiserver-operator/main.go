@@ -14,8 +14,8 @@ import (
 	"k8s.io/apiserver/pkg/util/logs"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator/render"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/installer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
+	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 )
 
 func main() {
@@ -46,7 +46,7 @@ func NewOperatorCommand() *cobra.Command {
 
 	cmd.AddCommand(operator.NewOperator())
 	cmd.AddCommand(render.NewRenderCommand())
-	cmd.AddCommand(installer.NewInstaller())
+	cmd.AddCommand(installerpod.NewInstaller())
 
 	return cmd
 }

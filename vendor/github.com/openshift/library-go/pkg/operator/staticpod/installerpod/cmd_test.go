@@ -1,4 +1,4 @@
-package installer
+package installerpod
 
 import (
 	"io/ioutil"
@@ -79,14 +79,14 @@ func TestCopyContent(t *testing.T) {
 				)
 			},
 			expected: func(t *testing.T, resourceDir, podDir string) {
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first-006", "one-A.crt"), "one")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first-006", "two-A.crt"), "two")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second-006", "uno-B.crt"), "uno")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second-006", "dos-B.crt"), "dos")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha-006", "apple-A.crt"), "apple")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha-006", "banana-A.crt"), "banana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo-006", "manzana-B.crt"), "manzana")
-				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo-006", "platano-B.crt"), "platano")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "one-A.crt"), "one")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "first", "two-A.crt"), "two")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "uno-B.crt"), "uno")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "secrets", "second", "dos-B.crt"), "dos")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "apple-A.crt"), "apple")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "alpha", "banana-A.crt"), "banana")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "manzana-B.crt"), "manzana")
+				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "configmaps", "bravo", "platano-B.crt"), "platano")
 				checkFileContent(t, path.Join(resourceDir, "kube-apiserver-pod-006", "kube-apiserver-pod.yaml"), podYaml)
 				checkFileContent(t, path.Join(podDir, "kube-apiserver-pod.yaml"), podYaml)
 			},
