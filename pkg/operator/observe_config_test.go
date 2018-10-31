@@ -13,18 +13,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
+	configv1 "github.com/openshift/api/config/v1"
 	v1alpha12 "github.com/openshift/api/operator/v1alpha1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	clusterkubeapiserverfake "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/fake"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
 func TestObserveClusterConfig(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset(&corev1.ConfigMap{
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	indexer.Add(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cluster-config-v1",
 			Namespace: "kube-system",
@@ -33,7 +36,10 @@ func TestObserveClusterConfig(t *testing.T) {
 			"install-config": "networking:\n  podCIDR: podCIDR \n  serviceCIDR: serviceCIDR\n",
 		},
 	})
-	result, errors := observeRestrictedCIDRs(kubeClient, &rest.Config{}, map[string]interface{}{})
+	listers := Listers{
+		configmapLister: corelistersv1.NewConfigMapLister(indexer),
+	}
+	result, errors := observeRestrictedCIDRs(listers, map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Error("expected len(errors) == 0")
 	}
@@ -56,6 +62,7 @@ func TestSyncStatus(t *testing.T) {
 		clusterConfigV1        *corev1.ConfigMap
 		etcd                   *corev1.Endpoints
 		operatorConfig         *v1alpha1.KubeAPIServerOperatorConfig
+		imageConfig            *configv1.Image
 		expectError            bool
 		expectedObservedConfig *unstructured.Unstructured
 		expectedCondition      *v1alpha12.OperatorCondition
@@ -65,6 +72,7 @@ func TestSyncStatus(t *testing.T) {
 			clusterConfigV1: newClusterConfigV1ConfigMap(),
 			etcd:            newEtcdEndpoints(),
 			operatorConfig:  newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:     newImageConfig(),
 			expectError:     false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -76,6 +84,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -92,6 +103,7 @@ func TestSyncStatus(t *testing.T) {
 			name:            "MissingEndpoints",
 			clusterConfigV1: newClusterConfigV1ConfigMap(),
 			operatorConfig:  newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:     newImageConfig(),
 			expectError:     false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -103,6 +115,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -125,6 +140,7 @@ func TestSyncStatus(t *testing.T) {
 				Subsets:    []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{Hostname: "OBSERVED_ETCD_HOSTNAME"}}}},
 			},
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -136,6 +152,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -158,6 +177,7 @@ func TestSyncStatus(t *testing.T) {
 				Subsets:    []corev1.EndpointSubset{{Addresses: []corev1.EndpointAddress{{Hostname: "OBSERVED_ETCD_HOSTNAME"}, {IP: "OBSERVED_ETCD_IP"}}}},
 			},
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -169,6 +189,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -187,8 +210,12 @@ func TestSyncStatus(t *testing.T) {
 			name:           "MissingClusterConfigV1",
 			etcd:           newEtcdEndpoints(),
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
+				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
 						"https://OBSERVED_ETCD_HOSTNAME.OBSERVED_DNS_SUFFIX:2379",
@@ -210,6 +237,7 @@ func TestSyncStatus(t *testing.T) {
 			},
 			etcd:           newEtcdEndpoints(),
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -220,6 +248,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -242,6 +273,7 @@ func TestSyncStatus(t *testing.T) {
 			},
 			etcd:           newEtcdEndpoints(),
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
 				"admissionPluginConfig": map[string]interface{}{
@@ -252,6 +284,9 @@ func TestSyncStatus(t *testing.T) {
 							},
 						},
 					},
+				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
 				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
@@ -274,8 +309,12 @@ func TestSyncStatus(t *testing.T) {
 			},
 			etcd:           newEtcdEndpoints(),
 			operatorConfig: newInstanceKubeAPIServerOperatorConfig(),
+			imageConfig:    newImageConfig(),
 			expectError:    false,
 			expectedObservedConfig: &unstructured.Unstructured{Object: map[string]interface{}{
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
+				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
 						"https://OBSERVED_ETCD_HOSTNAME.OBSERVED_DNS_SUFFIX:2379",
@@ -293,21 +332,33 @@ func TestSyncStatus(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var kubeClientObjects []runtime.Object
-			if tc.clusterConfigV1 != nil {
-				kubeClientObjects = append(kubeClientObjects, tc.clusterConfigV1)
-			}
+
+			endpointsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			if tc.etcd != nil {
-				kubeClientObjects = append(kubeClientObjects, tc.etcd)
+				endpointsIndexer.Add(tc.etcd)
 			}
-			kubeClient := fake.NewSimpleClientset(kubeClientObjects...)
+			configMapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if tc.clusterConfigV1 != nil {
+				configMapIndexer.Add(tc.clusterConfigV1)
+			}
+			imagesIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if tc.imageConfig != nil {
+				imagesIndexer.Add(tc.imageConfig)
+			}
+
 			operatorConfigClient := clusterkubeapiserverfake.NewSimpleClientset(tc.operatorConfig)
+
 			configObserver := ConfigObserver{
-				kubeClient:           kubeClient,
+				listers: Listers{
+					imageConfigLister: configlistersv1.NewImageLister(imagesIndexer),
+					endpointsLister:   corelistersv1.NewEndpointsLister(endpointsIndexer),
+					configmapLister:   corelistersv1.NewConfigMapLister(configMapIndexer),
+				},
 				operatorConfigClient: operatorConfigClient.KubeapiserverV1alpha1(),
 				observers: []observeConfigFunc{
 					observeStorageURLs,
 					observeRestrictedCIDRs,
+					observeInternalRegistryHostname,
 				},
 			}
 			err := configObserver.sync()
@@ -333,7 +384,11 @@ func TestSyncStatus(t *testing.T) {
 }
 
 func TestSyncUpdateFailed(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset(newClusterConfigV1ConfigMap(), newEtcdEndpoints())
+
+	endpointsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	endpointsIndexer.Add(newEtcdEndpoints())
+	configMapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	configMapIndexer.Add(newClusterConfigV1ConfigMap())
 	kubeAPIServerOperatorConfig := newInstanceKubeAPIServerOperatorConfig()
 	operatorConfigClient := clusterkubeapiserverfake.NewSimpleClientset(kubeAPIServerOperatorConfig)
 	errOnUpdate := true
@@ -345,7 +400,10 @@ func TestSyncUpdateFailed(t *testing.T) {
 		return false, nil, nil
 	})
 	configObserver := ConfigObserver{
-		kubeClient:           kubeClient,
+		listers: Listers{
+			endpointsLister: corelistersv1.NewEndpointsLister(endpointsIndexer),
+			configmapLister: corelistersv1.NewConfigMapLister(configMapIndexer),
+		},
 		operatorConfigClient: operatorConfigClient.KubeapiserverV1alpha1(),
 		observers: []observeConfigFunc{
 			observeStorageURLs,
@@ -362,6 +420,9 @@ func TestSyncUpdateFailed(t *testing.T) {
 					},
 				},
 			},
+		},
+		"imagePolicyConfig": map[string]interface{}{
+			"internalRegistryHostname": "ORIGINAL_INTERNAL_REGISTRY_HOSTNAME",
 		},
 		"storageConfig": map[string]interface{}{
 			"urls": []interface{}{
@@ -419,6 +480,9 @@ func newInstanceKubeAPIServerOperatorConfig() *v1alpha1.KubeAPIServerOperatorCon
 						},
 					},
 				},
+				"imagePolicyConfig": map[string]interface{}{
+					"internalRegistryHostname": "ORIGINAL_INTERNAL_REGISTRY_HOSTNAME",
+				},
 				"storageConfig": map[string]interface{}{
 					"urls": []interface{}{
 						"ORIGINAL_STORAGE_URL",
@@ -468,10 +532,53 @@ func newEtcdEndpoints() *corev1.Endpoints {
 	}
 }
 
+func newImageConfig() *configv1.Image {
+	return &configv1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Status: configv1.ImageStatus{
+			InternalRegistryHostname: "OBSERVED_INTERNAL_REGISTRY_HOSTNAME",
+		},
+	}
+}
+
 func toYAML(o interface{}) string {
 	b, e := yaml.Marshal(o)
 	if e != nil {
 		return e.Error()
 	}
 	return string(b)
+}
+
+func TestObserveRegistryConfig(t *testing.T) {
+	const (
+		expectedInternalRegistryHostname = "docker-registry.openshift-image-registry.svc.cluster.local:5000"
+	)
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	imageConfig := &configv1.Image{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Status: configv1.ImageStatus{
+			InternalRegistryHostname: expectedInternalRegistryHostname,
+		},
+	}
+	indexer.Add(imageConfig)
+
+	listers := Listers{
+		imageConfigLister: configlistersv1.NewImageLister(indexer),
+	}
+	result, errs := observeInternalRegistryHostname(listers, map[string]interface{}{})
+	if len(errs) > 0 {
+		t.Error("expected len(errs) == 0")
+	}
+	internalRegistryHostname, _, err := unstructured.NestedString(result, "imagePolicyConfig", "internalRegistryHostname")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if internalRegistryHostname != expectedInternalRegistryHostname {
+		t.Errorf("expected internal registry hostname: %s, got %s", expectedInternalRegistryHostname, internalRegistryHostname)
+	}
 }

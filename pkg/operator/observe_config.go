@@ -21,13 +21,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/openshift/api/operator/v1alpha1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
@@ -35,16 +36,20 @@ import (
 
 const configObservationErrorConditionReason = "ConfigObservationError"
 
+type Listers struct {
+	imageConfigLister configlistersv1.ImageLister
+	endpointsLister   corelistersv1.EndpointsLister
+	configmapLister   corelistersv1.ConfigMapLister
+}
+
 // observeConfigFunc observes configuration and returns the observedConfig. This function should not return an
 // observedConfig that would cause the service being managed by the operator to crash. For example, if a required
 // configuration key cannot be observed, consider reusing the configuration key's previous value. Errors that occur
 // while attempting to generate the observedConfig should be returned in the errs slice.
-type observeConfigFunc func(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
+type observeConfigFunc func(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
 
 type ConfigObserver struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
-
-	kubeClient kubernetes.Interface
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -53,17 +58,24 @@ type ConfigObserver struct {
 	// observers are called in an undefined order and their results are merged to
 	// determine the observed configuration.
 	observers []observeConfigFunc
+
+	// listers are used by config observers to retrieve necessary resources
+	listers Listers
+
+	operatorConfigSynced cache.InformerSynced
+	endpointsSynced      cache.InformerSynced
+	configmapSynced      cache.InformerSynced
+	configSynced         cache.InformerSynced
 }
 
 func NewConfigObserver(
 	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
+	configInformer configinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
-	kubeClient kubernetes.Interface,
 ) *ConfigObserver {
 	c := &ConfigObserver{
 		operatorConfigClient: operatorConfigClient,
-		kubeClient:           kubeClient,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 
@@ -71,12 +83,24 @@ func NewConfigObserver(
 		observers: []observeConfigFunc{
 			observeStorageURLs,
 			observeRestrictedCIDRs,
+			observeInternalRegistryHostname,
+		},
+		listers: Listers{
+			imageConfigLister: configInformer.Config().V1().Images().Lister(),
+			endpointsLister:   kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
+			configmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
 		},
 	}
+
+	c.operatorConfigSynced = operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced
+	c.endpointsSynced = kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced
+	c.configmapSynced = kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced
+	c.configSynced = configInformer.Config().V1().Images().Informer().HasSynced
 
 	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	configInformer.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -98,7 +122,7 @@ func (c ConfigObserver) sync() error {
 	var observedConfigs []map[string]interface{}
 	for _, i := range rand.Perm(len(c.observers)) {
 		var currErrs []error
-		observedConfig, currErrs := c.observers[i](c.kubeClient, &rest.Config{}, currentConfig)
+		observedConfig, currErrs := c.observers[i](c.listers, currentConfig)
 		observedConfigs = append(observedConfigs, observedConfig)
 		errs = append(errs, currErrs...)
 	}
@@ -151,7 +175,7 @@ func (c ConfigObserver) sync() error {
 
 // observeStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
 // then the previously observed storage config URLs will be re-used.
-func observeStorageURLs(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+func observeStorageURLs(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 	observedConfig = map[string]interface{}{}
 	storageConfigURLsPath := []string{"storageConfig", "urls"}
 	if currentEtcdURLs, found, _ := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...); found {
@@ -159,7 +183,7 @@ func observeStorageURLs(kubeClient kubernetes.Interface, clientConfig *rest.Conf
 	}
 
 	var etcdURLs []string
-	etcdEndpoints, err := kubeClient.CoreV1().Endpoints(etcdNamespaceName).Get("etcd", metav1.GetOptions{})
+	etcdEndpoints, err := listers.endpointsLister.Endpoints(etcdNamespaceName).Get("etcd")
 	if errors.IsNotFound(err) {
 		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: not found"))
 		return
@@ -194,14 +218,11 @@ func observeStorageURLs(kubeClient kubernetes.Interface, clientConfig *rest.Conf
 }
 
 // observeRestrictedCIDRs observes list of restrictedCIDRs.
-func observeRestrictedCIDRs(kubeClient kubernetes.Interface, clientConfig *rest.Config, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+func observeRestrictedCIDRs(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 	observedConfig = map[string]interface{}{}
 	restrictedCIDRsPath := []string{"admissionPluginConfig", "openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs"}
-	//if currentRestrictedCIDRs, found, _ := unstructured.NestedStringSlice(currentConfig, restrictedCIDRsPath...); found {
-	//	unstructured.SetNestedStringSlice(observedConfig, currentRestrictedCIDRs, restrictedCIDRsPath...)
-	//}
 
-	clusterConfig, err := kubeClient.CoreV1().ConfigMaps("kube-system").Get("cluster-config-v1", metav1.GetOptions{})
+	clusterConfig, err := listers.configmapLister.ConfigMaps("kube-system").Get("cluster-config-v1")
 	if errors.IsNotFound(err) {
 		errs = append(errs, fmt.Errorf("configmap/cluster-config-v1.kube-system: not found"))
 		return
@@ -257,12 +278,45 @@ func observeRestrictedCIDRs(kubeClient kubernetes.Interface, clientConfig *rest.
 	return
 }
 
+// observeInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by
+// the registry operator.
+func observeInternalRegistryHostname(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+	observedConfig = map[string]interface{}{}
+	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
+	currentInternalRegistryHostname, _, _ := unstructured.NestedStringSlice(currentConfig, internalRegistryHostnamePath...)
+
+	configImage, err := listers.imageConfigLister.Get("cluster")
+	if errors.IsNotFound(err) {
+		glog.Warningf("image.config.openshift.io/cluster: not found")
+		return
+	}
+	if err != nil {
+		errs = append(errs, err)
+		if len(currentInternalRegistryHostname) > 0 {
+			unstructured.SetNestedField(observedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
+		}
+		return
+	}
+	internalRegistryHostName := configImage.Status.InternalRegistryHostname
+	if len(internalRegistryHostName) > 0 {
+		unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...)
+	}
+	return
+}
+
 func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	glog.Infof("Starting ConfigObserver")
 	defer glog.Infof("Shutting down ConfigObserver")
+
+	cache.WaitForCacheSync(stopCh,
+		c.operatorConfigSynced,
+		c.endpointsSynced,
+		c.configmapSynced,
+		c.configSynced,
+	)
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
