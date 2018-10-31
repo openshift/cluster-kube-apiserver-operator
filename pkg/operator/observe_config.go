@@ -18,22 +18,27 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 )
 
-type observeConfigFunc func(kubernetes.Interface, *rest.Config, map[string]interface{}) (map[string]interface{}, error)
+type Listers struct {
+	imageConfigLister configlistersv1.ImageLister
+	endpointLister    corelistersv1.EndpointsLister
+	configmapLister   corelistersv1.ConfigMapLister
+}
+
+type observeConfigFunc func(Listers, map[string]interface{}) (map[string]interface{}, error)
 
 type ConfigObserver struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
-
-	kubeClient kubernetes.Interface
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -42,17 +47,24 @@ type ConfigObserver struct {
 	// observers are used to build the observed configuration. They are called in
 	// order and are expected to mutate the config based on cluster state.
 	observers []observeConfigFunc
+
+	// listers are used by config observers to retrieve necessary resources
+	listers Listers
+
+	operatorConfigSynced cache.InformerSynced
+	endpointSynced       cache.InformerSynced
+	configmapSynced      cache.InformerSynced
+	configSynced         cache.InformerSynced
 }
 
 func NewConfigObserver(
 	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
+	configInformer configinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
-	kubeClient kubernetes.Interface,
 ) *ConfigObserver {
 	c := &ConfigObserver{
 		operatorConfigClient: operatorConfigClient,
-		kubeClient:           kubeClient,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 
@@ -60,12 +72,24 @@ func NewConfigObserver(
 		observers: []observeConfigFunc{
 			observeEtcdEndpoints,
 			observeClusterConfig,
+			observeInternalRegistryHostname,
+		},
+		listers: Listers{
+			imageConfigLister: configInformer.Config().V1().Images().Lister(),
+			endpointLister:    kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
+			configmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
 		},
 	}
+
+	c.operatorConfigSynced = operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced
+	c.endpointSynced = kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced
+	c.configmapSynced = kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced
+	c.configSynced = configInformer.Config().V1().Images().Informer().HasSynced
 
 	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	configInformer.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -78,7 +102,7 @@ func (c ConfigObserver) sync() error {
 	var err error
 
 	for _, observer := range c.observers {
-		observedConfig, err = observer(c.kubeClient, &rest.Config{}, observedConfig)
+		observedConfig, err = observer(c.listers, observedConfig)
 		if err != nil {
 			return err
 		}
@@ -107,9 +131,9 @@ func (c ConfigObserver) sync() error {
 
 // observeEtcdEndpoints reads the etcd endpoints from the endpoints object and then manually pull out the hostnames to
 // get the etcd urls for our config. Setting them observed config causes the normal reconciliation loop to run
-func observeEtcdEndpoints(kubeClient kubernetes.Interface, clientConfig *rest.Config, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+func observeEtcdEndpoints(listers Listers, observedConfig map[string]interface{}) (map[string]interface{}, error) {
 	etcdURLs := []string{}
-	etcdEndpoints, err := kubeClient.CoreV1().Endpoints(etcdNamespaceName).Get("etcd", metav1.GetOptions{})
+	etcdEndpoints, err := listers.endpointLister.Endpoints(etcdNamespaceName).Get("etcd")
 	if errors.IsNotFound(err) {
 		return observedConfig, nil
 	}
@@ -130,8 +154,8 @@ func observeEtcdEndpoints(kubeClient kubernetes.Interface, clientConfig *rest.Co
 }
 
 // observeClusterConfig observes CIDRs from cluster-config-v1 in order to populate list of restrictedCIDRs
-func observeClusterConfig(kubeClient kubernetes.Interface, clientConfig *rest.Config, observedConfig map[string]interface{}) (map[string]interface{}, error) {
-	clusterConfig, err := kubeClient.CoreV1().ConfigMaps("kube-system").Get("cluster-config-v1", metav1.GetOptions{})
+func observeClusterConfig(listers Listers, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+	clusterConfig, err := listers.configmapLister.ConfigMaps("kube-system").Get("cluster-config-v1")
 	if errors.IsNotFound(err) {
 		glog.Warningf("cluster-config-v1 not found in the kube-system namespace")
 		return observedConfig, nil
@@ -187,12 +211,36 @@ func observeClusterConfig(kubeClient kubernetes.Interface, clientConfig *rest.Co
 	return observedConfig, nil
 }
 
+// observeInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by
+// the registry operator.
+func observeInternalRegistryHostname(listers Listers, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+	configImage, err := listers.imageConfigLister.Get("cluster")
+	if errors.IsNotFound(err) {
+		return observedConfig, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	internalRegistryHostName := configImage.Status.InternalRegistryHostname
+	if len(internalRegistryHostName) > 0 {
+		unstructured.SetNestedField(observedConfig, internalRegistryHostName, "imagePolicyConfig", "internalRegistryHostname")
+	}
+	return observedConfig, nil
+}
+
 func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	glog.Infof("Starting ConfigObserver")
 	defer glog.Infof("Shutting down ConfigObserver")
+
+	cache.WaitForCacheSync(stopCh,
+		c.operatorConfigSynced,
+		c.endpointSynced,
+		c.configmapSynced,
+		c.configSynced,
+	)
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
