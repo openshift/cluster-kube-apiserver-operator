@@ -1,5 +1,5 @@
 hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-10-30T08:20:21.632120428-04:00
+updated: 2018-10-31T10:39:14.836714+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,7 +74,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: c68ae01e3fc183ba46cfcfdb20792b1e529c5361
+  version: 2699ad42427b7e7b2cad1daefc93b632c9c0bb6c
   subpackages:
   - apps
   - apps/v1
@@ -119,9 +119,9 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 20de51e05a11c297b27b03396fb7d0cb598468f5
+  version: 1b58207b6bc4e3f3001dc2769483d65fd77675ea
 - name: github.com/openshift/library-go
-  version: f731a6acfd6a8916b1461fb61c3de945104fda32
+  version: 36e95bceb12f2d6d8c581a70678e01a6c20a95e5
   subpackages:
   - pkg/assets
   - pkg/config/client

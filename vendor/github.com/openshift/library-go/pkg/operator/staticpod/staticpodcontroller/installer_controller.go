@@ -44,6 +44,9 @@ type InstallerController struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
+
+	// installerPodImageFn returns the image name for the installer pod
+	installerPodImageFn func() string
 }
 
 func NewInstallerController(
@@ -65,6 +68,8 @@ func NewInstallerController(
 		kubeClient:           kubeClient,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InstallerController"),
+
+		installerPodImageFn: getInstallerPodImageFromEnv,
 	}
 
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
@@ -175,7 +180,7 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 		errors := []string{}
 		for _, containerStatus := range installerPod.Status.ContainerStatuses {
 			if containerStatus.State.Terminated != nil && len(containerStatus.State.Terminated.Message) > 0 {
-				errors = append(errors, fmt.Sprintf("%q: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
+				errors = append(errors, fmt.Sprintf("%s: %s", containerStatus.Name, containerStatus.State.Terminated.Message))
 			}
 		}
 		if len(errors) == 0 {
@@ -198,15 +203,16 @@ func (c *InstallerController) getDeploymentIDToStart(currNodeState, prevNodeStat
 		return 0
 	}
 
+	prevFinished := prevNodeState.TargetDeploymentGeneration == 0
 	prevInTransition := prevNodeState.CurrentDeploymentGeneration != prevNodeState.TargetDeploymentGeneration
-	if prevInTransition {
+	if prevInTransition && !prevFinished {
 		return 0
 	}
 
-	prevAhead := currNodeState.CurrentDeploymentGeneration > currNodeState.CurrentDeploymentGeneration
+	prevAhead := prevNodeState.CurrentDeploymentGeneration > currNodeState.CurrentDeploymentGeneration
 	failedAtPrev := currNodeState.LastFailedDeploymentGeneration == prevNodeState.CurrentDeploymentGeneration
 	if prevAhead && !failedAtPrev {
-		return currNodeState.CurrentDeploymentGeneration
+		return prevNodeState.CurrentDeploymentGeneration
 	}
 
 	return 0
@@ -227,8 +233,9 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 		return nil, fmt.Errorf("invalid imagePullPolicy specified: %v", operatorSpec.ImagePullPolicy)
 	}
 	required.Name = getInstallerPodName(deploymentID, currNodeState.NodeName)
+	required.Namespace = c.targetNamespace
 	required.Spec.NodeName = currNodeState.NodeName
-	required.Spec.Containers[0].Image = getInstallerPodImage()
+	required.Spec.Containers[0].Image = c.installerPodImageFn()
 	required.Spec.Containers[0].Command = c.command
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args,
 		fmt.Sprintf("-v=%d", operatorSpec.Logging.Level),
@@ -246,7 +253,7 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 	}
 
 	if _, err := c.kubeClient.CoreV1().Pods(c.targetNamespace).Create(required); err != nil {
-		glog.Errorf("failed to create pod for %q: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required), err)
+		glog.Errorf("failed to create pod on node %q for %s: %v", currNodeState.NodeName, resourceread.WritePodV1OrDie(required), err)
 		return nil, err
 	}
 
@@ -257,10 +264,7 @@ func (c *InstallerController) createInstallerPod(currNodeState *operatorv1alpha1
 	return ret, nil
 }
 
-// installerPodImageFn is injectable for unit tests
-var installerPodImageFn = getInstallerPodImage
-
-func getInstallerPodImage() string {
+func getInstallerPodImageFromEnv() string {
 	return os.Getenv("OPERATOR_IMAGE")
 }
 
@@ -278,7 +282,6 @@ func (c InstallerController) sync() error {
 		// TODO probably just fail.  Static pod managers can't be removed.
 		return nil
 	}
-
 	requeue, syncErr := c.createInstallerController(operatorSpec, operatorStatus, resourceVersion)
 	if requeue && syncErr == nil {
 		return fmt.Errorf("synthetic requeue request")
@@ -353,14 +356,14 @@ func (c *InstallerController) eventHandler() cache.ResourceEventHandler {
 const installerPod = `apiVersion: v1
 kind: Pod
 metadata:
-  namespace: openshift-kube-apiserver
+  namespace: <namespace>
   name: installer-<deployment-id>-<nodeName>
   labels:
     app: installer
 spec:
   serviceAccountName: installer-sa
   containers:
-  - name: apiserver
+  - name: installer
     image: ${IMAGE}
     imagePullPolicy: Always
     securityContext:
