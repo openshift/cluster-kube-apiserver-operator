@@ -11,39 +11,14 @@ metadata:
 spec:
   restartPolicy: Always
   hostNetwork: true
-  securityContext:
-    supplementalGroups: [65534]
-  initContainers:
-  - name: setup-lock-dir
-    image: {{ .Image }}
-    imagePullPolicy: {{ .ImagePullPolicy }}
-    command: ["/bin/bash", "-c"]
-    args:
-    - |
-      chgrp 65534 /var/lock
-      chmod 775 /var/lock
-      rm -f /var/lock/api-server.lock || true
-    securityContext:
-      runAsNonRoot: false
-      privileged: true
-    volumeMounts:
-    - mountPath: /var/lock
-      name: var-lock
   containers:
   - name: kube-apiserver
     image: {{ .Image }}
     imagePullPolicy: {{ .ImagePullPolicy }}
-    command: ["/usr/bin/flock", "--exclusive", "--timeout=60", "/var/lock/api-server.lock", "-c"]
+    command: ["hypershift", "openshift-kube-apiserver"]
     args:
-    - exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/config/{{ .ConfigFileName }}
-    securityContext:
-      runAsNonRoot: true
-      privileged: true
-      runAsUser: 65534
+    - --config=/etc/kubernetes/config/{{ .ConfigFileName }}
     volumeMounts:
-    - mountPath: /var/lock
-      name: var-lock
-      readOnly: false
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
       readOnly: true
@@ -62,9 +37,6 @@ spec:
         port: 6443
         path: healthz
   volumes:
-  - hostPath:
-      path: {{ .LockHostPath }}
-    name: var-lock
   - hostPath:
       path: {{ .SecretsHostPath }}
     name: secrets
