@@ -2,9 +2,7 @@
 // sources:
 // bindata/v3.11.0/kube-apiserver/cm.yaml
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
-// bindata/v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml
 // bindata/v3.11.0/kube-apiserver/installer-pod.yaml
-// bindata/v3.11.0/kube-apiserver/installer-sa.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
@@ -205,34 +203,6 @@ func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverInstallerClusterRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: system:openshift:operator:cluster-kube-apiserver-installer
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  namespace: openshift-kube-apiserver
-  name: installer-sa
-`)
-
-func v3110KubeApiserverInstallerClusterRolebindingYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverInstallerClusterRolebindingYaml, nil
-}
-
-func v3110KubeApiserverInstallerClusterRolebindingYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverInstallerClusterRolebindingYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v3110KubeApiserverInstallerPodYaml = []byte(`apiVersion: v1
 kind: Pod
 metadata:
@@ -274,28 +244,6 @@ func v3110KubeApiserverInstallerPodYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v3110KubeApiserverInstallerSaYaml = []byte(`apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: openshift-kube-apiserver
-  name: installer-sa
-`)
-
-func v3110KubeApiserverInstallerSaYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverInstallerSaYaml, nil
-}
-
-func v3110KubeApiserverInstallerSaYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverInstallerSaYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/installer-sa.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -602,19 +550,17 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml":                            v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml":                 v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/kube-apiserver/installer-cluster-rolebinding.yaml": v3110KubeApiserverInstallerClusterRolebindingYaml,
-	"v3.11.0/kube-apiserver/installer-pod.yaml":                 v3110KubeApiserverInstallerPodYaml,
-	"v3.11.0/kube-apiserver/installer-sa.yaml":                  v3110KubeApiserverInstallerSaYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":                            v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/operator-config.yaml":               v3110KubeApiserverOperatorConfigYaml,
-	"v3.11.0/kube-apiserver/pod-cm.yaml":                        v3110KubeApiserverPodCmYaml,
-	"v3.11.0/kube-apiserver/pod.yaml":                           v3110KubeApiserverPodYaml,
-	"v3.11.0/kube-apiserver/public-info-role.yaml":              v3110KubeApiserverPublicInfoRoleYaml,
-	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml":       v3110KubeApiserverPublicInfoRolebindingYaml,
-	"v3.11.0/kube-apiserver/public-info.yaml":                   v3110KubeApiserverPublicInfoYaml,
-	"v3.11.0/kube-apiserver/svc.yaml":                           v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":                      v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml":           v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/installer-pod.yaml":           v3110KubeApiserverInstallerPodYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":                      v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/operator-config.yaml":         v3110KubeApiserverOperatorConfigYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":                  v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":                     v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/public-info-role.yaml":        v3110KubeApiserverPublicInfoRoleYaml,
+	"v3.11.0/kube-apiserver/public-info-rolebinding.yaml": v3110KubeApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/kube-apiserver/public-info.yaml":             v3110KubeApiserverPublicInfoYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":                     v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -660,19 +606,17 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":                            {v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":                 {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"installer-cluster-rolebinding.yaml": {v3110KubeApiserverInstallerClusterRolebindingYaml, map[string]*bintree{}},
-			"installer-pod.yaml":                 {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
-			"installer-sa.yaml":                  {v3110KubeApiserverInstallerSaYaml, map[string]*bintree{}},
-			"ns.yaml":                            {v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"operator-config.yaml":               {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
-			"pod-cm.yaml":                        {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":                           {v3110KubeApiserverPodYaml, map[string]*bintree{}},
-			"public-info-role.yaml":              {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
-			"public-info-rolebinding.yaml":       {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
-			"public-info.yaml":                   {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
-			"svc.yaml":                           {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml":                      {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":           {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"installer-pod.yaml":           {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
+			"ns.yaml":                      {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"operator-config.yaml":         {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                  {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                     {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"public-info-role.yaml":        {v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml": {v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml":             {v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
+			"svc.yaml":                     {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
