@@ -25,3 +25,15 @@ storageConfig:
   keyFile: /etc/kubernetes/secrets/etcd-client.key # origin 3.11: master.etcd-client.key
   urls: {{range .EtcdServerURLs}}
   - {{.}}{{end}}
+{{if .ServiceCIDR | len | ne 0}}
+servicesSubnet: {{index .ServiceCIDR 0}}{{end}}
+admissionPluginConfig:
+  {{if .ServiceCIDR }}
+  openshift.io/RestrictedEndpointsAdmission:
+    configuration:
+      apiVersion: v1
+      kind: RestrictedEndpointsAdmissionConfig
+      restrictedCIDRs: {{range .ServiceCIDR}}
+      - {{.}}{{end}}{{range .ClusterCIDR}}
+      - {{.}}{{end}}
+  {{end}}
