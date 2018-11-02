@@ -12,8 +12,10 @@ import (
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	installertypes "github.com/openshift/installer/pkg/types"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
 const (
@@ -25,10 +27,11 @@ type renderOpts struct {
 	manifest genericrenderoptions.ManifestOptions
 	generic  genericrenderoptions.GenericOptions
 
-	lockHostPath   string
-	etcdServerURLs []string
-	etcdServingCA  string
-	disablePhase2  bool
+	lockHostPath      string
+	etcdServerURLs    []string
+	etcdServingCA     string
+	disablePhase2     bool
+	clusterConfigFile string
 }
 
 // NewRenderCommand creates a render command.
@@ -37,9 +40,10 @@ func NewRenderCommand() *cobra.Command {
 		generic:  *genericrenderoptions.NewGenericOptions(),
 		manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hypershift:latest"),
 
-		lockHostPath:   "/var/run/kubernetes/lock",
-		etcdServerURLs: []string{"https://127.0.0.1:2379"},
-		etcdServingCA:  "root-ca.crt",
+		lockHostPath:      "/var/run/kubernetes/lock",
+		etcdServerURLs:    []string{"https://127.0.0.1:2379"},
+		etcdServingCA:     "root-ca.crt",
+		clusterConfigFile: "/opt/tectonic/manifests/cluster-config.yaml",
 	}
 	cmd := &cobra.Command{
 		Use:   "render",
@@ -69,6 +73,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.lockHostPath, "manifest-lock-host-path", r.lockHostPath, "A host path mounted into the apiserver pods to hold lock.")
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
+	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.configFile, "ClusterConfig ConfigMap file.")
 
 	// TODO: remove when the installer has stopped using it
 	fs.BoolVar(&r.disablePhase2, "disable-phase-2", r.disablePhase2, "Disable rendering of the phase 2 daemonset and dependencies.")
@@ -93,6 +98,9 @@ func (r *renderOpts) Validate() error {
 	}
 	if len(r.etcdServingCA) == 0 {
 		return errors.New("missing etcd serving CA: --manifest-etcd-serving-ca")
+	}
+	if len(r.clusterConfigFile) == 0 {
+		return errors.New("missing cluster ConfigMap file: --cluster-config-file")
 	}
 
 	return nil
@@ -121,14 +129,28 @@ type TemplateData struct {
 
 	// EtcdServingCA is the serving CA used by the etcd servers.
 	EtcdServingCA string
+
+	// RestrictedCIDRs is a list of restricted CIDRs in the admissionPluginConfig
+	RestrictedCIDRs []string
 }
 
 // Run contains the logic of the render command.
 func (r *renderOpts) Run() error {
+	clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
+	if err != nil {
+		return err
+	}
+	installConfig, err := v1alpha1helpers.InstallConfigFromFile(clusterConfigFileData)
+	if err != nil {
+		return err
+	}
+	restrictedCIDRs := discoverRestrictedCIDRs(installConfig)
+
 	renderConfig := TemplateData{
-		LockHostPath:   r.lockHostPath,
-		EtcdServerURLs: r.etcdServerURLs,
-		EtcdServingCA:  r.etcdServingCA,
+		LockHostPath:    r.lockHostPath,
+		EtcdServerURLs:  r.etcdServerURLs,
+		EtcdServingCA:   r.etcdServingCA,
+		RestrictedCIDRs: restrictedCIDRs,
 	}
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {
 		return err
@@ -152,4 +174,10 @@ func mustReadTemplateFile(fname string) genericrenderoptions.Template {
 		panic(fmt.Sprintf("Failed to load %q: %v", fname, err))
 	}
 	return genericrenderoptions.Template{FileName: fname, Content: bs}
+}
+
+func discoverRestrictedCIDRs(ic installertypes.InstallConfig) []string {
+	restrictedCIDRs := []string{}
+	restrictedCIDRs = append(restrictedCIDRs, ic.Networking.ServiceCIDR.String(), ic.Networking.PodCIDR.String())
+	return restrictedCIDRs, nil
 }
