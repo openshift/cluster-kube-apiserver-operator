@@ -15,6 +15,7 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 )
 
@@ -42,6 +43,12 @@ func NewOperatorCommand() *cobra.Command {
 			cmd.Help()
 			os.Exit(1)
 		},
+	}
+
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
 	}
 
 	cmd.AddCommand(operator.NewOperator())
