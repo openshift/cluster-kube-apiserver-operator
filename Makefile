@@ -43,7 +43,7 @@ QUOTED_IMAGES=\"$(subst $(,),\"$(,)\",$(IMAGES))\"
 
 origin-release:
 	docker pull registry.svc.ci.openshift.org/openshift/origin-release:v4.0
-	imagebuilder -file hack/lib/Dockerfile-origin-release --build-arg "IMAGE_REPOSITORY_NAME=$(IMAGE_REPOSITORY_NAME)" --build-arg "IMAGES=$(QUOTED_IMAGES)" -t "$(IMAGE_REPOSITORY_NAME)/origin-release:latest" hack
+	imagebuilder -file Dockerfile-origin-release --build-arg "IMAGE_REPOSITORY_NAME=$(IMAGE_REPOSITORY_NAME)" --build-arg "IMAGES=$(QUOTED_IMAGES)" -t "$(IMAGE_REPOSITORY_NAME)/origin-release:latest" hack
 	@echo
 	@echo "To install:"
 	@echo
