@@ -10,6 +10,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	configv1client "github.com/openshift/client-go/config/clientset/versioned"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
@@ -32,10 +34,15 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+	configClient, err := configv1client.NewForConfig(clientConfig)
+	if err != nil {
+		return err
+	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersClusterScoped := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
 	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
+	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	staticPodOperatorClient := &staticPodOperatorClient{
 		informers: operatorConfigInformers,
 		client:    operatorConfigClient.KubeapiserverV1alpha1(),
@@ -62,8 +69,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	configObserver := NewConfigObserver(
 		operatorConfigInformers,
 		kubeInformersForKubeSystemNamespace,
+		configInformers,
 		operatorConfigClient.KubeapiserverV1alpha1(),
-		kubeClient,
 	)
 	targetConfigReconciler := NewTargetConfigReconciler(
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
@@ -94,6 +101,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	kubeInformersClusterScoped.Start(stopCh)
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(stopCh)
 	kubeInformersForKubeSystemNamespace.Start(stopCh)
+	configInformers.Start(stopCh)
 
 	go staticPodControllers.Run(stopCh)
 	go targetConfigReconciler.Run(1, stopCh)
