@@ -2,7 +2,9 @@
 #
 FROM openshift/origin-release:golang-1.10
 COPY . /go/src/github.com/openshift/cluster-kube-apiserver-operator
-RUN cd /go/src/github.com/openshift/cluster-kube-apiserver-operator && go build ./cmd/cluster-kube-apiserver-operator
+WORKDIR /go/src/github.com/openshift/cluster-kube-apiserver-operator
+ENV GO_PACKAGE github.com/openshift/cluster-kube-apiserver-operator
+RUN go build -ldflags "-X $GO_PACKAGE/pkg/version.versionFromGit=$(git describe --long --tags --abbrev=7 --match 'v[0-9]*')" ./cmd/cluster-kube-apiserver-operator
 
 FROM centos:7
 RUN mkdir -p /usr/share/bootkube/manifests
