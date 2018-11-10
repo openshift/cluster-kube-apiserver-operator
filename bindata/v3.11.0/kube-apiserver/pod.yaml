@@ -20,6 +20,20 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+    livenessProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 8443
+        path: healthz
+      initialDelaySeconds: 45
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 8443
+        path: healthz/ready
+      initialDelaySeconds: 10
+      timeoutSeconds: 10
   hostNetwork: true
   volumes:
   - hostPath:
