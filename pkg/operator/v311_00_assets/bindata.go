@@ -350,14 +350,14 @@ spec:
     livenessProbe:
       httpGet:
         scheme: HTTPS
-        port: 8443
+        port: 6443
         path: healthz
       initialDelaySeconds: 45
       timeoutSeconds: 10
     readinessProbe:
       httpGet:
         scheme: HTTPS
-        port: 8443
+        port: 6443
         path: healthz/ready
       initialDelaySeconds: 10
       timeoutSeconds: 10
