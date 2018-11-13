@@ -40,13 +40,15 @@ type Listers struct {
 	imageConfigLister configlistersv1.ImageLister
 	endpointsLister   corelistersv1.EndpointsLister
 	configmapLister   corelistersv1.ConfigMapLister
+
+	imageConfigSynced cache.InformerSynced
 }
 
 // observeConfigFunc observes configuration and returns the observedConfig. This function should not return an
 // observedConfig that would cause the service being managed by the operator to crash. For example, if a required
 // configuration key cannot be observed, consider reusing the configuration key's previous value. Errors that occur
 // while attempting to generate the observedConfig should be returned in the errs slice.
-type observeConfigFunc func(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
+type observeConfigFunc func(listers Listers, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error)
 
 type ConfigObserver struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
@@ -62,10 +64,7 @@ type ConfigObserver struct {
 	// listers are used by config observers to retrieve necessary resources
 	listers Listers
 
-	operatorConfigSynced cache.InformerSynced
-	endpointsSynced      cache.InformerSynced
-	configmapSynced      cache.InformerSynced
-	configSynced         cache.InformerSynced
+	cachesSynced []cache.InformerSynced
 }
 
 func NewConfigObserver(
@@ -89,13 +88,14 @@ func NewConfigObserver(
 			imageConfigLister: configInformer.Config().V1().Images().Lister(),
 			endpointsLister:   kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
 			configmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
+			imageConfigSynced: configInformer.Config().V1().Images().Informer().HasSynced,
+		},
+		cachesSynced: []cache.InformerSynced{
+			operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced,
+			kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced,
+			kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced,
 		},
 	}
-
-	c.operatorConfigSynced = operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced
-	c.endpointsSynced = kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced
-	c.configmapSynced = kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced
-	c.configSynced = configInformer.Config().V1().Images().Informer().HasSynced
 
 	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.eventHandler())
@@ -280,28 +280,34 @@ func observeRestrictedCIDRs(listers Listers, currentConfig map[string]interface{
 
 // observeInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by
 // the registry operator.
-func observeInternalRegistryHostname(listers Listers, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
-	observedConfig = map[string]interface{}{}
-	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	currentInternalRegistryHostname, _, _ := unstructured.NestedStringSlice(currentConfig, internalRegistryHostnamePath...)
+func observeInternalRegistryHostname(listers Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	errs := []error{}
+	prevObservedConfig := map[string]interface{}{}
 
+	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
+	if currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...); len(currentInternalRegistryHostname) > 0 {
+		unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
+	}
+
+	if !listers.imageConfigSynced() {
+		glog.Warning("images.config.openshift.io not synced")
+		return prevObservedConfig, errs
+	}
+
+	observedConfig := map[string]interface{}{}
 	configImage, err := listers.imageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
 		glog.Warningf("image.config.openshift.io/cluster: not found")
-		return
+		return observedConfig, errs
 	}
 	if err != nil {
-		errs = append(errs, err)
-		if len(currentInternalRegistryHostname) > 0 {
-			unstructured.SetNestedField(observedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
-		}
-		return
+		return prevObservedConfig, errs
 	}
 	internalRegistryHostName := configImage.Status.InternalRegistryHostname
 	if len(internalRegistryHostName) > 0 {
 		unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...)
 	}
-	return
+	return observedConfig, errs
 }
 
 func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
@@ -311,12 +317,10 @@ func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	glog.Infof("Starting ConfigObserver")
 	defer glog.Infof("Shutting down ConfigObserver")
 
-	cache.WaitForCacheSync(stopCh,
-		c.operatorConfigSynced,
-		c.endpointsSynced,
-		c.configmapSynced,
-		c.configSynced,
-	)
+	if !cache.WaitForCacheSync(stopCh, c.cachesSynced...) {
+		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
+		return
+	}
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
