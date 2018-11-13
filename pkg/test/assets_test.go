@@ -5,7 +5,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator/render"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/library-go/pkg/assets"
 )
 
