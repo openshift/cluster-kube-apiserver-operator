@@ -91,8 +91,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
-		"openshift-kube-apiserver",
-		"openshift-kube-apiserver",
+		"openshift-cluster-kube-apiserver-operator",
+		"openshift-cluster-kube-apiserver-operator",
 		dynamicClient,
 		staticPodOperatorClient,
 	)

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: openshift-core-operators
+  namespace: openshift-cluster-kube-apiserver-operator
   name: openshift-cluster-kube-apiserver-operator
   labels:
     app: openshift-cluster-kube-apiserver-operator
