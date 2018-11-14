@@ -353,6 +353,7 @@ func TestSyncStatus(t *testing.T) {
 					imageConfigLister: configlistersv1.NewImageLister(imagesIndexer),
 					endpointsLister:   corelistersv1.NewEndpointsLister(endpointsIndexer),
 					configmapLister:   corelistersv1.NewConfigMapLister(configMapIndexer),
+					imageConfigSynced: func() bool { return true },
 				},
 				operatorConfigClient: operatorConfigClient.KubeapiserverV1alpha1(),
 				observers: []observeConfigFunc{
@@ -401,8 +402,9 @@ func TestSyncUpdateFailed(t *testing.T) {
 	})
 	configObserver := ConfigObserver{
 		listers: Listers{
-			endpointsLister: corelistersv1.NewEndpointsLister(endpointsIndexer),
-			configmapLister: corelistersv1.NewConfigMapLister(configMapIndexer),
+			endpointsLister:   corelistersv1.NewEndpointsLister(endpointsIndexer),
+			configmapLister:   corelistersv1.NewConfigMapLister(configMapIndexer),
+			imageConfigSynced: func() bool { return true },
 		},
 		operatorConfigClient: operatorConfigClient.KubeapiserverV1alpha1(),
 		observers: []observeConfigFunc{
@@ -569,6 +571,7 @@ func TestObserveRegistryConfig(t *testing.T) {
 
 	listers := Listers{
 		imageConfigLister: configlistersv1.NewImageLister(indexer),
+		imageConfigSynced: func() bool { return true },
 	}
 	result, errs := observeInternalRegistryHostname(listers, map[string]interface{}{})
 	if len(errs) > 0 {
@@ -580,5 +583,27 @@ func TestObserveRegistryConfig(t *testing.T) {
 	}
 	if internalRegistryHostname != expectedInternalRegistryHostname {
 		t.Errorf("expected internal registry hostname: %s, got %s", expectedInternalRegistryHostname, internalRegistryHostname)
+	}
+}
+
+func TestObserveRegistryReturnOldConfig(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	listers := Listers{
+		imageConfigLister: configlistersv1.NewImageLister(indexer),
+		imageConfigSynced: func() bool { return false },
+	}
+	existing := map[string]interface{}{}
+	unstructured.SetNestedField(existing, "existing-value", "imagePolicyConfig", "internalRegistryHostname")
+
+	result, errs := observeInternalRegistryHostname(listers, existing)
+	if len(errs) > 0 {
+		t.Error("expected len(errs) == 0")
+	}
+	internalRegistryHostname, _, err := unstructured.NestedString(result, "imagePolicyConfig", "internalRegistryHostname")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if internalRegistryHostname != "existing-value" {
+		t.Errorf("expected internal registry hostname: %s, got %s", "existing-value", internalRegistryHostname)
 	}
 }
