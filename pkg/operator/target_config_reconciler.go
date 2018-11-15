@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	etcdNamespaceName   = "kube-system"
-	targetNamespaceName = "openshift-kube-apiserver"
-	workQueueKey        = "key"
+	statusUpdateErrorConditionReason = "StatusUpdateError"
+	etcdNamespaceName                = "kube-system"
+	targetNamespaceName              = "openshift-kube-apiserver"
+	workQueueKey                     = "key"
 )
 
 type TargetConfigReconciler struct {
@@ -97,13 +98,27 @@ func (c TargetConfigReconciler) sync() error {
 			v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
 				Type:    operatorv1.OperatorStatusTypeFailing,
 				Status:  operatorv1.ConditionTrue,
-				Reason:  "StatusUpdateError",
+				Reason:  statusUpdateErrorConditionReason,
 				Message: err.Error(),
 			})
 			if _, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); updateError != nil {
 				glog.Error(updateError)
 			}
 		}
+		return err
+	}
+
+	// clear failing condition if previously set by the config reconciliation control loop
+	status := operatorConfig.Status.DeepCopy()
+	condition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeFailing)
+	if condition != nil && condition.Status != operatorv1.ConditionFalse && condition.Reason == statusUpdateErrorConditionReason {
+		condition.Status = operatorv1.ConditionFalse
+		condition.Reason = ""
+		condition.Message = ""
+	}
+	operatorConfig.Status = *status
+	_, err = c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
+	if err != nil {
 		return err
 	}
 
