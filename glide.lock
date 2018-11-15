@@ -1,5 +1,5 @@
-hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-11-15T11:52:59.721363241-05:00
+hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
+updated: 2018-11-15T15:06:00.294422637-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -7,8 +7,6 @@ imports:
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
   subpackages:
   - quantile
-- name: github.com/blang/semver
-  version: b38d23b8782a487059e8fc8773e9a5b228a77cb6
 - name: github.com/certifi/gocertifi
   version: ee1a9a0726d2ae45f54118cac878c990d4016ded
 - name: github.com/coreos/etcd
@@ -97,7 +95,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/elazarl/go-bindata-assetfs
@@ -113,7 +111,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -187,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 8a3880e9178ebf7a6655469c7dd213ea9a378c33
+  version: 8dce450af78098c96d68dc2a0c2fb8e917993fb4
   subpackages:
   - apps
   - apps/v1
@@ -244,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 593dd64a8b17fd56870e580879c9af7e5f711570
+  version: 6c773a8b05ccdd6e00cd952886a22a584c105707
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -260,17 +258,17 @@ imports:
   - pkg/operator/resource/resourceapply
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
-  - pkg/operator/staticpod
-  - pkg/operator/staticpod/controller/backingresource
-  - pkg/operator/staticpod/controller/backingresource/bindata
-  - pkg/operator/staticpod/controller/common
-  - pkg/operator/staticpod/controller/deployment
-  - pkg/operator/staticpod/controller/installer
-  - pkg/operator/staticpod/controller/node
   - pkg/operator/staticpod/installerpod
-  - pkg/operator/status
   - pkg/operator/v1alpha1helpers
-  - pkg/operator/versioning
+  - pkg/operator/v1helpers
+  - pkg/operator/v1staticpod
+  - pkg/operator/v1staticpod/controller/backingresource
+  - pkg/operator/v1staticpod/controller/backingresource/bindata
+  - pkg/operator/v1staticpod/controller/common
+  - pkg/operator/v1staticpod/controller/deployment
+  - pkg/operator/v1staticpod/controller/installer
+  - pkg/operator/v1staticpod/controller/node
+  - pkg/operator/v1status
   - pkg/serviceability
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
