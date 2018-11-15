@@ -18,11 +18,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
-	v1alpha12 "github.com/openshift/api/operator/v1alpha1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	clusterkubeapiserverfake "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/fake"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func TestObserveClusterConfig(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSyncStatus(t *testing.T) {
 		imageConfig            *configv1.Image
 		expectError            bool
 		expectedObservedConfig *unstructured.Unstructured
-		expectedCondition      *v1alpha12.OperatorCondition
+		expectedCondition      *operatorv1.OperatorCondition
 	}{
 		{
 			name:            "HappyPath",
@@ -94,9 +94,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:   v1alpha12.OperatorStatusTypeFailing,
-				Status: v1alpha12.ConditionFalse,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:   operatorv1.OperatorStatusTypeFailing,
+				Status: operatorv1.ConditionFalse,
 			},
 		},
 		{
@@ -125,9 +125,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "endpoints/etcd.kube-system: not found",
 			},
@@ -162,9 +162,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "endpoints/etcd.kube-system: alpha.installer.openshift.io/dns-suffix annotation not found",
 			},
@@ -199,9 +199,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "endpoints/etcd.kube-system: subsets[0]addresses[1].hostname not found",
 			},
@@ -222,9 +222,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "configmap/cluster-config-v1.kube-system: not found",
 			},
@@ -258,9 +258,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "configmap/cluster-config-v1.kube-system: install-config/networking/podCIDR not found",
 			},
@@ -294,9 +294,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "configmap/cluster-config-v1.kube-system: install-config/networking/serviceCIDR not found",
 			},
@@ -321,9 +321,9 @@ func TestSyncStatus(t *testing.T) {
 					},
 				},
 			}},
-			expectedCondition: &v1alpha12.OperatorCondition{
-				Type:    v1alpha12.OperatorStatusTypeFailing,
-				Status:  v1alpha12.ConditionTrue,
+			expectedCondition: &operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
 				Message: "configmap/cluster-config-v1.kube-system: install-config/networking/podCIDR not found\nconfigmap/cluster-config-v1.kube-system: install-config/networking/serviceCIDR not found",
 			},
@@ -376,7 +376,7 @@ func TestSyncStatus(t *testing.T) {
 			if !reflect.DeepEqual(tc.expectedObservedConfig, result.Spec.ObservedConfig.Object) {
 				t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(tc.expectedObservedConfig), toYAML(result.Spec.ObservedConfig.Object))
 			}
-			condition := v1alpha1helpers.FindOperatorCondition(result.Status.Conditions, v1alpha12.OperatorStatusTypeFailing)
+			condition := v1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeFailing)
 			if !reflect.DeepEqual(tc.expectedCondition, condition) {
 				t.Fatalf("\n===== condition expected:\n%v\n===== condition actual:\n%v", toYAML(tc.expectedCondition), toYAML(condition))
 			}
@@ -432,9 +432,9 @@ func TestSyncUpdateFailed(t *testing.T) {
 			},
 		},
 	}}
-	expectedCondition := &v1alpha12.OperatorCondition{
-		Type:    v1alpha12.OperatorStatusTypeFailing,
-		Status:  v1alpha12.ConditionTrue,
+	expectedCondition := &operatorv1.OperatorCondition{
+		Type:    operatorv1.OperatorStatusTypeFailing,
+		Status:  operatorv1.ConditionTrue,
 		Reason:  configObservationErrorConditionReason,
 		Message: "kubeapiserveroperatorconfigs/instance: error writing updated observed config: TEST ERROR",
 	}
@@ -451,7 +451,7 @@ func TestSyncUpdateFailed(t *testing.T) {
 	if !reflect.DeepEqual(expectedObservedConfig.Object, observedConfig) {
 		t.Errorf("\n===== observed config expected:\n%v\n===== observed config actual:\n%v", toYAML(expectedObservedConfig.Object), toYAML(observedConfig))
 	}
-	condition := v1alpha1helpers.FindOperatorCondition(result.Status.Conditions, v1alpha12.OperatorStatusTypeFailing)
+	condition := v1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeFailing)
 	if !reflect.DeepEqual(expectedCondition, condition) {
 		t.Fatalf("\n===== condition expected:\n%v\n===== condition actual:\n%v", toYAML(expectedCondition), toYAML(condition))
 	}
@@ -471,34 +471,36 @@ func newInstanceKubeAPIServerOperatorConfig() *v1alpha1.KubeAPIServerOperatorCon
 			Name: "instance",
 		},
 		Spec: v1alpha1.KubeAPIServerOperatorConfigSpec{
-			ObservedConfig: runtime.RawExtension{Raw: jsonMarshallOrPanic(map[string]interface{}{
-				"admissionPluginConfig": map[string]interface{}{
-					"openshift.io/RestrictedEndpointsAdmission": map[string]interface{}{
-						"configuration": map[string]interface{}{
-							"restrictedCIDRs": []interface{}{
-								"ORIGINAL_POD_CIDR",
-								"ORIGINAL_SERVICE_CIDR",
+			OperatorSpec: operatorv1.OperatorSpec{
+				ObservedConfig: runtime.RawExtension{Raw: jsonMarshallOrPanic(map[string]interface{}{
+					"admissionPluginConfig": map[string]interface{}{
+						"openshift.io/RestrictedEndpointsAdmission": map[string]interface{}{
+							"configuration": map[string]interface{}{
+								"restrictedCIDRs": []interface{}{
+									"ORIGINAL_POD_CIDR",
+									"ORIGINAL_SERVICE_CIDR",
+								},
 							},
 						},
 					},
-				},
-				"imagePolicyConfig": map[string]interface{}{
-					"internalRegistryHostname": "ORIGINAL_INTERNAL_REGISTRY_HOSTNAME",
-				},
-				"storageConfig": map[string]interface{}{
-					"urls": []interface{}{
-						"ORIGINAL_STORAGE_URL",
+					"imagePolicyConfig": map[string]interface{}{
+						"internalRegistryHostname": "ORIGINAL_INTERNAL_REGISTRY_HOSTNAME",
 					},
-				},
-			})},
+					"storageConfig": map[string]interface{}{
+						"urls": []interface{}{
+							"ORIGINAL_STORAGE_URL",
+						},
+					},
+				})},
+			},
 		},
 		Status: v1alpha1.KubeAPIServerOperatorConfigStatus{
-			StaticPodOperatorStatus: v1alpha12.StaticPodOperatorStatus{
-				OperatorStatus: v1alpha12.OperatorStatus{
-					Conditions: []v1alpha12.OperatorCondition{
+			StaticPodOperatorStatus: operatorv1.StaticPodOperatorStatus{
+				OperatorStatus: operatorv1.OperatorStatus{
+					Conditions: []operatorv1.OperatorCondition{
 						{
-							Type:    v1alpha12.OperatorStatusTypeFailing,
-							Status:  v1alpha12.ConditionTrue,
+							Type:    operatorv1.OperatorStatusTypeFailing,
+							Status:  operatorv1.ConditionTrue,
 							Reason:  configObservationErrorConditionReason,
 							Message: "Condition set by test",
 						},

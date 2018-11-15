@@ -277,11 +277,6 @@ metadata:
   name: instance
 spec:
   managementState: Managed
-  imagePullSpec: openshift/origin-hypershift:latest
-  version: 3.11.0
-  logging:
-    level: 4
-  replicas: 2
 `)
 
 func v3110KubeApiserverOperatorConfigYamlBytes() ([]byte, error) {
