@@ -1,5 +1,5 @@
 hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-11-07T20:43:45.50565858-05:00
+updated: 2018-11-15T15:26:05.324097+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -97,7 +97,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
 - name: github.com/elazarl/go-bindata-assetfs
@@ -113,7 +113,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -128,7 +128,7 @@ imports:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -187,7 +187,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: fd594d07117b2d47134db828fb9ea85efa2a0c2f
+  version: 8a3880e9178ebf7a6655469c7dd213ea9a378c33
   subpackages:
   - apps
   - apps/v1
@@ -211,6 +211,7 @@ imports:
   - openshiftcontrolplane
   - openshiftcontrolplane/v1
   - operator
+  - operator/v1
   - operator/v1alpha1
   - osin
   - osin/v1
@@ -232,7 +233,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 94890c75c8081c1f818f137be55d0720758c4638
+  version: 960f72aa32a8e9b4dd769b90ff1cb5bd4c898eec
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -243,7 +244,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 85241b52707ef2beb85ad9254a176448c58ee021
+  version: 551224a4e4f4934daaea8cfbc4a4cb20e6e963cf
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -251,6 +252,7 @@ imports:
   - pkg/config/leaderelection
   - pkg/config/serving
   - pkg/controller/controllercmd
+  - pkg/controller/fileobserver
   - pkg/controller/metrics
   - pkg/crypto
   - pkg/operator/render
@@ -300,6 +302,8 @@ imports:
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
+- name: github.com/sigma/go-inotify
+  version: c87b6cf5033d2c6486046f045eeebdc3d910fd38
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/cobra
