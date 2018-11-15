@@ -18,6 +18,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
+const ForceRedeploymentReasonAnnotationKey = "force-redeployment-reason"
+
 // createTargetConfigReconciler_v311_00_to_latest takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
 func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (bool, error) {
@@ -94,6 +96,15 @@ func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMa
 	if err != nil {
 		return nil, false, err
 	}
+	if len(operatorConfig.Spec.ForceRedeploymentReason) == 0 {
+		delete(requiredConfigMap.ObjectMeta.Annotations, ForceRedeploymentReasonAnnotationKey)
+	} else {
+		if requiredConfigMap.ObjectMeta.Annotations == nil {
+			requiredConfigMap.ObjectMeta.Annotations = map[string]string{}
+		}
+		requiredConfigMap.ObjectMeta.Annotations[ForceRedeploymentReasonAnnotationKey] = operatorConfig.Spec.ForceRedeploymentReason
+	}
+
 	return resourceapply.ApplyConfigMap(client, requiredConfigMap)
 }
 
