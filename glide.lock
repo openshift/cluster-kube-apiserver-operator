@@ -1,5 +1,5 @@
 hash: 73ee1839bb7868412e51fa2de3b099a238d4370ddadacd2a75e7cdc19d861620
-updated: 2018-11-15T15:26:05.324097+01:00
+updated: 2018-11-15T11:52:59.721363241-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -244,7 +244,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 551224a4e4f4934daaea8cfbc4a4cb20e6e963cf
+  version: 593dd64a8b17fd56870e580879c9af7e5f711570
   subpackages:
   - pkg/assets
   - pkg/config/client
