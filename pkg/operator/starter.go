@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -16,9 +17,9 @@ import (
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
-	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	staticpod "github.com/openshift/library-go/pkg/operator/v1staticpod"
+	status "github.com/openshift/library-go/pkg/operator/v1status"
 )
 
 func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
@@ -48,11 +49,10 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		client:    operatorConfigClient.KubeapiserverV1alpha1(),
 	}
 
-	v1alpha1helpers.EnsureOperatorConfigExists(
+	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/kube-apiserver/operator-config.yaml"),
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
-		v1alpha1helpers.GetImageEnv,
 	)
 
 	// meet our control loops.  Each has a specific job and they operator independently so that each is very simply to write and test
@@ -73,6 +73,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigClient.KubeapiserverV1alpha1(),
 	)
 	targetConfigReconciler := NewTargetConfigReconciler(
+		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),

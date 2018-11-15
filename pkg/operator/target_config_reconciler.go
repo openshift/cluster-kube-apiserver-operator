@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,11 +17,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions/kubeapiserver/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
-	"github.com/openshift/library-go/pkg/operator/versioning"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -32,6 +30,8 @@ const (
 )
 
 type TargetConfigReconciler struct {
+	targetImagePullSpec string
+
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
 	kubeClient kubernetes.Interface
@@ -41,12 +41,15 @@ type TargetConfigReconciler struct {
 }
 
 func NewTargetConfigReconciler(
+	targetImagePullSpec string,
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
 	namespacedKubeInformers informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 ) *TargetConfigReconciler {
 	c := &TargetConfigReconciler{
+		targetImagePullSpec: targetImagePullSpec,
+
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
 
@@ -76,54 +79,24 @@ func (c TargetConfigReconciler) sync() error {
 	operatorConfigOriginal := operatorConfig.DeepCopy()
 
 	switch operatorConfig.Spec.ManagementState {
-	case operatorv1alpha1.Unmanaged:
+	case operatorv1.Unmanaged:
 		return nil
 
-	case operatorv1alpha1.Removed:
+	case operatorv1.Removed:
 		// TODO probably just fail
 		return nil
 	}
 
-	var currentActualVersion *semver.Version
-
-	if operatorConfig.Status.CurrentAvailability != nil {
-		ver, err := semver.Parse(operatorConfig.Status.CurrentAvailability.Version)
-		if err != nil {
-			utilruntime.HandleError(err)
-		} else {
-			currentActualVersion = &ver
-		}
-	}
-	desiredVersion, err := semver.Parse(operatorConfig.Spec.Version)
-	if err != nil {
-		// TODO report failing status, we may actually attempt to do this in the "normal" error handling
-		return err
-	}
-
-	v311_00_to_unknown := versioning.NewRangeOrDie("3.11.0", "3.12.0")
-
-	switch {
-	case v311_00_to_unknown.BetweenOrEmpty(currentActualVersion) && v311_00_to_unknown.Between(&desiredVersion):
-		requeue, syncErr := createTargetConfigReconciler_v311_00_to_latest(c, operatorConfig)
-		if requeue && syncErr == nil {
-			return fmt.Errorf("synthetic requeue request")
-		}
-		err = syncErr
-
-	default:
-		operatorConfig.Status.TaskSummary = "unrecognized"
-		if _, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
-			utilruntime.HandleError(err)
-		}
-
-		return fmt.Errorf("unrecognized state")
+	requeue, err := createTargetConfigReconciler_v311_00_to_latest(c, operatorConfig)
+	if requeue && err == nil {
+		return fmt.Errorf("synthetic requeue request")
 	}
 
 	if err != nil {
 		if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-			v1alpha1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1alpha1.OperatorCondition{
-				Type:    operatorv1alpha1.OperatorStatusTypeFailing,
-				Status:  operatorv1alpha1.ConditionTrue,
+			v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+				Type:    operatorv1.OperatorStatusTypeFailing,
+				Status:  operatorv1.ConditionTrue,
 				Reason:  "StatusUpdateError",
 				Message: err.Error(),
 			})

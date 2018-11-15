@@ -26,12 +26,12 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/openshift/api/operator/v1alpha1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned/typed/kubeapiserver/v1alpha1"
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const configObservationErrorConditionReason = "ConfigObservationError"
@@ -147,16 +147,16 @@ func (c ConfigObserver) sync() error {
 		for _, currentError := range errs {
 			messages = append(messages, currentError.Error())
 		}
-		v1alpha1helpers.SetOperatorCondition(&status.Conditions, v1alpha1.OperatorCondition{
-			Type:    v1alpha1.OperatorStatusTypeFailing,
-			Status:  v1alpha1.ConditionTrue,
+		v1helpers.SetOperatorCondition(&status.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeFailing,
+			Status:  operatorv1.ConditionTrue,
 			Reason:  configObservationErrorConditionReason,
 			Message: strings.Join(messages, "\n"),
 		})
 	} else {
-		condition := v1alpha1helpers.FindOperatorCondition(status.Conditions, v1alpha1.OperatorStatusTypeFailing)
-		if condition != nil && condition.Status != v1alpha1.ConditionFalse && condition.Reason == configObservationErrorConditionReason {
-			condition.Status = v1alpha1.ConditionFalse
+		condition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeFailing)
+		if condition != nil && condition.Status != operatorv1.ConditionFalse && condition.Reason == configObservationErrorConditionReason {
+			condition.Status = operatorv1.ConditionFalse
 			condition.Reason = ""
 			condition.Message = ""
 		}
