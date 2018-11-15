@@ -67,10 +67,10 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	// 4. nodeController - watches nodes for master nodes and keeps the operator status up to date
 
 	configObserver := NewConfigObserver(
+		staticPodOperatorClient,
 		operatorConfigInformers,
 		kubeInformersForKubeSystemNamespace,
 		configInformers,
-		operatorConfigClient.KubeapiserverV1alpha1(),
 	)
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
