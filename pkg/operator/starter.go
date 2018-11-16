@@ -17,9 +17,9 @@ import (
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	staticpod "github.com/openshift/library-go/pkg/operator/v1staticpod"
-	status "github.com/openshift/library-go/pkg/operator/v1status"
 )
 
 func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
@@ -82,6 +82,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	staticPodControllers := staticpod.NewControllers(
 		targetNamespaceName,
+		"openshift-kube-apiserver",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		deploymentConfigMaps,
 		deploymentSecrets,

@@ -1,14 +1,14 @@
-package staticpod
+package v1alpha1staticpod
 
 import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/backingresource"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/common"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/deployment"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/installer"
-	"github.com/openshift/library-go/pkg/operator/v1staticpod/controller/node"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/backingresource"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/common"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/deployment"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/installer"
+	"github.com/openshift/library-go/pkg/operator/v1alpha1staticpod/controller/node"
 )
 
 type staticPodOperatorControllers struct {
@@ -26,7 +26,7 @@ type staticPodOperatorControllers struct {
 //    appears that doesn't match the current latest for first kubeletStatus and the first kubeletStatus isn't already transitioning,
 //    it kicks off an installer pod.  If the next kubeletStatus doesn't match the immediate prior one, it kicks off that transition.
 // 3. NodeController - watches nodes for master nodes and keeps the operator status up to date
-func NewControllers(targetNamespaceName string, command, deploymentConfigMaps, deploymentSecrets []string,
+func NewControllers(targetNamespaceName, staticPodName string, command, deploymentConfigMaps, deploymentSecrets []string,
 	staticPodOperatorClient common.OperatorClient, kubeClient kubernetes.Interface, kubeInformersNamespaceScoped,
 	kubeInformersClusterScoped informers.SharedInformerFactory) *staticPodOperatorControllers {
 	controller := &staticPodOperatorControllers{}
@@ -42,6 +42,8 @@ func NewControllers(targetNamespaceName string, command, deploymentConfigMaps, d
 
 	controller.installerController = installer.NewInstallerController(
 		targetNamespaceName,
+		staticPodName,
+
 		deploymentConfigMaps,
 		deploymentSecrets,
 		command,

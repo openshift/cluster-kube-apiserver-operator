@@ -328,6 +328,7 @@ metadata:
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"
+    revision: "REVISION"
 spec:
   containers:
   - name: apiserver
@@ -359,7 +360,7 @@ spec:
   hostNetwork: true
   volumes:
   - hostPath:
-      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-DEPLOYMENT_ID
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
 `)
 
