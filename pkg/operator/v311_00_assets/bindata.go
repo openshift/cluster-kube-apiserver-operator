@@ -327,6 +327,7 @@ metadata:
   name: openshift-kube-apiserver
   labels:
     app: openshift-kube-apiserver
+    deployment-id: "DEPLOYMENT_ID"
     apiserver: "true"
 spec:
   containers:

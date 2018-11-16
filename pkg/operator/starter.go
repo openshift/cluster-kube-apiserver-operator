@@ -82,6 +82,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	staticPodControllers := staticpod.NewControllers(
 		targetNamespaceName,
+		"openshift-kube-apiserver",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		deploymentConfigMaps,
 		deploymentSecrets,
