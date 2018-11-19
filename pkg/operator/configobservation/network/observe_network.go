@@ -3,13 +3,13 @@ package network
 import (
 	"fmt"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/configobserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-
 	"github.com/ghodss/yaml"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
 )
 
 // ObserveRestrictedCIDRs observes list of restrictedCIDRs.

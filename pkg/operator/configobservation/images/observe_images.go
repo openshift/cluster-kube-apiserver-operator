@@ -1,13 +1,13 @@
 package images
 
 import (
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/configobserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
 )
 
 // ObserveInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by

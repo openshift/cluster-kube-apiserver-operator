@@ -1,17 +1,16 @@
 package configobservercontroller
 
 import (
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/configobserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
-
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
 )
 
 type ConfigObserver struct {
