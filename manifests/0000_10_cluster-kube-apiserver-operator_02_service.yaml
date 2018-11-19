@@ -14,5 +14,4 @@ spec:
     targetPort: 8443
   selector:
     app: openshift-cluster-kube-apiserver-operator
-  sessionAffinity: None
   type: ClusterIP
