@@ -28,6 +28,8 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/secrets/serving-certs
+          name: serving-cert
         env:
         - name: IMAGE
           value: quay.io/openshift/origin-hypershift:v4.0
@@ -37,12 +39,10 @@ spec:
       volumes:
       - name: serving-cert
         secret:
-          defaultMode: 400
           secretName: openshift-cluster-kube-apiserver-operator-serving-cert
           optional: true
       - name: config
         configMap:
-          defaultMode: 440
           name: openshift-cluster-kube-apiserver-operator-config
       nodeSelector:
         node-role.kubernetes.io/master: ""
