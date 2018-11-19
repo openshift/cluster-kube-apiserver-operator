@@ -37,6 +37,11 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 		}
 	}
 
+	// etcd is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
+	_, err := manageServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1())
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
+	}
 	apiserverConfig, _, err := manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
@@ -85,6 +90,21 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	}
 
 	return false, nil
+}
+
+func manageServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
+	const etcdServingCAName = "etcd-serving-ca"
+	const etcdClientCertKeyPairName = "etcd-client"
+
+	_, caChanged, err := resourceapply.SyncConfigMap(client, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
+	if err != nil {
+		return false, err
+	}
+	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
+	if err != nil {
+		return false, err
+	}
+	return caChanged || certKeyPairChanged, nil
 }
 
 func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {

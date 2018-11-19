@@ -56,17 +56,6 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
 	)
 
-	// meet our control loops.  Each has a specific job and they operator independently so that each is very simply to write and test
-	// 1. targetConfigReconciler - this creates configmaps and secrets to be copied for static pods.  It writes to a single target for each resource
-	//    (no spin numbers on the individual secrets).  This (and other content) are targets for the deploymentContent loop.
-	// 2. deploymentController - this watches multiple resources for "latest" input that has changed from the most current deploymentID.
-	//    When a change is found, it creates a new deployment by copying resources and adding the deploymentID suffix to the names
-	//    to make a theoretically immutable set of deployment data.  It then bumps the latestDeploymentID and starts watching again.
-	// 3. installerController - this watches the latestDeploymentID and the list of kubeletStatus (alpha-sorted list).  When a latestDeploymentID
-	//    appears that doesn't match the current latest for first kubeletStatus and the first kubeletStatus isn't already transitioning,
-	//    it kicks off an installer pod.  If the next kubeletStatus doesn't match the immediate prior one, it kicks off that transition.
-	// 4. nodeController - watches nodes for master nodes and keeps the operator status up to date
-
 	configObserver := configobservercontroller.NewConfigObserver(
 		staticPodOperatorClient,
 		operatorConfigInformers,
@@ -92,7 +81,6 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		kubeInformersClusterScoped,
 	)
-
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",
 		"openshift-cluster-kube-apiserver-operator",
