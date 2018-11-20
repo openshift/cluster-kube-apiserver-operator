@@ -140,7 +140,7 @@ func TestSyncStatus(t *testing.T) {
 				Type:    operatorStatusTypeConfigObservationFailing,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  configObservationErrorConditionReason,
-				Message: "kubeapiserveroperatorconfigs/instance: error writing updated observed config: update spec failure",
+				Message: "error writing updated observed config: update spec failure",
 			},
 		},
 	}

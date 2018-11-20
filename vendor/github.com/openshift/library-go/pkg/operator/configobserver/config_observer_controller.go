@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -41,7 +40,7 @@ type Listers interface {
 	PreRunHasSynced() []cache.InformerSynced
 }
 
-// observeConfigFunc observes configuration and returns the observedConfig. This function should not return an
+// ObserveConfigFunc observes configuration and returns the observedConfig. This function should not return an
 // observedConfig that would cause the service being managed by the operator to crash. For example, if a required
 // configuration key cannot be observed, consider reusing the configuration key's previous value. Errors that occur
 // while attempting to generate the observedConfig should be returned in the errs slice.
@@ -67,7 +66,7 @@ func NewConfigObserver(
 	listers Listers,
 	observers ...ObserveConfigFunc,
 ) *ConfigObserver {
-	c := &ConfigObserver{
+	return &ConfigObserver{
 		operatorClient: operatorClient,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
@@ -76,8 +75,6 @@ func NewConfigObserver(
 		observers:   observers,
 		listers:     listers,
 	}
-
-	return c
 }
 
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
@@ -88,7 +85,7 @@ func (c ConfigObserver) sync() error {
 		return err
 	}
 	spec := originalSpec.DeepCopy()
-	// don't worry about errors
+	// don't worry about errors.  If we can't decode, we'll simply stomp over the field.
 	existingConfig := map[string]interface{}{}
 	json.NewDecoder(bytes.NewBuffer(spec.ObservedConfig.Raw)).Decode(&existingConfig)
 
@@ -111,7 +108,7 @@ func (c ConfigObserver) sync() error {
 		spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: mergedObservedConfig}}
 		_, resourceVersion, err = c.operatorClient.UpdateOperatorSpec(resourceVersion, spec)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("kubeapiserveroperatorconfigs/instance: error writing updated observed config: %v", err))
+			errs = append(errs, fmt.Errorf("error writing updated observed config: %v", err))
 		}
 	}
 
