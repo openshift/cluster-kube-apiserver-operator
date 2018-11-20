@@ -9,7 +9,7 @@ metadata:
     revision: "REVISION"
 spec:
   containers:
-  - name: apiserver
+  - name: openshift-kube-apiserver
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
