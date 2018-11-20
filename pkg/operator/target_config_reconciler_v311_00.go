@@ -26,8 +26,6 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, v311_00_assets.Asset,
 		"v3.11.0/kube-apiserver/ns.yaml",
-		"v3.11.0/kube-apiserver/public-info-role.yaml",
-		"v3.11.0/kube-apiserver/public-info-rolebinding.yaml",
 		"v3.11.0/kube-apiserver/svc.yaml",
 	)
 
@@ -42,22 +40,13 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
 	}
-	apiserverConfig, _, err := manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
+	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
 	}
 	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
-	}
-
-	configData := ""
-	if apiserverConfig != nil {
-		configData = apiserverConfig.Data["config.yaml"]
-	}
-	_, _, err = manageKubeApiserverPublicConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), configData, operatorConfig)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/public-info", err))
 	}
 
 	if len(errors) > 0 {
@@ -115,12 +104,6 @@ func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMa
 		return nil, false, err
 	}
 	return resourceapply.ApplyConfigMap(client, requiredConfigMap)
-}
-
-func manageKubeApiserverPublicConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, apiserverConfigString string, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
-	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/public-info.yaml"))
-
-	return resourceapply.ApplyConfigMap(client, configMap)
 }
 
 func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
