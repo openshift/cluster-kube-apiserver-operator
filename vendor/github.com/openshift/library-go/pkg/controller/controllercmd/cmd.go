@@ -23,7 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/serviceability"
 
-	// add prometheus metrics
+	// for metrics
 	_ "github.com/openshift/library-go/pkg/controller/metrics"
 )
 
@@ -107,7 +107,7 @@ func (c *ControllerCommandConfig) StartController(stopCh <-chan struct{}) error 
 		return fmt.Errorf("unexpected config: %T", uncastConfig)
 	}
 
-	certDir := "/var/run/secrets/serving-certs"
+	certDir := "/var/run/secrets/serving-cert"
 
 	observedFiles := []string{
 		c.basicFlags.ConfigFile,
