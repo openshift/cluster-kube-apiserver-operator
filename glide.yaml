@@ -19,6 +19,8 @@ import:
 - package: github.com/openshift/client-go
   version: master
 - package: github.com/openshift/library-go
+  repo:    https://github.com/deads2k/library-go
+  version: use-proto
   version: master
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
