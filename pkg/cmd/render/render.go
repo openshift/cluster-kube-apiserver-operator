@@ -6,9 +6,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
@@ -25,10 +28,11 @@ type renderOpts struct {
 	manifest genericrenderoptions.ManifestOptions
 	generic  genericrenderoptions.GenericOptions
 
-	lockHostPath   string
-	etcdServerURLs []string
-	etcdServingCA  string
-	disablePhase2  bool
+	lockHostPath      string
+	etcdServerURLs    []string
+	etcdServingCA     string
+	disablePhase2     bool
+	clusterConfigFile string
 }
 
 // NewRenderCommand creates a render command.
@@ -69,6 +73,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.lockHostPath, "manifest-lock-host-path", r.lockHostPath, "A host path mounted into the apiserver pods to hold lock.")
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
+	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
 
 	// TODO: remove when the installer has stopped using it
 	fs.BoolVar(&r.disablePhase2, "disable-phase-2", r.disablePhase2, "Disable rendering of the phase 2 daemonset and dependencies.")
@@ -121,6 +126,12 @@ type TemplateData struct {
 
 	// EtcdServingCA is the serving CA used by the etcd servers.
 	EtcdServingCA string
+
+	// ClusterCIDR is the IP range for pod IPs.
+	ClusterCIDR []string
+
+	// ServiceClusterIPRange is the IP range for service IPs.
+	ServiceCIDR []string
 }
 
 // Run contains the logic of the render command.
@@ -129,6 +140,16 @@ func (r *renderOpts) Run() error {
 		LockHostPath:   r.lockHostPath,
 		EtcdServerURLs: r.etcdServerURLs,
 		EtcdServingCA:  r.etcdServingCA,
+	}
+	if len(r.clusterConfigFile) > 0 {
+		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
+		if err != nil {
+			return err
+		}
+		err = discoverCIDRs(clusterConfigFileData, &renderConfig)
+		if err != nil {
+			return fmt.Errorf("unable to parse restricted CIDRs from cluster-api config %q: %v", r.clusterConfigFile, err)
+		}
 	}
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {
 		return err
@@ -152,4 +173,34 @@ func mustReadTemplateFile(fname string) genericrenderoptions.Template {
 		panic(fmt.Sprintf("Failed to load %q: %v", fname, err))
 	}
 	return genericrenderoptions.Template{FileName: fname, Content: bs}
+}
+
+func discoverCIDRs(clusterConfigFileData []byte, renderConfig *TemplateData) error {
+	configJson, err := yaml.YAMLToJSON(clusterConfigFileData)
+	if err != nil {
+		return err
+	}
+	clusterConfigObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, configJson)
+	if err != nil {
+		return err
+	}
+	clusterConfig, ok := clusterConfigObj.(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected object in %t", clusterConfigObj)
+	}
+	if clusterCIDR, found, err := unstructured.NestedStringSlice(
+		clusterConfig.Object, "spec", "clusterNetwork", "pods", "cidrBlocks"); found && err == nil {
+		renderConfig.ClusterCIDR = clusterCIDR
+	}
+	if err != nil {
+		return err
+	}
+	if serviceCIDR, found, err := unstructured.NestedStringSlice(
+		clusterConfig.Object, "spec", "clusterNetwork", "services", "cidrBlocks"); found && err == nil {
+		renderConfig.ServiceCIDR = serviceCIDR
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
