@@ -120,6 +120,7 @@ authConfig:
     clientCA: /etc/kubernetes/static-pod-resources/configmaps/aggregator-client-ca/ca-bundle.crt
     clientCommonNames:
     - kube-apiserver-proxy
+    - system:kube-apiserver-proxy
     - system:openshift-aggregator
     extraHeaderPrefixes:
     - X-Remote-Extra-
