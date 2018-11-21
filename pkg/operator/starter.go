@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
@@ -23,7 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
+func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		return err
