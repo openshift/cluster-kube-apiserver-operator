@@ -23,9 +23,9 @@ func ObserveStorageURLs(genericListers configobserver.Listers, currentConfig map
 	}
 
 	var etcdURLs []string
-	etcdEndpoints, err := listers.EndpointsLister.Endpoints(etcdNamespaceName).Get("etcd")
+	etcdEndpoints, err := listers.EndpointsLister.Endpoints(etcdNamespaceName).Get("host-etcd")
 	if errors.IsNotFound(err) {
-		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: not found"))
+		errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: not found"))
 		return
 	}
 	if err != nil {
@@ -34,13 +34,13 @@ func ObserveStorageURLs(genericListers configobserver.Listers, currentConfig map
 	}
 	dnsSuffix := etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]
 	if len(dnsSuffix) == 0 {
-		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: alpha.installer.openshift.io/dns-suffix annotation not found"))
+		errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: alpha.installer.openshift.io/dns-suffix annotation not found"))
 		return
 	}
 	for subsetIndex, subset := range etcdEndpoints.Subsets {
 		for addressIndex, address := range subset.Addresses {
 			if address.Hostname == "" {
-				errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: subsets[%v]addresses[%v].hostname not found", subsetIndex, addressIndex))
+				errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: subsets[%v]addresses[%v].hostname not found", subsetIndex, addressIndex))
 				continue
 			}
 			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+dnsSuffix+":2379")
@@ -48,7 +48,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, currentConfig map
 	}
 
 	if len(etcdURLs) == 0 {
-		errs = append(errs, fmt.Errorf("endpoints/etcd.kube-system: no etcd endpoint addresses found"))
+		errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: no etcd endpoint addresses found"))
 	}
 	if len(errs) > 0 {
 		return
