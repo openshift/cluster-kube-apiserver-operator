@@ -14,11 +14,12 @@ import (
 // the registry operator.
 func ObserveInternalRegistryHostname(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
-	errs := []error{}
+	var errs []error
 	prevObservedConfig := map[string]interface{}{}
 
 	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	if currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...); len(currentInternalRegistryHostname) > 0 {
+	currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
+	if len(currentInternalRegistryHostname) > 0 {
 		unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
 	}
 
@@ -30,14 +31,18 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, exis
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("image.config.openshift.io/cluster: not found")
+		glog.V(4).Infof("image.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
+		glog.Warningf("error getting image.config.openshift.io/cluster: %v", err)
 		return prevObservedConfig, errs
 	}
 	internalRegistryHostName := configImage.Status.InternalRegistryHostname
 	if len(internalRegistryHostName) > 0 {
+		if currentInternalRegistryHostname != internalRegistryHostName {
+			glog.V(4).Infof("setting internal registry hostname to: %q", internalRegistryHostName)
+		}
 		unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...)
 	}
 	return observedConfig, errs
