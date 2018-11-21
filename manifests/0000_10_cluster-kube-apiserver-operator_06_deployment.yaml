@@ -28,7 +28,7 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
-        - mountPath: /var/run/secrets/serving-certs
+        - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
         env:
         - name: IMAGE
