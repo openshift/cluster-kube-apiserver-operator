@@ -35,6 +35,10 @@ spec:
           value: quay.io/openshift/origin-hypershift:v4.0
         - name: OPERATOR_IMAGE
           value: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - name: serving-cert
