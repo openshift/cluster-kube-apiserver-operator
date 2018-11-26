@@ -24,7 +24,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	operatorConfigOriginal := operatorConfig.DeepCopy()
 	errors := []error{}
 
-	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, v311_00_assets.Asset,
+	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
 		"v3.11.0/kube-apiserver/ns.yaml",
 		"v3.11.0/kube-apiserver/svc.yaml",
 	)
