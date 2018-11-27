@@ -107,6 +107,7 @@ func (c TargetConfigReconciler) sync() error {
 			if _, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); updateError != nil {
 				glog.Error(updateError)
 			}
+			c.eventRecorder.Warningf("StatusUpdateFailed", "Failed to update operator status: %v", err.Error())
 		}
 		return err
 	}

@@ -36,17 +36,28 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	}
 
 	// etcd is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
-	_, err := manageServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1())
+	hasChanged, err := manageServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1())
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
 	}
-	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
+	if err == nil && hasChanged {
+		c.eventRecorder.Event("EtcdCertsChanged", "Changed successfully applied to etcd server certificated")
+	}
+
+	_, hasChanged, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
 	}
-	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
+	if err == nil && hasChanged {
+		c.eventRecorder.Event("ConfigMapChanged", "Changes successfully applied to deployment-kube-apiserver-config configmap")
+	}
+
+	_, hasChanged, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
+	}
+	if err == nil && hasChanged {
+		c.eventRecorder.Event("ConfigMapChanged", "Changes successfully applied to kube-apiserver-pod configmap")
 	}
 
 	if len(errors) > 0 {
@@ -99,7 +110,8 @@ func manageServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface
 func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig,
+		operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
 		return nil, false, err
 	}

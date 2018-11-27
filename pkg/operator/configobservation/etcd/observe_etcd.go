@@ -19,7 +19,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, currentConfig map
 	observedConfig = map[string]interface{}{}
 	storageConfigURLsPath := []string{"storageConfig", "urls"}
 	if currentEtcdURLs, found, _ := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...); found {
-		unstructured.SetNestedStringSlice(observedConfig, currentEtcdURLs, storageConfigURLsPath...)
+		errs = append(errs, unstructured.SetNestedStringSlice(observedConfig, currentEtcdURLs, storageConfigURLsPath...))
 	}
 
 	var etcdURLs []string
@@ -53,6 +53,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, currentConfig map
 	if len(errs) > 0 {
 		return
 	}
-	unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...)
+
+	errs = append(errs, unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...))
 	return
 }
