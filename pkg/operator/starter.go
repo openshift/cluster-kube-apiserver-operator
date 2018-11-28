@@ -5,13 +5,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
@@ -19,26 +12,30 @@ import (
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 )
 
-func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventRecorder events.Recorder, stopCh <-chan struct{}) error {
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
+func RunOperator(ctx *controllercmd.ControllerContext) error {
+	kubeClient, err := kubernetes.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorconfigclient.NewForConfig(clientConfig)
+	operatorConfigClient, err := operatorconfigclient.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(clientConfig)
+	dynamicClient, err := dynamic.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	configClient, err := configv1client.NewForConfig(clientConfig)
+	configClient, err := configv1client.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -63,7 +60,7 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 		operatorConfigInformers,
 		kubeInformersForKubeSystemNamespace,
 		configInformers,
-		eventRecorder,
+		ctx.EventRecorder,
 	)
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
@@ -71,7 +68,7 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
-		eventRecorder,
+		ctx.EventRecorder,
 	)
 
 	staticPodControllers := staticpod.NewControllers(
@@ -84,7 +81,7 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 		kubeClient,
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		kubeInformersClusterScoped,
-		eventRecorder,
+		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",
@@ -92,18 +89,18 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 		staticPodOperatorClient,
 	)
 
-	operatorConfigInformers.Start(stopCh)
-	kubeInformersClusterScoped.Start(stopCh)
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(stopCh)
-	kubeInformersForKubeSystemNamespace.Start(stopCh)
-	configInformers.Start(stopCh)
+	operatorConfigInformers.Start(ctx.StopCh)
+	kubeInformersClusterScoped.Start(ctx.StopCh)
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(ctx.StopCh)
+	kubeInformersForKubeSystemNamespace.Start(ctx.StopCh)
+	configInformers.Start(ctx.StopCh)
 
-	go staticPodControllers.Run(stopCh)
-	go targetConfigReconciler.Run(1, stopCh)
-	go configObserver.Run(1, stopCh)
-	go clusterOperatorStatus.Run(1, stopCh)
+	go staticPodControllers.Run(ctx.StopCh)
+	go targetConfigReconciler.Run(1, ctx.StopCh)
+	go configObserver.Run(1, ctx.StopCh)
+	go clusterOperatorStatus.Run(1, ctx.StopCh)
 
-	<-stopCh
+	<-ctx.StopCh
 	return fmt.Errorf("stopped")
 }
 
