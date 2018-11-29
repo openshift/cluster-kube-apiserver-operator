@@ -67,8 +67,12 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, currentConfig
 	//	    restrictedCIDRs:
 	//	    - 10.3.0.0/16 # ServiceCIDR
 	//	    - 10.2.0.0/16 # ClusterCIDR
+	//  servicesSubnet: 10.3.0.0/16
 	if len(restrictedCIDRs) > 0 {
 		unstructured.SetNestedStringSlice(observedConfig, restrictedCIDRs, restrictedCIDRsPath...)
+	}
+	if len(serviceCIDR) > 0 {
+		unstructured.SetNestedField(observedConfig, serviceCIDR, "servicesSubnet")
 	}
 
 	return
