@@ -40,10 +40,16 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
 	}
-	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
+
+	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
+		errors = append(errors, fmt.Errorf("initial observation of cluster configuration is not finished yet: spec.observedConfig is empty"))
+	} else {
+		_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
+		}
 	}
+
 	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
