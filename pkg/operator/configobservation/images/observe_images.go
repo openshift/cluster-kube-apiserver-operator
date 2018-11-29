@@ -6,20 +6,28 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
 // ObserveInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by
 // the registry operator.
-func ObserveInternalRegistryHostname(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveInternalRegistryHostname(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
 	prevObservedConfig := map[string]interface{}{}
 
 	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	if currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...); len(currentInternalRegistryHostname) > 0 {
-		unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
+	currentInternalRegistryHostname, _, err := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	if len(currentInternalRegistryHostname) > 0 {
+		if err := unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...); err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	if !listers.ImageConfigSynced() {
@@ -36,9 +44,15 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, exis
 	if err != nil {
 		return prevObservedConfig, errs
 	}
+
 	internalRegistryHostName := configImage.Status.InternalRegistryHostname
 	if len(internalRegistryHostName) > 0 {
-		unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...)
+		if err := unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...); err != nil {
+			errs = append(errs, err)
+		}
+		if internalRegistryHostName != currentInternalRegistryHostname {
+			recorder.Eventf("ObserveRegistryHostnameChanged", "Internal registry hostname changed to %q", internalRegistryHostName)
+		}
 	}
 	return observedConfig, errs
 }

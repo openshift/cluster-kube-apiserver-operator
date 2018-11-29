@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/events"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,7 +34,7 @@ func TestObserveRegistryConfig(t *testing.T) {
 		ImageConfigLister: configlistersv1.NewImageLister(indexer),
 		ImageConfigSynced: func() bool { return true },
 	}
-	result, errs := ObserveInternalRegistryHostname(listers, map[string]interface{}{})
+	result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder("images"), map[string]interface{}{})
 	if len(errs) > 0 {
 		t.Error("expected len(errs) == 0")
 	}
@@ -55,7 +56,7 @@ func TestObserveRegistryReturnOldConfig(t *testing.T) {
 	existing := map[string]interface{}{}
 	unstructured.SetNestedField(existing, "existing-value", "imagePolicyConfig", "internalRegistryHostname")
 
-	result, errs := ObserveInternalRegistryHostname(listers, existing)
+	result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder("images"), existing)
 	if len(errs) > 0 {
 		t.Error("expected len(errs) == 0")
 	}
