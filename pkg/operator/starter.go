@@ -88,8 +88,7 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",
-		"openshift-cluster-kube-apiserver-operator",
-		dynamicClient,
+		configClient.ConfigV1(),
 		staticPodOperatorClient,
 	)
 
