@@ -91,6 +91,12 @@ func (c TargetConfigReconciler) sync() error {
 		return nil
 	}
 
+	// block until config is obvserved
+	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
+		glog.Info("Waiting for observed configuration to be available")
+		return nil
+	}
+
 	requeue, err := createTargetConfigReconciler_v311_00_to_latest(c, operatorConfig)
 	if requeue && err == nil {
 		return fmt.Errorf("synthetic requeue request")
