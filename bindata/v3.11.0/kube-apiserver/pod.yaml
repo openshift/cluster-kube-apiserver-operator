@@ -15,7 +15,7 @@ spec:
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["hypershift", "openshift-kube-apiserver"]
     args:
-    - "--config=/etc/kubernetes/static-pod-resources/configmaps/deployment-kube-apiserver-config/config.yaml"
+    - "--config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml"
     ports:
     - containerPort: 6443
     volumeMounts:

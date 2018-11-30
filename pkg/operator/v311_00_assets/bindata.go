@@ -56,7 +56,7 @@ var _v3110KubeApiserverCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: openshift-kube-apiserver
-  name: deployment-kube-apiserver-config
+  name: config
 data:
   config.yaml:
 `)
@@ -335,7 +335,7 @@ spec:
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["hypershift", "openshift-kube-apiserver"]
     args:
-    - "--config=/etc/kubernetes/static-pod-resources/configmaps/deployment-kube-apiserver-config/config.yaml"
+    - "--config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml"
     ports:
     - containerPort: 6443
     volumeMounts:
