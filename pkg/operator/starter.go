@@ -112,7 +112,7 @@ func RunOperator(_ *unstructured.Unstructured, clientConfig *rest.Config, eventR
 // the first element should be the configmap that contains the static pod manifest
 var deploymentConfigMaps = []string{
 	"kube-apiserver-pod",
-	"deployment-kube-apiserver-config",
+	"config",
 	"aggregator-client-ca",
 	"client-ca",
 	"etcd-serving-ca",

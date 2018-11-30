@@ -42,7 +42,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	}
 	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/deployment-kube-apiserver-config", err))
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
 	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
 	if err != nil {
