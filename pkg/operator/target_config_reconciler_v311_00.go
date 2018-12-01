@@ -4,23 +4,24 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
-
 	corev1 "k8s.io/api/core/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	v1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
 // createTargetConfigReconciler_v311_00_to_latest takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (bool, error) {
+func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (bool, error) {
 	operatorConfigOriginal := operatorConfig.DeepCopy()
 	errors := []error{}
 
@@ -36,15 +37,15 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	}
 
 	// etcd is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
-	_, err := manageServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1())
+	_, err := manageServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
 	}
-	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
+	_, _, err = manageKubeApiserverConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), recorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig, c.targetImagePullSpec)
+	_, _, err = managePod_v311_00_to_latest(c.kubeClient.CoreV1(), recorder, operatorConfig, c.targetImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -81,32 +82,32 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, op
 	return false, nil
 }
 
-func manageServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
+func manageServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
 	const etcdServingCAName = "etcd-serving-ca"
 	const etcdClientCertKeyPairName = "etcd-client"
 
-	_, caChanged, err := resourceapply.SyncConfigMap(client, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
 	if err != nil {
 		return false, err
 	}
-	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
+	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, recorder, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
 	if err != nil {
 		return false, err
 	}
 	return caChanged || certKeyPairChanged, nil
 }
 
-func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
+func manageKubeApiserverConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(client, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
+func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
 	required.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
 	if len(imagePullSpec) > 0 {
@@ -118,5 +119,5 @@ func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorC
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorConfig.Spec.ForceRedeploymentReason
 	configMap.Data["version"] = version.Get().String()
-	return resourceapply.ApplyConfigMap(client, configMap)
+	return resourceapply.ApplyConfigMap(client, recorder, configMap)
 }
