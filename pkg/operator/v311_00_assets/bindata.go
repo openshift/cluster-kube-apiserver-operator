@@ -210,6 +210,7 @@ metadata:
     app: installer
 spec:
   serviceAccountName: installer-sa
+  priorityClassName: system-node-critical
   containers:
   - name: apiserver
     image: ${IMAGE}
@@ -356,6 +357,9 @@ spec:
       initialDelaySeconds: 10
       timeoutSeconds: 10
   hostNetwork: true
+  priorityClassName: system-node-critical
+  tolerations:
+  - operator: "Exists"
   volumes:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
