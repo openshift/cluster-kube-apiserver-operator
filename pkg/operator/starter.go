@@ -79,6 +79,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		targetNamespaceName,
 		"openshift-kube-apiserver",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
+		[]string{"cluster-kube-apiserver-operator", "prune"},
 		deploymentConfigMaps,
 		deploymentSecrets,
 		staticPodOperatorClient,
@@ -86,6 +87,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		kubeInformersClusterScoped,
 		ctx.EventRecorder,
+		10,
+		10,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",
@@ -140,6 +143,7 @@ var deploymentConfigMaps = []string{
 	"etcd-serving-ca",
 	"kubelet-serving-ca",
 	"sa-token-signing-certs",
+	"revision-status",
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
