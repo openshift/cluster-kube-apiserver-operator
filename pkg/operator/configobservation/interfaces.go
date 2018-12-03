@@ -11,6 +11,8 @@ type Listers struct {
 	ImageConfigLister configlistersv1.ImageLister
 	EndpointsLister   corelistersv1.EndpointsLister
 	ConfigmapLister   corelistersv1.ConfigMapLister
+	SecretLister      corelistersv1.SecretLister
+	SecretHasSynced   cache.InformerSynced
 
 	ImageConfigSynced cache.InformerSynced
 

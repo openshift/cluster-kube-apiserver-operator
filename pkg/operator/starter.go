@@ -8,6 +8,7 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/controller/sessionsecret"
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
@@ -55,10 +56,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
 	)
 
+	sessionSecretController := sessionsecret.NewSessionSecretController(
+		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets(),
+		kubeClient.CoreV1(),
+		time.Minute,
+		ctx.EventRecorder,
+	)
+
 	configObserver := configobservercontroller.NewConfigObserver(
 		staticPodOperatorClient,
 		operatorConfigInformers,
 		kubeInformersForKubeSystemNamespace,
+		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		configInformers,
 		ctx.EventRecorder,
 	)
@@ -96,6 +105,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	kubeInformersForKubeSystemNamespace.Start(ctx.StopCh)
 	configInformers.Start(ctx.StopCh)
 
+	go sessionSecretController.Run(1, ctx.StopCh)
 	go staticPodControllers.Run(ctx.StopCh)
 	go targetConfigReconciler.Run(1, ctx.StopCh)
 	go configObserver.Run(1, ctx.StopCh)
@@ -123,4 +133,5 @@ var deploymentSecrets = []string{
 	"etcd-client",
 	"kubelet-client",
 	"serving-cert",
+	"session-secret",
 }
