@@ -337,6 +337,9 @@ spec:
     command: ["hypershift", "openshift-kube-apiserver"]
     args:
     - "--config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml"
+    resources:
+      requests:
+        memory: 1Gi
     ports:
     - containerPort: 6443
     volumeMounts:
