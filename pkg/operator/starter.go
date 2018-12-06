@@ -26,6 +26,9 @@ import (
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
+	operatorConfigGVR := schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"}
+	operatorConfigName := "instance"
+
 	kubeClient, err := kubernetes.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
@@ -56,7 +59,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/kube-apiserver/operator-config.yaml"),
-		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
+		operatorConfigGVR,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -87,8 +90,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		kubeInformersClusterScoped,
 		ctx.EventRecorder,
-		10,
-		10,
+		dynamicClient,
+		operatorConfigGVR,
+		operatorConfigName,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",

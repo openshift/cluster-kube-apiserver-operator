@@ -33,6 +33,10 @@ type KubeAPIServerOperatorConfigSpec struct {
 	// This provides a mechanism to kick a previously failed deployment and provide a reason why you think it will work
 	// this time instead of failing again on the same config.
 	ForceRedeploymentReason string `json:"forceRedeploymentReason"`
+
+	// operatorRevisionLimit is a map which can specify the number of static pod installer revisions to keep on disk.
+	// Specify a limit for successful revisions with the key "succeeded" and failed revisions with "failed"
+	OperatorRevisionLimit map[string]int64 `json:"operatorRevisionLimit,omitempty"`
 }
 
 type KubeAPIServerOperatorConfigStatus struct {
