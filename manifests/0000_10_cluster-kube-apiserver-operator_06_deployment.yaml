@@ -25,6 +25,9 @@ spec:
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         - "-v=2"
+        resources:
+          requests:
+            memory: 50Mi
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
