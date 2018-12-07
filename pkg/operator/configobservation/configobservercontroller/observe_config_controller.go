@@ -7,6 +7,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
@@ -20,7 +21,7 @@ type ConfigObserver struct {
 }
 
 func NewConfigObserver(
-	operatorClient configobserver.OperatorClient,
+	operatorClient v1helpers.OperatorClient,
 	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
 	configInformer configinformers.SharedInformerFactory,
