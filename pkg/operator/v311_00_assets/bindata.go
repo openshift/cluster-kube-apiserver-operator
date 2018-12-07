@@ -103,6 +103,8 @@ apiServerArguments:
   - etcd3
   storage-media-type:
   - application/vnd.kubernetes.protobuf
+  target-ram-mb:
+  - "1024"
 auditConfig:
   auditFilePath: ""
   enabled: false
