@@ -45,6 +45,8 @@ func NewConfigObserver(
 			etcd.ObserveStorageURLs,
 			network.ObserveRestrictedCIDRs,
 			images.ObserveInternalRegistryHostname,
+			images.ObserveExternalRegistryHostnames,
+			images.ObserveAllowedRegistriesForImport,
 		),
 	}
 
