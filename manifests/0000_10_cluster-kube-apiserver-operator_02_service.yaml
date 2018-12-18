@@ -9,7 +9,8 @@ metadata:
   namespace: openshift-cluster-kube-apiserver-operator
 spec:
   ports:
-  - port: 443
+  - name: https
+    port: 443
     protocol: TCP
     targetPort: 8443
   selector:
