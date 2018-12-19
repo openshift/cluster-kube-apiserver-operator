@@ -5,6 +5,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/aggregatorproxyrotation"
+	"k8s.io/apiserver/pkg/authentication/user"
+
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
@@ -41,6 +44,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersClusterScoped := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
+	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("openshift-cluster-kube-apiserver-operator"))
 	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -89,9 +93,29 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		staticPodOperatorClient,
 		ctx.EventRecorder,
 	)
+	aggregatorProxyClientCertController := aggregatorproxyrotation.NewClientCertRotationController(
+		"AggregatorProxyClientCerts",
+		"openshift-cluster-kube-apiserver-operator",
+		1*24*time.Hour,
+		0.5,
+		"aggregator-proxy-client-signer",
+		"openshift-cluster-kube-apiserver-operator",
+		"aggregator-proxy-client-ca-bundle",
+		"openshift-cluster-kube-apiserver-operator",
+		1*time.Hour,
+		0.75,
+		"aggregator-proxy-client-cert-key",
+		&user.DefaultInfo{},
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Core().V1().ConfigMaps(),
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Core().V1().Secrets(),
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		ctx.EventRecorder,
+	)
 
 	operatorConfigInformers.Start(ctx.StopCh)
 	kubeInformersClusterScoped.Start(ctx.StopCh)
+	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Start(ctx.StopCh)
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(ctx.StopCh)
 	kubeInformersForKubeSystemNamespace.Start(ctx.StopCh)
 	configInformers.Start(ctx.StopCh)
@@ -100,6 +124,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go targetConfigReconciler.Run(1, ctx.StopCh)
 	go configObserver.Run(1, ctx.StopCh)
 	go clusterOperatorStatus.Run(1, ctx.StopCh)
+	go aggregatorProxyClientCertController.Run(1, ctx.StopCh)
 
 	<-ctx.StopCh
 	return fmt.Errorf("stopped")
