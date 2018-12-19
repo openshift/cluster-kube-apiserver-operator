@@ -7,6 +7,9 @@
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
 // bindata/v3.11.0/kube-apiserver/pod.yaml
+// bindata/v3.11.0/kube-apiserver/prometheus-role-binding.yaml
+// bindata/v3.11.0/kube-apiserver/prometheus-role.yaml
+// bindata/v3.11.0/kube-apiserver/prometheus-service-monitor.yaml
 // bindata/v3.11.0/kube-apiserver/svc.yaml
 // DO NOT EDIT!
 
@@ -252,6 +255,7 @@ kind: Namespace
 metadata:
   name: openshift-kube-apiserver
   labels:
+    openshift.io/cluster-monitoring: "true"
     openshift.io/run-level: "0"
 `)
 
@@ -384,6 +388,114 @@ func v3110KubeApiserverPodYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110KubeApiserverPrometheusRoleBindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+  namespace: openshift-kube-apiserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+`)
+
+func v3110KubeApiserverPrometheusRoleBindingYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPrometheusRoleBindingYaml, nil
+}
+
+func v3110KubeApiserverPrometheusRoleBindingYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPrometheusRoleBindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/prometheus-role-binding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPrometheusRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  # TODO this should be a clusterrole
+  name: prometheus-k8s
+  namespace: openshift-kube-apiserver
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+`)
+
+func v3110KubeApiserverPrometheusRoleYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPrometheusRoleYaml, nil
+}
+
+func v3110KubeApiserverPrometheusRoleYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPrometheusRoleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/prometheus-role.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverPrometheusServiceMonitorYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cluster-kube-apiserver
+  namespace: openshift-kube-apiserver
+spec:
+  endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      metricRelabelings:
+        - action: drop
+          regex: etcd_(debugging|disk|request|server).*
+          sourceLabels:
+            - __name__
+      port: https
+      scheme: https
+      tlsConfig:
+        # TODO where do you mount the service-ca.crt?
+        insecureSkipVerify: true
+        serverName: apiserver.openshift-kube-apiserver.svc
+  jobLabel: component
+  namespaceSelector:
+    matchNames:
+      - openshift-kube-apiserver
+  selector:
+    matchLabels:
+      app: openshift-kube-apiserver
+`)
+
+func v3110KubeApiserverPrometheusServiceMonitorYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverPrometheusServiceMonitorYaml, nil
+}
+
+func v3110KubeApiserverPrometheusServiceMonitorYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverPrometheusServiceMonitorYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/prometheus-service-monitor.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110KubeApiserverSvcYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
@@ -391,12 +503,10 @@ metadata:
   name: apiserver
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: serving-cert
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: https
 spec:
   type: ClusterIP
   selector:
-    apiserver: "true"
+    app: openshift-kube-apiserver
   ports:
   - name: https
     port: 443
@@ -470,14 +580,17 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml":              v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml":   v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/kube-apiserver/installer-pod.yaml":   v3110KubeApiserverInstallerPodYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":              v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/operator-config.yaml": v3110KubeApiserverOperatorConfigYaml,
-	"v3.11.0/kube-apiserver/pod-cm.yaml":          v3110KubeApiserverPodCmYaml,
-	"v3.11.0/kube-apiserver/pod.yaml":             v3110KubeApiserverPodYaml,
-	"v3.11.0/kube-apiserver/svc.yaml":             v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":                         v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml":              v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/installer-pod.yaml":              v3110KubeApiserverInstallerPodYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":                         v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/operator-config.yaml":            v3110KubeApiserverOperatorConfigYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":                     v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":                        v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/prometheus-role-binding.yaml":    v3110KubeApiserverPrometheusRoleBindingYaml,
+	"v3.11.0/kube-apiserver/prometheus-role.yaml":            v3110KubeApiserverPrometheusRoleYaml,
+	"v3.11.0/kube-apiserver/prometheus-service-monitor.yaml": v3110KubeApiserverPrometheusServiceMonitorYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":                        v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -523,14 +636,17 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":              {v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":   {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"installer-pod.yaml":   {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
-			"ns.yaml":              {v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"operator-config.yaml": {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
-			"pod-cm.yaml":          {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":             {v3110KubeApiserverPodYaml, map[string]*bintree{}},
-			"svc.yaml":             {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml":                         {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":              {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"installer-pod.yaml":              {v3110KubeApiserverInstallerPodYaml, map[string]*bintree{}},
+			"ns.yaml":                         {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"operator-config.yaml":            {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                     {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                        {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"prometheus-role-binding.yaml":    {v3110KubeApiserverPrometheusRoleBindingYaml, map[string]*bintree{}},
+			"prometheus-role.yaml":            {v3110KubeApiserverPrometheusRoleYaml, map[string]*bintree{}},
+			"prometheus-service-monitor.yaml": {v3110KubeApiserverPrometheusServiceMonitorYaml, map[string]*bintree{}},
+			"svc.yaml":                        {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

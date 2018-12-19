@@ -3,4 +3,5 @@ kind: Namespace
 metadata:
   name: openshift-kube-apiserver
   labels:
+    openshift.io/cluster-monitoring: "true"
     openshift.io/run-level: "0"

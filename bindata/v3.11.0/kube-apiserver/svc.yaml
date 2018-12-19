@@ -5,12 +5,10 @@ metadata:
   name: apiserver
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: serving-cert
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: https
 spec:
   type: ClusterIP
   selector:
-    apiserver: "true"
+    app: openshift-kube-apiserver
   ports:
   - name: https
     port: 443
