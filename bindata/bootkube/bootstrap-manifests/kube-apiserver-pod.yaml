@@ -36,6 +36,15 @@ spec:
         scheme: HTTPS
         port: 6443
         path: healthz
+      initialDelaySeconds: 45
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 6443
+        path: healthz
+      initialDelaySeconds: 10
+      timeoutSeconds: 10
   volumes:
   - hostPath:
       path: {{ .SecretsHostPath }}
