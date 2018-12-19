@@ -5,7 +5,9 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/dynamic"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -50,6 +52,10 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, re
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
 
+	if _, err = managePrometheus_v311_00_to_latest(c.kubeClient.RbacV1(), c.dynamicClient, recorder); err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "prometheus", err))
+	}
+
 	if len(errors) > 0 {
 		message := ""
 		for _, err := range errors {
@@ -80,6 +86,28 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, re
 	}
 
 	return false, nil
+}
+
+func managePrometheus_v311_00_to_latest(client rbacclientv1.RbacV1Interface, dynamicClient dynamic.Interface, recorder events.Recorder) (bool, error) {
+	role := resourceread.ReadRoleV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/prometheus-role.yaml"))
+	roleBinding := resourceread.ReadRoleBindingV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/prometheus-role.yaml"))
+
+	_, roleChanged, err := resourceapply.ApplyRole(client, recorder, role)
+	if err != nil {
+		return false, err
+	}
+
+	_, roleBindingChanged, err := resourceapply.ApplyRoleBinding(client, recorder, roleBinding)
+	if err != nil {
+		return false, err
+	}
+
+	monitorChanged, err := resourceapply.ApplyServiceMonitor(dynamicClient, recorder, v311_00_assets.MustAsset("v3.11.0/kube-apiserver/prometheus-service-monitor.yaml"))
+	if err != nil {
+		return false, err
+	}
+
+	return roleChanged || roleBindingChanged || monitorChanged, nil
 }
 
 func manageServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {

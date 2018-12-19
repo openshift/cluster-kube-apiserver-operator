@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/client-go/dynamic"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,7 @@ type TargetConfigReconciler struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
 	kubeClient    kubernetes.Interface
+	dynamicClient dynamic.Interface
 	eventRecorder events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
@@ -48,6 +50,7 @@ func NewTargetConfigReconciler(
 	namespacedKubeInformers informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
+	dynamicClient dynamic.Interface,
 	eventRecorder events.Recorder,
 ) *TargetConfigReconciler {
 	c := &TargetConfigReconciler{
@@ -55,6 +58,7 @@ func NewTargetConfigReconciler(
 
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
+		dynamicClient:        dynamicClient,
 		eventRecorder:        eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigReconciler"),

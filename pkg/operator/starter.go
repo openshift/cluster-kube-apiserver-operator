@@ -68,6 +68,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
+		dynamicClient,
 		ctx.EventRecorder,
 	)
 
