@@ -4,7 +4,7 @@
 The Kubernetes API Server operator manages and updates the [Kubernetes API server](https://github.com/kubernetes/kubernetes) deployed on top of
 [OpenShift](https://openshift.io). The operator is based on OpenShift [library-go](https://github.com/openshift/library-go) framework and it
  is installed via [Cluster Version Operator](https://github.com/openshift/cluster-version-operator) (CVO).
- 
+
 It contains the following components:
 
 * Operator
@@ -27,7 +27,7 @@ Currently changes in following external components are being observed:
 
 * `host-etcd` *endpoints* in *kube-system* namespace
   - The observed endpoint addresses are used to configure the `storageConfig.urls` in Kubernetes API server configuration.
-* `cluster` *image.config.openshift.io* custom resource 
+* `cluster` *image.config.openshift.io* custom resource
   - The observed CR resource is used to configure the `imagePolicyConfig.internalRegistryHostname` in Kubernetes API server configuration
 * `cluster-config-v1` *configmap* in *kube-system* namespace
   - The observed configmap `install-config` is decoded and the `networking.podCIDR` and `networking.serviceCIDR` is extracted and used as input for `admissionPluginConfig.openshift.io/RestrictedEndpointsAdmission
@@ -39,7 +39,7 @@ The configuration for the Kubernetes API server is the result of merging:
 * a [default config](https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/v3.11.0/kube-apiserver/defaultconfig.yaml)
 * observed config (compare observed values above) `spec.spec.unsupportedConfigOverrides` from the `kubeapiserveroperatorconfig`.
 
-All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end. 
+All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end.
 
 ## Debugging
 
@@ -67,4 +67,20 @@ The current operator status is reported using the `ClusterOperator` resource. To
 
 ```
 $ oc get clusteroperator openshift-cluster-kube-apiserver-operator
+```
+
+## Developing and debugging the bootkube bootstrap phase
+
+The operator image version used by the [https://github.com/openshift/installer/blob/master/pkg/asset/ignition/bootstrap/content/bootkube.go#L86](installer) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
+
+```
+$ IMAGE_ORG=sttts make images
+$ docker push sttts/origin-cluster-kube-apiserver-operator
+
+$ cd ../cluster-kube-apiserver-operator
+$ IMAGES=cluster-kube-apiserver-operator IMAGE_ORG=sttts make origin-release
+$ docker push sttts/origin-release:latest
+
+$ cd ../installer
+$ OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/sttts/origin-release:latest bin/openshift-install cluster ...
 ```
