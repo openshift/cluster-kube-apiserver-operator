@@ -43,11 +43,11 @@ QUOTED_IMAGES=\"$(subst $(,),\"$(,)\",$(IMAGES))\"
 
 origin-release:
 	docker pull registry.svc.ci.openshift.org/openshift/origin-release:v4.0
-	imagebuilder -file Dockerfile-origin-release --build-arg "IMAGE_REPOSITORY_NAME=$(IMAGE_REPOSITORY_NAME)" --build-arg "IMAGES=$(QUOTED_IMAGES)" -t "$(IMAGE_REPOSITORY_NAME)/origin-release:latest" hack
+	imagebuilder -file Dockerfile-origin-release --build-arg "IMAGE_ORG=$(IMAGE_ORG)" --build-arg "IMAGES=$(QUOTED_IMAGES)" -t "$(IMAGE_ORG)/origin-release:latest" hack
 	@echo
 	@echo "To install:"
 	@echo
-	@echo "  IMAGE_REPOSITORY_NAME=$(IMAGE_REPOSITORY_NAME) make images"
-	@echo "  docker push $(IMAGE_REPOSITORY_NAME)/origin-release:latest"
-	@echo "  docker push $(IMAGE_REPOSITORY_NAME)/origin-cluster-kube-apiserver-operator"
-	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(IMAGE_REPOSITORY_NAME)/origin-release:latest bin/openshift-install cluster --log-level=debug"
+	@echo "  IMAGE_ORG=$(IMAGE_ORG) make images"
+	@echo "  docker push $(IMAGE_ORG)/origin-release:latest"
+	@echo "  docker push $(IMAGE_ORG)/origin-cluster-kube-apiserver-operator"
+	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(IMAGE_ORG)/origin-release:latest bin/openshift-install cluster --log-level=debug"
