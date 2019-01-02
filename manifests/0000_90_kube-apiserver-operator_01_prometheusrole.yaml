@@ -3,7 +3,7 @@ kind: Role
 metadata:
   # TODO this should be a clusterrole
   name: prometheus-k8s
-  namespace: openshift-cluster-kube-apiserver-operator
+  namespace: openshift-kube-apiserver-operator
 rules:
 - apiGroups:
   - ""
