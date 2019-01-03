@@ -28,6 +28,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, re
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
 		"v3.11.0/kube-apiserver/ns.yaml",
 		"v3.11.0/kube-apiserver/svc.yaml",
+		"v3.11.0/kube-apiserver/status-cm.yaml",
 	)
 
 	for _, currResult := range directResourceResults {

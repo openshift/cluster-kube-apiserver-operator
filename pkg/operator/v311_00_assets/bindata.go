@@ -7,6 +7,7 @@
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
 // bindata/v3.11.0/kube-apiserver/pod.yaml
+// bindata/v3.11.0/kube-apiserver/status-cm.yaml
 // bindata/v3.11.0/kube-apiserver/svc.yaml
 // DO NOT EDIT!
 
@@ -384,6 +385,32 @@ func v3110KubeApiserverPodYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110KubeApiserverStatusCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: revision-status
+  labels:
+    role: "revision-status"
+data:
+  status:
+`)
+
+func v3110KubeApiserverStatusCmYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverStatusCmYaml, nil
+}
+
+func v3110KubeApiserverStatusCmYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverStatusCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/status-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110KubeApiserverSvcYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
@@ -477,6 +504,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/operator-config.yaml": v3110KubeApiserverOperatorConfigYaml,
 	"v3.11.0/kube-apiserver/pod-cm.yaml":          v3110KubeApiserverPodCmYaml,
 	"v3.11.0/kube-apiserver/pod.yaml":             v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/status-cm.yaml":       v3110KubeApiserverStatusCmYaml,
 	"v3.11.0/kube-apiserver/svc.yaml":             v3110KubeApiserverSvcYaml,
 }
 
@@ -530,6 +558,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"operator-config.yaml": {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
 			"pod-cm.yaml":          {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
 			"pod.yaml":             {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"status-cm.yaml":       {v3110KubeApiserverStatusCmYaml, map[string]*bintree{}},
 			"svc.yaml":             {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
