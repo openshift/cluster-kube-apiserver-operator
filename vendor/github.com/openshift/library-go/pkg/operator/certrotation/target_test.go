@@ -1,4 +1,4 @@
-package aggregatorproxyrotation
+package certrotation
 
 import (
 	"crypto/x509/pkix"
@@ -103,7 +103,7 @@ func TestEnsureTargetCertKeyPair(t *testing.T) {
 				targetServingHostnames:      []string{"foo"},
 
 				secretsClient: client.CoreV1(),
-				secretsLister: corev1listers.NewSecretLister(indexer),
+				targetLister:  corev1listers.NewSecretLister(indexer),
 				eventRecorder: events.NewInMemoryRecorder("test"),
 			}
 
