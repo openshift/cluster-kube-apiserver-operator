@@ -44,7 +44,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersClusterScoped := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
-	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("openshift-cluster-kube-apiserver-operator"))
+	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("openshift-kube-apiserver-operator"))
 	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -88,20 +88,20 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
-		"openshift-cluster-kube-apiserver-operator",
+		"openshift-kube-apiserver-operator",
 		configClient.ConfigV1(),
 		staticPodOperatorClient,
 		ctx.EventRecorder,
 	)
 	aggregatorProxyClientCertController := aggregatorproxyrotation.NewClientCertRotationController(
 		"AggregatorProxyClientCerts",
-		"openshift-cluster-kube-apiserver-operator",
+		"openshift-kube-apiserver-operator",
 		1*24*time.Hour,
 		0.5,
 		"aggregator-proxy-client-signer",
-		"openshift-cluster-kube-apiserver-operator",
+		"openshift-kube-apiserver-operator",
 		"aggregator-proxy-client-ca-bundle",
-		"openshift-cluster-kube-apiserver-operator",
+		"openshift-kube-apiserver-operator",
 		1*time.Hour,
 		0.75,
 		"aggregator-proxy-client-cert-key",
