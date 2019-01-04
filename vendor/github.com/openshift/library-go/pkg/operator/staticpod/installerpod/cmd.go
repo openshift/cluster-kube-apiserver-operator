@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -35,6 +37,8 @@ type InstallOptions struct {
 
 	ResourceDir    string
 	PodManifestDir string
+
+	TerminationGracePeriodSeconds uint
 }
 
 func NewInstallOptions() *InstallOptions {
@@ -77,6 +81,7 @@ func (o *InstallOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.ConfigMapNamePrefixes, "configmaps", o.ConfigMapNamePrefixes, "list of configmaps to be included")
 	fs.StringVar(&o.ResourceDir, "resource-dir", o.ResourceDir, "directory for all files supporting the static pod manifest")
 	fs.StringVar(&o.PodManifestDir, "pod-manifest-dir", o.PodManifestDir, "directory for the static pod manifest")
+	fs.UintVar(&o.TerminationGracePeriodSeconds, "termination-grace-period-seconds", o.TerminationGracePeriodSeconds, "number of seconds an existing pod is waited for before it is replaced. A '<resource-dir>/shutdown' file is created before.")
 }
 
 func (o *InstallOptions) Complete() error {
@@ -196,7 +201,41 @@ func (o *InstallOptions) copyContent() error {
 	return nil
 }
 
+func (o *InstallOptions) gracefullyTerminate(syncDir string) error {
+	start := time.Now()
+
+	shutdownFile := filepath.Join(syncDir, "shutdown")
+	defer os.Remove(shutdownFile) // unconditionally, even if we did not create it
+
+	fmt.Printf("Gracefully terminating existing process...\n")
+	if err := ioutil.WriteFile(shutdownFile, []byte{}, 0644); err != nil {
+		return err
+	}
+
+	fmt.Printf("Waiting for existing process to terminate, timing out after %ds...\n", o.TerminationGracePeriodSeconds)
+	fd, err := syscall.Open(syncDir, syscall.O_RDWR|syscall.O_DIRECTORY, 0)
+	if err != nil {
+
+	}
+	defer syscall.Close(fd)
+	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("couldn't lock %s to wait for termination of existing pod", syncDir)
+	}
+	// lock will be released when installer terminates (or when file closed? Doesn't matter for us).
+
+	fmt.Printf("Existing process terminated after %ds.\n", time.Now().Sub(start).Seconds())
+	return nil
+}
+
 func (o *InstallOptions) Run() error {
+	if o.TerminationGracePeriodSeconds > 0 {
+		syncDir := filepath.Join(o.ResourceDir, o.PodConfigMapNamePrefix+"-sync")
+		if err := os.MkdirAll(o.PodManifestDir, 0755); err != nil {
+			return err
+		}
+		o.gracefullyTerminate(syncDir)
+	}
+
 	// ~2 min total waiting
 	backoff := utilwait.Backoff{
 		Duration: time.Second,

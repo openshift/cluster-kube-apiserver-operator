@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const terminationGracePeriodSeconds = 60
+
 func RunOperator(ctx *controllercmd.ControllerContext) error {
 	kubeClient, err := kubernetes.NewForConfig(ctx.KubeConfig)
 	if err != nil {
@@ -86,7 +88,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
 		kubeInformersClusterScoped,
 		ctx.EventRecorder,
-	)
+	).WithGracefulTermination(terminationGracePeriodSeconds)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-kube-apiserver-operator",
 		configClient.ConfigV1(),

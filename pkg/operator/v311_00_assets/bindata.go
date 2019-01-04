@@ -334,9 +334,16 @@ spec:
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["hypershift", "openshift-kube-apiserver"]
+    command: ["/bin/bash", "-c"]
     args:
-    - "--config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml"
+      - |
+        flock /etc/kubernetes/static-pod-sync hypershift openshift-kube-apiserver --config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml &
+        child=$!
+        trap 'kill -TERM $child' TERM INT
+        while ! -f /etc/kubernetes/static-pod-sync/shutdown; do sleep 1; done
+        sleep 10 # wait for readiness probe to detect shutdown and to give endpoints time to propagate
+        kill -TERM "$child" 2>/dev/null
+        wait $child
     resources:
       requests:
         memory: 1Gi
@@ -345,6 +352,8 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+    - mountPath: /etc/kubernetes/static-pod-sync
+      name: sync-dir
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -359,6 +368,20 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
+  - name: readiness
+    image: ${IMAGE}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["/bin/bash", "-c", "tail -f /dev/null"]
+    volumeMounts:
+      - mountPath: /etc/kubernetes/static-pod-sync
+        name: sync-dir
+    readinessProbe:
+      exec:
+        command:
+          - ! test -f /etc/kubernetes/static-pod-sync/shutdown
+      initialDelaySeconds: 5
+      periodSeconds: 5
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
@@ -367,7 +390,9 @@ spec:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
-`)
+  - hostPath:
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-sync
+    name: sync-dir`)
 
 func v3110KubeApiserverPodYamlBytes() ([]byte, error) {
 	return _v3110KubeApiserverPodYaml, nil

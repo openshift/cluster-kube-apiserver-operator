@@ -51,6 +51,8 @@ type InstallerController struct {
 	secrets []string
 	// command is the string to use for the installer pod command
 	command []string
+	// terminationGracePeriodSeconds is the time to wait for an existing process to terminate gracefully
+	terminationGracePeriodSeconds uint
 
 	operatorConfigClient common.OperatorClient
 
@@ -109,6 +111,12 @@ func NewInstallerController(
 	operatorConfigClient.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
 
+	return c
+}
+
+// WithGracefulTermination enables graceful termination if the given period is non-zero.
+func (c *InstallerController) WithGracefulTermination(terminationGracePeriodSeconds uint) *InstallerController {
+	c.terminationGracePeriodSeconds = terminationGracePeriodSeconds
 	return c
 }
 
@@ -450,6 +458,9 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	}
 	for _, name := range c.secrets {
 		args = append(args, fmt.Sprintf("--secrets=%s", name))
+	}
+	if c.terminationGracePeriodSeconds > 0 {
+		args = append(args, fmt.Sprintf("--termination-grace-period-seconds=%d", c.terminationGracePeriodSeconds))
 	}
 	pod.Spec.Containers[0].Args = args
 
