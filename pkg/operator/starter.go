@@ -17,6 +17,7 @@ import (
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
@@ -48,7 +49,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersClusterScoped := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
-	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("openshift-kube-apiserver-operator"))
+	kubeInformersForUserSpecifiedGlobalConfigNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(userSpecifiedGlobalConfigNamespace))
+	kubeInformersForMachineSpecifiedGlobalConfigNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(machineSpecifiedGlobalConfigNamespace))
+	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(operatorNamespace))
 	kubeInformersForOpenshiftKubeAPIServerNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeSystemNamespace := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace("kube-system"))
 	kubeInformersForOpenshiftConfigManaged := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(managedConfigNamespace))
@@ -71,6 +74,30 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configInformers,
 		ctx.EventRecorder,
 	)
+	resourceSyncController := resourcesynccontroller.NewResourceSyncController(
+		staticPodOperatorClient,
+		map[string]informers.SharedInformerFactory{
+			userSpecifiedGlobalConfigNamespace:    kubeInformersForUserSpecifiedGlobalConfigNamespace,
+			machineSpecifiedGlobalConfigNamespace: kubeInformersForMachineSpecifiedGlobalConfigNamespace,
+			operatorNamespace:                     kubeInformersForOpenshiftKubeAPIServerOperatorNamespace,
+			targetNamespaceName:                   kubeInformersForOpenshiftKubeAPIServerNamespace,
+			"kube-system":                         kubeInformersForKubeSystemNamespace,
+		},
+		kubeClient,
+		ctx.EventRecorder,
+	)
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: targetNamespaceName, Name: "etcd-serving-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: etcdNamespaceName, Name: "etcd-serving-ca"},
+	); err != nil {
+		return err
+	}
+	if err := resourceSyncController.SyncSecret(
+		resourcesynccontroller.ResourceLocation{Namespace: targetNamespaceName, Name: "etcd-client"},
+		resourcesynccontroller.ResourceLocation{Namespace: etcdNamespaceName, Name: "etcd-client"},
+	); err != nil {
+		return err
+	}
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
@@ -184,6 +211,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	operatorConfigInformers.Start(ctx.StopCh)
 	kubeInformersClusterScoped.Start(ctx.StopCh)
+	kubeInformersForUserSpecifiedGlobalConfigNamespace.Start(ctx.StopCh)
+	kubeInformersForMachineSpecifiedGlobalConfigNamespace.Start(ctx.StopCh)
 	kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Start(ctx.StopCh)
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Start(ctx.StopCh)
 	kubeInformersForKubeSystemNamespace.Start(ctx.StopCh)
@@ -191,6 +220,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	configInformers.Start(ctx.StopCh)
 
 	go staticPodControllers.Run(ctx.StopCh)
+	go resourceSyncController.Run(1, ctx.StopCh)
 	go targetConfigReconciler.Run(1, ctx.StopCh)
 	go configObserver.Run(1, ctx.StopCh)
 	go clusterOperatorStatus.Run(1, ctx.StopCh)

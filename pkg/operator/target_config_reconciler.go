@@ -25,9 +25,12 @@ import (
 )
 
 const (
-	etcdNamespaceName   = "kube-system"
-	targetNamespaceName = "openshift-kube-apiserver"
-	workQueueKey        = "key"
+	etcdNamespaceName                     = "kube-system"
+	userSpecifiedGlobalConfigNamespace    = "openshift-config"
+	machineSpecifiedGlobalConfigNamespace = "openshift-config-managed"
+	operatorNamespace                     = "openshift-kube-apiserver-operator"
+	targetNamespaceName                   = "openshift-kube-apiserver"
+	workQueueKey                          = "key"
 )
 
 type TargetConfigReconciler struct {
