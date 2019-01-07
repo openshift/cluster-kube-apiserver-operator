@@ -104,10 +104,31 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	); err != nil {
 		return err
 	}
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorNamespace, Name: "initial-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: userSpecifiedGlobalConfigNamespace, Name: "initial-client-ca"},
+	); err != nil {
+		return err
+	}
+	// this ca bundle contains certs used to sign CSRs (kubelet serving and client certificates)
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorNamespace, Name: "csr-controller-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: machineSpecifiedGlobalConfigNamespace, Name: "csr-controller-ca"},
+	); err != nil {
+		return err
+	}
+	// this ca bundle contains certs used by the kube-apiserver to verify client certs
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: machineSpecifiedGlobalConfigNamespace, Name: "kube-apiserver-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: targetNamespaceName, Name: "client-ca"},
+	); err != nil {
+		return err
+	}
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace,
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 		ctx.EventRecorder,
