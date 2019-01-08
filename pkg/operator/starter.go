@@ -98,6 +98,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	); err != nil {
 		return err
 	}
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: targetNamespaceName, Name: "aggregator-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: machineSpecifiedGlobalConfigNamespace, Name: "aggregator-client-ca"},
+	); err != nil {
+		return err
+	}
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
@@ -129,27 +135,27 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	// start cert rotation controllers
 	aggregatorProxyClientCertController := certrotation.NewClientCertRotationController(
 		"AggregatorProxyClientCert",
-		managedConfigNamespace,
+		operatorNamespace,
 		1*24*time.Hour,
 		0.5,
-		"aggregator-proxy-client-signer",
+		"aggregator-client-signer",
 		managedConfigNamespace,
-		"aggregator-proxy-client-ca-bundle",
-		managedConfigNamespace,
+		"aggregator-client-ca",
+		targetNamespaceName,
 		1*24*time.Hour,
 		0.75,
-		"aggregator-proxy-client-cert-key",
-		&user.DefaultInfo{},
-		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
+		"aggregator-client",
+		&user.DefaultInfo{Name: "system:openshift-aggregator"},
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Core().V1().Secrets(),
 		kubeInformersForOpenshiftConfigManaged.Core().V1().ConfigMaps(),
-		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
+		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets(),
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		ctx.EventRecorder,
 	)
 	controllerClientCertController := certrotation.NewClientCertRotationController(
 		"KubeControllerManagerClient",
-		managedConfigNamespace,
+		operatorNamespace,
 		1*24*time.Hour,
 		0.5,
 		"managed-kube-apiserver-client-signer",
@@ -160,7 +166,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		0.75,
 		"kube-controller-manager-client-cert-key",
 		&user.DefaultInfo{},
-		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Core().V1().Secrets(),
 		kubeInformersForOpenshiftConfigManaged.Core().V1().ConfigMaps(),
 		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
 		kubeClient.CoreV1(),
@@ -169,7 +175,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 	schedulerClientCertController := certrotation.NewClientCertRotationController(
 		"KubeSchedulerClient",
-		managedConfigNamespace,
+		operatorNamespace,
 		1*24*time.Hour,
 		0.5,
 		"managed-kube-apiserver-client-signer",
@@ -180,7 +186,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		0.75,
 		"kube-scheduler-client-cert-key",
 		&user.DefaultInfo{},
-		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
+		kubeInformersForOpenshiftKubeAPIServerOperatorNamespace.Core().V1().Secrets(),
 		kubeInformersForOpenshiftConfigManaged.Core().V1().ConfigMaps(),
 		kubeInformersForOpenshiftConfigManaged.Core().V1().Secrets(),
 		kubeClient.CoreV1(),
