@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -38,8 +39,9 @@ type TargetConfigReconciler struct {
 
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 
-	kubeClient    kubernetes.Interface
-	eventRecorder events.Recorder
+	kubeClient                          kubernetes.Interface
+	configMapListerForOperatorNamespace corev1listers.ConfigMapLister
+	eventRecorder                       events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -48,7 +50,8 @@ type TargetConfigReconciler struct {
 func NewTargetConfigReconciler(
 	targetImagePullSpec string,
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
-	namespacedKubeInformers informers.SharedInformerFactory,
+	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
+	kubeInformersForOperatorNamespace informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
@@ -56,23 +59,27 @@ func NewTargetConfigReconciler(
 	c := &TargetConfigReconciler{
 		targetImagePullSpec: targetImagePullSpec,
 
-		operatorConfigClient: operatorConfigClient,
-		kubeClient:           kubeClient,
-		eventRecorder:        eventRecorder,
+		operatorConfigClient:                operatorConfigClient,
+		kubeClient:                          kubeClient,
+		configMapListerForOperatorNamespace: kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Lister(),
+		eventRecorder:                       eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigReconciler"),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Rbac().V1().Roles().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Rbac().V1().RoleBindings().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Rbac().V1().Roles().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Rbac().V1().RoleBindings().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
+
+	// we react to some config changes
+	kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 
 	// we only watch some namespaces
-	namespacedKubeInformers.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
+	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
 
 	return c
 }
