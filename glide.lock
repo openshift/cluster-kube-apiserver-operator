@@ -1,5 +1,5 @@
 hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
-updated: 2019-01-02T15:08:51.457688505-05:00
+updated: 2019-01-09T10:17:17.482559151-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 4703f3e71d833812a81e0fa3a2da1257e3efd85c
+  version: 84404551741398f2300f84b16fb97ef351749982
   subpackages:
   - apps
   - apps/v1
@@ -231,7 +231,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 960f72aa32a8e9b4dd769b90ff1cb5bd4c898eec
+  version: 2f38d042c79762d5bf2ba3c795d4ad72101289e9
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: ed90b992b08815b36c2b71c80218ea2135d8e4bd
+  version: 0f19d7d6215353efcd2e7c6e16f29a3da5a79c0b
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -254,6 +254,7 @@ imports:
   - pkg/controller/fileobserver
   - pkg/controller/metrics
   - pkg/crypto
+  - pkg/operator/certrotation
   - pkg/operator/configobserver
   - pkg/operator/configobserver/network
   - pkg/operator/events
@@ -268,6 +269,8 @@ imports:
   - pkg/operator/staticpod/controller/common
   - pkg/operator/staticpod/controller/installer
   - pkg/operator/staticpod/controller/installer/bindata
+  - pkg/operator/staticpod/controller/monitoring
+  - pkg/operator/staticpod/controller/monitoring/bindata
   - pkg/operator/staticpod/controller/node
   - pkg/operator/staticpod/controller/revision
   - pkg/operator/staticpod/installerpod

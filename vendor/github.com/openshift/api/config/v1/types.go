@@ -9,7 +9,7 @@ import (
 type ConfigMapReference struct {
 	Name string `json:"name"`
 	// Key allows pointing to a specific key/value inside of the configmap.  This is useful for logical file references.
-	Key string `json:"filename,omitempty"`
+	Key string `json:"key,omitempty"`
 }
 
 // LocalSecretReference references a secret within the local namespace
@@ -252,12 +252,8 @@ type ClientConnectionOverrides struct {
 	Burst int32 `json:"burst"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // GenericControllerConfig provides information to configure a controller
 type GenericControllerConfig struct {
-	metav1.TypeMeta `json:",inline"`
-
 	// ServingInfo is the HTTP serving information for the controller's endpoints
 	ServingInfo HTTPServingInfo `json:"servingInfo,omitempty"`
 
