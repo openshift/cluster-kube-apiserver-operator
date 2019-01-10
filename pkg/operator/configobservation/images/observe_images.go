@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
@@ -71,12 +72,12 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	externalRegistryHostnamePath := []string{"imagePolicyConfig", "externalRegistryHostnames"}
-	o, _, err := unstructured.NestedSlice(existingConfig, externalRegistryHostnamePath...)
+	existingHostnames, _, err := unstructured.NestedStringSlice(existingConfig, externalRegistryHostnamePath...)
 	if err != nil {
 		return prevObservedConfig, append(errs, err)
 	}
-	if len(o) > 0 {
-		err := unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
+	if len(existingHostnames) > 0 {
+		err := unstructured.SetNestedStringSlice(prevObservedConfig, existingHostnames, externalRegistryHostnamePath...)
 		if err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
@@ -114,7 +115,7 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 		}
 	}
 
-	if !reflect.DeepEqual(o, externalRegistryHostnames) {
+	if !reflect.DeepEqual(existingHostnames, externalRegistryHostnames) {
 		recorder.Eventf("ObserveExternalRegistryHostnameChanged", "External registry hostname changed to %v", externalRegistryHostnames)
 	}
 
@@ -131,12 +132,12 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	allowedRegistriesForImportPath := []string{"imagePolicyConfig", "allowedRegistriesForImport"}
-	o, _, err := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
+	existingAllowedRegistries, _, err := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
 	if err != nil {
 		return prevObservedConfig, append(errs, err)
 	}
-	if len(o) > 0 {
-		err := unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
+	if len(existingAllowedRegistries) > 0 {
+		err := unstructured.SetNestedSlice(prevObservedConfig, existingAllowedRegistries, allowedRegistriesForImportPath...)
 		if err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
@@ -169,7 +170,11 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 		}
 	}
 
-	if !reflect.DeepEqual(o, configImage.Spec.AllowedRegistriesForImport) {
+	existingLocations := []configv1.RegistryLocation{}
+	for _, location := range existingAllowedRegistries {
+		existingLocations = append(existingLocations, location.(configv1.RegistryLocation))
+	}
+	if !reflect.DeepEqual(existingLocations, configImage.Spec.AllowedRegistriesForImport) {
 		recorder.Eventf("ObserveAllowedRegistriesForImport", "Allowed registries for import changed to %v", configImage.Spec.AllowedRegistriesForImport)
 	}
 
