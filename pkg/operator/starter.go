@@ -124,6 +124,21 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	); err != nil {
 		return err
 	}
+	// this ca bundle contains certs used by aggregated apiserver to verify the kube-aggregator
+	// contacting them. This is also updated by kube-apiserver on startup. But to avoid or shorten
+	// a race of aggregated apiservers getting contacted by kube-apiserver already with a new client
+	// cert before having a chance to react to the new CA, we sync this directly.
+	//
+	// There is still a race, though a shorter one: aggregated apiservers' and kube-apiserver'
+	// deployment. When kube-apiserver wins, we still have the same problem.
+	// TODO: let aggregated apiserver watch this CA and react in realtime
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: "kube-system", Name: "extension-apiserver-authentication"},
+		resourcesynccontroller.ResourceLocation{Namespace: machineSpecifiedGlobalConfigNamespace, Name: "aggregator-client-ca"},
+	); err != nil {
+		return err
+	}
+
 	targetConfigReconciler := NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
