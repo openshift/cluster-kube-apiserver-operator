@@ -25,15 +25,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const (
-	etcdNamespaceName                     = "kube-system"
-	userSpecifiedGlobalConfigNamespace    = "openshift-config"
-	machineSpecifiedGlobalConfigNamespace = "openshift-config-managed"
-	operatorNamespace                     = "openshift-kube-apiserver-operator"
-	targetNamespaceName                   = "openshift-kube-apiserver"
-	workQueueKey                          = "key"
-)
-
 type TargetConfigReconciler struct {
 	targetImagePullSpec string
 

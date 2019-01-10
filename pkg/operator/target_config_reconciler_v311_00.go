@@ -14,7 +14,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/crypto"
@@ -22,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
