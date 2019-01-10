@@ -226,7 +226,7 @@ func v3110KubeApiserverNsYaml() (*asset, error) {
 var _v3110KubeApiserverOperatorConfigYaml = []byte(`apiVersion: kubeapiserver.operator.openshift.io/v1alpha1
 kind: KubeAPIServerOperatorConfig
 metadata:
-  name: instance
+  name: cluster
 spec:
   managementState: Managed
 `)
@@ -276,14 +276,14 @@ var _v3110KubeApiserverPodYaml = []byte(`apiVersion: v1
 kind: Pod
 metadata:
   namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver
+  name: kube-apiserver
   labels:
-    app: openshift-kube-apiserver
+    app: kube-apiserver
     apiserver: "true"
     revision: "REVISION"
 spec:
   containers:
-  - name: openshift-kube-apiserver
+  - name: kube-apiserver
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError

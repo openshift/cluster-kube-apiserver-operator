@@ -2,14 +2,14 @@ apiVersion: v1
 kind: Pod
 metadata:
   namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver
+  name: kube-apiserver
   labels:
-    app: openshift-kube-apiserver
+    app: kube-apiserver
     apiserver: "true"
     revision: "REVISION"
 spec:
   containers:
-  - name: openshift-kube-apiserver
+  - name: kube-apiserver
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError

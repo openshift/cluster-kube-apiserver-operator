@@ -24,4 +24,4 @@ spec:
     - openshift-kube-apiserver-operator
   selector:
     matchLabels:
-      app: openshift-kube-apiserver-operator
+      app: kube-apiserver-operator

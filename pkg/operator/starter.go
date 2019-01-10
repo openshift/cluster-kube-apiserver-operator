@@ -141,7 +141,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	staticPodControllers := staticpod.NewControllers(
 		targetNamespaceName,
-		"openshift-kube-apiserver",
+		"kube-apiserver",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		deploymentConfigMaps,
 		deploymentSecrets,
@@ -153,8 +153,14 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
-		"openshift-kube-apiserver-operator",
-		[]configv1.ObjectReference{},
+		"kube-apiserver",
+		[]configv1.ObjectReference{
+			{Group: "kubeapiserver.operator.openshift.io", Resource: "kubeapiserveroperatorconfigs", Name: "cluster"},
+			{Resource: "namespaces", Name: userSpecifiedGlobalConfigNamespace},
+			{Resource: "namespaces", Name: machineSpecifiedGlobalConfigNamespace},
+			{Resource: "namespaces", Name: operatorNamespace},
+			{Resource: "namespaces", Name: targetNamespaceName},
+		},
 		configClient.ConfigV1(),
 		staticPodOperatorClient,
 		ctx.EventRecorder,

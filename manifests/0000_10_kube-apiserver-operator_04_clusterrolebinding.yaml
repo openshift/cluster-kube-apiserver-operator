@@ -8,4 +8,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   namespace: openshift-kube-apiserver-operator
-  name: openshift-kube-apiserver-operator
+  name: kube-apiserver-operator
