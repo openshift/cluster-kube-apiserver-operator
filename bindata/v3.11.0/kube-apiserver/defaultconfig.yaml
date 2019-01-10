@@ -26,16 +26,36 @@ apiServerArguments:
   storage-media-type:
   - application/vnd.kubernetes.protobuf
 auditConfig:
-  auditFilePath: ""
+  auditFilePath: "-"
   enabled: false
-  logFormat: ""
-  maximumFileRetentionDays: 0
-  maximumFileSizeMegabytes: 0
-  maximumRetainedFiles: 0
-  policyConfiguration: null
-  policyFile: ""
-  webHookKubeConfig: ""
-  webHookMode: ""
+  logFormat: "json"
+  maximumFileSizeMegabytes: 100
+  maximumRetainedFiles: 10
+  policyConfiguration:
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Don't log requests for events
+    - level: None
+      resources:
+      - group: ""
+        resources: ["events"]
+    # Don't log authenticated requests to certain non-resource URL paths.
+    - level: None
+      userGroups: ["system:authenticated", "system:unauthenticated"]
+      nonResourceURLs:
+      - "/api*" # Wildcard matching.
+      - "/version"
+      - "/healthz"
+    # A catch-all rule to log all other requests at the Metadata level.
+    - level: Metadata
+      # Long-running requests like watches that fall under this rule will not
+      # generate an audit event in RequestReceived.
+      omitStages:
+      - "RequestReceived"
 authConfig:
   oauthMetadataFile: ""
   requestHeader:
