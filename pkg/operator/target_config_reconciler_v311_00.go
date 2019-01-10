@@ -93,7 +93,22 @@ func managePod_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, recorder 
 	if len(imagePullSpec) > 0 {
 		required.Spec.Containers[0].Image = imagePullSpec
 	}
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+
+	// Allow to override the default verbosity level of operand
+	glogVerbosityLevel := int64(2)
+	for _, operandSpec := range operatorConfig.Spec.OperandSpecs {
+		if operandSpec.Name != required.GetNamespace() {
+			continue
+		}
+		for _, operandContainerSpec := range operandSpec.OperandContainerSpecs {
+			if operandContainerSpec.Name == required.Spec.Containers[0].Name {
+				if operandContainerSpec.Logging.Glog != nil {
+					glogVerbosityLevel = operandContainerSpec.Logging.Glog.Level
+				}
+			}
+		}
+	}
+	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", glogVerbosityLevel))
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
