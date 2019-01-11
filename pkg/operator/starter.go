@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
+	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
@@ -153,6 +154,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-kube-apiserver-operator",
+		[]configv1.ObjectReference{},
 		configClient.ConfigV1(),
 		staticPodOperatorClient,
 		ctx.EventRecorder,
