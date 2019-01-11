@@ -76,7 +76,7 @@ func NewTargetConfigReconciler(
 }
 
 func (c TargetConfigReconciler) sync() error {
-	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

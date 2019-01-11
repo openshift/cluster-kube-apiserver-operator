@@ -18,7 +18,7 @@ func (c *staticPodOperatorClient) Informer() cache.SharedIndexInformer {
 }
 
 func (c *staticPodOperatorClient) Get() (*operatorv1.OperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
-	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -27,7 +27,7 @@ func (c *staticPodOperatorClient) Get() (*operatorv1.OperatorSpec, *operatorv1.S
 }
 
 func (c *staticPodOperatorClient) UpdateStatus(resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
-	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *staticPodOperatorClient) UpdateStatus(resourceVersion string, status *o
 
 // TODO collapse this onto get
 func (c *staticPodOperatorClient) CurrentStatus() (operatorv1.OperatorStatus, error) {
-	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return operatorv1.OperatorStatus{}, err
 	}
@@ -54,7 +54,7 @@ func (c *staticPodOperatorClient) CurrentStatus() (operatorv1.OperatorStatus, er
 }
 
 func (c *staticPodOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
-	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	instance, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -63,7 +63,7 @@ func (c *staticPodOperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, 
 }
 
 func (c *staticPodOperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operatorv1.OperatorSpec) (*operatorv1.OperatorSpec, string, error) {
-	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return nil, "", err
 	}
@@ -79,7 +79,7 @@ func (c *staticPodOperatorClient) UpdateOperatorSpec(resourceVersion string, spe
 	return &ret.Spec.OperatorSpec, ret.ResourceVersion, nil
 }
 func (c *staticPodOperatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, string, error) {
-	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("instance")
+	original, err := c.informers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
 		return nil, "", err
 	}
