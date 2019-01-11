@@ -1,5 +1,5 @@
 hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
-updated: 2019-01-09T10:17:17.482559151-05:00
+updated: 2019-01-11T09:19:09.718769+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 84404551741398f2300f84b16fb97ef351749982
+  version: 1ef604446c39f0e4a15366ffe3a44a57b2724858
   subpackages:
   - apps
   - apps/v1
@@ -231,7 +231,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 2f38d042c79762d5bf2ba3c795d4ad72101289e9
+  version: f3714b1f9df49ae0d998d882f510ed1d8d10f4aa
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 0f19d7d6215353efcd2e7c6e16f29a3da5a79c0b
+  version: 4f8f123c1e157e7099eb4b8ee3f0811c11b63407
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -263,6 +263,7 @@ imports:
   - pkg/operator/resource/resourceapply
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
+  - pkg/operator/resourcesynccontroller
   - pkg/operator/staticpod
   - pkg/operator/staticpod/controller/backingresource
   - pkg/operator/staticpod/controller/backingresource/bindata
@@ -626,66 +627,36 @@ imports:
   - informers/storage/v1alpha1
   - informers/storage/v1beta1
   - kubernetes
-  - kubernetes/fake
   - kubernetes/scheme
   - kubernetes/typed/admissionregistration/v1alpha1
-  - kubernetes/typed/admissionregistration/v1alpha1/fake
   - kubernetes/typed/admissionregistration/v1beta1
-  - kubernetes/typed/admissionregistration/v1beta1/fake
   - kubernetes/typed/apps/v1
-  - kubernetes/typed/apps/v1/fake
   - kubernetes/typed/apps/v1beta1
-  - kubernetes/typed/apps/v1beta1/fake
   - kubernetes/typed/apps/v1beta2
-  - kubernetes/typed/apps/v1beta2/fake
   - kubernetes/typed/authentication/v1
-  - kubernetes/typed/authentication/v1/fake
   - kubernetes/typed/authentication/v1beta1
-  - kubernetes/typed/authentication/v1beta1/fake
   - kubernetes/typed/authorization/v1
-  - kubernetes/typed/authorization/v1/fake
   - kubernetes/typed/authorization/v1beta1
-  - kubernetes/typed/authorization/v1beta1/fake
   - kubernetes/typed/autoscaling/v1
-  - kubernetes/typed/autoscaling/v1/fake
   - kubernetes/typed/autoscaling/v2beta1
-  - kubernetes/typed/autoscaling/v2beta1/fake
   - kubernetes/typed/batch/v1
-  - kubernetes/typed/batch/v1/fake
   - kubernetes/typed/batch/v1beta1
-  - kubernetes/typed/batch/v1beta1/fake
   - kubernetes/typed/batch/v2alpha1
-  - kubernetes/typed/batch/v2alpha1/fake
   - kubernetes/typed/certificates/v1beta1
-  - kubernetes/typed/certificates/v1beta1/fake
   - kubernetes/typed/core/v1
-  - kubernetes/typed/core/v1/fake
   - kubernetes/typed/events/v1beta1
-  - kubernetes/typed/events/v1beta1/fake
   - kubernetes/typed/extensions/v1beta1
-  - kubernetes/typed/extensions/v1beta1/fake
   - kubernetes/typed/networking/v1
-  - kubernetes/typed/networking/v1/fake
   - kubernetes/typed/policy/v1beta1
-  - kubernetes/typed/policy/v1beta1/fake
   - kubernetes/typed/rbac/v1
-  - kubernetes/typed/rbac/v1/fake
   - kubernetes/typed/rbac/v1alpha1
-  - kubernetes/typed/rbac/v1alpha1/fake
   - kubernetes/typed/rbac/v1beta1
-  - kubernetes/typed/rbac/v1beta1/fake
   - kubernetes/typed/scheduling/v1alpha1
-  - kubernetes/typed/scheduling/v1alpha1/fake
   - kubernetes/typed/scheduling/v1beta1
-  - kubernetes/typed/scheduling/v1beta1/fake
   - kubernetes/typed/settings/v1alpha1
-  - kubernetes/typed/settings/v1alpha1/fake
   - kubernetes/typed/storage/v1
-  - kubernetes/typed/storage/v1/fake
   - kubernetes/typed/storage/v1alpha1
-  - kubernetes/typed/storage/v1alpha1/fake
   - kubernetes/typed/storage/v1beta1
-  - kubernetes/typed/storage/v1beta1/fake
   - listers/admissionregistration/v1alpha1
   - listers/admissionregistration/v1beta1
   - listers/apps/v1
