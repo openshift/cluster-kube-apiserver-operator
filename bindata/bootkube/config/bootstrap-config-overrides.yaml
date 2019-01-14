@@ -37,3 +37,10 @@ admissionPluginConfig:
       - {{.}}{{end}}{{range .ClusterCIDR}}
       - {{.}}{{end}}
   {{end}}
+apiServerArguments:
+  storage-backend:
+    - etcd3
+  storage-media-type:
+    - application/vnd.kubernetes.protobuf
+  endpoint-reconciler-type:
+    - none
