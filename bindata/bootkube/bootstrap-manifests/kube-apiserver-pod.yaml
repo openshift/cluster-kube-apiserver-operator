@@ -18,6 +18,7 @@ spec:
     command: ["hypershift", "openshift-kube-apiserver"]
     args:
     - --config=/etc/kubernetes/config/{{ .ConfigFileName }}
+    - --endpoint-reconciler-type=none
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
