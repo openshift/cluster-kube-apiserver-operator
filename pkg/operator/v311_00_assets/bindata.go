@@ -301,6 +301,7 @@ metadata:
     app: openshift-kube-apiserver
     apiserver: "true"
     revision: "REVISION"
+  deletionGracePeriodSeconds: 65 # a bit more than the kube-apiserver shutdown timeout of 60 sec
 spec:
   containers:
   - name: openshift-kube-apiserver
