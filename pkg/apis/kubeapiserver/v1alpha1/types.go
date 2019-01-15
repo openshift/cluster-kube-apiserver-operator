@@ -27,7 +27,7 @@ type KubeAPIServerOperatorConfig struct {
 }
 
 type KubeAPIServerOperatorConfigSpec struct {
-	operatorsv1.OperatorSpec `json:",inline"`
+	operatorsv1.StaticPodOperatorSpec `json:",inline"`
 
 	// forceRedeploymentReason can be used to force the redeployment of the kube-apiserver by providing a unique string.
 	// This provides a mechanism to kick a previously failed deployment and provide a reason why you think it will work
