@@ -3,10 +3,10 @@ package images
 import (
 	"bytes"
 	"encoding/json"
-	"reflect"
 
 	"github.com/golang/glog"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -105,17 +105,12 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 	externalRegistryHostnames = append(externalRegistryHostnames, configImage.Status.ExternalRegistryHostnames...)
 
 	if len(externalRegistryHostnames) > 0 {
-		hostnames, err := convert(externalRegistryHostnames)
-		if err != nil {
-			return prevObservedConfig, append(errs, err)
-		}
-		err = unstructured.SetNestedField(observedConfig, hostnames, externalRegistryHostnamePath...)
-		if err != nil {
+		if err = unstructured.SetNestedStringSlice(observedConfig, externalRegistryHostnames, externalRegistryHostnamePath...); err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
 	}
 
-	if !reflect.DeepEqual(existingHostnames, externalRegistryHostnames) {
+	if !equality.Semantic.DeepEqual(existingHostnames, externalRegistryHostnames) {
 		recorder.Eventf("ObserveExternalRegistryHostnameChanged", "External registry hostname changed to %v", externalRegistryHostnames)
 	}
 
@@ -174,7 +169,7 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 	for _, location := range existingAllowedRegistries {
 		existingLocations = append(existingLocations, location.(configv1.RegistryLocation))
 	}
-	if !reflect.DeepEqual(existingLocations, configImage.Spec.AllowedRegistriesForImport) {
+	if !equality.Semantic.DeepEqual(existingLocations, configImage.Spec.AllowedRegistriesForImport) {
 		recorder.Eventf("ObserveAllowedRegistriesForImport", "Allowed registries for import changed to %v", configImage.Spec.AllowedRegistriesForImport)
 	}
 
