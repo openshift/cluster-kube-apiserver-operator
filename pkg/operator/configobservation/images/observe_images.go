@@ -3,12 +3,14 @@ package images
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
@@ -113,6 +115,10 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 		}
 	}
 
+	if !reflect.DeepEqual(existingHostnames, externalRegistryHostnames) {
+		recorder.Eventf("ObserveExternalRegistryHostnameChanged", "External registry hostname changed to %v", externalRegistryHostnames)
+	}
+
 	return observedConfig, errs
 }
 
@@ -163,6 +169,15 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 			return prevObservedConfig, append(errs, err)
 		}
 	}
+
+	existingLocations := []configv1.RegistryLocation{}
+	for _, location := range existingAllowedRegistries {
+		existingLocations = append(existingLocations, location.(configv1.RegistryLocation))
+	}
+	if !reflect.DeepEqual(existingLocations, configImage.Spec.AllowedRegistriesForImport) {
+		recorder.Eventf("ObserveAllowedRegistriesForImport", "Allowed registries for import changed to %v", configImage.Spec.AllowedRegistriesForImport)
+	}
+
 	return observedConfig, errs
 }
 
