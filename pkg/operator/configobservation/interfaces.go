@@ -5,9 +5,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
 type Listers struct {
+	ResourceSync      resourcesynccontroller.ResourceSyncer
 	ImageConfigLister configlistersv1.ImageLister
 	EndpointsLister   corelistersv1.EndpointsLister
 	ConfigmapLister   corelistersv1.ConfigMapLister
@@ -15,6 +17,10 @@ type Listers struct {
 	ImageConfigSynced cache.InformerSynced
 
 	PreRunCachesSynced []cache.InformerSynced
+}
+
+func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
+	return l.ResourceSync
 }
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {

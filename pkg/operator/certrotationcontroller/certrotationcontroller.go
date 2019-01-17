@@ -3,13 +3,13 @@ package certrotationcontroller
 import (
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/events"
-
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/kubernetes"
 )
 
 type CertRotationController struct {
@@ -18,7 +18,7 @@ type CertRotationController struct {
 
 func NewCertRotationController(
 	kubeClient kubernetes.Interface,
-	kubeInformersForNamespaces operatorclient.KubeInformersForNamespaces,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
 ) *CertRotationController {
 	ret := &CertRotationController{}
@@ -30,16 +30,16 @@ func NewCertRotationController(
 			Name:              "aggregator-client-signer",
 			Validity:          1 * 24 * time.Hour,
 			RefreshPercentage: 0.5,
-			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
-			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
+			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:            kubeClient.CoreV1(),
 			EventRecorder:     eventRecorder,
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.MachineSpecifiedGlobalConfigNamespace,
 			Name:          "aggregator-client-ca",
-			Informer:      kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps(),
-			Lister:        kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -51,8 +51,8 @@ func NewCertRotationController(
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
-			Informer:      kubeInformersForNamespaces[operatorclient.TargetNamespaceName].Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces[operatorclient.TargetNamespaceName].Core().V1().Secrets().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -65,16 +65,16 @@ func NewCertRotationController(
 			Name:              "managed-kube-apiserver-client-signer",
 			Validity:          1 * 24 * time.Hour,
 			RefreshPercentage: 0.5,
-			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
-			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
+			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:            kubeClient.CoreV1(),
 			EventRecorder:     eventRecorder,
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.MachineSpecifiedGlobalConfigNamespace,
 			Name:          "managed-kube-apiserver-client-ca-bundle",
-			Informer:      kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps(),
-			Lister:        kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -86,8 +86,8 @@ func NewCertRotationController(
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
 			},
-			Informer:      kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().Secrets().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -100,16 +100,16 @@ func NewCertRotationController(
 			Name:              "managed-kube-apiserver-client-signer",
 			Validity:          1 * 24 * time.Hour,
 			RefreshPercentage: 0.5,
-			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
-			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
+			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:            kubeClient.CoreV1(),
 			EventRecorder:     eventRecorder,
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.MachineSpecifiedGlobalConfigNamespace,
 			Name:          "managed-kube-apiserver-client-ca-bundle",
-			Informer:      kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps(),
-			Lister:        kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().ConfigMaps().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -121,8 +121,8 @@ func NewCertRotationController(
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
 			},
-			Informer:      kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces[operatorclient.MachineSpecifiedGlobalConfigNamespace].Core().V1().Secrets().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.MachineSpecifiedGlobalConfigNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -135,16 +135,16 @@ func NewCertRotationController(
 			Name:              "managed-kube-apiserver-serving-cert-signer",
 			Validity:          1 * 24 * time.Hour,
 			RefreshPercentage: 0.5,
-			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
-			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
+			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:            kubeClient.CoreV1(),
 			EventRecorder:     eventRecorder,
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "managed-kube-apiserver-serving-cert-ca-bundle",
-			Informer:      kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().ConfigMaps(),
-			Lister:        kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().ConfigMaps().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
@@ -156,8 +156,8 @@ func NewCertRotationController(
 			ServingRotation: &certrotation.ServingRotation{
 				Hostnames: []string{"localhost", "127.0.0.1", "kubernetes.default.svc"},
 			},
-			Informer:      kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},

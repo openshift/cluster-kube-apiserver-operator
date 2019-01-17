@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -17,6 +15,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -59,14 +58,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
 	)
 
-	configObserver := configobservercontroller.NewConfigObserver(
-		staticPodOperatorClient,
-		operatorConfigInformers,
-		kubeInformersForNamespaces["kube-system"],
-		configInformers,
-		ctx.EventRecorder,
-	)
-
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		staticPodOperatorClient,
 		kubeInformersForNamespaces,
@@ -77,11 +68,20 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	configObserver := configobservercontroller.NewConfigObserver(
+		staticPodOperatorClient,
+		resourceSyncController,
+		operatorConfigInformers,
+		kubeInformersForNamespaces.InformersFor("kube-system"),
+		configInformers,
+		ctx.EventRecorder,
+	)
+
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
-		kubeInformersForNamespaces[operatorclient.OperatorNamespace],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),
+		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace),
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 		ctx.EventRecorder,
@@ -94,10 +94,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		deploymentConfigMaps,
 		deploymentSecrets,
 		staticPodOperatorClient,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		kubeClient,
 		dynamicClient,
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
-		kubeInformersForNamespaces[""],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),
+		kubeInformersForNamespaces.InformersFor(""),
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
