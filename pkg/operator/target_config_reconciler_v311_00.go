@@ -22,7 +22,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -61,7 +60,7 @@ func createTargetConfigReconciler_v311_00_to_latest(c TargetConfigReconciler, re
 			Type:    "TargetConfigReconcilerFailing",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "SynchronizationError",
-			Message: common.NewMultiLineAggregate(errors).Error(),
+			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
 		})
 		if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
 			_, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
