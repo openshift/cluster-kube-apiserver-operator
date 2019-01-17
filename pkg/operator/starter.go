@@ -257,7 +257,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		},
 		certrotation.TargetRotation{
 			Namespace:         machineSpecifiedGlobalConfigNamespace,
-			Name:              "kube-controller-manager-client-cert-key",
+			Name:              "kube-scheduler-client-cert-key",
 			Validity:          1 * 24 * time.Hour,
 			RefreshPercentage: 0.75,
 			ClientRotation: &certrotation.ClientRotation{
