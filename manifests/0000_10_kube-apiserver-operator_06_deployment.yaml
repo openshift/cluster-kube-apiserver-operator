@@ -21,6 +21,10 @@ spec:
       - name: operator
         image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
         imagePullPolicy: Always
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
         command: ["cluster-kube-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
