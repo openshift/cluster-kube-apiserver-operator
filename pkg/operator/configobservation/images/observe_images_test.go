@@ -9,10 +9,9 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
-
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -146,33 +145,42 @@ func TestObserveImageConfig(t *testing.T) {
 			}
 			eventRecorder := events.NewInMemoryRecorder("")
 
-			result, errs := ObserveInternalRegistryHostname(listers, eventRecorder, map[string]interface{}{})
+			initialExistingConfig := map[string]interface{}{}
+
+			observed, errs := ObserveInternalRegistryHostname(listers, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			internalRegistryHostname, _, err := unstructured.NestedString(result, "imagePolicyConfig", "internalRegistryHostname")
+			internalRegistryHostname, _, err := unstructured.NestedString(observed, "imagePolicyConfig", "internalRegistryHostname")
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if internalRegistryHostname != tc.expectedInternalRegistryHostname {
 				t.Errorf("expected internal registry hostname: %s, got %s", tc.expectedInternalRegistryHostname, internalRegistryHostname)
 			}
+			secondTimeObserved, errs := ObserveInternalRegistryHostname(unsyncedlisters, eventRecorder, observed)
+			if len(errs) != 0 {
+				t.Fatalf("unexpected error: %v", errs)
+			}
+			if !reflect.DeepEqual(observed, secondTimeObserved) {
+				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
+			}
 
 			// When the cache is not synced, the result should be the previously observed
 			// configuration.
-			newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, eventRecorder, result)
+			unsyncedObserved, errs := ObserveInternalRegistryHostname(unsyncedlisters, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			if !reflect.DeepEqual(result, newResult) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
+			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
+				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
 			}
 
-			result, errs = ObserveExternalRegistryHostnames(listers, eventRecorder, map[string]interface{}{})
+			observed, errs = ObserveExternalRegistryHostnames(listers, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			o, _, err := unstructured.NestedSlice(result, "imagePolicyConfig", "externalRegistryHostnames")
+			o, _, err := unstructured.NestedSlice(observed, "imagePolicyConfig", "externalRegistryHostnames")
 			buf := &bytes.Buffer{}
 			if err := json.NewEncoder(buf).Encode(o); err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -184,22 +192,28 @@ func TestObserveImageConfig(t *testing.T) {
 			if !reflect.DeepEqual(externalRegistryHostnames, tc.expectedExternalRegistryHostnames) {
 				t.Errorf("got: \n%#v\nexpected: \n%#v", externalRegistryHostnames, tc.expectedExternalRegistryHostnames)
 			}
-
-			// When the cache is not synced, the result should be the previously observed
-			// configuration.
-			newResult, errs = ObserveExternalRegistryHostnames(unsyncedlisters, eventRecorder, result)
+			secondTimeObserved, errs = ObserveExternalRegistryHostnames(unsyncedlisters, eventRecorder, observed)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			if !reflect.DeepEqual(result, newResult) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
+			if !reflect.DeepEqual(observed, secondTimeObserved) {
+				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
 			}
 
-			result, errs = ObserveAllowedRegistriesForImport(listers, eventRecorder, map[string]interface{}{})
+			// When the cache is not synced, the result should be the previously observed configuration.
+			unsyncedObserved, errs = ObserveExternalRegistryHostnames(unsyncedlisters, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			o, _, err = unstructured.NestedSlice(result, "imagePolicyConfig", "allowedRegistriesForImport")
+			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
+				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
+			}
+
+			observed, errs = ObserveAllowedRegistriesForImport(listers, eventRecorder, initialExistingConfig)
+			if len(errs) != 0 {
+				t.Fatalf("unexpected error: %v", errs)
+			}
+			o, _, err = unstructured.NestedSlice(observed, "imagePolicyConfig", "allowedRegistriesForImport")
 			buf = &bytes.Buffer{}
 			if err := json.NewEncoder(buf).Encode(o); err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -211,15 +225,21 @@ func TestObserveImageConfig(t *testing.T) {
 			if !reflect.DeepEqual(allowedRegistries, tc.expectedAllowedRegistries) {
 				t.Errorf("got: \n%#v\nexpected: \n%#v", allowedRegistries, tc.expectedAllowedRegistries)
 			}
-
-			// When the cache is not synced, the result should be the previously observed
-			// configuration.
-			newResult, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, eventRecorder, result)
+			secondTimeObserved, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, eventRecorder, observed)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
-			if !reflect.DeepEqual(result, newResult) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
+			if !reflect.DeepEqual(observed, secondTimeObserved) {
+				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
+			}
+
+			// When the cache is not synced, the result should be the previously observed configuration.
+			unsyncedObserved, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, eventRecorder, initialExistingConfig)
+			if len(errs) != 0 {
+				t.Fatalf("unexpected error: %v", errs)
+			}
+			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
+				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
 			}
 
 			// Check created events
@@ -227,8 +247,8 @@ func TestObserveImageConfig(t *testing.T) {
 			for _, ev := range eventRecorder.Events() {
 				reasons = append(reasons, ev.Reason)
 			}
-			if got, expected := sets.NewString(reasons...), sets.NewString(tc.expectedEventReasons...); !got.Equal(expected) {
-				t.Errorf("unexpected events, got reasons: %v, expected: %v", got.List(), expected.List())
+			if got, expected := reasons, tc.expectedEventReasons; !equality.Semantic.DeepEqual(got, expected) {
+				t.Errorf("unexpected events, got reasons: %v, expected: %v", got, expected)
 			}
 		})
 	}
