@@ -28,7 +28,7 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:         operatorclient.OperatorNamespace,
 			Name:              "aggregator-client-signer",
-			Validity:          1 * 24 * time.Hour,
+			Validity:          1 * 8 * time.Hour,
 			RefreshPercentage: 0.5,
 			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
 			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
@@ -46,8 +46,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace:         operatorclient.TargetNamespaceName,
 			Name:              "aggregator-client",
-			Validity:          1 * 24 * time.Hour,
-			RefreshPercentage: 0.75,
+			Validity:          1 * 4 * time.Hour,
+			RefreshPercentage: 0.5,
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
@@ -63,7 +63,7 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:         operatorclient.OperatorNamespace,
 			Name:              "managed-kube-apiserver-client-signer",
-			Validity:          1 * 24 * time.Hour,
+			Validity:          1 * 8 * time.Hour,
 			RefreshPercentage: 0.5,
 			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
 			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
@@ -81,8 +81,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace:         operatorclient.MachineSpecifiedGlobalConfigNamespace,
 			Name:              "kube-controller-manager-client-cert-key",
-			Validity:          1 * 24 * time.Hour,
-			RefreshPercentage: 0.75,
+			Validity:          1 * 4 * time.Hour,
+			RefreshPercentage: 0.5,
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
 			},
@@ -98,7 +98,7 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:         operatorclient.OperatorNamespace,
 			Name:              "managed-kube-apiserver-client-signer",
-			Validity:          1 * 24 * time.Hour,
+			Validity:          1 * 8 * time.Hour,
 			RefreshPercentage: 0.5,
 			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
 			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
@@ -115,9 +115,9 @@ func NewCertRotationController(
 		},
 		certrotation.TargetRotation{
 			Namespace:         operatorclient.MachineSpecifiedGlobalConfigNamespace,
-			Name:              "kube-controller-manager-client-cert-key",
-			Validity:          1 * 24 * time.Hour,
-			RefreshPercentage: 0.75,
+			Name:              "kube-scheduler-client-cert-key",
+			Validity:          1 * 4 * time.Hour,
+			RefreshPercentage: 0.5,
 			ClientRotation: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
 			},
@@ -131,9 +131,10 @@ func NewCertRotationController(
 	ret.certRotators = append(ret.certRotators, certrotation.NewCertRotationController(
 		"ManagedKubeAPIServerServingCert",
 		certrotation.SigningRotation{
-			Namespace:         operatorclient.OperatorNamespace,
-			Name:              "managed-kube-apiserver-serving-cert-signer",
-			Validity:          1 * 24 * time.Hour,
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "managed-kube-apiserver-serving-cert-signer",
+			// this is super long because we have no auto-refresh consuming new values from ca.crt inside the cluster
+			Validity:          365 * 24 * time.Hour,
 			RefreshPercentage: 0.5,
 			Informer:          kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets(),
 			Lister:            kubeInformersForNamespaces[operatorclient.OperatorNamespace].Core().V1().Secrets().Lister(),
@@ -149,10 +150,11 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		certrotation.TargetRotation{
-			Namespace:         operatorclient.OperatorNamespace,
-			Name:              "managed-kube-apiserver-serving-cert-key",
-			Validity:          1 * 24 * time.Hour,
-			RefreshPercentage: 0.75,
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "managed-kube-apiserver-serving-cert-key",
+			// this is comparatively short because we can rotate what we use to serve without forcing a rotation in trust itself
+			Validity:          1 * 4 * time.Hour,
+			RefreshPercentage: 0.5,
 			ServingRotation: &certrotation.ServingRotation{
 				Hostnames: []string{"localhost", "127.0.0.1", "kubernetes.default.svc"},
 			},
