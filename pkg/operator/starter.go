@@ -46,9 +46,16 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersForNamespaces := operatorclient.NewKubeInformersForNamespaces(kubeClient)
+	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
+		"",
+		operatorclient.GlobalUserSpecifiedConfigNamespace,
+		operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		operatorclient.TargetNamespace,
+		operatorclient.OperatorNamespace,
+		"kube-system",
+	)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	staticPodOperatorClient := &operatorclient.StaticPodOperatorClient{
+	operatorClient := &operatorclient.OperatorClient{
 		Informers: operatorConfigInformers,
 		Client:    operatorConfigClient.KubeapiserverV1alpha1(),
 	}
@@ -59,16 +66,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
 	)
 
-	configObserver := configobservercontroller.NewConfigObserver(
-		staticPodOperatorClient,
-		operatorConfigInformers,
-		kubeInformersForNamespaces["kube-system"],
-		configInformers,
-		ctx.EventRecorder,
-	)
-
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
-		staticPodOperatorClient,
+		operatorClient,
 		kubeInformersForNamespaces,
 		kubeClient,
 		ctx.EventRecorder,
@@ -77,44 +76,58 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorClient,
+		operatorConfigInformers,
+		kubeInformersForNamespaces.InformersFor("kube-system"),
+		configInformers,
+		resourceSyncController,
+		ctx.EventRecorder,
+	)
+
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigReconciler(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
-		kubeInformersForNamespaces[operatorclient.OperatorNamespace],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace),
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 		ctx.EventRecorder,
 	)
 
 	staticPodControllers := staticpod.NewControllers(
-		operatorclient.TargetNamespaceName,
+		operatorclient.TargetNamespace,
 		"openshift-kube-apiserver",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		deploymentConfigMaps,
 		deploymentSecrets,
-		staticPodOperatorClient,
+		operatorClient,
+		v1helpers.CachedConfigMapGetter(kubeClient, kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(kubeClient, kubeInformersForNamespaces),
 		kubeClient,
 		dynamicClient,
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
-		kubeInformersForNamespaces[""],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces.InformersFor(""),
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-kube-apiserver-operator",
 		[]configv1.ObjectReference{
 			{Group: "kubeapiserver.operator.openshift.io", Resource: "kubeapiserveroperatorconfigs", Name: "instance"},
-			{Resource: "namespaces", Name: operatorclient.UserSpecifiedGlobalConfigNamespace},
-			{Resource: "namespaces", Name: operatorclient.MachineSpecifiedGlobalConfigNamespace},
+			{Resource: "namespaces", Name: operatorclient.GlobalUserSpecifiedConfigNamespace},
+			{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
-			{Resource: "namespaces", Name: operatorclient.TargetNamespaceName},
+			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 		},
 		configClient.ConfigV1(),
-		staticPodOperatorClient,
+		operatorClient,
 		ctx.EventRecorder,
 	)
 
-	certRotationController := certrotationcontroller.NewCertRotationController(kubeClient, kubeInformersForNamespaces, ctx.EventRecorder)
+	certRotationController, err := certrotationcontroller.NewCertRotationController(kubeClient, kubeInformersForNamespaces, ctx.EventRecorder)
+	if err != nil {
+		return err
+	}
 
 	operatorConfigInformers.Start(ctx.StopCh)
 	kubeInformersForNamespaces.Start(ctx.StopCh)

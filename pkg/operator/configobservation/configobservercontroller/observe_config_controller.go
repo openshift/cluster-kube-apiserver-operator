@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
@@ -25,6 +26,7 @@ func NewConfigObserver(
 	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
 	configInformer configinformers.SharedInformerFactory,
+	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	eventRecorder events.Recorder,
 ) *ConfigObserver {
 	c := &ConfigObserver{
@@ -36,6 +38,7 @@ func NewConfigObserver(
 				EndpointsLister:   kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
 				ConfigmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
 				ImageConfigSynced: configInformer.Config().V1().Images().Informer().HasSynced,
+				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced,
 					kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced,

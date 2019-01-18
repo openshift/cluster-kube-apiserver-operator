@@ -268,7 +268,7 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 	}
 
 	requiredConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.TargetNamespaceName, Name: "client-ca"},
+		ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
 		Data: map[string]string{
 			"ca-bundle.crt": string(caBytes),
 		},
@@ -324,7 +324,7 @@ func (c *TargetConfigReconciler) eventHandler() cache.ResourceEventHandler {
 }
 
 // this set of namespaces will include things like logging and metrics which are used to drive
-var interestingNamespaces = sets.NewString(operatorclient.TargetNamespaceName)
+var interestingNamespaces = sets.NewString(operatorclient.TargetNamespace)
 
 func (c *TargetConfigReconciler) namespaceEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
@@ -333,7 +333,7 @@ func (c *TargetConfigReconciler) namespaceEventHandler() cache.ResourceEventHand
 			if !ok {
 				c.queue.Add(workQueueKey)
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
@@ -342,7 +342,7 @@ func (c *TargetConfigReconciler) namespaceEventHandler() cache.ResourceEventHand
 			if !ok {
 				c.queue.Add(workQueueKey)
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
@@ -360,7 +360,7 @@ func (c *TargetConfigReconciler) namespaceEventHandler() cache.ResourceEventHand
 					return
 				}
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
