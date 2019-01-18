@@ -1,5 +1,5 @@
 hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
-updated: 2019-01-17T08:12:22.908478959-05:00
+updated: 2019-01-18T11:08:55.426268232-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -95,7 +95,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/elazarl/go-bindata-assetfs
@@ -111,7 +111,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 11fc66491c332b285d3ea676e24894745368d980
+  version: c3ef7090a436a4ce1334e8a0401083b072dc7ab8
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: aa07d6579b000e74e2847da5e3c5b0070db9545b
+  version: 586f6681092a6c58b02b5b23154eca2a8e9940ce
   subpackages:
   - pkg/assets
   - pkg/config/client
