@@ -103,8 +103,8 @@ apiServerArguments:
   storage-media-type:
   - application/vnd.kubernetes.protobuf
 auditConfig:
-  auditFilePath: "-"
-  enabled: false
+  auditFilePath: "/var/log/kube-apiserver/audit.log"
+  enabled: true
   logFormat: "json"
   maximumFileSizeMegabytes: 100
   maximumRetainedFiles: 10
@@ -320,6 +320,8 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+    - mountPath: /var/log/kube-apiserver
+      name: audit-dir
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -342,6 +344,9 @@ spec:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
+  - hostPath:
+      path: /var/log/kube-apiserver
+    name: audit-dir
 `)
 
 func v3110KubeApiserverPodYamlBytes() ([]byte, error) {
