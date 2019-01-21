@@ -85,9 +85,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
-	targetConfigReconciler := targetconfigcontroller.NewTargetConfigReconciler(
+	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
+		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace),
 		operatorConfigClient.KubeapiserverV1alpha1(),
