@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -14,18 +12,21 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
-	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -119,6 +120,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 		},
+		version.Get().String(),
 		configClient.ConfigV1(),
 		operatorClient,
 		ctx.EventRecorder,
