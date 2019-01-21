@@ -103,8 +103,8 @@ apiServerArguments:
   storage-media-type:
   - application/vnd.kubernetes.protobuf
 auditConfig:
-  auditFilePath: "-"
-  enabled: false
+  auditFilePath: "/var/log/kube-apiserver/audit.log"
+  enabled: true
   logFormat: "json"
   maximumFileSizeMegabytes: 100
   maximumRetainedFiles: 10
@@ -308,9 +308,12 @@ spec:
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["hypershift", "openshift-kube-apiserver"]
+    command: ["/bin/bash", "-xec"]
     args:
-    - "--config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml"
+    - |
+      mkdir -p /var/log/kube-apiserver
+      chmod 0700 /var/log/kube-apiserver
+      exec hypershift openshift-kube-apiserver  --config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
     resources:
       requests:
         memory: 1Gi
@@ -320,6 +323,8 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+    - mountPath: /var/log/kube-apiserver
+      name: audit-dir
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -342,6 +347,9 @@ spec:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
+  - hostPath:
+      path: /var/log/kube-apiserver
+    name: audit-dir
 `)
 
 func v3110KubeApiserverPodYamlBytes() ([]byte, error) {

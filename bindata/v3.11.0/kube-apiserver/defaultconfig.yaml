@@ -26,8 +26,8 @@ apiServerArguments:
   storage-media-type:
   - application/vnd.kubernetes.protobuf
 auditConfig:
-  auditFilePath: "-"
-  enabled: false
+  auditFilePath: "/var/log/kube-apiserver/audit.log"
+  enabled: true
   logFormat: "json"
   maximumFileSizeMegabytes: 100
   maximumRetainedFiles: 10
