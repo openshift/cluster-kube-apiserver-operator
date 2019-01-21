@@ -243,10 +243,10 @@ func v3110KubeApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverOperatorConfigYaml = []byte(`apiVersion: kubeapiserver.operator.openshift.io/v1alpha1
-kind: KubeAPIServerOperatorConfig
+var _v3110KubeApiserverOperatorConfigYaml = []byte(`apiVersion: operator.openshift.io/v1
+kind: KubeAPIServer
 metadata:
-  name: instance
+  name: cluster
 spec:
   managementState: Managed
 `)
