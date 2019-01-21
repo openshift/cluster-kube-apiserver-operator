@@ -1,14 +1,12 @@
 all: build
 .PHONY: all
 
-# Codegen module needs setting these required variables
-CODEGEN_OUTPUT_PACKAGE :=github.com/openshift/cluster-kube-apiserver-operator/pkg/generated
-CODEGEN_API_PACKAGE :=github.com/openshift/cluster-kube-apiserver-operator/pkg/apis
-CODEGEN_GROUPS_VERSION :=kubeapiserver:v1alpha1
-
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
-	operator.mk \
+	golang.mk \
+	targets/openshift/bindata.mk \
+	targets/openshift/deps.mk \
+	targets/openshift/images.mk \
 )
 
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:

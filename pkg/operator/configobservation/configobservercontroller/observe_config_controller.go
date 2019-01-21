@@ -1,21 +1,20 @@
 package configobservercontroller
 
 import (
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type ConfigObserver struct {
@@ -24,7 +23,7 @@ type ConfigObserver struct {
 
 func NewConfigObserver(
 	operatorClient v1helpers.OperatorClient,
-	operatorConfigInformers kubeapiserveroperatorinformers.SharedInformerFactory,
+	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
 	configInformer configinformers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
@@ -43,7 +42,7 @@ func NewConfigObserver(
 				AuthConfigSynced:  configInformer.Config().V1().Authentications().Informer().HasSynced,
 				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
-					operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced,
+					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
 					kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced,
 					kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced,
 				},
@@ -57,7 +56,7 @@ func NewConfigObserver(
 		),
 	}
 
-	operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().AddEventHandler(c.EventHandler())
+	operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().AddEventHandler(c.EventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
