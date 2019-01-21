@@ -124,7 +124,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
-	certRotationController, err := certrotationcontroller.NewCertRotationController(kubeClient, kubeInformersForNamespaces, ctx.EventRecorder)
+	certRotationController, err := certrotationcontroller.NewCertRotationController(kubeClient, operatorClient, kubeInformersForNamespaces, ctx.EventRecorder)
 	if err != nil {
 		return err
 	}
