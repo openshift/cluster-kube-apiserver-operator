@@ -19,6 +19,7 @@ type CertRotationController struct {
 
 func NewCertRotationController(
 	kubeClient kubernetes.Interface,
+	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
 ) (*CertRotationController, error) {
@@ -57,6 +58,7 @@ func NewCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
+		operatorClient,
 	)
 	if err != nil {
 		return nil, err
@@ -96,6 +98,7 @@ func NewCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
+		operatorClient,
 	)
 	if err != nil {
 		return nil, err
@@ -135,6 +138,7 @@ func NewCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
+		operatorClient,
 	)
 	if err != nil {
 		return nil, err
@@ -176,6 +180,7 @@ func NewCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
+		operatorClient,
 	)
 	if err != nil {
 		return nil, err

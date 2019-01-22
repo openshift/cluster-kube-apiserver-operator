@@ -41,10 +41,11 @@ import (
 
 const workQueueKey = "key"
 
-type TargetConfigReconciler struct {
+type TargetConfigController struct {
 	targetImagePullSpec string
 
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
+	operatorClient       v1helpers.StaticPodOperatorClient
 
 	kubeClient                          kubernetes.Interface
 	configMapListerForOperatorNamespace corev1listers.ConfigMapLister
@@ -54,24 +55,26 @@ type TargetConfigReconciler struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewTargetConfigReconciler(
+func NewTargetConfigController(
 	targetImagePullSpec string,
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
+	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForOperatorNamespace informers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
-) *TargetConfigReconciler {
-	c := &TargetConfigReconciler{
+) *TargetConfigController {
+	c := &TargetConfigController{
 		targetImagePullSpec: targetImagePullSpec,
 
 		operatorConfigClient:                operatorConfigClient,
+		operatorClient:                      operatorClient,
 		kubeClient:                          kubeClient,
 		configMapListerForOperatorNamespace: kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Lister(),
 		eventRecorder:                       eventRecorder,
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigReconciler"),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigController"),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
@@ -88,13 +91,11 @@ func NewTargetConfigReconciler(
 	return c
 }
 
-func (c TargetConfigReconciler) sync() error {
+func (c TargetConfigController) sync() error {
 	operatorConfig, err := c.operatorConfigClient.KubeAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-
-	operatorConfigOriginal := operatorConfig.DeepCopy()
 
 	switch operatorConfig.Spec.ManagementState {
 	case operatorv1.Unmanaged:
@@ -112,23 +113,11 @@ func (c TargetConfigReconciler) sync() error {
 	}
 
 	requeue, err := createTargetConfig(c, c.eventRecorder, operatorConfig)
-	if requeue && err == nil {
-		return fmt.Errorf("synthetic requeue request")
-	}
-
 	if err != nil {
-		if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-			v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-				Type:    operatorv1.OperatorStatusTypeFailing,
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "StatusUpdateError",
-				Message: err.Error(),
-			})
-			if _, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig); updateError != nil {
-				glog.Error(updateError)
-			}
-		}
 		return err
+	}
+	if requeue {
+		return fmt.Errorf("synthetic requeue request")
 	}
 
 	return nil
@@ -136,8 +125,7 @@ func (c TargetConfigReconciler) sync() error {
 
 // createTargetConfig takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func createTargetConfig(c TargetConfigReconciler, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (bool, error) {
-	operatorConfigOriginal := operatorConfig.DeepCopy()
+func createTargetConfig(c TargetConfigController, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (bool, error) {
 	errors := []error{}
 
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
@@ -151,7 +139,7 @@ func createTargetConfig(c TargetConfigReconciler, recorder events.Recorder, oper
 		}
 	}
 
-	_, _, err := manageKubeApiserverConfig(c.kubeClient.CoreV1(), recorder, operatorConfig)
+	_, _, err := manageKubeAPIServerConfig(c.kubeClient.CoreV1(), recorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
@@ -165,34 +153,30 @@ func createTargetConfig(c TargetConfigReconciler, recorder events.Recorder, oper
 	}
 
 	if len(errors) > 0 {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    "TargetConfigReconcilerFailing",
+		condition := operatorv1.OperatorCondition{
+			Type:    "TargetConfigControllerFailing",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "SynchronizationError",
 			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
-		})
-		if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-			_, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
-			return true, updateError
+		}
+		if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
+			return true, err
 		}
 		return true, nil
 	}
 
-	v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-		Type:   "TargetConfigReconcilerFailing",
+	condition := operatorv1.OperatorCondition{
+		Type:   "TargetConfigControllerFailing",
 		Status: operatorv1.ConditionFalse,
-	})
-	if !reflect.DeepEqual(operatorConfigOriginal, operatorConfig) {
-		_, updateError := c.operatorConfigClient.KubeAPIServerOperatorConfigs().UpdateStatus(operatorConfig)
-		if updateError != nil {
-			return true, updateError
-		}
+	}
+	if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
+		return true, err
 	}
 
 	return false, nil
 }
 
-func manageKubeApiserverConfig(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
+func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *v1alpha1.KubeAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
@@ -288,12 +272,12 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.
-func (c *TargetConfigReconciler) Run(workers int, stopCh <-chan struct{}) {
+func (c *TargetConfigController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting TargetConfigReconciler")
-	defer glog.Infof("Shutting down TargetConfigReconciler")
+	glog.Infof("Starting TargetConfigController")
+	defer glog.Infof("Shutting down TargetConfigController")
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
@@ -301,12 +285,12 @@ func (c *TargetConfigReconciler) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-func (c *TargetConfigReconciler) runWorker() {
+func (c *TargetConfigController) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *TargetConfigReconciler) processNextWorkItem() bool {
+func (c *TargetConfigController) processNextWorkItem() bool {
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
@@ -326,7 +310,7 @@ func (c *TargetConfigReconciler) processNextWorkItem() bool {
 }
 
 // eventHandler queues the operator to check spec and status
-func (c *TargetConfigReconciler) eventHandler() cache.ResourceEventHandler {
+func (c *TargetConfigController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
@@ -337,7 +321,7 @@ func (c *TargetConfigReconciler) eventHandler() cache.ResourceEventHandler {
 // this set of namespaces will include things like logging and metrics which are used to drive
 var interestingNamespaces = sets.NewString(operatorclient.TargetNamespace)
 
-func (c *TargetConfigReconciler) namespaceEventHandler() cache.ResourceEventHandler {
+func (c *TargetConfigController) namespaceEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			ns, ok := obj.(*corev1.Namespace)
