@@ -157,6 +157,7 @@ var deploymentConfigMaps = []revision.RevisionResource{
 	{Name: "etcd-serving-ca"},
 	{Name: "kubelet-serving-ca"},
 	{Name: "sa-token-signing-certs"},
+	{Name: "oauth-metadata", Optional: true},
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.

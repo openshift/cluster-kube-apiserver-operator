@@ -12,6 +12,7 @@ import (
 
 	kubeapiserveroperatorinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
@@ -34,10 +35,12 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
+				AuthConfigLister:  configInformer.Config().V1().Authentications().Lister(),
 				ImageConfigLister: configInformer.Config().V1().Images().Lister(),
 				EndpointsLister:   kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
 				ConfigmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
 				ImageConfigSynced: configInformer.Config().V1().Images().Informer().HasSynced,
+				AuthConfigSynced:  configInformer.Config().V1().Authentications().Informer().HasSynced,
 				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs().Informer().HasSynced,
@@ -50,6 +53,7 @@ func NewConfigObserver(
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
+			auth.ObserveAuthMetadata,
 		),
 	}
 
@@ -57,6 +61,7 @@ func NewConfigObserver(
 	kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }
