@@ -90,7 +90,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace),
+		kubeInformersForNamespaces,
 		operatorConfigClient.KubeapiserverV1alpha1(),
 		kubeClient,
 		ctx.EventRecorder,

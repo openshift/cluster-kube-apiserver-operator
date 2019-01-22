@@ -1,9 +1,7 @@
 package targetconfigcontroller
 
 import (
-	"crypto/x509"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -11,7 +9,6 @@ import (
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -21,7 +18,6 @@ import (
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -30,7 +26,6 @@ import (
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions/kubeapiserver/v1alpha1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
-	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -47,9 +42,9 @@ type TargetConfigController struct {
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface
 	operatorClient       v1helpers.StaticPodOperatorClient
 
-	kubeClient                          kubernetes.Interface
-	configMapListerForOperatorNamespace corev1listers.ConfigMapLister
-	eventRecorder                       events.Recorder
+	kubeClient      kubernetes.Interface
+	configMapLister corev1listers.ConfigMapLister
+	eventRecorder   events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -60,7 +55,7 @@ func NewTargetConfigController(
 	operatorConfigInformer operatorconfiginformerv1alpha1.KubeAPIServerOperatorConfigInformer,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
-	kubeInformersForOperatorNamespace informers.SharedInformerFactory,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	operatorConfigClient operatorconfigclientv1alpha1.KubeapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
@@ -68,11 +63,11 @@ func NewTargetConfigController(
 	c := &TargetConfigController{
 		targetImagePullSpec: targetImagePullSpec,
 
-		operatorConfigClient:                operatorConfigClient,
-		operatorClient:                      operatorClient,
-		kubeClient:                          kubeClient,
-		configMapListerForOperatorNamespace: kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Lister(),
-		eventRecorder:                       eventRecorder,
+		operatorConfigClient: operatorConfigClient,
+		operatorClient:       operatorClient,
+		kubeClient:           kubeClient,
+		configMapLister:      kubeInformersForNamespaces.ConfigMapLister(),
+		eventRecorder:        eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigController"),
 	}
@@ -86,7 +81,10 @@ func NewTargetConfigController(
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
 
 	// we react to some config changes
-	kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -147,9 +145,13 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
-	_, _, err = manageClientCABundle(c.configMapListerForOperatorNamespace, c.kubeClient.CoreV1(), recorder)
+	_, _, err = manageClientCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
+	}
+	_, _, err = manageAggregatorClientCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/aggregator-client-ca", err))
 	}
 
 	if len(errors) > 0 {
@@ -213,61 +215,40 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 }
 
 func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
-	inputs := []resourcesynccontroller.ResourceLocation{
+	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
+		lister,
+		nil, // TODO remove this
+		nil, // TODO remove this
 		// this is from the installer and contains the value they think we should have
-		{Namespace: operatorclient.OperatorNamespace, Name: "initial-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-client-ca"},
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
-		{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
-		{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
-	}
-
-	certificates := []*x509.Certificate{}
-	for _, input := range inputs {
-		inputConfigMap, err := lister.ConfigMaps(input.Namespace).Get(input.Name)
-		if apierrors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return nil, false, err
-		}
-
-		inputContent := inputConfigMap.Data["ca-bundle.crt"]
-		if len(inputContent) == 0 {
-			continue
-		}
-		inputCerts, err := cert.ParseCertsPEM([]byte(inputContent))
-		if err != nil {
-			return nil, false, fmt.Errorf("configmap/%s in %q is malformed: %v", input.Name, input.Namespace, err)
-		}
-		certificates = append(certificates, inputCerts...)
-	}
-
-	finalCertificates := []*x509.Certificate{}
-	// now check for duplicates. n^2, but super simple
-	for i := range certificates {
-		found := false
-		for j := range finalCertificates {
-			if reflect.DeepEqual(certificates[i].Raw, finalCertificates[j].Raw) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			finalCertificates = append(finalCertificates, certificates[i])
-		}
-	}
-	caBytes, err := crypto.EncodeCertificates(finalCertificates...)
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
+	)
 	if err != nil {
 		return nil, false, err
 	}
 
-	requiredConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
-		Data: map[string]string{
-			"ca-bundle.crt": string(caBytes),
-		},
+	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+}
+
+func manageAggregatorClientCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
+		lister,
+		nil, // TODO remove this
+		nil, // TODO remove this
+		// this is from the installer and contains the value they think we should have
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-aggregator-client-ca"},
+		// this bundle is what this operator uses to mint new aggregator client certs it directly manages
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-aggregator-client-ca"},
+	)
+	if err != nil {
+		return nil, false, err
 	}
+
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
