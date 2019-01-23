@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -148,20 +149,21 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 // deploymentConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
 // the first element should be the configmap that contains the static pod manifest
-var deploymentConfigMaps = []string{
-	"kube-apiserver-pod",
-	"config",
-	"aggregator-client-ca",
-	"client-ca",
-	"etcd-serving-ca",
-	"kubelet-serving-ca",
-	"sa-token-signing-certs",
+var deploymentConfigMaps = []revision.RevisionResource{
+	{Name: "kube-apiserver-pod"},
+	{Name: "config"},
+	{Name: "aggregator-client-ca"},
+	{Name: "client-ca"},
+	{Name: "etcd-serving-ca"},
+	{Name: "kubelet-serving-ca"},
+	{Name: "sa-token-signing-certs"},
+	{Name: "oauth-metadata", Optional: true},
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
-var deploymentSecrets = []string{
-	"aggregator-client",
-	"etcd-client",
-	"kubelet-client",
-	"serving-cert",
+var deploymentSecrets = []revision.RevisionResource{
+	{Name: "aggregator-client"},
+	{Name: "etcd-client"},
+	{Name: "kubelet-client"},
+	{Name: "serving-cert"},
 }
