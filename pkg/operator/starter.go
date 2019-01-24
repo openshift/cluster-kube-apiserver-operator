@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -17,6 +15,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -151,13 +150,14 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 // the first element should be the configmap that contains the static pod manifest
 var deploymentConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-pod"},
-	{Name: "config"},
+
 	{Name: "aggregator-client-ca"},
 	{Name: "client-ca"},
+	{Name: "config"},
 	{Name: "etcd-serving-ca"},
 	{Name: "kubelet-serving-ca"},
-	{Name: "sa-token-signing-certs"},
 	{Name: "oauth-metadata", Optional: true},
+	{Name: "sa-token-signing-certs"},
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
