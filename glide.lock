@@ -1,5 +1,5 @@
 hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
-updated: 2019-01-23T19:23:20.668891509-05:00
+updated: 2019-01-24T12:03:45.409139634-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 74cf02537628c9ca144e7f09c8db26ee7e7f56e4
+  version: 8d1c1c5266e68bd2d6cde1b9c76bc48dc5a2b76a
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 041f911742f6157228ee2fa220afefa98bd501f4
+  version: 22c06b1b6dd66dc827b452b77b4cc48cd7820e91
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -272,8 +272,11 @@ imports:
   - pkg/operator/staticpod/controller/monitoring
   - pkg/operator/staticpod/controller/monitoring/bindata
   - pkg/operator/staticpod/controller/node
+  - pkg/operator/staticpod/controller/prune
+  - pkg/operator/staticpod/controller/prune/bindata
   - pkg/operator/staticpod/controller/revision
   - pkg/operator/staticpod/installerpod
+  - pkg/operator/staticpod/prune
   - pkg/operator/status
   - pkg/operator/v1helpers
   - pkg/serviceability
