@@ -39,6 +39,13 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+	// this bundle is what cluster-ingress-operator uses to mint default certificates for routers
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "router-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.IngressOperatorNamespace, Name: "router-ca"},
+	); err != nil {
+		return nil, err
+	}
 	// this ca bundle contains certs used by the kube-apiserver to verify client certs
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-client-ca"},

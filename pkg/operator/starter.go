@@ -52,6 +52,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.TargetNamespace,
 		operatorclient.OperatorNamespace,
+		operatorclient.IngressOperatorNamespace,
 		"kube-system",
 	)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -121,6 +122,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 			{Resource: "namespaces", Name: operatorclient.GlobalUserSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
+			{Resource: "namespaces", Name: operatorclient.IngressOperatorNamespace},
 			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 		},
 		configClient.ConfigV1(),

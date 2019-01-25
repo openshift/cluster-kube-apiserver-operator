@@ -84,6 +84,7 @@ func NewTargetConfigController(
 	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForNamespaces.InformersFor(operatorclient.IngressOperatorNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 
 	return c
@@ -230,6 +231,8 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
+		// this bundle is what cluster-ingress-operator uses to mint default certificates for routers
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.IngressOperatorNamespace, Name: "router-ca"},
 	)
 	if err != nil {
 		return nil, false, err
