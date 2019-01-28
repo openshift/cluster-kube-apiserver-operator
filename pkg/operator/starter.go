@@ -15,17 +15,18 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
-	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -161,6 +162,7 @@ var deploymentConfigMaps = []revision.RevisionResource{
 	{Name: "kubelet-serving-ca"},
 	{Name: "oauth-metadata", Optional: true},
 	{Name: "sa-token-signing-certs"},
+	{Name: "user-client-ca", Optional: true},
 }
 
 // deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
@@ -169,4 +171,15 @@ var deploymentSecrets = []revision.RevisionResource{
 	{Name: "etcd-client"},
 	{Name: "kubelet-client"},
 	{Name: "serving-cert"},
+	{Name: "user-serving-cert", Optional: true},
+	{Name: "user-serving-cert-000", Optional: true},
+	{Name: "user-serving-cert-001", Optional: true},
+	{Name: "user-serving-cert-002", Optional: true},
+	{Name: "user-serving-cert-003", Optional: true},
+	{Name: "user-serving-cert-004", Optional: true},
+	{Name: "user-serving-cert-005", Optional: true},
+	{Name: "user-serving-cert-006", Optional: true},
+	{Name: "user-serving-cert-007", Optional: true},
+	{Name: "user-serving-cert-008", Optional: true},
+	{Name: "user-serving-cert-009", Optional: true},
 }
