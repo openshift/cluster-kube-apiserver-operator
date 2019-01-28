@@ -1,5 +1,5 @@
 hash: 7174bf0d568352e23ba7343f43391f7ebde4801ed75e5b1af421ce5ab29c1a71
-updated: 2019-01-24T12:03:45.409139634-05:00
+updated: 2019-01-28T12:10:25.950974+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -161,7 +161,7 @@ imports:
   subpackages:
   - simplelru
 - name: github.com/imdario/mergo
-  version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
+  version: 9316a62528ac99aaecb4e47eadd6dc8aa6533d58
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 8d1c1c5266e68bd2d6cde1b9c76bc48dc5a2b76a
+  version: ae9a3391d2d18df1c8ab76dc0738884f18a71138
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 22c06b1b6dd66dc827b452b77b4cc48cd7820e91
+  version: 5730ef49f037925f9566a64af72327e8575620c5
   subpackages:
   - pkg/assets
   - pkg/config/client
