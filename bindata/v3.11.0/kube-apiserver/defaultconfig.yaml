@@ -25,6 +25,9 @@ apiServerArguments:
   - etcd3
   storage-media-type:
   - application/vnd.kubernetes.protobuf
+  # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
+  enable-aggregator-routing:
+  - "true"
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
