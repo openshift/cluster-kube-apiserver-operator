@@ -3,6 +3,7 @@ package certrotationcontroller
 import (
 	"time"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/resources"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
@@ -27,37 +28,10 @@ func NewCertRotationController(
 
 	certRotator, err := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
-		certrotation.SigningRotation{
-			Namespace:         operatorclient.OperatorNamespace,
-			Name:              "aggregator-client-signer",
-			Validity:          1 * 8 * time.Hour,
-			RefreshPercentage: 0.5,
-			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:            kubeClient.CoreV1(),
-			EventRecorder:     eventRecorder,
-		},
-		certrotation.CABundleRotation{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "managed-aggregator-client-ca",
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
-		},
-		certrotation.TargetRotation{
-			Namespace:         operatorclient.TargetNamespace,
-			Name:              "aggregator-client",
-			Validity:          1 * 4 * time.Hour,
-			RefreshPercentage: 0.5,
-			ClientRotation: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
-			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
-		},
+		resources.AggregatorProxyClientCert,
+		kubeClient.CoreV1(),
+		kubeInformersForNamespaces,
+		eventRecorder,
 		operatorClient,
 	)
 	if err != nil {
