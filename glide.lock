@@ -1,5 +1,5 @@
 hash: a25cc3f928d57d570b1fb82483d5db8fed46925d3a3696d7026eaa4404f269a6
-updated: 2019-01-28T11:27:35.428883906-05:00
+updated: 2019-01-30T13:41:07.190422303-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -196,7 +196,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 130a85ac529b6626098a97be326c244a6bf380b5
+  version: 0e93a752a8cbf93d6c542ab9eeb1a89c2a38f899
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 1540772775fa910515f0ff094d83ef41735d470b
+  version: 9d9c3dc826335abee846500602f450ba1bdb70ed
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -253,7 +253,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 86f3eb4ba0e678146cf47f61010c34c638cea2d2
+  version: cef3bac303c956844aa15215630d26b1e0a1085a
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -300,7 +300,7 @@ imports:
 - name: github.com/pkg/profile
   version: 22592cc4bae3572d59be8852c6980023e4c9dec5
 - name: github.com/prometheus/client_golang
-  version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
+  version: 6373fd93345740fc045eab648524bcbb65c3e690
   subpackages:
   - prometheus
 - name: github.com/prometheus/client_model
