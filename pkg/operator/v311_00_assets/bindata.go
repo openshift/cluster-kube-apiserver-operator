@@ -130,6 +130,12 @@ auditConfig:
       - "/api*" # Wildcard matching.
       - "/version"
       - "/healthz"
+    # FIXME: tnozicka: temporarily log pods/status to debug phase transition issues
+    - level: RequestResponse
+      resources:
+        - group: "" # core API group
+          resources:
+          - "pods/status"
     # A catch-all rule to log all other requests at the Metadata level.
     - level: Metadata
       # Long-running requests like watches that fall under this rule will not
