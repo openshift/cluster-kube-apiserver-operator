@@ -10,11 +10,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
-	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/apis/kubeapiserver/v1alpha1"
-	operatorconfigclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/clientset/versioned"
-	operatorclientinformers "github.com/openshift/cluster-kube-apiserver-operator/pkg/generated/informers/externalversions"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -33,7 +33,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorconfigclient.NewForConfig(ctx.KubeConfig)
+	operatorConfigClient, err := operatorversionedclient.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
+	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
 		"",
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
@@ -54,16 +54,16 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.OperatorNamespace,
 		"kube-system",
 	)
-	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
+	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient := &operatorclient.OperatorClient{
 		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.KubeapiserverV1alpha1(),
+		Client:    operatorConfigClient.OperatorV1(),
 	}
 
 	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/kube-apiserver/operator-config.yaml"),
-		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "kubeapiserveroperatorconfigs"},
+		schema.GroupVersionResource{Group: operatorv1.GroupName, Version: "v1", Resource: "kubeapiservers"},
 	)
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
@@ -87,11 +87,11 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
-		operatorConfigInformers.Kubeapiserver().V1alpha1().KubeAPIServerOperatorConfigs(),
+		operatorConfigInformers.Operator().V1().KubeAPIServers(),
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
-		operatorConfigClient.KubeapiserverV1alpha1(),
+		operatorConfigClient.OperatorV1(),
 		kubeClient,
 		ctx.EventRecorder,
 	)
@@ -117,7 +117,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-kube-apiserver-operator",
 		[]configv1.ObjectReference{
-			{Group: "kubeapiserver.operator.openshift.io", Resource: "kubeapiserveroperatorconfigs", Name: "instance"},
+			{Group: "operator.openshift.io", Resource: "kubeapiservers", Name: "cluster"},
 			{Resource: "namespaces", Name: operatorclient.GlobalUserSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
