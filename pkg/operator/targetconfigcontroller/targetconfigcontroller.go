@@ -89,7 +89,7 @@ func NewTargetConfigController(
 }
 
 func (c TargetConfigController) sync() error {
-	operatorConfig, err := c.operatorConfigClient.KubeAPIServers().Get("instance", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.KubeAPIServers().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

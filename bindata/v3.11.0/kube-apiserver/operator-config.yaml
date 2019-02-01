@@ -1,6 +1,6 @@
 apiVersion: operator.openshift.io/v1
 kind: KubeAPIServer
 metadata:
-  name: instance
+  name: cluster
 spec:
   managementState: Managed

@@ -18,7 +18,7 @@ func (c *OperatorClient) Informer() cache.SharedIndexInformer {
 }
 
 func (c *OperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
-	instance, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("instance")
+	instance, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -27,7 +27,7 @@ func (c *OperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOpera
 }
 
 func (c *OperatorClient) UpdateStaticPodOperatorStatus(resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
-	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("instance")
+	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (c *OperatorClient) UpdateStaticPodOperatorStatus(resourceVersion string, s
 }
 
 func (c *OperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
-	instance, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("instance")
+	instance, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -53,7 +53,7 @@ func (c *OperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operator
 }
 
 func (c *OperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operatorv1.OperatorSpec) (*operatorv1.OperatorSpec, string, error) {
-	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("instance")
+	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, "", err
 	}
@@ -69,7 +69,7 @@ func (c *OperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operat
 	return &ret.Spec.OperatorSpec, ret.ResourceVersion, nil
 }
 func (c *OperatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
-	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("instance")
+	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, err
 	}
