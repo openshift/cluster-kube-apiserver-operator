@@ -28,6 +28,8 @@ apiServerArguments:
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
   - "true"
+  feature-gates:
+  - PersistentLocalVolumes=false # disable local volumes for 4.0, owned by sig-storage/hekumar@redhat.com
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
