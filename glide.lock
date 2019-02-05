@@ -1,5 +1,5 @@
 hash: a25cc3f928d57d570b1fb82483d5db8fed46925d3a3696d7026eaa4404f269a6
-updated: 2019-01-31T13:55:27.361804406-05:00
+updated: 2019-02-05T13:49:00.116253+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -99,7 +99,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
 - name: github.com/docker/docker
@@ -120,7 +120,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -196,7 +196,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: f0c444ba17f2feb5015bde621e91df8e6326d19f
+  version: d67473e7f1907b74d1f27706260eecf0bc9f2a52
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: a7448c816a2ac09a48321432daa7303eb6ff92c9
+  version: 5af2e329a3e8b7d536a508266e3ffb485cd849b0
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -252,8 +252,16 @@ imports:
   - config/informers/externalversions/config/v1
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
+  - operator/clientset/versioned
+  - operator/clientset/versioned/scheme
+  - operator/clientset/versioned/typed/operator/v1
+  - operator/informers/externalversions
+  - operator/informers/externalversions/internalinterfaces
+  - operator/informers/externalversions/operator
+  - operator/informers/externalversions/operator/v1
+  - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: d8d206f3a04f7d06753d3891c155445fac258718
+  version: 45b02a74f60c022084b3d9816f19f62bee88bffb
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -382,7 +390,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: e9657d882bb81064595ca3b56cbe2546bbabf7b1
+  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
   - internal
   - internal/base
@@ -617,7 +625,6 @@ imports:
   version: 701b913670036511e3d752318272c97f1a2a2edd
   subpackages:
   - discovery
-  - discovery/fake
   - dynamic
   - informers
   - informers/admissionregistration
@@ -730,7 +737,6 @@ imports:
   - plugin/pkg/client/auth/exec
   - rest
   - rest/watch
-  - testing
   - tools/auth
   - tools/cache
   - tools/clientcmd
