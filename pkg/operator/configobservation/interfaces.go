@@ -14,9 +14,6 @@ type Listers struct {
 	EndpointsLister   corelistersv1.EndpointsLister
 	ConfigmapLister   corelistersv1.ConfigMapLister
 
-	ImageConfigSynced cache.InformerSynced
-	AuthConfigSynced  cache.InformerSynced
-
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
 }

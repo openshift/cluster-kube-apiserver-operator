@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
@@ -33,11 +32,6 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 		if err := unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...); err != nil {
 			errs = append(errs, err)
 		}
-	}
-
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
 	}
 
 	observedConfig := map[string]interface{}{}
@@ -81,11 +75,6 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 		if err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
-	}
-
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
 	}
 
 	// now gather the cluster config and turn it into the observed config
@@ -138,11 +127,6 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 		}
 	}
 
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
-	}
-
 	// now gather the cluster config and turn it into the observed config
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
@@ -165,11 +149,8 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 		}
 	}
 
-	existingLocations := []configv1.RegistryLocation{}
-	for _, location := range existingAllowedRegistries {
-		existingLocations = append(existingLocations, location.(configv1.RegistryLocation))
-	}
-	if !equality.Semantic.DeepEqual(existingLocations, configImage.Spec.AllowedRegistriesForImport) {
+	newAllowedRegistries, _, err := unstructured.NestedSlice(observedConfig, allowedRegistriesForImportPath...)
+	if err != nil || !equality.Semantic.DeepEqual(existingAllowedRegistries, newAllowedRegistries) {
 		recorder.Eventf("ObserveAllowedRegistriesForImport", "Allowed registries for import changed to %v", configImage.Spec.AllowedRegistriesForImport)
 	}
 
