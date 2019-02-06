@@ -156,6 +156,10 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kubelet-serving-ca", err))
 	}
+	_, _, err = manageSATokenCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/sa-token-ca", err))
+	}
 
 	if len(errors) > 0 {
 		condition := operatorv1.OperatorCondition{
@@ -229,6 +233,27 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
+	)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+}
+
+func manageSATokenCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "sa-token-ca"},
+		lister,
+		nil, // TODO remove this
+		nil, // TODO remove this
+		// this is a CA which won't match a SA token
+		// this is here just to prove that the bundle works as a bundle
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-aggregator-client-ca"},
+		// this is from the installer and contains the value they think we should have
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-sa-token-ca"},
+		// this is from kube-controller-manager and is a ca bundle that contains the certs for verifying the jwts
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "managed-sa-token-ca"},
 	)
 	if err != nil {
 		return nil, false, err
