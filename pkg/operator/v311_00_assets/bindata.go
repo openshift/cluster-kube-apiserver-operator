@@ -186,7 +186,7 @@ oauthConfig:
 projectConfig:
   defaultNodeSelector: ""
 serviceAccountPublicKeyFiles:
-- /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs/ca-bundle.crt
+- /etc/kubernetes/static-pod-resources/configmaps/sa-token-ca/ca-bundle.crt
 servicesNodePortRange: 30000-32767
 servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
