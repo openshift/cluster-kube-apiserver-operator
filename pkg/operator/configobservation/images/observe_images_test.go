@@ -137,11 +137,6 @@ func TestObserveImageConfig(t *testing.T) {
 			indexer.Add(tc.imageConfig)
 			listers := configobservation.Listers{
 				ImageConfigLister: configlistersv1.NewImageLister(indexer),
-				ImageConfigSynced: func() bool { return true },
-			}
-			unsyncedlisters := configobservation.Listers{
-				ImageConfigLister: configlistersv1.NewImageLister(indexer),
-				ImageConfigSynced: func() bool { return false },
 			}
 			eventRecorder := events.NewInMemoryRecorder("")
 
@@ -158,22 +153,12 @@ func TestObserveImageConfig(t *testing.T) {
 			if internalRegistryHostname != tc.expectedInternalRegistryHostname {
 				t.Errorf("expected internal registry hostname: %s, got %s", tc.expectedInternalRegistryHostname, internalRegistryHostname)
 			}
-			secondTimeObserved, errs := ObserveInternalRegistryHostname(unsyncedlisters, eventRecorder, observed)
+			secondTimeObserved, errs := ObserveInternalRegistryHostname(listers, eventRecorder, observed)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
 			if !reflect.DeepEqual(observed, secondTimeObserved) {
 				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
-			}
-
-			// When the cache is not synced, the result should be the previously observed
-			// configuration.
-			unsyncedObserved, errs := ObserveInternalRegistryHostname(unsyncedlisters, eventRecorder, initialExistingConfig)
-			if len(errs) != 0 {
-				t.Fatalf("unexpected error: %v", errs)
-			}
-			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
 			}
 
 			observed, errs = ObserveExternalRegistryHostnames(listers, eventRecorder, initialExistingConfig)
@@ -192,21 +177,12 @@ func TestObserveImageConfig(t *testing.T) {
 			if !reflect.DeepEqual(externalRegistryHostnames, tc.expectedExternalRegistryHostnames) {
 				t.Errorf("got: \n%#v\nexpected: \n%#v", externalRegistryHostnames, tc.expectedExternalRegistryHostnames)
 			}
-			secondTimeObserved, errs = ObserveExternalRegistryHostnames(unsyncedlisters, eventRecorder, observed)
+			secondTimeObserved, errs = ObserveExternalRegistryHostnames(listers, eventRecorder, observed)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
 			if !reflect.DeepEqual(observed, secondTimeObserved) {
 				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
-			}
-
-			// When the cache is not synced, the result should be the previously observed configuration.
-			unsyncedObserved, errs = ObserveExternalRegistryHostnames(unsyncedlisters, eventRecorder, initialExistingConfig)
-			if len(errs) != 0 {
-				t.Fatalf("unexpected error: %v", errs)
-			}
-			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
 			}
 
 			observed, errs = ObserveAllowedRegistriesForImport(listers, eventRecorder, initialExistingConfig)
@@ -225,21 +201,12 @@ func TestObserveImageConfig(t *testing.T) {
 			if !reflect.DeepEqual(allowedRegistries, tc.expectedAllowedRegistries) {
 				t.Errorf("got: \n%#v\nexpected: \n%#v", allowedRegistries, tc.expectedAllowedRegistries)
 			}
-			secondTimeObserved, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, eventRecorder, observed)
+			secondTimeObserved, errs = ObserveAllowedRegistriesForImport(listers, eventRecorder, observed)
 			if len(errs) != 0 {
 				t.Fatalf("unexpected error: %v", errs)
 			}
 			if !reflect.DeepEqual(observed, secondTimeObserved) {
 				t.Errorf("unexpected change after second observation: got: \n%#v\nexpected: \n%#v", secondTimeObserved, observed)
-			}
-
-			// When the cache is not synced, the result should be the previously observed configuration.
-			unsyncedObserved, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, eventRecorder, initialExistingConfig)
-			if len(errs) != 0 {
-				t.Fatalf("unexpected error: %v", errs)
-			}
-			if !reflect.DeepEqual(initialExistingConfig, unsyncedObserved) {
-				t.Errorf("got: \n%#v\nexpected: \n%#v", unsyncedObserved, initialExistingConfig)
 			}
 
 			// Check created events

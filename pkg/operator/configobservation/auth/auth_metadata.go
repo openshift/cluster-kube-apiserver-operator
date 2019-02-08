@@ -38,11 +38,6 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		}
 	}
 
-	if !listers.AuthConfigSynced() {
-		glog.Warning("authentications.config.openshift.io not synced")
-		return prevObservedConfig, errs
-	}
-
 	observedConfig := map[string]interface{}{}
 	authConfig, err := listers.AuthConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
