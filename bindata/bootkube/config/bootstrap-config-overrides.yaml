@@ -29,7 +29,7 @@ storageConfig:
 servicesSubnet: {{index .ServiceCIDR 0}}{{end}}
 admissionPluginConfig:
   {{if .ServiceCIDR }}
-  openshift.io/RestrictedEndpointsAdmission:
+  network.openshift.io/RestrictedEndpointsAdmission:
     configuration:
       apiVersion: v1
       kind: RestrictedEndpointsAdmissionConfig
