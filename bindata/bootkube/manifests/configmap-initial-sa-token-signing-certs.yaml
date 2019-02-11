@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: sa-token-signing-certs
-  namespace: {{ .Namespace }}
+  name: initial-sa-token-signing-certs
+  namespace: openshift-config
 data:
   ca-bundle.crt: |
     {{ .Assets | load "service-account.pub" | indent 4 }}

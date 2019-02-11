@@ -32,6 +32,30 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+	// this configmap holds the cert used to verify SA token JWTs
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "sa-token-signing-certs"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-sa-token-signing-certs"},
+	); err != nil {
+		return nil, err
+	}
+	// this secret contains the client cert/key pair used to communicate to kubelets
+	// TODO this needs to rotate and we will consume it as input from the kubelet operator
+	if err := resourceSyncController.SyncSecret(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kubelet-client"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kubelet-client"},
+	); err != nil {
+		return nil, err
+	}
+	// this secret contains the serving cert/key pair for the kube-apiserver
+	// TODO this will logically become two secrets: one for the ELB/default, another for the loopback and service network
+	if err := resourceSyncController.SyncSecret(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "serving-cert"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-serving-cert"},
+	); err != nil {
+		return nil, err
+	}
+
 	// this ca bundle contains certs used to sign CSRs (kubelet serving and client certificates)
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},
