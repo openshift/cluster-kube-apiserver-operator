@@ -33,7 +33,7 @@ func TestObserveClusterConfig(t *testing.T) {
 	if len(errors) > 0 {
 		t.Error("expected len(errors) == 0")
 	}
-	restrictedCIDRs, _, err := unstructured.NestedSlice(result, "admissionPluginConfig", "openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
+	restrictedCIDRs, _, err := unstructured.NestedSlice(result, "admissionPluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,7 +16,7 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 	listers := genericListers.(configobservation.Listers)
 
 	var errs []error
-	restrictedCIDRsPath := []string{"admissionPluginConfig", "openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs"}
+	restrictedCIDRsPath := []string{"admissionPluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs"}
 
 	previouslyObservedConfig := map[string]interface{}{}
 	if currentRestrictedCIDRBs, _, err := unstructured.NestedStringSlice(existingConfig, restrictedCIDRsPath...); len(currentRestrictedCIDRBs) > 0 {
