@@ -82,7 +82,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		operatorConfigInformers,
-		kubeInformersForNamespaces.InformersFor("kube-system"),
+		kubeInformersForNamespaces,
 		configInformers,
 		resourceSyncController,
 		ctx.EventRecorder,
@@ -166,6 +166,8 @@ var deploymentConfigMaps = []revision.RevisionResource{
 	{Name: "client-ca"},
 	{Name: "config"},
 	{Name: "etcd-serving-ca"},
+	{Name: "initial-sa-token-signing-certs", Optional: true},
+	{Name: "kube-controller-manager-sa-token-signing-certs", Optional: true},
 	{Name: "kubelet-serving-ca"},
 	{Name: "oauth-metadata", Optional: true},
 	{Name: "sa-token-signing-certs"},
