@@ -2,6 +2,8 @@ package reactionchain
 
 import (
 	"fmt"
+
+	"github.com/gonum/graph"
 )
 
 type Resources interface {
@@ -9,6 +11,7 @@ type Resources interface {
 	AllResources() []Resource
 	Resource(coordinates ResourceCoordinates) Resource
 	Roots() []Resource
+	NewGraph() graph.Directed
 }
 
 type ResourceCoordinates struct {
@@ -40,6 +43,7 @@ type Resource interface {
 	Note(note string) Resource
 
 	fmt.Stringer
+	GetNote() string
 	Coordinates() ResourceCoordinates
 	Sources() []Resource
 	Dump(indentDepth int) []string
@@ -80,6 +84,10 @@ func (s *SimpleSource) Note(note string) Resource {
 
 func (s *SimpleSource) String() string {
 	return fmt.Sprintf("%v%s", s.coordinates, s.note)
+}
+
+func (s *SimpleSource) GetNote() string {
+	return s.note
 }
 
 func (s *SimpleSource) Sources() []Resource {

@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/wheredoresourcescomefrom"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -17,6 +15,7 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
@@ -58,7 +57,7 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(render.NewRenderCommand())
 	cmd.AddCommand(installerpod.NewInstaller())
 	cmd.AddCommand(prune.NewPrune())
-	cmd.AddCommand(wheredoresourcescomefrom.NewResourceChainCommand())
+	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 
 	return cmd
 }
