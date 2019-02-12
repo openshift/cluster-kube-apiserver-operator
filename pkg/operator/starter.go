@@ -29,7 +29,8 @@ import (
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
-	kubeClient, err := kubernetes.NewForConfig(ctx.KubeConfig)
+	// This kube client use protobuf, do not use it for CR
+	kubeClient, err := kubernetes.NewForConfig(ctx.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
+	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
+		kubeClient,
 		"",
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -129,23 +131,28 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
-	certRotationController, err := certrotationcontroller.NewCertRotationController(kubeClient, operatorClient, kubeInformersForNamespaces, ctx.EventRecorder)
+	certRotationController, err := certrotationcontroller.NewCertRotationController(
+		kubeClient,
+		operatorClient,
+		kubeInformersForNamespaces,
+		ctx.EventRecorder,
+	)
 	if err != nil {
 		return err
 	}
 
-	operatorConfigInformers.Start(ctx.Context.Done())
-	kubeInformersForNamespaces.Start(ctx.Context.Done())
-	configInformers.Start(ctx.Context.Done())
+	operatorConfigInformers.Start(ctx.Done())
+	kubeInformersForNamespaces.Start(ctx.Done())
+	configInformers.Start(ctx.Done())
 
-	go staticPodControllers.Run(ctx.Context.Done())
-	go resourceSyncController.Run(1, ctx.Context.Done())
-	go targetConfigReconciler.Run(1, ctx.Context.Done())
-	go configObserver.Run(1, ctx.Context.Done())
-	go clusterOperatorStatus.Run(1, ctx.Context.Done())
-	go certRotationController.Run(1, ctx.Context.Done())
+	go staticPodControllers.Run(ctx.Done())
+	go resourceSyncController.Run(1, ctx.Done())
+	go targetConfigReconciler.Run(1, ctx.Done())
+	go configObserver.Run(1, ctx.Done())
+	go clusterOperatorStatus.Run(1, ctx.Done())
+	go certRotationController.Run(1, ctx.Done())
 
-	<-ctx.Context.Done()
+	<-ctx.Done()
 	return fmt.Errorf("stopped")
 }
 
