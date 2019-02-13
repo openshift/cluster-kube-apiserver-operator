@@ -6,15 +6,17 @@ import (
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 )
 
 type ConfigObserver struct {
@@ -38,6 +40,7 @@ func NewConfigObserver(
 				ImageConfigLister: configInformer.Config().V1().Images().Lister(),
 				EndpointsLister:   kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
 				ConfigmapLister:   kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Lister(),
+				APIServerLister:   configInformer.Config().V1().APIServers().Lister(),
 				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
@@ -45,6 +48,7 @@ func NewConfigObserver(
 					kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().HasSynced,
 					configInformer.Config().V1().Authentications().Informer().HasSynced,
 					configInformer.Config().V1().Images().Informer().HasSynced,
+					configInformer.Config().V1().APIServers().Informer().HasSynced,
 				},
 			},
 			etcd.ObserveStorageURLs,
@@ -53,6 +57,9 @@ func NewConfigObserver(
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
 			auth.ObserveAuthMetadata,
+			apiserver.ObserveDefaultUserServingCertificate,
+			apiserver.ObserveNamedCertificates,
+			apiserver.ObserveUserClientCABundle,
 		),
 	}
 
@@ -61,6 +68,7 @@ func NewConfigObserver(
 	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }

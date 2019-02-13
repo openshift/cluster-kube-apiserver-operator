@@ -13,6 +13,7 @@ type Listers struct {
 	ImageConfigLister configlistersv1.ImageLister
 	EndpointsLister   corelistersv1.EndpointsLister
 	ConfigmapLister   corelistersv1.ConfigMapLister
+	APIServerLister   configlistersv1.APIServerLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
