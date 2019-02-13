@@ -170,7 +170,6 @@ var deploymentConfigMaps = []revision.RevisionResource{
 	{Name: "kube-controller-manager-sa-token-signing-certs", Optional: true},
 	{Name: "kubelet-serving-ca"},
 	{Name: "oauth-metadata", Optional: true},
-	{Name: "sa-token-signing-certs"},
 	{Name: "user-client-ca", Optional: true},
 }
 
