@@ -57,9 +57,9 @@ func NewConfigObserver(
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
 			auth.ObserveAuthMetadata,
-			apiserver.ObserveDefaultUserServingCertificate(),
-			apiserver.ObserveNamedCertificates(),
-			apiserver.ObserveUserClientCABundle(),
+			apiserver.ObserveDefaultUserServingCertificate,
+			apiserver.ObserveNamedCertificates,
+			apiserver.ObserveUserClientCABundle,
 		),
 	}
 
