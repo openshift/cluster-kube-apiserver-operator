@@ -15,6 +15,7 @@ type Listers struct {
 	ConfigmapLister   corelistersv1.ConfigMapLister
 	APIServerLister   configlistersv1.APIServerLister
 	NetworkLister     configlistersv1.NetworkLister
+	DNSLister         configlistersv1.DNSLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced

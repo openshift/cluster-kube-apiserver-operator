@@ -61,6 +61,7 @@ func NewConfigObserver(
 				EndpointsLister:   kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
 				APIServerLister:   configInformer.Config().V1().APIServers().Lister(),
 				NetworkLister:     configInformer.Config().V1().Networks().Lister(),
+				DNSLister:         configInformer.Config().V1().DNSs().Lister(),
 				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
@@ -69,6 +70,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
+					configInformer.Config().V1().DNSs().Informer().HasSynced,
 				},
 			},
 			apiserver.ObserveDefaultUserServingCertificate,
@@ -93,6 +95,7 @@ func NewConfigObserver(
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().DNSs().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }

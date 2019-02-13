@@ -168,6 +168,17 @@ func TestObserveNamedCertificates(t *testing.T) {
 			},
 		},
 	}
+	localhostCertInfo := map[string]interface{}{
+		"names":    []interface{}{"localhost", "127.0.0.1"},
+		"certFile": "/etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key",
+	}
+
+	serviceNameHostInfo := map[string]interface{}{
+		"names":    []interface{}{"kubernetes.default.svc.cluster.local"},
+		"certFile": "/etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key",
+	}
 
 	testCases := []struct {
 		name           string
@@ -225,6 +236,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			expected: map[string]interface{}{
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
+						localhostCertInfo, serviceNameHostInfo,
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
@@ -257,6 +269,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			expected: map[string]interface{}{
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
+						localhostCertInfo, serviceNameHostInfo,
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
@@ -291,6 +304,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			expected: map[string]interface{}{
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
+						localhostCertInfo, serviceNameHostInfo,
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
@@ -332,6 +346,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			expected: map[string]interface{}{
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
+						localhostCertInfo, serviceNameHostInfo,
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
