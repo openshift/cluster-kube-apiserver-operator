@@ -1,23 +1,22 @@
 package configobservercontroller
 
 import (
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/satokencerts"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/satokencerts"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type ConfigObserver struct {

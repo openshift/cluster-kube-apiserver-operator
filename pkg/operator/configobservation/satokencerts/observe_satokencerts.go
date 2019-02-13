@@ -71,7 +71,7 @@ func ObserveSATokenCerts(genericListers configobserver.Listers, recorder events.
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(existingSATokenCerts, saTokenCertDirs) {
+	if !equality.Semantic.DeepEqual(existingSATokenCerts, saTokenCertDirs) && len(errs) == 0 {
 		recorder.Eventf("ObserveSATokenCerts", "serviceAccountPublicKeyFiles changed to %v", saTokenCertDirs)
 	}
 
