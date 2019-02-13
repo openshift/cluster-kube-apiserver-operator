@@ -1,13 +1,18 @@
 package targetconfigcontroller
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -103,10 +108,27 @@ func (c TargetConfigController) sync() error {
 		return nil
 	}
 
-	// block until config is obvserved
+	// block until config is observed and specific paths are present
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
-		glog.Info("Waiting for observed configuration to be available")
-		return nil
+		message := "no observedConfig"
+		c.eventRecorder.Warning("ConfigMissing", message)
+		return errors.New(message)
+	}
+	// don't worry about errors.  If we can't decode, we'll simply stomp over the field.
+	existingConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(operatorConfig.Spec.ObservedConfig.Raw)).Decode(&existingConfig); err != nil {
+		glog.V(4).Infof("decode of existing config failed with error: %v", err)
+	}
+	requiredPaths := [][]string{
+		{"serviceAccountPublicKeyFiles"},
+	}
+	for _, requiredPath := range requiredPaths {
+		_, found, _ := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
+		if !found {
+			message := fmt.Sprintf("%v missing from config", strings.Join(requiredPath, "."))
+			c.eventRecorder.Warning("ConfigMissing", message)
+			return errors.New(message)
+		}
 	}
 
 	requeue, err := createTargetConfig(c, c.eventRecorder, operatorConfig)
