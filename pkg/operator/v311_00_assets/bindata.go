@@ -298,7 +298,7 @@ var _v3110KubeApiserverPodYaml = []byte(`apiVersion: v1
 kind: Pod
 metadata:
   namespace: openshift-kube-apiserver
-  name: openshift-kube-apiserver
+  name: kube-apiserver
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"
@@ -306,7 +306,7 @@ metadata:
   deletionGracePeriodSeconds: 65 # a bit more than the kube-apiserver shutdown timeout of 60 sec
 spec:
   containers:
-  - name: openshift-kube-apiserver
+  - name: kube-apiserver-REVISION
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError

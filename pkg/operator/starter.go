@@ -101,7 +101,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	staticPodControllers := staticpod.NewControllers(
 		operatorclient.TargetNamespace,
-		"openshift-kube-apiserver",
+		"kube-apiserver",
 		"kube-apiserver-pod",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		[]string{"cluster-kube-apiserver-operator", "prune"},
