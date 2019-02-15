@@ -31,7 +31,7 @@ admissionPluginConfig:
   {{if .ServiceCIDR }}
   network.openshift.io/RestrictedEndpointsAdmission:
     configuration:
-      apiVersion: v1
+      apiVersion: network.openshift.io/v1
       kind: RestrictedEndpointsAdmissionConfig
       restrictedCIDRs: {{range .ServiceCIDR}}
       - {{.}}{{end}}{{range .ClusterCIDR}}

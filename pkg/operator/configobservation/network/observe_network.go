@@ -42,7 +42,7 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 
 	// set observed values
 	//  admissionPluginConfig:
-	//    openshift.io/RestrictedEndpointsAdmission:
+	//    network.openshift.io/RestrictedEndpointsAdmission:
 	//	  configuration:
 	//	    restrictedCIDRs:
 	//	    - 10.3.0.0/16 # ServiceCIDR

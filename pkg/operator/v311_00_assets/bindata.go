@@ -81,13 +81,13 @@ admissionPluginConfig:
   network.openshift.io/ExternalIPRanger:
     configuration:
       allowIngressIP: true
-      apiVersion: v1
+      apiVersion: network.openshift.io/v1
       externalIPNetworkCIDRs: null
       kind: ExternalIPRangerAdmissionConfig
     location: ""
   network.openshift.io/RestrictedEndpointsAdmission:
     configuration:
-      apiVersion: v1
+      apiVersion: network.openshift.io/v1
       kind: RestrictedEndpointsAdmissionConfig
       restrictedCIDRs:
       - 10.3.0.0/16 # ServiceCIDR
