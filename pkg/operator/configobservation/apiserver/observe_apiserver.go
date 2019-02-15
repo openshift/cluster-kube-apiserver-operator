@@ -197,7 +197,6 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 	apiServer, err := listers.APIServerLister.Get("cluster")
 	if errors.IsNotFound(err) {
 		// no error, just clear the observed config and observed resources
-		glog.Warningf("apiservers.%s/cluster: %v", configv1.GroupName, err)
 		return nil, append(errs, syncObservedResources(resourceSync, deleteSyncRules(o.resourceNames...))...)
 	}
 

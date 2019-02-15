@@ -62,7 +62,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	case len(authConfig.Status.IntegratedOAuthMetadata.Name) > 0 && authConfig.Spec.Type == v1.AuthenticationTypeIntegratedOAuth:
 		statusConfigMap = authConfig.Status.IntegratedOAuthMetadata.Name
 	default:
-		glog.V(2).Infof("no integrated oauth metadata configmap observed from status")
+		glog.V(5).Infof("no integrated oauth metadata configmap observed from status")
 	}
 
 	// Spec configMap takes precedence over Status.
@@ -74,7 +74,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		sourceConfigMap = statusConfigMap
 		sourceNamespace = managedNamespace
 	default:
-		glog.Warningf("no authentication config metadata specified")
+		glog.V(5).Infof("no authentication config metadata specified")
 	}
 
 	// Sync the user or status-specified configMap to the well-known resting place that corresponds to the oauthMetadataFile path.
