@@ -161,8 +161,7 @@ imagePolicyConfig:
   externalRegistryHostname: ""
   internalRegistryHostname: docker-registry.default.svc:5000
 kubeletClientInfo:
-  # empty until it's properly secured
-  ca: ""
+  ca: /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
   keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
   port: 10250

@@ -21,18 +21,21 @@ func NewResourceSyncController(
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 		eventRecorder,
 	)
+
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "etcd-serving-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.EtcdNamespaceName, Name: "etcd-serving-ca"},
 	); err != nil {
 		return nil, err
 	}
+
 	if err := resourceSyncController.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "etcd-client"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.EtcdNamespaceName, Name: "etcd-client"},
 	); err != nil {
 		return nil, err
 	}
+
 	// this configmap holds the cert used to verify SA token JWTs created by the bootstrap kube-controller-manager
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "initial-sa-token-signing-certs"},
@@ -40,6 +43,7 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+
 	// this configmaps holds the certs used to verify the SA token JWTs created by the kube-controller-manager-operator
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-controller-manager-sa-token-signing-certs"},
@@ -56,6 +60,7 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+
 	// this secret contains the serving cert/key pair for the kube-apiserver
 	// TODO this will logically become two secrets: one for the ELB/default, another for the loopback and service network
 	if err := resourceSyncController.SyncSecret(
@@ -72,6 +77,7 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+
 	// this ca bundle contains certs used by the kube-apiserver to verify client certs
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-client-ca"},
@@ -79,10 +85,19 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, err
 	}
+
 	// this ca bundle contains certs provided by the kube-apiserver to verify aggregator client certs
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-aggregator-client-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
+	); err != nil {
+		return nil, err
+	}
+
+	// this ca bundle contains certs that can be used to verify a kubelet
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kubelet-serving-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kubelet-serving-ca"},
 	); err != nil {
 		return nil, err
 	}
