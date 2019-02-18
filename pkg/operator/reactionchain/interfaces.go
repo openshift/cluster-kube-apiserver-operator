@@ -7,6 +7,7 @@ import (
 )
 
 type Resources interface {
+	Add(resource Resource)
 	Dump() []string
 	AllResources() []Resource
 	Resource(coordinates ResourceCoordinates) Resource
@@ -19,6 +20,22 @@ type ResourceCoordinates struct {
 	Resource  string
 	Namespace string
 	Name      string
+}
+
+func NewConfigMap(namespace, name string) Resource {
+	return NewResource(NewCoordinates("", "configmaps", namespace, name))
+}
+
+func NewSecret(namespace, name string) Resource {
+	return NewResource(NewCoordinates("", "secrets", namespace, name))
+}
+
+func NewOperator(name string) Resource {
+	return NewResource(NewCoordinates("config.openshift.io", "clusteroperators", "", name))
+}
+
+func NewConfig(resource string) Resource {
+	return NewResource(NewCoordinates("config.openshift.io", resource, "", "cluster"))
 }
 
 func NewCoordinates(group, resource, namespace, name string) ResourceCoordinates {
@@ -39,6 +56,7 @@ func (c ResourceCoordinates) String() string {
 }
 
 type Resource interface {
+	Add(resources Resources) Resource
 	From(Resource) Resource
 	Note(note string) Resource
 
@@ -70,6 +88,11 @@ func NewSource(coordinates ResourceCoordinates, sources []Resource) *SimpleSourc
 
 func (r *SimpleSource) Coordinates() ResourceCoordinates {
 	return r.coordinates
+}
+
+func (s *SimpleSource) Add(resources Resources) Resource {
+	resources.Add(s)
+	return s
 }
 
 func (s *SimpleSource) From(source Resource) Resource {

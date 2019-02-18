@@ -14,70 +14,236 @@ import (
 func NewOperatorChain() Resources {
 	ret := &resourcesImpl{}
 
-	payload := NewResource(NewCoordinates("", "Payload", "", "cluster"))
-	ret.Add(payload)
-	installer := NewResource(NewCoordinates("", "Installer", "", "cluster"))
-	ret.Add(installer)
+	payload := NewResource(NewCoordinates("", "Payload", "", "cluster")).
+		Add(ret)
+	installer := NewResource(NewCoordinates("", "Installer", "", "cluster")).
+		Add(ret)
+	user := NewResource(NewCoordinates("", "User", "", "cluster")).
+		Add(ret)
 
-	cvo := NewResource(NewCoordinates("config.openshift.io", "clusteroperators", "", "cluster-version")).
-		From(payload)
-	ret.Add(cvo)
+	cvo := NewOperator("cluster-version").
+		From(payload).
+		Add(ret)
+	kasOperator := NewOperator("kube-apiserver").
+		From(cvo).
+		Add(ret)
+	kcmOperator := NewOperator("kube-controller-manager").
+		From(cvo).
+		Add(ret)
+	authenticationOperator := NewOperator("authentication").
+		From(cvo).
+		Add(ret)
+	imageRegistryOperator := NewOperator("image-registry").
+		From(cvo).
+		Add(ret)
+	networkOperator := NewOperator("network").
+		From(cvo).
+		Add(ret)
 
-	kasOperator := NewResource(NewCoordinates("config.openshift.io", "clusteroperators", "", "kube-apiserver")).
-		From(cvo)
-	ret.Add(kasOperator)
-
-	kcmOperator := NewResource(NewCoordinates("config.openshift.io", "clusteroperators", "", "kube-controller-manager")).
-		From(cvo)
-	ret.Add(kcmOperator)
-
-	installerProvidedAggregatorClientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-aggregator-client-ca")).
-		Note("Static").
-		From(installer)
-	ret.Add(installerProvidedAggregatorClientCA)
-
-	operatorManagedAggregatorClientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.OperatorNamespace, "managed-aggregator-client-ca")).
-		Note("Rotated").
-		From(kasOperator)
-	ret.Add(operatorManagedAggregatorClientCA)
-
-	kubeAPIServerAggregatorClientCAForPod := NewResource(NewCoordinates("", "configmaps", operatorclient.TargetNamespace, "aggregator-client-ca")).
-		Note("Unioned").
-		From(installerProvidedAggregatorClientCA).
-		From(operatorManagedAggregatorClientCA)
-	ret.Add(kubeAPIServerAggregatorClientCAForPod)
-
-	externalAggregatorClientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca")).
-		Note("Synchronized").
-		From(kubeAPIServerAggregatorClientCAForPod)
-	ret.Add(externalAggregatorClientCA)
-
-	initialClientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-client-ca")).
-		Note("Static").
-		From(installer)
-	ret.Add(initialClientCA)
-
-	csrControllerCA := NewResource(NewCoordinates("", "configmaps", operatorclient.GlobalMachineSpecifiedConfigNamespace, "csr-controller-ca")).
+	// config.openshift.io
+	apiserverConfig := NewConfig("apiservers").
+		From(user).
+		Add(ret)
+	userClientCA := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "<user-specified-client-ca>").
+		Note("User").
+		From(user).
+		From(apiserverConfig).
+		Add(ret)
+	userDefaultServing := NewSecret(operatorclient.GlobalUserSpecifiedConfigNamespace, "<user-specified-default-serving>").
+		Note("User").
+		From(user).
+		From(apiserverConfig).
+		Add(ret)
+	authenticationConfig := NewConfig("authentications").
+		From(user).
+		From(authenticationOperator).
+		Add(ret)
+	userWellKnown := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "<user-specified-well-known>").
+		Note("User").
+		From(user).
+		From(authenticationConfig).
+		Add(ret)
+	managedWellKnown := NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "openshift-authentication").
 		Note("Managed").
-		From(kcmOperator)
-	ret.Add(csrControllerCA)
+		From(authenticationOperator).
+		From(authenticationConfig).
+		Add(ret)
+	imageConfig := NewConfig("images").
+		From(user).
+		From(imageRegistryOperator).
+		Add(ret)
+	networkConfig := NewConfig("network").
+		From(user).
+		From(networkOperator).
+		Add(ret)
 
-	managedClientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.OperatorNamespace, "managed-kube-apiserver-client-ca-bundle")).
+	// aggregator client
+	initialAggregatorCA := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-aggregator-client-ca").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	aggregatorSigner := NewSecret(operatorclient.OperatorNamespace, "aggregator-client-signer").
 		Note("Rotated").
-		From(kasOperator)
-	ret.Add(managedClientCA)
+		From(kasOperator).
+		Add(ret)
+	aggregatorClient := NewSecret(operatorclient.TargetNamespace, "aggregator-client").
+		Note("Rotated").
+		From(aggregatorSigner).
+		Add(ret)
+	operatorManagedAggregatorClientCA := NewConfigMap(operatorclient.OperatorNamespace, "managed-aggregator-client-ca").
+		Note("Rotated").
+		From(aggregatorSigner).
+		Add(ret)
+	kasAggregatorClientCAForPod := NewConfigMap(operatorclient.TargetNamespace, "aggregator-client-ca").
+		Note("Unioned").
+		From(initialAggregatorCA).
+		From(operatorManagedAggregatorClientCA).
+		Add(ret)
+	// this is a destination and consumed by OAS
+	_ = NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
+		Note("Synchronized").
+		From(kasAggregatorClientCAForPod).
+		Add(ret)
 
-	clientCA := NewResource(NewCoordinates("", "configmaps", operatorclient.TargetNamespace, "client-ca")).
+	// client CAs
+	initialClientCA := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-client-ca").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	kcmControllerCSRCA := NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "csr-controller-ca").
+		Note("Synchronized").
+		From(kcmOperator).
+		Add(ret)
+	// TODO this appears to be dead
+	_ = NewConfigMap(operatorclient.OperatorNamespace, "csr-controller-ca").
+		Note("Synchronized").
+		From(kcmControllerCSRCA).
+		Add(ret)
+	managedClientSigner := NewSecret(operatorclient.OperatorNamespace, "managed-kube-apiserver-client-signer").
+		Note("Rotated").
+		From(kasOperator).
+		Add(ret)
+	_ = NewSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-controller-manager-client-cert-key").
+		Note("Rotated").
+		From(managedClientSigner).
+		Add(ret)
+	_ = NewSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-scheduler-client-cert-key").
+		Note("Rotated").
+		From(managedClientSigner).
+		Add(ret)
+	managedClientCA := NewConfigMap(operatorclient.OperatorNamespace, "managed-kube-apiserver-client-ca-bundle").
+		Note("Rotated").
+		From(managedClientSigner).
+		Add(ret)
+	clientCA := NewConfigMap(operatorclient.TargetNamespace, "client-ca").
 		Note("Unioned").
 		From(initialClientCA).
-		From(csrControllerCA).
-		From(managedClientCA)
-	ret.Add(clientCA)
+		From(kcmControllerCSRCA).
+		From(managedClientCA).
+		From(userClientCA).
+		Add(ret)
+	// this is a destination and consumed by OAS
+	_ = NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-client-ca").
+		Note("Synchronized").
+		From(clientCA).
+		Add(ret)
 
-	kas := NewResource(NewCoordinates("", "pods", operatorclient.TargetNamespace, "kube-apiserver")).
-		From(kubeAPIServerAggregatorClientCAForPod).
-		From(clientCA)
-	ret.Add(kas)
+	// etcd certs
+	fromEtcdServingCA := NewConfigMap("kube-system", "etcd-serving-ca").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	fromEtcdClient := NewSecret("kube-system", "etcd-client").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	etcdServingCA := NewConfigMap(operatorclient.TargetNamespace, "etcd-serving-ca").
+		Note("Synchronized").
+		From(fromEtcdServingCA).
+		Add(ret)
+	etcdClient := NewSecret(operatorclient.TargetNamespace, "etcd-client").
+		Note("Synchronized").
+		From(fromEtcdClient).
+		Add(ret)
+
+	// kubelet client
+	initialKubeletClient := NewSecret(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-kubelet-client").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	kubeletClient := NewSecret(operatorclient.TargetNamespace, "kubelet-client").
+		Note("Synchronized").
+		From(initialKubeletClient).
+		Add(ret)
+
+	// kubelet serving
+	// TODO this is just a courtesy for the pod team
+	intialKubeletServingCA := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-kubelet-serving-ca").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	kubeletServingCA := NewConfigMap(operatorclient.TargetNamespace, "kubelet-serving-ca").
+		Note("Unioned").
+		From(intialKubeletServingCA).
+		From(kcmControllerCSRCA).
+		Add(ret)
+	// this is a destination for things like monitoring to get a kubelet serving CA
+	_ = NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kubelet-serving-ca").
+		Note("Synchroinized").
+		From(kubeletServingCA).
+		Add(ret)
+
+	// sa token verification
+	initialSATokenPub := NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-sa-token-signing-certs").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	mountedInitialSATokenPub := NewConfigMap(operatorclient.TargetNamespace, "initial-sa-token-signing-certs").
+		Note("Synchronized").
+		From(initialSATokenPub).
+		Add(ret)
+	kcmSATokenPub := NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "sa-token-signing-certs").
+		Note("Static").
+		From(installer).
+		Add(ret)
+	mountedKCMSATokenPub := NewConfigMap(operatorclient.TargetNamespace, "kube-controller-manager-sa-token-signing-certs").
+		Note("Synchronized").
+		From(kcmSATokenPub).
+		Add(ret)
+
+	// well_known
+	wellKnown := NewConfigMap(operatorclient.TargetNamespace, "oauth-metadata").
+		Note("PickOne").
+		From(userWellKnown).
+		From(managedWellKnown).
+		Add(ret)
+
+	// observedConfig
+	config := NewConfigMap(operatorclient.OperatorNamespace, "config").
+		Note("Managed").
+		From(apiserverConfig).          // to specify client-ca, default serving, sni serving
+		From(authenticationConfig).     // to specify well_known
+		From(imageConfig).              // to specify internal and external registries and trust
+		From(mountedInitialSATokenPub). // to choose which SA token files are used
+		From(mountedKCMSATokenPub).     // to choose which SA token files are used
+		From(networkConfig).            // to choose which SA token files are used
+		Add(ret)
+
+	// and finally our target pod
+	_ = NewResource(NewCoordinates("", "pods", operatorclient.TargetNamespace, "kube-apiserver")).
+		From(kasAggregatorClientCAForPod).
+		From(aggregatorClient).
+		From(clientCA).
+		From(config).
+		From(etcdServingCA).
+		From(etcdClient).
+		From(kubeletClient).
+		From(kubeletServingCA).
+		From(mountedInitialSATokenPub).
+		From(mountedKCMSATokenPub).
+		From(userDefaultServing).
+		From(wellKnown).
+		Add(ret)
 
 	return ret
 }
@@ -143,6 +309,8 @@ func (n resourceGraphNode) DOTAttributes() []dot.Attribute {
 		color = `"#fffdb8"` // yellow
 	case n.Resource.Coordinates().Resource == "pods":
 		color = `"#ffbfb8"` // red
+	case n.Resource.Coordinates().Group == "config.openshift.io":
+		color = `"#c7bfff"` // purple
 	}
 	resource := n.Resource.Coordinates().Resource
 	if len(n.Resource.Coordinates().Group) > 0 {
