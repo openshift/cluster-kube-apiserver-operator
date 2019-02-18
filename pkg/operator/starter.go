@@ -115,6 +115,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	staticPodControllers := staticpod.NewControllers(
 		operatorclient.TargetNamespace,
 		"kube-apiserver",
+		"kube-apiserver",
 		"kube-apiserver-pod",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
 		[]string{"cluster-kube-apiserver-operator", "prune"},
@@ -128,6 +129,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		dynamicClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(""),
+		versionRecorder,
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
