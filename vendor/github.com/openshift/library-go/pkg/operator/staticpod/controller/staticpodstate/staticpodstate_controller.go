@@ -84,6 +84,7 @@ func (c *StaticPodStateController) sync() error {
 		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(mirrorPodNameForNode(c.staticPodName, node.NodeName), metav1.GetOptions{})
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		for _, containerStatus := range pod.Status.ContainerStatuses {
