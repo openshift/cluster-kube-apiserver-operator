@@ -14,6 +14,7 @@ type Listers struct {
 	EndpointsLister   corelistersv1.EndpointsLister
 	ConfigmapLister   corelistersv1.ConfigMapLister
 	APIServerLister   configlistersv1.APIServerLister
+	NetworkLister     configlistersv1.NetworkLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced

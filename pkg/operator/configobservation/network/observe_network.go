@@ -1,11 +1,10 @@
 package network
 
 import (
-	"github.com/openshift/library-go/pkg/operator/configobserver/network"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/configobserver/network"
 	"github.com/openshift/library-go/pkg/operator/events"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
@@ -29,12 +28,12 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 	}
 
 	observedConfig := map[string]interface{}{}
-	clusterCIDRs, err := network.GetClusterCIDRs(listers.ConfigmapLister, recorder)
+	clusterCIDRs, err := network.GetClusterCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
 		return previouslyObservedConfig, errs
 	}
-	serviceCIDR, err := network.GetServiceCIDR(listers.ConfigmapLister, recorder)
+	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
 		return previouslyObservedConfig, errs
