@@ -112,26 +112,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	}
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
-	staticPodControllers := staticpod.NewControllers(
-		operatorclient.TargetNamespace,
-		"kube-apiserver",
-		"kube-apiserver",
-		"kube-apiserver-pod",
-		[]string{"cluster-kube-apiserver-operator", "installer"},
-		[]string{"cluster-kube-apiserver-operator", "prune"},
-		deploymentConfigMaps,
-		deploymentSecrets,
-		operatorClient,
-		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		kubeClient.CoreV1(),
-		kubeClient,
-		dynamicClient,
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(""),
-		versionRecorder,
-		ctx.EventRecorder,
-	)
+	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
+		WithEvents(ctx.EventRecorder).
+		WithInstaller([]string{"cluster-kube-apiserver-operator", "installer"}).
+		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
+		WithResources(operatorclient.TargetNamespace, "kube-apiserver", deploymentConfigMaps, deploymentSecrets).
+		WithServiceMonitor(dynamicClient).
+		WithVersioning(operatorclient.OperatorNamespace, "kube-apiserver", versionRecorder).
+		ToControllers()
+	if err != nil {
+		return err
+	}
+
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"kube-apiserver",
 		[]configv1.ObjectReference{
