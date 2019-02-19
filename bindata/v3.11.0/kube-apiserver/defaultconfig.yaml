@@ -30,6 +30,7 @@ apiServerArguments:
   - "true"
   feature-gates:
   - PersistentLocalVolumes=false # disable local volumes for 4.0, owned by sig-storage/hekumar@redhat.com
+  - CustomResourcePublishOpenAPI=true # enable alpha feature for 4.0, owned by sig-master/sttts@redhat.com
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
