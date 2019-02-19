@@ -1,6 +1,7 @@
 package render
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -154,6 +156,21 @@ func (r *renderOpts) Run() error {
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "config-overrides.yaml")),
 		&renderConfig,
+		map[string]resourcemerge.MergeFunc{
+			"apiServerArguments.feature-gates": func(dst, src interface{}, currentPath string) (interface{}, error) {
+				dest, ok := dst.([]interface{})
+				if !ok {
+					v, _ := json.Marshal(dest)
+					return nil, fmt.Errorf("expected apiServerArguments.feature-gates to be a string slice, but found: %v", v)
+				}
+				source, ok := src.([]interface{})
+				if !ok {
+					v, _ := json.Marshal(source)
+					return nil, fmt.Errorf("expected apiServerArguments.feature-gates to be a string slice, but found: %v", v)
+				}
+				return append(dest, source...), nil // append, later feature gates override earlier
+			},
+		},
 	); err != nil {
 		return err
 	}
