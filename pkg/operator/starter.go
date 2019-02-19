@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -99,8 +101,20 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
+	// don't change any versions until we sync
+	versionRecorder := status.NewVersionGetter()
+	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	for _, version := range clusterOperator.Status.Versions {
+		versionRecorder.SetVersion(version.Name, version.Version)
+	}
+	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
+
 	staticPodControllers := staticpod.NewControllers(
 		operatorclient.TargetNamespace,
+		"kube-apiserver",
 		"kube-apiserver",
 		"kube-apiserver-pod",
 		[]string{"cluster-kube-apiserver-operator", "installer"},
@@ -115,6 +129,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		dynamicClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(""),
+		versionRecorder,
 		ctx.EventRecorder,
 	)
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -128,7 +143,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		},
 		configClient.ConfigV1(),
 		operatorClient,
-		status.NewVersionGetter(),
+		versionRecorder,
 		ctx.EventRecorder,
 	)
 
