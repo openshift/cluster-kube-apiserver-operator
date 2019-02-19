@@ -6,6 +6,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	"github.com/pborman/uuid"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -131,7 +132,7 @@ func NewCertRotationController(
 			Validity:          1 * 4 * time.Hour,
 			RefreshPercentage: 0.5,
 			ClientRotation: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
+				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler", Groups: []string{user.KubeScheduler}, UID: uuid.NewRandom().String()},
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
