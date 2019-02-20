@@ -49,3 +49,29 @@ origin-release:
 	@echo "  docker push $(IMAGE_ORG)/origin-release:latest"
 	@echo "  docker push $(IMAGE_ORG)/origin-cluster-kube-apiserver-operator"
 	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(IMAGE_ORG)/origin-release:latest bin/openshift-install cluster --log-level=debug"
+
+TMP_DIR:=$(shell mktemp -d)
+OUTPUT_CRD=operator_v1_kubeapiserver.yaml
+CRD_MANIFEST=0000_10_kube-apiserver-operator_01_config.crd.yaml
+update-crds:
+	go get sigs.k8s.io/controller-tools/cmd/crd
+	crd generate --domain openshift.io --output-dir $(TMP_DIR) \
+	--apis-pkg github.com/openshift/api/operator/v1 \
+	--apis-path vendor/github.com/openshift/api/operator/v1
+	sed -i '/creationTimestamp/d' $(TMP_DIR)/$(OUTPUT_CRD)
+	mv $(TMP_DIR)/$(OUTPUT_CRD) manifests/$(CRD_MANIFEST)
+	rm -rf $(TMP_DIR)
+
+TMP_DIR:=$(shell mktemp -d)
+verify-crds:
+	go get sigs.k8s.io/controller-tools/cmd/crd
+	crd generate --domain openshift.io --output-dir $(TMP_DIR) \
+	--apis-pkg github.com/openshift/api/operator/v1 \
+	--apis-path vendor/github.com/openshift/api/operator/v1
+	sed -i '/creationTimestamp/d' $(TMP_DIR)/$(OUTPUT_CRD)
+	if cmp -s $(TMP_DIR)/$(OUTPUT_CRD) manifests/$(CRD_MANIFEST); then \
+		echo "verify-crds: OK"; \
+	else \
+		echo "CRDs not updated. Please run: make update-crds"; \
+		exit 1; \
+	fi
