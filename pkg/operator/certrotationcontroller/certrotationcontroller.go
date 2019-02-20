@@ -66,6 +66,46 @@ func NewCertRotationController(
 	ret.certRotators = append(ret.certRotators, certRotator)
 
 	certRotator, err = certrotation.NewCertRotationController(
+		"KubeAPIServerToKubeletClient",
+		certrotation.SigningRotation{
+			Namespace:         operatorclient.OperatorNamespace,
+			Name:              "kube-apiserver-to-kubelet-signer",
+			Validity:          2 * 365 * 24 * time.Hour, // two years
+			RefreshPercentage: 0.5,
+			Informer:          kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:            kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:            kubeClient.CoreV1(),
+			EventRecorder:     eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-apiserver-to-kubelet-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace:         operatorclient.TargetNamespace,
+			Name:              "kube-apiserver-to-kubelet-client",
+			Validity:          1 * 4 * time.Hour,
+			RefreshPercentage: 0.5,
+			ClientRotation: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ret.certRotators = append(ret.certRotators, certRotator)
+
+	certRotator, err = certrotation.NewCertRotationController(
 		"KubeControllerManagerClient",
 		certrotation.SigningRotation{
 			Namespace:         operatorclient.OperatorNamespace,
