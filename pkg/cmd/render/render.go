@@ -154,6 +154,7 @@ func (r *renderOpts) Run() error {
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "config-overrides.yaml")),
 		&renderConfig,
+		nil,
 	); err != nil {
 		return err
 	}
