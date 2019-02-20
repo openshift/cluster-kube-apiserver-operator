@@ -49,3 +49,13 @@ origin-release:
 	@echo "  docker push $(IMAGE_ORG)/origin-release:latest"
 	@echo "  docker push $(IMAGE_ORG)/origin-cluster-kube-apiserver-operator"
 	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(IMAGE_ORG)/origin-release:latest bin/openshift-install cluster --log-level=debug"
+
+update-codegen-crds:
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api
+update-codegen: update-codegen-crds
+verify-codegen-crds:
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api --verify-only
+verify-codegen: verify-codegen-crds
+verify: verify-codegen
+
+.PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify
