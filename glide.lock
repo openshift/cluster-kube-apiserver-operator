@@ -1,5 +1,5 @@
 hash: a25cc3f928d57d570b1fb82483d5db8fed46925d3a3696d7026eaa4404f269a6
-updated: 2019-02-20T19:08:58.409140077-05:00
+updated: 2019-02-21T11:02:51.736875033-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -99,7 +99,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/docker/docker
@@ -116,11 +116,11 @@ imports:
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
-  version: 36442dbdb585210f8d5a1b45e67aa323c197d5c4
+  version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -152,13 +152,13 @@ imports:
   - ptypes/struct
   - ptypes/timestamp
 - name: github.com/gonum/blas
-  version: 37e82626499e1df7c54aeaba0959fd6e7e8dc1e4
+  version: f22b278b28ac9805aadd613a754a60c35b24ae69
   subpackages:
   - blas64
   - native
   - native/internal/math32
 - name: github.com/gonum/floats
-  version: f74b330d45c56584a6ea7a27f5c64ea2900631e9
+  version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
 - name: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
@@ -173,17 +173,17 @@ imports:
   - internal/ordered
   - simple
 - name: github.com/gonum/internal
-  version: e57e4534cf9b3b00ef6c0175f59d8d2d34f60914
+  version: f884aa71402950fb2796dbea0d5aa9ef9cfad8ca
   subpackages:
   - asm/f32
   - asm/f64
 - name: github.com/gonum/lapack
-  version: 5ed4b826becd1807e09377508f51756586d1a98c
+  version: e4cdc5a0bff924bb10be88482e635bd40429f65e
   subpackages:
   - lapack64
   - native
 - name: github.com/gonum/matrix
-  version: dd6034299e4242c9f0ea36735e6d4264dfcb3f9f
+  version: c518dec07be9a636c38a4650e217be059b5952ec
   subpackages:
   - mat64
 - name: github.com/google/btree
@@ -296,7 +296,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: d170fbc9c3810304952ed060299de658e8208fa8
+  version: 6467eab2ef6ec7ffdd67cd812e811cbbcd027c5c
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -427,11 +427,11 @@ imports:
   subpackages:
   - rate
 - name: golang.org/x/tools
-  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
+  version: a754db16a40a9d94359b6600b825419c0ca6f986
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
-  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
+  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
   subpackages:
   - internal
   - internal/base
