@@ -5,4 +5,4 @@ metadata:
   namespace: openshift-config
 data:
   ca-bundle.crt: |
-    {{ .Assets | load "aggregator-ca.crt" | indent 4 }}
+    {{ .Assets | load "aggregator-signer.crt" | indent 4 }}

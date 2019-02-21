@@ -2,11 +2,11 @@ apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
 aggregatorConfig:
   proxyClientInfo:
-    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt # origin 3.11: openshift-aggregator.crt
-    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key # origin 3.11: openshift-aggregator.key
+    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
+    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
 authConfig:
   requestHeader:
-    clientCA: /etc/kubernetes/secrets/aggregator-ca.crt # origin 3.11: frontproxy-ca.crt
+    clientCA: /etc/kubernetes/secrets/aggregator-signer.crt
 kubeletClientInfo:
   ca: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
   certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.kubelet-client.crt

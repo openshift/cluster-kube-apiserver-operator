@@ -1,12 +1,5 @@
 apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
-aggregatorConfig:
-  proxyClientInfo:
-    certFile: /var/run/secrets/aggregator-client/tls.crt
-    keyFile: /var/run/secrets/aggregator-client/tls.key
-authConfig:
-  requestHeader:
-    clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
 kubeletClientInfo:
   ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
   certFile: /var/run/secrets/kubelet-client/tls.crt
