@@ -209,7 +209,11 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/kube-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	specialMergeRules := map[string]resourcemerge.MergeFunc{
+		".oauthConfig": RemoveConfig,
+	}
+
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", specialMergeRules, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
 		return nil, false, err
 	}

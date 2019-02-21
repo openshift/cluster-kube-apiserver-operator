@@ -165,23 +165,6 @@ kubeletClientInfo:
   certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
   keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
   port: 10250
-oauthConfig:
-  alwaysShowProviderSelection: false
-  assetPublicURL: # To be filled
-  grantConfig:
-    method: auto
-    serviceAccountMethod: prompt
-  masterCA: /etc/kubernetes/secrets/root-ca.crt
-  masterPublicURL: # To be filled
-  masterURL: # To be filled
-  sessionConfig:
-    sessionMaxAgeSeconds: 300
-    sessionName: ssn
-    sessionSecretsFile: ""
-  templates: null
-  tokenConfig:
-    accessTokenMaxAgeSeconds: 86400
-    authorizeTokenMaxAgeSeconds: 300
 projectConfig:
   defaultNodeSelector: ""
 servicesNodePortRange: 30000-32767
