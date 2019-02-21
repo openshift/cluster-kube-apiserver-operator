@@ -5,6 +5,11 @@ import (
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
@@ -13,10 +18,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/satokencerts"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type ConfigObserver struct {
@@ -59,6 +60,7 @@ func NewConfigObserver(
 				ConfigmapLister:   kubeInformersForNamespaces.ConfigMapLister(),
 				EndpointsLister:   kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
 				APIServerLister:   configInformer.Config().V1().APIServers().Lister(),
+				NetworkLister:     configInformer.Config().V1().Networks().Lister(),
 				ResourceSync:      resourceSyncer,
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
@@ -66,6 +68,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Authentications().Informer().HasSynced,
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
+					configInformer.Config().V1().Networks().Informer().HasSynced,
 				},
 			},
 			apiserver.ObserveDefaultUserServingCertificate,
@@ -89,6 +92,7 @@ func NewConfigObserver(
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }
