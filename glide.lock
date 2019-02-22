@@ -1,8 +1,12 @@
-hash: a25cc3f928d57d570b1fb82483d5db8fed46925d3a3696d7026eaa4404f269a6
-updated: 2019-02-21T16:11:08.300004163-05:00
+hash: a598205b02a5bc74539b428b60550da3479ca3f12cb35a8f3f17439d5b8d7acf
+updated: 2019-02-22T11:29:19.798224887-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
+- name: github.com/apparentlymart/go-cidr
+  version: b1115bf8e14a60131a196f908223e4506b0ddc35
+  subpackages:
+  - cidr
 - name: github.com/Azure/go-ansiterm
   version: d6e3b3328b783f23731bc4d058875b0371ff8109
   subpackages:
@@ -296,7 +300,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 052c4104706cb9a67fc093cba11baf7980525109
+  version: fde3f6d68fbdb298c3a418b2cc727a6942e00e01
   subpackages:
   - pkg/assets
   - pkg/config/client
