@@ -173,10 +173,6 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
 	}
-	_, _, err = manageAggregatorClientCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/aggregator-client-ca", err))
-	}
 	_, _, err = manageKubeletServingCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kubelet-serving-ca", err))
@@ -306,24 +302,6 @@ func manageKubeletServingCABundle(lister corev1listers.ConfigMapLister, client c
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kubelet-serving-ca"},
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify the signed kubelet serving certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
-	)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
-}
-
-func manageAggregatorClientCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
-	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
-		lister,
-		nil, // TODO remove this
-		nil, // TODO remove this
-		// this is from the installer and contains the value they think we should have
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-aggregator-client-ca"},
-		// this bundle is what this operator uses to mint new aggregator client certs it directly manages
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-aggregator-client-ca"},
 	)
 	if err != nil {
 		return nil, false, err
