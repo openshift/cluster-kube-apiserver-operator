@@ -20,7 +20,7 @@ spec:
       containers:
       - name: operator
         image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8443
           name: metrics
