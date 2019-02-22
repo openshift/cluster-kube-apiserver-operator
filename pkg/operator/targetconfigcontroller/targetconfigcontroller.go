@@ -225,17 +225,18 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 	if len(imagePullSpec) > 0 {
 		required.Spec.Containers[0].Image = imagePullSpec
 	}
+
 	switch operatorConfig.Spec.LogLevel {
 	case operatorv1.Normal:
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+		required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] = required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] + " " + fmt.Sprintf("-v=%d", 2)
 	case operatorv1.Debug:
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 4))
+		required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] = required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] + " " + fmt.Sprintf("-v=%d", 4)
 	case operatorv1.Trace:
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 6))
+		required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] = required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] + " " + fmt.Sprintf("-v=%d", 6)
 	case operatorv1.TraceAll:
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 8))
+		required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] = required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] + " " + fmt.Sprintf("-v=%d", 8)
 	default:
-		required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+		required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] = required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] + " " + fmt.Sprintf("-v=%d", 2)
 	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod-cm.yaml"))
