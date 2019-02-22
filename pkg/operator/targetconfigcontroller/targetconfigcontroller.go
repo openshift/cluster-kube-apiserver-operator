@@ -222,6 +222,7 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
+	required.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
 	if len(imagePullSpec) > 0 {
 		required.Spec.Containers[0].Image = imagePullSpec
 	}
@@ -253,13 +254,11 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		nil, // TODO remove this
 		// this is from the installer and contains the value they think we should have
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-client-ca"},
-		// this is from the installer and admin kubeconfig client ca
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
-		// this bundle is what a user uses to mint new client certs it directly manages.  We copy it into operator namespace for a consistent name.
+		// this bundle is what a user uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "user-client-ca"},
 	)
 	if err != nil {

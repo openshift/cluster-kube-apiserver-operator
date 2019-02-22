@@ -142,6 +142,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
 		operatorClient,
+		configInformers,
 		kubeInformersForNamespaces,
 		ctx.EventRecorder,
 	)
