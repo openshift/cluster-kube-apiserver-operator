@@ -228,7 +228,7 @@ func NewCertRotationController(
 		"KubeControllerManagerClient",
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "managed-kube-apiserver-client-signer",
+			Name:          "kube-control-plane-signer",
 			Validity:      8 * time.Hour, // to be 10 days
 			Refresh:       4 * time.Hour, // to be 4 days
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
@@ -238,7 +238,7 @@ func NewCertRotationController(
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "managed-kube-apiserver-client-ca-bundle",
+			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -268,7 +268,7 @@ func NewCertRotationController(
 		"KubeSchedulerClient",
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "managed-kube-apiserver-client-signer",
+			Name:          "kube-control-plane-signer",
 			Validity:      8 * time.Hour, // to be 10 days
 			Refresh:       4 * time.Hour, // to be 4 days
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
@@ -278,7 +278,7 @@ func NewCertRotationController(
 		},
 		certrotation.CABundleRotation{
 			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "managed-kube-apiserver-client-ca-bundle",
+			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
