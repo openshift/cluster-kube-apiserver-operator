@@ -6,4 +6,5 @@ metadata:
 data:
   ca-bundle.crt: |
     {{ .Assets | load "kube-ca.crt" | indent 4 }}
+    {{ .Assets | load "kubelet-signer.crt" | indent 4 }}
 
