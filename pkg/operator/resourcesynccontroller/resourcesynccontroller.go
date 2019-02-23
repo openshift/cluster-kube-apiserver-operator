@@ -70,6 +70,14 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// this ca bundle contains certs to verify the aggregator.  We copy it from the shared location to here.
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-aggregator-client-ca"},
+	); err != nil {
+		return nil, err
+	}
+
 	// this ca bundle contains certs used to sign CSRs (kubelet serving and client certificates)
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},
@@ -82,14 +90,6 @@ func NewResourceSyncController(
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-client-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
-	); err != nil {
-		return nil, err
-	}
-
-	// this ca bundle contains certs provided by the kube-apiserver to verify aggregator client certs
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-aggregator-client-ca"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
 	); err != nil {
 		return nil, err
 	}
