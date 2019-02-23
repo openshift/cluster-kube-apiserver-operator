@@ -78,6 +78,14 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// this configmap allows us to verify the kubelet serving certs
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kubelet-serving-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
+	); err != nil {
+		return nil, err
+	}
+
 	// this ca bundle contains certs used to sign CSRs (kubelet serving and client certificates)
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},

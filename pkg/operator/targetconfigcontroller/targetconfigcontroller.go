@@ -173,10 +173,6 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
 	}
-	_, _, err = manageKubeletServingCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kubelet-serving-ca", err))
-	}
 	_, _, err = manageKubeAPIServerCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
@@ -255,8 +251,6 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		// this is from the installer and contains the value they think we should have
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-client-ca"},
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kubelet-client-ca"},
-		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "managed-kube-apiserver-client-ca-bundle"},
@@ -284,24 +278,6 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "localhost-serving-ca"},
 		// this bundle is what a user uses to mint service-network certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "service-network-serving-ca"},
-	)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
-}
-
-func manageKubeletServingCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
-	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kubelet-serving-ca"},
-		lister,
-		nil, // TODO remove this
-		nil, // TODO remove this
-		// this is from the installer and contains the value they think we should have
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kubelet-serving-ca"},
-		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify the signed kubelet serving certs
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 	)
 	if err != nil {
 		return nil, false, err
