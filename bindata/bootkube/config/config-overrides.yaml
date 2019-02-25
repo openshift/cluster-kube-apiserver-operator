@@ -8,7 +8,6 @@ serviceAccountPublicKeyFiles:
 - /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
 servingInfo:
   certFile: /var/run/secrets/serving-cert/tls.crt
-  clientCA: /var/run/configmaps/client-ca/ca-bundle.crt
   keyFile: /var/run/secrets/serving-cert/tls.key
 storageConfig:
   ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt

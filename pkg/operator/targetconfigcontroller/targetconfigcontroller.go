@@ -251,7 +251,7 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		nil, // TODO remove this
 		nil, // TODO remove this
 		// this is from the installer and contains the value they think we should have
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "initial-temporary-client-ca"},
 		// this is from the installer and contains the value to verify the admin.kubeconfig user
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
 		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images

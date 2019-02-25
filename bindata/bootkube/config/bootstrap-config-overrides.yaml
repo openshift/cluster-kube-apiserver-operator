@@ -15,7 +15,7 @@ serviceAccountPublicKeyFiles:
 - /etc/kubernetes/secrets/service-account.pub # origin 3.11: serviceaccounts.public.key
 servingInfo:
   certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.server.crt
-  clientCA: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
+  clientCA: /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
   keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.server.key
 storageConfig:
   ca: /etc/kubernetes/secrets/{{.EtcdServingCA}} # origin 3.11: ca.crt
