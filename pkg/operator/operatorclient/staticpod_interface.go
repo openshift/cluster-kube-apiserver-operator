@@ -1,6 +1,7 @@
 package operatorclient
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -19,6 +20,15 @@ func (c *OperatorClient) Informer() cache.SharedIndexInformer {
 
 func (c *OperatorClient) GetStaticPodOperatorState() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
 	instance, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	return &instance.Spec.StaticPodOperatorSpec, &instance.Status.StaticPodOperatorStatus, instance.ResourceVersion, nil
+}
+
+func (c *OperatorClient) GetStaticPodOperatorStateWithQuorum() (*operatorv1.StaticPodOperatorSpec, *operatorv1.StaticPodOperatorStatus, string, error) {
+	instance, err := c.Client.KubeAPIServers().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, "", err
 	}
