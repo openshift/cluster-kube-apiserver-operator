@@ -124,6 +124,7 @@ func (c TargetConfigController) sync() error {
 	}
 	requiredPaths := [][]string{
 		{"serviceAccountPublicKeyFiles"},
+		{"servingInfo", "namedCertificates"},
 	}
 	for _, requiredPath := range requiredPaths {
 		_, found, _ := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
