@@ -174,9 +174,9 @@ servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
   bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
-  certFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt
+  certFile: /etc/kubernetes/static-pod-resources/secrets/service-network-serving-certkey/tls.crt
   clientCA: /etc/kubernetes/static-pod-resources/configmaps/client-ca/ca-bundle.crt
-  keyFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key
+  keyFile: /etc/kubernetes/static-pod-resources/secrets/service-network-serving-certkey/tls.key
   maxRequestsInFlight: 1200
   namedCertificates: null
   requestTimeoutSeconds: 3600

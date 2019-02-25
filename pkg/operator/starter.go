@@ -186,7 +186,10 @@ var deploymentSecrets = []revision.RevisionResource{
 	{Name: "aggregator-client"},
 	{Name: "etcd-client"},
 	{Name: "kubelet-client"},
-	{Name: "serving-cert"},
+	{Name: "localhost-serving-cert-certkey"},
+	{Name: "service-network-serving-certkey"},
+	{Name: "loadbalancer-serving-certkey"},
+
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
 	{Name: "user-serving-cert-001", Optional: true},
