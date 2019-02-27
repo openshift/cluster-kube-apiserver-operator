@@ -159,9 +159,6 @@ consolePublicURL: ""
 corsAllowedOrigins:
 - //127\.0\.0\.1(:|$)
 - //localhost(:|$)
-imagePolicyConfig:
-  externalRegistryHostname: ""
-  internalRegistryHostname: image-registry.openshift-image-registry.svc:5000
 kubeletClientInfo:
   ca: /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
