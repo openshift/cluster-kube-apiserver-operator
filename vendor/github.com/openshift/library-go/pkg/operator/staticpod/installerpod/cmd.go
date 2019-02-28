@@ -15,16 +15,15 @@ import (
 	"github.com/spf13/pflag"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/resource/retry"
 )
 
 type InstallOptions struct {
@@ -78,7 +77,7 @@ func NewInstaller() *cobra.Command {
 				glog.Fatal(err)
 			}
 
-			ctx, cancel := context.WithTimeout(context.TODO(), time.Duration(o.Timeout)*time.Second)
+			ctx, cancel := context.WithTimeout(context.TODO(), o.Timeout)
 			defer cancel()
 			if err := o.Run(ctx); err != nil {
 				glog.Fatal(err)
@@ -164,90 +163,48 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	// Gather secrets. If we get API server error, retry getting until we hit the timeout.
 	// Retrying will prevent temporary API server blips or networking issues.
 	// We return when all "required" secrets are gathered, optional secrets are not checked.
+	glog.Infof("Getting secrets ...")
 	secrets := []*corev1.Secret{}
-	err := utilwait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
-		for _, prefix := range append(secretPrefixes.List(), optionalSecretPrefixes.List()...) {
-			secret, err := o.KubeClient.CoreV1().Secrets(o.Namespace).Get(o.nameFor(prefix), metav1.GetOptions{})
-			// When we encounter not found for required secret, return immediately
-			if errors.IsNotFound(err) {
-				if optionalSecretPrefixes.Has(prefix) {
-					optionalSecretPrefixes.Delete(prefix)
-					continue
-				}
-				return false, err
-			}
-			if errors.IsServiceUnavailable(err) {
-				glog.Infof("Failed to get secret %s/%s: %v (will retry)", o.Namespace, o.nameFor(prefix), err)
-				continue
-			}
-			if err != nil {
-				glog.Infof("Failed to get secret %s/%s: %v", o.Namespace, o.nameFor(prefix), err)
-				return false, nil
-			}
-			optionalConfigPrefixes.Delete(prefix)
-			secretPrefixes.Delete(prefix)
+	for _, prefix := range append(secretPrefixes.List(), optionalSecretPrefixes.List()...) {
+		secret, err := o.getSecretWithRetry(ctx, o.nameFor(prefix), optionalSecretPrefixes.Has(prefix))
+		if err != nil {
+			return err
+		}
+		// secret is nil means the secret was optional and we failed to get it.
+		if secret != nil {
 			secrets = append(secrets, secret)
 		}
-
-		// Exit when all required secrets are gathered
-		return secretPrefixes.Len() == 0, nil
-	}, ctx.Done())
-	if err != nil {
-		return err
 	}
 
-	// Gather all config maps
+	glog.Infof("Getting config maps ...")
 	configs := []*corev1.ConfigMap{}
-	err = utilwait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
-		for _, prefix := range append(configPrefixes.List(), optionalConfigPrefixes.List()...) {
-			config, err := o.KubeClient.CoreV1().ConfigMaps(o.Namespace).Get(o.nameFor(prefix), metav1.GetOptions{})
-			// When we encounter not found for required secret, return immediately
-			if errors.IsNotFound(err) {
-				if optionalConfigPrefixes.Has(prefix) {
-					optionalConfigPrefixes.Delete(prefix)
-					continue
-				}
-				return false, err
-			}
-			if errors.IsServiceUnavailable(err) {
-				glog.Infof("Failed to get config map %s/%s: %v (will retry)", o.Namespace, o.nameFor(prefix), err)
-				continue
-			}
-			if err != nil {
-				glog.Infof("Failed to get config map %s/%s: %v", o.Namespace, o.nameFor(prefix), err)
-				return false, nil
-			}
-			optionalConfigPrefixes.Delete(prefix)
-			configPrefixes.Delete(prefix)
+	for _, prefix := range append(configPrefixes.List(), optionalConfigPrefixes.List()...) {
+		config, err := o.getConfigMapWithRetry(ctx, o.nameFor(prefix), optionalConfigPrefixes.Has(prefix))
+		if err != nil {
+			return err
+		}
+		// config is nil means the config was optional and we failed to get it.
+		if config != nil {
 			configs = append(configs, config)
 		}
-
-		// Exit when all required config maps are gathered
-		return configPrefixes.Len() == 0, nil
-	}, ctx.Done())
-	if err != nil {
-		return err
 	}
 
 	// Gather pod yaml from config map
 	var podContent string
-	err = utilwait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
+
+	err := retry.RetryOnConnectionErrors(ctx, func(ctx context.Context) (bool, error) {
 		glog.Infof("Getting pod configmaps/%s -n %s", o.nameFor(o.PodConfigMapNamePrefix), o.Namespace)
 		podConfigMap, err := o.KubeClient.CoreV1().ConfigMaps(o.Namespace).Get(o.nameFor(o.PodConfigMapNamePrefix), metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false, err
-		}
 		if err != nil {
-			glog.Infof("Failed to get pod %s/%s: %v", o.Namespace, o.nameFor(o.PodConfigMapNamePrefix), err)
-			return false, nil
+			return false, err
 		}
 		podData, exists := podConfigMap.Data["pod.yaml"]
 		if !exists {
-			return false, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
+			return true, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
 		}
 		podContent = strings.Replace(podData, "REVISION", o.Revision, -1)
 		return true, nil
-	}, ctx.Done())
+	})
 	if err != nil {
 		return err
 	}
@@ -259,6 +216,7 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 	if err := os.MkdirAll(resourceDir, 0755); err != nil {
 		return err
 	}
+
 	for _, secret := range secrets {
 		contentDir := path.Join(resourceDir, "secrets", o.prefixFor(secret.Name))
 		glog.Infof("Creating directory %q ...", contentDir)
@@ -319,21 +277,15 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 func (o *InstallOptions) Run(ctx context.Context) error {
 	var eventTarget *corev1.ObjectReference
 
-	// Poll for the pod here to prevent flakes when the API server is temporary down or connection refused errors.
-	if pollErr := utilwait.PollImmediateUntil(200*time.Millisecond, func() (bool, error) {
-		var err error
-		eventTarget, err = events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
-		switch {
-		case errors.IsNotFound(err):
-			return true, err
-		case err != nil:
-			glog.Warningf("Failed to obtain installer pod self-reference: %v (will retry)", err)
-			return false, err
-		default:
-			return true, nil
+	if err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
+		var clientErr error
+		eventTarget, clientErr = events.GetControllerReferenceForCurrentPod(o.KubeClient, o.Namespace, nil)
+		if clientErr != nil {
+			return false, clientErr
 		}
-	}, ctx.Done()); pollErr != nil {
-		return pollErr
+		return true, nil
+	}); err != nil {
+		return fmt.Errorf("failed to get self-reference: %v", err)
 	}
 
 	recorder := events.NewRecorder(o.KubeClient.CoreV1().Events(o.Namespace), "static-pod-installer", eventTarget)
