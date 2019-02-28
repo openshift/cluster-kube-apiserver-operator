@@ -25,18 +25,29 @@ to interact with the Kubernetes API server configuration ([KubeAPIServerConfig](
 
 Currently changes in following external components are being observed:
 
+* `cluster` *authentications.config.openshift.io* custom resource
+  - Configures `authConfig.oauthMetadataFile`.
+* `cluster` *apiservers.config.openshift.io* custom resource
+  - Adds user defined client CA bundle.
+  - Configures `servingInfo.certFile` and `servingInfo.keyFile`.
+  - Configures `servingInfo.namedCertificates`.
+* `cluster` *networks.config.openshift.io* custom resource
+  - Configures `admissionPluginConfig.openshift.io/RestrictedEndpointsAdmission.configuration.restrictedCIDRs`.
+  - Configures `servicesSubnet`.
+* `cluster` *images.config.openshift.io* custom resource
+  - Configures `imagePolicyConfig.internalRegistryHostname`.
+* `initial-sa-token-signing-certs` *configmap* in *openshift-kube-apiserver* namespace
+  - Configures `serviceAccountPublicKeyFiles`.
+* `kube-controller-manager-sa-token-signing-certs` *configmap* in *openshift-kube-apiserver* namespace
+  - Configures `serviceAccountPublicKeyFiles`.
 * `host-etcd` *endpoints* in *kube-system* namespace
-  - The observed endpoint addresses are used to configure the `storageConfig.urls` in Kubernetes API server configuration.
-* `cluster` *image.config.openshift.io* custom resource
-  - The observed CR resource is used to configure the `imagePolicyConfig.internalRegistryHostname` in Kubernetes API server configuration
-* `cluster-config-v1` *configmap* in *kube-system* namespace
-  - The observed configmap `install-config` is decoded and the `networking.podCIDR` and `networking.serviceCIDR` is extracted and used as input for `admissionPluginConfig.openshift.io/RestrictedEndpointsAdmission.configuration.restrictedCIDRs` and `servicesSubnet`
-
+  - Configures `storageConfig.urls`.
 
 The configuration for the Kubernetes API server is the result of merging:
 
 * a [default config](https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/v4.1.0/config/defaultconfig.yaml)
-* observed config (compare observed values above) `spec.spec.unsupportedConfigOverrides` from the `kubeapiserveroperatorconfig`.
+* observed config (compare observed values above)
+* `spec.spec.unsupportedConfigOverrides` from the `kubeapiserver`.
 
 All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end.
 
@@ -49,18 +60,15 @@ Operator also expose events that can help debugging issues. To get operator even
 $ oc get events -n  openshift-cluster-kube-apiserver-operator
 ```
 
-This operator is configured via [`KubeAPIServer`](https://github.com/openshift/api/blob/master/operator/v1/types_kubeapiserver.go#L12) custom resource:
+This operator is configured via [`KubeAPIServer`](https://github.com/openshift/api/blob/master/operator/v1/types_kubeapiserver.go) custom resource:
 
-```
+```console
 $ oc describe kubeapiserver
-```
-```yaml
-apiVersion: operator.openshift.io/v1
-kind: KubeAPIServer
-metadata:
-  name: cluster
-spec:
-  managementState: Managed
+Name:         cluster
+API Version:  operator.openshift.io/v1
+Kind:         KubeAPIServer
+Spec:
+  Management State:           Managed
 ```
 
 The current operator status is reported using the `ClusterOperator` resource. To get the current status you can run follow command:
@@ -107,7 +115,8 @@ oc patch pod/kube-apiserver-operator-<rand_digits> -n openshift-kube-apiserver-o
 
 ## Developing and debugging the bootkube bootstrap phase
 
-The operator image version used by the [https://github.com/openshift/installer/blob/master/pkg/asset/ignition/bootstrap/bootstrap.go#L178](installer) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
+The operator image version used by the installer bootstrap phase can be overridden by creating a custom origin-release 
+image pointing to the developer's operator `:latest` image:
 
 ```
 $ IMAGE_ORG=sttts make images
