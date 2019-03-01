@@ -108,7 +108,7 @@ apiServerArguments:
   feature-gates:
   - PersistentLocalVolumes=false # disable local volumes for 4.0, owned by sig-storage/hekumar@redhat.com
   minimal-shutdown-duration:
-  - 3s # give SDN some time to converge
+  - 35s # give SDN some time to converge
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
