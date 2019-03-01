@@ -218,8 +218,12 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
+	// TODO: If the image pull spec is not specified, the "${IMAGE}" will be used as value and the pod will fail to start.
 	if len(imagePullSpec) > 0 {
 		required.Spec.Containers[0].Image = imagePullSpec
+		if len(required.Spec.InitContainers) > 0 {
+			required.Spec.InitContainers[0].Image = imagePullSpec
+		}
 	}
 	var v int
 	switch operatorConfig.Spec.LogLevel {
@@ -234,7 +238,7 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 	default:
 		v = 2
 	}
-	required.Spec.Containers[0].Args[len(required.Spec.Containers[0].Args)-1] += " " + fmt.Sprintf("-v=%d", v)
+	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", v))
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
