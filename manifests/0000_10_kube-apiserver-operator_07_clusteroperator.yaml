@@ -3,3 +3,9 @@ kind: ClusterOperator
 metadata:
   name: kube-apiserver
 spec: {}
+status:
+  versions:
+  - name: operator
+    version: "0.0.1-snapshot"
+  - name: kube-apiserver
+    version: "0.0.1-snapshot-kubernetes"
