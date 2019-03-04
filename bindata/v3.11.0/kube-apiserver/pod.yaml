@@ -9,17 +9,22 @@ metadata:
     revision: "REVISION"
   deletionGracePeriodSeconds: 65 # a bit more than the kube-apiserver shutdown timeout of 60 sec
 spec:
+  initContainers:
+    - name: fix-audit-permissions
+      image: ${IMAGE}
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
+      volumeMounts:
+        - mountPath: /var/log/kube-apiserver
+          name: audit-dir
   containers:
   - name: kube-apiserver-REVISION
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["/bin/bash", "-xec"]
+    command: ["hypershift", "openshift-kube-apiserver"]
     args:
-    - |
-      mkdir -p /var/log/kube-apiserver
-      chmod 0700 /var/log/kube-apiserver
-      exec hypershift openshift-kube-apiserver --config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
+    - --config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
     resources:
       requests:
         memory: 1Gi
