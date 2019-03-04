@@ -1,5 +1,5 @@
-hash: a598205b02a5bc74539b428b60550da3479ca3f12cb35a8f3f17439d5b8d7acf
-updated: 2019-03-01T13:07:56.57834+01:00
+hash: 7fea71b0ed8e7ee9e1a2b4342a1217dd7b84b64dddb0607a406f12020fb840a1
+updated: 2019-03-04T09:11:08.638892456-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -103,7 +103,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
 - name: github.com/docker/docker
@@ -120,11 +120,11 @@ imports:
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
-  version: 5858425f75500d40c52783dce87d085a483ce135
+  version: 36442dbdb585210f8d5a1b45e67aa323c197d5c4
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-openapi/jsonpointer
   version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
@@ -235,7 +235,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 5eb2215fbabe96f19654a85c6cb99700cef4e734
+  version: ad60feaa9147fd1ba910f6cbbf3fccee48ac9f17
   subpackages:
   - apps
   - apps/v1
@@ -281,7 +281,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 31ef839c86359881d2c312c4f0131febc6662400
+  version: 2d89985ca24a8307e4b5db2574a62d3e6c2444b4
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -300,7 +300,8 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 16857be794c032ba8bce3e66c2e3ac4391bc1073
+  version: 4a1ce3fd515d33a814b514c4207d0f50d2ad4c50
+  repo: https://github.com/deads2k/library-go.git
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -433,7 +434,7 @@ imports:
   subpackages:
   - rate
 - name: golang.org/x/tools
-  version: 589c23e65e65055d47b9ad4a99723bc389136265
+  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
