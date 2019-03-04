@@ -1,5 +1,5 @@
-hash: a598205b02a5bc74539b428b60550da3479ca3f12cb35a8f3f17439d5b8d7acf
-updated: 2019-03-01T13:07:56.57834+01:00
+hash: 9134e31ec6ea1deedd7776d97c9661fa93959139e3b9621ebccb313c9964de05
+updated: 2019-03-04T14:19:31.363916+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -235,7 +235,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 5eb2215fbabe96f19654a85c6cb99700cef4e734
+  version: 01e157580c39b8e5a266a1d747bfbed1e1c5a854
   subpackages:
   - apps
   - apps/v1
@@ -281,7 +281,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 31ef839c86359881d2c312c4f0131febc6662400
+  version: 2d89985ca24a8307e4b5db2574a62d3e6c2444b4
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -300,7 +300,8 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 16857be794c032ba8bce3e66c2e3ac4391bc1073
+  version: 4b48fc27a2945904208042b45e4481ae7bbc5e7b
+  repo: https://github.com/mfojtik/library-go
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -319,6 +320,7 @@ imports:
   - pkg/operator/render
   - pkg/operator/render/options
   - pkg/operator/resource/resourceapply
+  - pkg/operator/resource/resourcecopy
   - pkg/operator/resource/resourcegraph
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
