@@ -110,5 +110,13 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// this ca bundle contains certs that can be used to verify a kube-apiserver
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-server-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
+	); err != nil {
+		return nil, err
+	}
+
 	return resourceSyncController, nil
 }

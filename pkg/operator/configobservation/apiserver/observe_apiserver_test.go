@@ -88,7 +88,7 @@ func TestObserveDefaultServingCertificate(t *testing.T) {
 
 	existingConfig := map[string]interface{}{
 		"servingInfo": map[string]interface{}{
-			"certFile": "/etc/kubernetes/static-pod-resources/secrets/existing/tls.key",
+			"certFile": "/etc/kubernetes/static-pod-certs/secrets/existing/tls.key",
 		},
 	}
 
@@ -119,8 +119,8 @@ func TestObserveDefaultServingCertificate(t *testing.T) {
 			existing: existingConfig,
 			expected: map[string]interface{}{
 				"servingInfo": map[string]interface{}{
-					"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert/tls.crt",
-					"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert/tls.key",
+					"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.crt",
+					"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.key",
 				},
 			},
 			expectedSynced: map[string]string{
@@ -161,8 +161,8 @@ func TestObserveNamedCertificates(t *testing.T) {
 		"servingInfo": map[string]interface{}{
 			"namedCertificates": []interface{}{
 				map[string]interface{}{
-					"certFile": "/etc/kubernetes/static-pod-resources/secrets/existing/tls.crt",
-					"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/existing/tls.key",
+					"certFile": "/etc/kubernetes/static-pod-certs/secrets/existing/tls.crt",
+					"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/existing/tls.key",
 					"names":    []interface{}{"existing"},
 				},
 			},
@@ -226,8 +226,8 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.key",
 							"names":    []interface{}{"*.foo.org"},
 						},
 					},
@@ -258,8 +258,8 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.key",
 						},
 					},
 				},
@@ -292,8 +292,8 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.key",
 							"names":    []interface{}{"*.foo.org", "foo.org", "*.bar.org"},
 						},
 					},
@@ -333,17 +333,17 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-000/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.key",
 							"names":    []interface{}{"one"},
 						},
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-001/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-001/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-001/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-001/tls.key",
 						},
 						map[string]interface{}{
-							"certFile": "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-002/tls.crt",
-							"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert-002/tls.key",
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-002/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-002/tls.key",
 							"names":    []interface{}{"three", "tři"},
 						},
 					},

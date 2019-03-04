@@ -41,7 +41,8 @@ import (
 const workQueueKey = "key"
 
 type TargetConfigController struct {
-	targetImagePullSpec string
+	targetImagePullSpec   string
+	operatorImagePullSpec string
 
 	operatorConfigClient operatorv1client.KubeAPIServersGetter
 	operatorClient       v1helpers.StaticPodOperatorClient
@@ -55,7 +56,7 @@ type TargetConfigController struct {
 }
 
 func NewTargetConfigController(
-	targetImagePullSpec string,
+	targetImagePullSpec, operatorImagePullSpec string,
 	operatorConfigInformer operatorv1informers.KubeAPIServerInformer,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
@@ -65,7 +66,8 @@ func NewTargetConfigController(
 	eventRecorder events.Recorder,
 ) *TargetConfigController {
 	c := &TargetConfigController{
-		targetImagePullSpec: targetImagePullSpec,
+		targetImagePullSpec:   targetImagePullSpec,
+		operatorImagePullSpec: operatorImagePullSpec,
 
 		operatorConfigClient: operatorConfigClient,
 		operatorClient:       operatorClient,
@@ -153,6 +155,7 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
 		"v3.11.0/kube-apiserver/ns.yaml",
 		"v3.11.0/kube-apiserver/svc.yaml",
+		"v3.11.0/kube-apiserver/kubeconfig-cm.yaml",
 	)
 
 	for _, currResult := range directResourceResults {
@@ -165,7 +168,7 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePod(c.kubeClient.CoreV1(), recorder, operatorConfig, c.targetImagePullSpec)
+	_, _, err = managePod(c.kubeClient.CoreV1(), recorder, operatorConfig, c.targetImagePullSpec, c.operatorImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -216,7 +219,7 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer, imagePullSpec string) (*corev1.ConfigMap, bool, error) {
+func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
 	// TODO: If the image pull spec is not specified, the "${IMAGE}" will be used as value and the pod will fail to start.
 	if len(imagePullSpec) > 0 {
@@ -224,6 +227,9 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 		if len(required.Spec.InitContainers) > 0 {
 			required.Spec.InitContainers[0].Image = imagePullSpec
 		}
+	}
+	if len(operatorImagePullSpec) > 0 {
+		required.Spec.Containers[1].Image = operatorImagePullSpec
 	}
 	var v int
 	switch operatorConfig.Spec.LogLevel {
@@ -276,7 +282,7 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 
 func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-server-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
 		lister,
 		nil, // TODO remove this
 		nil, // TODO remove this

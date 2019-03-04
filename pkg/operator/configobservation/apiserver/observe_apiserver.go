@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	userServingCertPublicCertFile          = "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert/tls.crt"
-	userServingCertPrivateKeyFile          = "/etc/kubernetes/static-pod-resources/secrets/user-serving-cert/tls.key"
+	userServingCertPublicCertFile          = "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.crt"
+	userServingCertPrivateKeyFile          = "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.key"
 	namedUserServingCertResourceNameFormat = "user-serving-cert-%03d"
 )
 
@@ -154,12 +154,12 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		resourceSyncRules[targetSecretName] = sourceSecretName
 
 		// add the named certificate to the observed config
-		certFile := fmt.Sprintf("/etc/kubernetes/static-pod-resources/secrets/%s/tls.crt", targetSecretName)
+		certFile := fmt.Sprintf("/etc/kubernetes/static-pod-certs/secrets/%s/tls.crt", targetSecretName)
 		if err := unstructured.SetNestedField(observedNamedCertificate, certFile, "certFile"); err != nil {
 			return previouslyObservedConfig, nil, append(errs, err)
 		}
 
-		keyFile := fmt.Sprintf("/etc/kubernetes/static-pod-resources/secrets/%s/tls.key", targetSecretName)
+		keyFile := fmt.Sprintf("/etc/kubernetes/static-pod-certs/secrets/%s/tls.key", targetSecretName)
 		if err := unstructured.SetNestedField(observedNamedCertificate, keyFile, "keyFile"); err != nil {
 			return previouslyObservedConfig, nil, append(errs, err)
 		}

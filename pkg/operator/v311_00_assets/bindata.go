@@ -2,6 +2,7 @@
 // sources:
 // bindata/v3.11.0/kube-apiserver/cm.yaml
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
+// bindata/v3.11.0/kube-apiserver/kubeconfig-cm.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
@@ -171,9 +172,9 @@ servicesSubnet: 10.3.0.0/16 # ServiceCIDR
 servingInfo:
   bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
-  certFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.crt
+  certFile: /etc/kubernetes/static-pod-certs/secrets/serving-cert/tls.crt
   clientCA: /etc/kubernetes/static-pod-resources/configmaps/client-ca/ca-bundle.crt
-  keyFile: /etc/kubernetes/static-pod-resources/secrets/serving-cert/tls.key
+  keyFile: /etc/kubernetes/static-pod-certs/secrets/serving-cert/tls.key
   maxRequestsInFlight: 1200
   namedCertificates: null
   requestTimeoutSeconds: 3600
@@ -200,6 +201,49 @@ func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/defaultconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverKubeconfigCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-apiserver-cert-syncer-kubeconfig
+  namespace: openshift-kube-apiserver
+data:
+  kubeconfig: |
+    apiVersion: v1
+    clusters:
+      - cluster:
+          certificate-authority: /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-server-ca/ca-bundle.crt
+          server: https://localhost:6443
+        name: loopback
+    contexts:
+      - context:
+          cluster: loopback
+          user: kube-apiserver-cert-syncer
+        name: kube-apiserver-cert-syncer
+    current-context: kube-apiserver-cert-syncer
+    kind: Config
+    preferences: {}
+    users:
+      - name: kube-apiserver-cert-syncer
+        user:
+          client-certificate: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.crt
+          client-key: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.key
+`)
+
+func v3110KubeApiserverKubeconfigCmYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverKubeconfigCmYaml, nil
+}
+
+func v3110KubeApiserverKubeconfigCmYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverKubeconfigCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/kubeconfig-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -312,6 +356,8 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+    - mountPath: /etc/kubernetes/static-pod-certs
+      name: cert-dir
     - mountPath: /var/log/kube-apiserver
       name: audit-dir
     livenessProbe:
@@ -328,6 +374,33 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
+  - name: kube-apiserver-cert-syncer-REVISION
+    env:
+    - name: POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["cluster-kube-apiserver-operator", "cert-syncer"]
+    args:
+      - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --namespace=${POD_NAMESPACE}
+      - --destination-dir=/etc/kubernetes/static-pod-certs
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 10m
+    volumeMounts:
+    - mountPath: /etc/kubernetes/static-pod-resources
+      name: resource-dir
+    - mountPath: /etc/kubernetes/static-pod-certs
+      name: cert-dir
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
@@ -336,6 +409,9 @@ spec:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
+  - hostPath:
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-certs
+    name: cert-dir
   - hostPath:
       path: /var/log/kube-apiserver
     name: audit-dir
@@ -444,6 +520,7 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/kube-apiserver/cm.yaml":              v3110KubeApiserverCmYaml,
 	"v3.11.0/kube-apiserver/defaultconfig.yaml":   v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/kubeconfig-cm.yaml":   v3110KubeApiserverKubeconfigCmYaml,
 	"v3.11.0/kube-apiserver/ns.yaml":              v3110KubeApiserverNsYaml,
 	"v3.11.0/kube-apiserver/operator-config.yaml": v3110KubeApiserverOperatorConfigYaml,
 	"v3.11.0/kube-apiserver/pod-cm.yaml":          v3110KubeApiserverPodCmYaml,
@@ -496,6 +573,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
 			"cm.yaml":              {v3110KubeApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":   {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"kubeconfig-cm.yaml":   {v3110KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
 			"ns.yaml":              {v3110KubeApiserverNsYaml, map[string]*bintree{}},
 			"operator-config.yaml": {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
 			"pod-cm.yaml":          {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
