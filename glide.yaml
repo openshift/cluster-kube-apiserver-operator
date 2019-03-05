@@ -13,7 +13,11 @@ import:
 - package: k8s.io/code-generator
   version: kubernetes-1.12.5
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.12.5
+  repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
+  version: origin-4.0-kubernetes-1.12.4 # for nullable PR, instead of kubernetes-1.12.5
+- package: sigs.k8s.io/controller-tools
+  repo: https://github.com/openshift/kubernetes-sigs-controller-tools
+  version: master
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go
