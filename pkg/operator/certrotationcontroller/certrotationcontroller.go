@@ -304,6 +304,49 @@ func NewCertRotationController(
 	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
+	certRotator, err = certrotation.NewCertRotationController(
+		"KubeAPIServerCertSyncer",
+		certrotation.SigningRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-control-plane-signer",
+			Validity:      8 * time.Hour, // to be 10 days
+			Refresh:       4 * time.Hour, // to be 4 days
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-control-plane-signer-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "kube-apiserver-cert-syncer-client-cert-key",
+			Validity:  1 * 4 * time.Hour, // to be 5 days
+			Refresh:   2 * time.Hour,     // to be 1 day
+			CertCreator: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "system:kube-apiserver-cert-syncer",
+					Groups: []string{"system:masters"},
+				},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ret.certRotators = append(ret.certRotators, certRotator)
+
 	return ret, nil
 }
 

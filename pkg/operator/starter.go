@@ -92,6 +92,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
+		os.Getenv("OPERATOR_IMAGE"),
 		operatorConfigInformers.Operator().V1().KubeAPIServers(),
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -116,7 +117,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		WithEvents(ctx.EventRecorder).
 		WithInstaller([]string{"cluster-kube-apiserver-operator", "installer"}).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
-		WithResources(operatorclient.TargetNamespace, "kube-apiserver", deploymentConfigMaps, deploymentSecrets).
+		WithResources(operatorclient.TargetNamespace, "kube-apiserver", revisionConfigMaps, revisionSecrets).
+		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithServiceMonitor(dynamicClient).
 		WithVersioning(operatorclient.OperatorNamespace, "kube-apiserver", versionRecorder).
 		ToControllers()
@@ -165,27 +167,39 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	return fmt.Errorf("stopped")
 }
 
-// deploymentConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
+// revisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
 // the first element should be the configmap that contains the static pod manifest
-var deploymentConfigMaps = []revision.RevisionResource{
+var revisionConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-pod"},
 
+	{Name: "config"},
+	{Name: "kube-apiserver-cert-syncer-kubeconfig"},
+	{Name: "oauth-metadata", Optional: true},
+
+	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "aggregator-client-ca"},
 	{Name: "client-ca"},
-	{Name: "config"},
 	{Name: "etcd-serving-ca"},
 	{Name: "initial-sa-token-signing-certs", Optional: true},
+	{Name: "kube-apiserver-server-ca", Optional: true},
 	{Name: "kube-controller-manager-sa-token-signing-certs", Optional: true},
 	{Name: "kubelet-serving-ca"},
-	{Name: "oauth-metadata", Optional: true},
 	{Name: "user-client-ca", Optional: true},
 }
 
-// deploymentSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
-var deploymentSecrets = []revision.RevisionResource{
+// revisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
+var revisionSecrets = []revision.RevisionResource{
+	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "aggregator-client"},
 	{Name: "etcd-client"},
+	{Name: "kube-apiserver-cert-syncer-client-cert-key"},
 	{Name: "kubelet-client"},
+}
+
+var CertConfigMaps = []revision.RevisionResource{}
+
+var CertSecrets = []revision.RevisionResource{
+	// this is needed so that the cert syncer itself can request certs.  It uses the service network.
 	{Name: "serving-cert"},
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
