@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/management"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,6 +31,11 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 )
+
+func init() {
+	management.SetOperatorAlwaysManaged()
+	management.SetOperatorNotRemovable()
+}
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
@@ -141,6 +147,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
+	operatorManagementState := management.NewOperatorManagementStateController("kube-apiserver", operatorClient, ctx.EventRecorder)
+
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
 		operatorClient,
@@ -161,6 +169,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go targetConfigReconciler.Run(1, ctx.Done())
 	go configObserver.Run(1, ctx.Done())
 	go clusterOperatorStatus.Run(1, ctx.Done())
+	go operatorManagementState.Run(1, ctx.Done())
 	go certRotationController.Run(1, ctx.Done())
 
 	<-ctx.Done()

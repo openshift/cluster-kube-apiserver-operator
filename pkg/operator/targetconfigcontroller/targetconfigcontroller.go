@@ -101,18 +101,6 @@ func (c TargetConfigController) sync() error {
 		return err
 	}
 
-	switch operatorConfig.Spec.ManagementState {
-	case operatorv1.Managed:
-	case operatorv1.Unmanaged:
-		return nil
-	case operatorv1.Removed:
-		// TODO probably just fail
-		return nil
-	default:
-		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorConfig.Spec.ManagementState)
-		return nil
-	}
-
 	// block until config is observed and specific paths are present
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
 		message := "no observedConfig"
