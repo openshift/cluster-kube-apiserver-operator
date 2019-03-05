@@ -96,8 +96,8 @@ admissionPluginConfig:
     location: ""
 aggregatorConfig:
   proxyClientInfo:
-    certFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.crt
-    keyFile: /etc/kubernetes/static-pod-resources/secrets/aggregator-client/tls.key
+    certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
+    keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
   storage-backend:
   - etcd3
@@ -144,7 +144,7 @@ auditConfig:
 authConfig:
   oauthMetadataFile: ""
   requestHeader:
-    clientCA: /etc/kubernetes/static-pod-resources/configmaps/aggregator-client-ca/ca-bundle.crt
+    clientCA: /etc/kubernetes/static-pod-certs/configmaps/aggregator-client-ca/ca-bundle.crt
     clientCommonNames:
     - kube-apiserver-proxy
     - system:kube-apiserver-proxy
@@ -173,7 +173,7 @@ servingInfo:
   bindAddress: 0.0.0.0:6443
   bindNetwork: tcp4
   certFile: /etc/kubernetes/static-pod-certs/secrets/serving-cert/tls.crt
-  clientCA: /etc/kubernetes/static-pod-resources/configmaps/client-ca/ca-bundle.crt
+  clientCA: /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
   keyFile: /etc/kubernetes/static-pod-certs/secrets/serving-cert/tls.key
   maxRequestsInFlight: 1200
   namedCertificates: null

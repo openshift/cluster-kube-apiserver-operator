@@ -177,29 +177,29 @@ var revisionConfigMaps = []revision.RevisionResource{
 	{Name: "oauth-metadata", Optional: true},
 
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
-	{Name: "aggregator-client-ca"},
-	{Name: "client-ca"},
 	{Name: "etcd-serving-ca"},
 	{Name: "initial-sa-token-signing-certs", Optional: true},
 	{Name: "kube-apiserver-server-ca", Optional: true},
 	{Name: "kube-controller-manager-sa-token-signing-certs", Optional: true},
 	{Name: "kubelet-serving-ca"},
-	{Name: "user-client-ca", Optional: true},
 }
 
 // revisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
 var revisionSecrets = []revision.RevisionResource{
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
-	{Name: "aggregator-client"},
 	{Name: "etcd-client"},
+	// this is needed so that the cert syncer itself can request certs.  It uses localhost
 	{Name: "kube-apiserver-cert-syncer-client-cert-key"},
 	{Name: "kubelet-client"},
 }
 
-var CertConfigMaps = []revision.RevisionResource{}
+var CertConfigMaps = []revision.RevisionResource{
+	{Name: "aggregator-client-ca"},
+	{Name: "client-ca"},
+}
 
 var CertSecrets = []revision.RevisionResource{
-	// this is needed so that the cert syncer itself can request certs.  It uses the service network.
+	{Name: "aggregator-client"},
 	{Name: "serving-cert"},
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
