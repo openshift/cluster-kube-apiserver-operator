@@ -13,8 +13,10 @@ type Features struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
+	// +required
 	Spec FeaturesSpec `json:"spec"`
 	// status holds observed values from the cluster. They may not be overridden.
+	// +optional
 	Status FeaturesStatus `json:"status"`
 }
 
@@ -43,7 +45,7 @@ type FeaturesStatus struct {
 type FeaturesList struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []Features `json:"items"`
 }
 
