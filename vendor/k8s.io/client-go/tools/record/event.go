@@ -135,6 +135,7 @@ func recordToSink(sink EventSink, event *v1.Event, eventCorrelator *EventCorrela
 		utilruntime.HandleError(err)
 	}
 	if result.Skip {
+		glog.Infof("DEBUG: Event not recorded (skip)")
 		return
 	}
 	tries := 0
@@ -175,12 +176,14 @@ func recordEvent(sink EventSink, event *v1.Event, patch []byte, updateExistingEv
 	var newEvent *v1.Event
 	var err error
 	if updateExistingEvent {
+		glog.Infof("DEBUG: Updating existing event (%s)", string(patch))
 		newEvent, err = sink.Patch(event, patch)
 	}
 	// Update can fail because the event may have been removed and it no longer exists.
 	if !updateExistingEvent || (updateExistingEvent && isKeyNotFoundError(err)) {
 		// Making sure that ResourceVersion is empty on creation
 		event.ResourceVersion = ""
+		glog.Infof("DEBUG: Creating event")
 		newEvent, err = sink.Create(event)
 	}
 	if err == nil {
@@ -198,12 +201,13 @@ func recordEvent(sink EventSink, event *v1.Event, patch []byte, updateExistingEv
 		return true
 	case *errors.StatusError:
 		if errors.IsAlreadyExists(err) {
-			glog.V(5).Infof("Server rejected event '%#v': '%v' (will not retry!)", event, err)
+			glog.Infof("Server rejected event '%#v': '%v' (will not retry!)", event, err)
 		} else {
 			glog.Errorf("Server rejected event '%#v': '%v' (will not retry!)", event, err)
 		}
 		return true
 	case *errors.UnexpectedObjectError:
+		glog.Infof("Unexpectedevent error (will retry): %v", err)
 		// We don't expect this; it implies the server's response didn't match a
 		// known pattern. Go ahead and retry.
 	default:
