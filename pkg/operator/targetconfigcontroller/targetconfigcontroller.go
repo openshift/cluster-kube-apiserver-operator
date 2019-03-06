@@ -73,7 +73,7 @@ func NewTargetConfigController(
 		operatorClient:       operatorClient,
 		kubeClient:           kubeClient,
 		configMapLister:      kubeInformersForNamespaces.ConfigMapLister(),
-		eventRecorder:        eventRecorder,
+		eventRecorder:        eventRecorder.WithComponentSuffix("target-config-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigController"),
 	}
