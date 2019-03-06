@@ -1,11 +1,13 @@
 package resourcesynccontroller
 
 import (
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/client-go/kubernetes"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
 func NewResourceSyncController(

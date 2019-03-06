@@ -146,7 +146,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorClient,
 		configInformers,
 		kubeInformersForNamespaces,
-		ctx.EventRecorder,
+		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 	if err != nil {
 		return err
