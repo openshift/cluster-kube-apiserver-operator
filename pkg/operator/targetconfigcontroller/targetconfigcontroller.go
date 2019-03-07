@@ -271,7 +271,7 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-control-plane-signer-ca"},
 		// this bundle is what a user uses to mint new client certs it directly manages
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "user-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "user-client-ca"},
 	)
 	if err != nil {
 		return nil, false, err
