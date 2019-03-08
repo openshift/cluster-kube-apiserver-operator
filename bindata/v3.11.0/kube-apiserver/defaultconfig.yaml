@@ -32,6 +32,8 @@ apiServerArguments:
   - PersistentLocalVolumes=false # disable local volumes for 4.0, owned by sig-storage/hekumar@redhat.com
   minimal-shutdown-duration:
   - 3s # give SDN some time to converge
+  http2-max-streams-per-connection:
+  - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
