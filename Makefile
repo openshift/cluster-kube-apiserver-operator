@@ -49,3 +49,9 @@ origin-release:
 	@echo "  docker push $(IMAGE_ORG)/origin-release:latest"
 	@echo "  docker push $(IMAGE_ORG)/origin-cluster-kube-apiserver-operator"
 	@echo "  OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(IMAGE_ORG)/origin-release:latest bin/openshift-install cluster --log-level=debug"
+
+GO_TEST_PACKAGES :=./pkg/... ./cmd/...
+
+.PHONY: test-e2e
+test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
+test-e2e: test-unit
