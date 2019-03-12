@@ -136,6 +136,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 		},
 		configClient.ConfigV1(),
+		configInformers.Config().V1().ClusterOperators(),
 		operatorClient,
 		versionRecorder,
 		ctx.EventRecorder,
