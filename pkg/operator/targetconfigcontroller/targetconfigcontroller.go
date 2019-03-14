@@ -10,7 +10,17 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -22,16 +32,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	operatorv1 "github.com/openshift/api/operator/v1"
-	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
@@ -150,7 +150,7 @@ func (c TargetConfigController) sync() error {
 // createTargetConfig takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
 func createTargetConfig(c TargetConfigController, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer) (bool, error) {
-	errors := []error{}
+	allErrors := []error{}
 
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
 		"v3.11.0/kube-apiserver/ns.yaml",
@@ -158,35 +158,46 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 		"v3.11.0/kube-apiserver/kubeconfig-cm.yaml",
 	)
 
+	hasServiceUnavailableError := false
+
 	for _, currResult := range directResourceResults {
-		if currResult.Error != nil {
-			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
+		if kerrors.IsServiceUnavailable(currResult.Error) {
+			hasServiceUnavailableError = true
+			continue
 		}
+		if currResult.Error != nil {
+			allErrors = append(allErrors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
+		}
+	}
+
+	// If we hit the apiserver shutdown error, retry without setting failing=true condition.
+	if hasServiceUnavailableError {
+		return true, fmt.Errorf(v1helpers.NewMultiLineAggregate(allErrors).Error())
 	}
 
 	_, _, err := manageKubeAPIServerConfig(c.kubeClient.CoreV1(), recorder, operatorConfig)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
+		allErrors = append(allErrors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
 	_, _, err = managePod(c.kubeClient.CoreV1(), recorder, operatorConfig, c.targetImagePullSpec, c.operatorImagePullSpec)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
+		allErrors = append(allErrors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
 	_, _, err = manageClientCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
+		allErrors = append(allErrors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
 	}
 	_, _, err = manageKubeAPIServerCABundle(c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
+		allErrors = append(allErrors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
 	}
 
-	if len(errors) > 0 {
+	if len(allErrors) > 0 {
 		condition := operatorv1.OperatorCondition{
 			Type:    "TargetConfigControllerFailing",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "SynchronizationError",
-			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
+			Message: v1helpers.NewMultiLineAggregate(allErrors).Error(),
 		}
 		if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
 			return true, err
