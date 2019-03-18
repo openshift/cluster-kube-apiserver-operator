@@ -21,6 +21,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+// rotationDay is one day. Set this to short values for testing, e.g. 5 minutes.
+const rotationDay = 24 * time.Hour
+
 type CertRotationController struct {
 	certRotators []*certrotation.CertRotationController
 
@@ -67,8 +70,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "aggregator-client-signer",
-			Validity:      8 * time.Hour, // to be 10 days
-			Refresh:       4 * time.Hour, // to be 4 days
+			Validity:      30 * rotationDay,
+			Refresh:       15 * rotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -85,8 +88,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "aggregator-client",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // this could stay.
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
@@ -107,8 +110,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "localhost-serving-signer",
-			Validity:      10 * 365 * 24 * time.Hour, // this comes from the installer
-			Refresh:       8 * 365 * 24 * time.Hour,  // this means we effectively do not rotate
+			Validity:      10 * 365 * rotationDay, // this comes from the installer
+			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -125,8 +128,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-serving-cert-certkey",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // this could stay.
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
 			},
@@ -147,8 +150,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "service-network-serving-signer",
-			Validity:      10 * 365 * 24 * time.Hour, // this comes from the installer
-			Refresh:       8 * 365 * 24 * time.Hour,  // this means we effectively do not rotate
+			Validity:      10 * 365 * rotationDay, // this comes from the installer
+			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -165,8 +168,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "service-network-serving-certkey",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // this could stay.
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames:        ret.serviceNetwork.GetHostnames,
 				HostnamesChanged: ret.serviceNetwork.hostnamesChanged,
@@ -188,8 +191,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-signer",
-			Validity:      10 * 365 * 24 * time.Hour, // this comes from the installer
-			Refresh:       8 * 365 * 24 * time.Hour,  // this means we effectively do not rotate
+			Validity:      10 * 365 * rotationDay, // this comes from the installer
+			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -206,8 +209,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "loadbalancer-serving-certkey",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // this could stay.
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames:        ret.loadBalancer.GetHostnames,
 				HostnamesChanged: ret.loadBalancer.hostnamesChanged,
@@ -229,8 +232,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      8 * time.Hour, // to be 10 days
-			Refresh:       4 * time.Hour, // to be 4 days
+			Validity:      60 * rotationDay,
+			Refresh:       30 * rotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -247,8 +250,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-controller-manager-client-cert-key",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // to be 1 day
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
 			},
@@ -269,8 +272,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      8 * time.Hour, // to be 10 days
-			Refresh:       4 * time.Hour, // to be 4 days
+			Validity:      60 * rotationDay,
+			Refresh:       30 * rotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -287,8 +290,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-scheduler-client-cert-key",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // to be 1 day
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
 			},
@@ -309,8 +312,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      8 * time.Hour, // to be 10 days
-			Refresh:       4 * time.Hour, // to be 4 days
+			Validity:      60 * rotationDay,
+			Refresh:       30 * rotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -327,8 +330,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "kube-apiserver-cert-syncer-client-cert-key",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // to be 1 day
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{
 					Name:   "system:kube-apiserver-cert-syncer",
