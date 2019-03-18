@@ -67,8 +67,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "aggregator-client-signer",
-			Validity:      8 * time.Hour, // to be 10 days
-			Refresh:       4 * time.Hour, // to be 4 days
+			Validity:      15 * time.Minute, // to be 10 days
+			Refresh:       5 * time.Minute,  // to be 4 days
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -85,8 +85,8 @@ func NewCertRotationController(
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "aggregator-client",
-			Validity:  1 * 4 * time.Hour, // to be 5 days
-			Refresh:   2 * time.Hour,     // this could stay.
+			Validity:  1 * 5 * time.Minute, // to be 5 days
+			Refresh:   1 * time.Minute,     // this could stay.
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
