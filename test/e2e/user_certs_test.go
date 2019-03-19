@@ -88,7 +88,10 @@ func TestNamedCertificates(t *testing.T) {
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
 
 	// get serial number of default serving certificate
-	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "serving-cert")
+	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
+	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
+	serviceNetworkServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
+	loadBalancerServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "loadbalancer-serving-certkey")
 
 	// execute test cases
 	testCases := []struct {
@@ -119,42 +122,42 @@ func TestNamedCertificates(t *testing.T) {
 		{
 			name:                 "Service kubernetes",
 			serverName:           "kubernetes",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceNetworkServingCertSerialNumber,
 		},
 		{
 			name:                 "Service kubernetes.default",
 			serverName:           "kubernetes.default",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceNetworkServingCertSerialNumber,
 		},
 		{
 			name:                 "Service kubernetes.default.svc",
 			serverName:           "kubernetes.default.svc",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceNetworkServingCertSerialNumber,
 		},
 		{
 			name:                 "Service kubernetes.default.svc.cluster.local",
 			serverName:           "kubernetes.default.svc.cluster.local",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceNetworkServingCertSerialNumber,
 		},
 		{
 			name:                 "ServiceIP",
 			serverName:           getKubernetesServiceClusterIPOrFail(t, kubeClient),
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceNetworkServingCertSerialNumber,
 		},
 		{
 			name:                 "Localhost localhost",
 			serverName:           "localhost",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: localhostServingCertSerialNumber,
 		},
 		{
 			name:                 "Localhost 127.0.0.1",
 			serverName:           "127.0.0.1",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: localhostServingCertSerialNumber,
 		},
 		{
 			name:                 "LoadBalancerHostname",
 			serverName:           getAPIServiceHostNameOrFail(t, configClient),
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: loadBalancerServingCertSerialNumber,
 		},
 		{
 			name:                 "UnknownServerHostname",
