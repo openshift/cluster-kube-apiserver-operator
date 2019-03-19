@@ -1,5 +1,5 @@
-hash: a598205b02a5bc74539b428b60550da3479ca3f12cb35a8f3f17439d5b8d7acf
-updated: 2019-03-18T16:10:10.178758+01:00
+hash: a25f63d9125e16e1bacc281725d5466152d501da1083289aca88b6652d7a400c
+updated: 2019-03-19T13:56:24.704592+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -133,6 +133,8 @@ imports:
   version: 1de3e0542de65ad8d75452a595886fdd0befb363
 - name: github.com/go-openapi/swag
   version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
+- name: github.com/gobuffalo/envy
+  version: 1e6702b55a7afe795770f86ce76c13836a591904
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -214,16 +216,22 @@ imports:
   version: 9316a62528ac99aaecb4e47eadd6dc8aa6533d58
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
+- name: github.com/joho/godotenv
+  version: 6d367c18edf6ca7fd004efd6863e4c5728fa858e
 - name: github.com/json-iterator/go
   version: f2b4162afba35581b6d4a50d3b8f34e33c144682
 - name: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
+- name: github.com/kr/fs
+  version: 2788f0dbd16903de03cb8186e5c7d97b69ad387b
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/markbates/inflect
+  version: 24b83195037b3bc61fcda2d28b7b0518bce293b6
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -235,7 +243,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 756349b2dde816edf40630643cf42d1533e24ab3
+  version: f937b46e4afd01727fd74e823720741d943e4995
   subpackages:
   - apps
   - apps/v1
@@ -300,8 +308,9 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 69ec53fc354e648d1b1bd08556e702639f494688
+  version: 8153948571f27c8d9f552198aba7d5ff9bef5bbd
   subpackages:
+  - cmd/crd-schema-gen/generator
   - pkg/assets
   - pkg/config/client
   - pkg/config/clusteroperator/v1helpers
@@ -352,6 +361,8 @@ imports:
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
   version: 22592cc4bae3572d59be8852c6980023e4c9dec5
+- name: github.com/pkg/sftp
+  version: 4d0e916071f68db74f8a73926335f809396d6b42
 - name: github.com/prometheus/client_golang
   version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
@@ -374,8 +385,19 @@ imports:
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
+- name: github.com/rogpeppe/go-internal
+  version: bb30e2a7ca3553a66c6a740eb5ebe72f9d35ef0e
+  subpackages:
+  - modfile
+  - module
+  - semver
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
+- name: github.com/spf13/afero
+  version: b28a7effac979219c2a2ed6205a4d70e4b1bcd02
+  subpackages:
+  - mem
+  - sftp
 - name: github.com/spf13/cobra
   version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
@@ -389,12 +411,15 @@ imports:
   subpackages:
   - bcrypt
   - blowfish
+  - curve25519
   - ed25519
   - ed25519/internal/edwards25519
+  - internal/chacha20
   - internal/subtle
   - nacl/secretbox
   - poly1305
   - salsa20/salsa
+  - ssh
   - ssh/terminal
 - name: golang.org/x/net
   version: 0ed95abb35c445290478a5348a7b38bb154135fd
@@ -438,6 +463,8 @@ imports:
   version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
   subpackages:
   - container/intsets
+  - go/ast/astutil
+  - imports
 - name: google.golang.org/appengine
   version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
@@ -516,7 +543,8 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: a384d17938fe55d54a52d5668bf0ff40044daef0
+  version: cff3be58cff453c44c49af4595bc58f4a4217ff7
+  repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
@@ -813,6 +841,10 @@ imports:
   version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
   subpackages:
   - args
+  - generator
+  - namer
+  - parser
+  - types
 - name: k8s.io/kube-aggregator
   version: 4764f3a1991175f477682bbba516e97fab77b19f
   subpackages:
@@ -829,4 +861,14 @@ imports:
   - pkg/handler
   - pkg/util
   - pkg/util/proto
+- name: sigs.k8s.io/controller-tools
+  version: 9023c7551a0d78f09b063fc41cefa8a23bb849ab
+  repo: https://github.com/openshift/kubernetes-sigs-controller-tools
+  subpackages:
+  - pkg/crd/generator
+  - pkg/crd/util
+  - pkg/internal/codegen
+  - pkg/internal/codegen/parse
+  - pkg/internal/general
+  - pkg/util
 testImports: []
