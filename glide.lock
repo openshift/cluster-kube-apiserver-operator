@@ -1,5 +1,5 @@
 hash: a598205b02a5bc74539b428b60550da3479ca3f12cb35a8f3f17439d5b8d7acf
-updated: 2019-03-18T16:10:10.178758+01:00
+updated: 2019-03-19T18:17:06.242266+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -235,7 +235,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 756349b2dde816edf40630643cf42d1533e24ab3
+  version: 19e76f656f2b86e0624d6199e8b3fe49b89269ad
   subpackages:
   - apps
   - apps/v1
@@ -300,9 +300,10 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 69ec53fc354e648d1b1bd08556e702639f494688
+  version: 51f03990e759d660adfcb525f80d31fbd59e854b
   subpackages:
   - pkg/assets
+  - pkg/certs
   - pkg/config/client
   - pkg/config/clusteroperator/v1helpers
   - pkg/config/configdefaults
