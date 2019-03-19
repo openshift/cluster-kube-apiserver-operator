@@ -1,6 +1,5 @@
 # Kubernetes API Server Operator
 
-
 The Kubernetes API Server operator manages and updates the [Kubernetes API server](https://github.com/kubernetes/kubernetes) deployed on top of
 [OpenShift](https://openshift.io). The operator is based on OpenShift [library-go](https://github.com/openshift/library-go) framework and it
  is installed via [Cluster Version Operator](https://github.com/openshift/cluster-version-operator) (CVO).
@@ -17,6 +16,7 @@ The metrics are collected from following components:
 
 * Kubernetes API Server Operator
 
+
 ## Configuration
 
 The configuration observer component is responsible for reacting on external configuration changes.
@@ -30,8 +30,7 @@ Currently changes in following external components are being observed:
 * `cluster` *image.config.openshift.io* custom resource
   - The observed CR resource is used to configure the `imagePolicyConfig.internalRegistryHostname` in Kubernetes API server configuration
 * `cluster-config-v1` *configmap* in *kube-system* namespace
-  - The observed configmap `install-config` is decoded and the `networking.podCIDR` and `networking.serviceCIDR` is extracted and used as input for `admissionPluginConfig.openshift.io/RestrictedEndpointsAdmission
-.configuration.restrictedCIDRs` and `servicesSubnet`
+  - The observed configmap `install-config` is decoded and the `networking.podCIDR` and `networking.serviceCIDR` is extracted and used as input for `admissionPluginConfig.openshift.io/RestrictedEndpointsAdmission.configuration.restrictedCIDRs` and `servicesSubnet`
 
 
 The configuration for the Kubernetes API server is the result of merging:
@@ -41,6 +40,7 @@ The configuration for the Kubernetes API server is the result of merging:
 
 All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end.
 
+
 ## Debugging
 
 Operator also expose events that can help debugging issues. To get operator events, run following command:
@@ -49,16 +49,16 @@ Operator also expose events that can help debugging issues. To get operator even
 $ oc get events -n  openshift-cluster-kube-apiserver-operator
 ```
 
-This operator is configured via [`KubeAPIServerOperatorConfig`](https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/pkg/apis/kubeapiserver/v1alpha1/types.go#L12) custom resource:
+This operator is configured via [`KubeAPIServer`](https://github.com/openshift/api/blob/master/operator/v1/types_kubeapiserver.go#L12) custom resource:
 
 ```
-$ oc describe kubeapiserveroperatorconfig
+$ oc describe kubeapiserver
 ```
 ```yaml
-apiVersion: kubeapiserver.operator.openshift.io/v1alpha1
-kind: KubeAPIServerOperatorConfig
+apiVersion: operator.openshift.io/v1
+kind: KubeAPIServer
 metadata:
-  name: instance
+  name: cluster
 spec:
   managementState: Managed
 ```
@@ -66,12 +66,13 @@ spec:
 The current operator status is reported using the `ClusterOperator` resource. To get the current status you can run follow command:
 
 ```
-$ oc get clusteroperator openshift-cluster-kube-apiserver-operator
+$ oc get clusteroperator/kube-apiserver
 ```
+
 
 ## Developing and debugging the bootkube bootstrap phase
 
-The operator image version used by the [https://github.com/openshift/installer/blob/master/pkg/asset/ignition/bootstrap/content/bootkube.go#L86](installer) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
+The operator image version used by the [https://github.com/openshift/installer/blob/master/pkg/asset/ignition/bootstrap/bootstrap.go#L178](installer) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
 
 ```
 $ IMAGE_ORG=sttts make images
