@@ -246,7 +246,7 @@ func syncObservedResources(syncResource resourceSyncFunc, syncRules syncActionRu
 			source = resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: from}
 		}
 		// if 'from' is empty, then it means we want to delete
-		destination := resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: to}
+		destination := resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: to}
 		if err := syncResource(destination, source); err != nil {
 			errs = append(errs, err)
 		}
