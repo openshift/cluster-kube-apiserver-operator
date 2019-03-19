@@ -106,8 +106,6 @@ apiServerArguments:
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
   - "true"
-  feature-gates:
-  - PersistentLocalVolumes=false # disable local volumes for 4.0, owned by sig-storage/hekumar@redhat.com
   minimal-shutdown-duration:
   - 3s # give SDN some time to converge
   http2-max-streams-per-connection:
