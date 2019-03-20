@@ -58,6 +58,621 @@ spec:
                 observed from the cluster state.  It exists in spec because it is
                 an input to the level for the operator
               nullable: true
+              properties:
+                admission:
+                  description: admissionConfig holds information about how to configure
+                    admission.
+                  properties:
+                    disabledPlugins:
+                      description: disabledPlugins is a list of admission plugins
+                        that must be off.  Putting something in this list is almost
+                        always a mistake and likely to result in cluster instability.
+                      items:
+                        type: string
+                      type: array
+                    enabledPlugins:
+                      description: enabledPlugins is a list of admission plugins that
+                        must be on in addition to the default list. Some admission
+                        plugins are disabled by default, but certain configurations
+                        require them.  This is fairly uncommon and can result in performance
+                        penalties and unexpected behavior.
+                      items:
+                        type: string
+                      type: array
+                    pluginConfig:
+                      type: object
+                  type: object
+                admissionPluginConfig:
+                  description: TODO remove this.  We need a cut-over or we'll have
+                    a gap.
+                  type: object
+                aggregatorConfig:
+                  description: aggregatorConfig has options for configuring the aggregator
+                    component of the API server.
+                  properties:
+                    proxyClientInfo:
+                      description: proxyClientInfo specifies the client cert/key to
+                        use when proxying to aggregated API servers
+                      properties:
+                        certFile:
+                          description: CertFile is a file containing a PEM-encoded
+                            certificate
+                          type: string
+                        keyFile:
+                          description: KeyFile is a file containing a PEM-encoded
+                            private key for the certificate specified by CertFile
+                          type: string
+                      type: object
+                  type: object
+                apiServerArguments:
+                  description: TODO this needs to be removed.
+                  type: object
+                apiVersion:
+                  description: 'APIVersion defines the versioned schema of this representation
+                    of an object. Servers should convert recognized schemas to the
+                    latest internal value, and may reject unrecognized values. More
+                    info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+                  type: string
+                auditConfig:
+                  description: auditConfig describes how to configure audit information
+                  properties:
+                    auditFilePath:
+                      description: All requests coming to the apiserver will be logged
+                        to this file.
+                      type: string
+                    enabled:
+                      description: If this flag is set, audit log will be printed
+                        in the logs. The logs contains, method, user and a requested
+                        URL.
+                      type: boolean
+                    logFormat:
+                      description: Format of saved audits (legacy or json).
+                      type: string
+                    maximumFileRetentionDays:
+                      description: Maximum number of days to retain old log files
+                        based on the timestamp encoded in their filename.
+                      format: int32
+                      type: integer
+                    maximumFileSizeMegabytes:
+                      description: Maximum size in megabytes of the log file before
+                        it gets rotated. Defaults to 100MB.
+                      format: int32
+                      type: integer
+                    maximumRetainedFiles:
+                      description: Maximum number of old log files to retain.
+                      format: int32
+                      type: integer
+                    policyConfiguration:
+                      description: PolicyConfiguration is an embedded policy configuration
+                        object to be used as the audit policy configuration. If present,
+                        it will be used instead of the path to the policy file.
+                      nullable: true
+                      type: object
+                    policyFile:
+                      description: PolicyFile is a path to the file that defines the
+                        audit policy configuration.
+                      type: string
+                    webHookKubeConfig:
+                      description: Path to a .kubeconfig formatted file that defines
+                        the audit webhook configuration.
+                      type: string
+                    webHookMode:
+                      description: Strategy for sending audit events (block or batch).
+                      type: string
+                  type: object
+                authConfig:
+                  description: authConfig configures authentication options in addition
+                    to the standard oauth token and client certificate authenticators
+                  properties:
+                    oauthMetadataFile:
+                      description: 'oauthMetadataFile is a path to a file containing
+                        the discovery endpoint for OAuth 2.0 Authorization Server
+                        Metadata for an external OAuth server. See IETF Draft: //
+                        https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2
+                        This option is mutually exclusive with OAuthConfig'
+                      type: string
+                    requestHeader:
+                      description: requestHeader holds options for setting up a front
+                        proxy against the the API.  It is optional.
+                      properties:
+                        clientCA:
+                          description: clientCA is a file with the trusted signer
+                            certs.  It is required.
+                          type: string
+                        clientCommonNames:
+                          description: clientCommonNames is a required list of common
+                            names to require a match from.
+                          items:
+                            type: string
+                          type: array
+                        extraHeaderPrefixes:
+                          description: extraHeaderPrefixes is the set of request header
+                            prefixes to inspect for user extra. X-Remote-Extra- is
+                            suggested.
+                          items:
+                            type: string
+                          type: array
+                        groupHeaders:
+                          description: groupHeaders is the set of headers to check
+                            for group information.  All are unioned.
+                          items:
+                            type: string
+                          type: array
+                        usernameHeaders:
+                          description: usernameHeaders is the list of headers to check
+                            for user information.  First hit wins.
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    webhookTokenAuthenticators:
+                      description: webhookTokenAuthenticators, if present configures
+                        remote token reviewers
+                      items:
+                        properties:
+                          cacheTTL:
+                            description: cacheTTL indicates how long an authentication
+                              result should be cached. It takes a valid time duration
+                              string (e.g. "5m"). If empty, you get a default timeout
+                              of 2 minutes. If zero (e.g. "0m"), caching is disabled
+                            type: string
+                          configFile:
+                            description: configFile is a path to a Kubeconfig file
+                              with the webhook configuration
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                consolePublicURL:
+                  description: consolePublicURL is an optional URL to provide a redirect
+                    from the kube-apiserver to the webconsole
+                  type: string
+                corsAllowedOrigins:
+                  description: corsAllowedOrigins
+                  items:
+                    type: string
+                  type: array
+                imagePolicyConfig:
+                  description: imagePolicyConfig feeds the image policy admission
+                    plugin TODO make it an admission plugin config
+                  properties:
+                    externalRegistryHostnames:
+                      description: externalRegistryHostnames provides the hostnames
+                        for the default external image registry. The external hostname
+                        should be set only when the image registry is exposed externally.
+                        The first value is used in 'publicDockerImageRepository' field
+                        in ImageStreams. The value must be in "hostname[:port]" format.
+                      items:
+                        type: string
+                      type: array
+                    internalRegistryHostname:
+                      description: internalRegistryHostname sets the hostname for
+                        the default internal image registry. The value must be in
+                        "hostname[:port]" format. For backward compatibility, users
+                        can still use OPENSHIFT_DEFAULT_REGISTRY environment variable
+                        but this setting overrides the environment variable.
+                      type: string
+                  type: object
+                kind:
+                  description: 'Kind is a string value representing the REST resource
+                    this object represents. Servers may infer this from the endpoint
+                    the client submits requests to. Cannot be updated. In CamelCase.
+                    More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                kubeClientConfig:
+                  properties:
+                    connectionOverrides:
+                      description: connectionOverrides specifies client overrides
+                        for system components to loop back to this master.
+                      properties:
+                        acceptContentTypes:
+                          description: acceptContentTypes defines the Accept header
+                            sent by clients when connecting to a server, overriding
+                            the default value of 'application/json'. This field will
+                            control all connections to the server used by a particular
+                            client.
+                          type: string
+                        burst:
+                          description: burst allows extra queries to accumulate when
+                            a client is exceeding its rate.
+                          format: int32
+                          type: integer
+                        contentType:
+                          description: contentType is the content type used when sending
+                            data to the server from this client.
+                          type: string
+                        qps:
+                          description: qps controls the number of queries per second
+                            allowed for this connection.
+                          format: float
+                          type: number
+                      type: object
+                    kubeConfig:
+                      description: kubeConfig is a .kubeconfig filename for going
+                        to the owning kube-apiserver.  Empty uses an in-cluster-config
+                      type: string
+                  type: object
+                kubeletClientInfo:
+                  description: kubeletClientInfo contains information about how to
+                    connect to kubelets
+                  properties:
+                    ca:
+                      description: ca is the CA for verifying TLS connections to kubelets
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    port:
+                      description: port is the port to connect to kubelets on
+                      format: int32
+                      type: integer
+                  type: object
+                oauthConfig:
+                  description: oauthConfig, if present start the /oauth endpoint in
+                    this process
+                  properties:
+                    alwaysShowProviderSelection:
+                      description: alwaysShowProviderSelection will force the provider
+                        selection page to render even when there is only a single
+                        provider.
+                      type: boolean
+                    assetPublicURL:
+                      description: assetPublicURL is used for building valid client
+                        redirect URLs for external access
+                      type: string
+                    grantConfig:
+                      description: grantConfig describes how to handle grants
+                      properties:
+                        method:
+                          description: 'method determines the default strategy to
+                            use when an OAuth client requests a grant. This method
+                            will be used only if the specific OAuth client doesn''t
+                            provide a strategy of their own. Valid grant handling
+                            methods are:  - auto:   always approves grant requests,
+                            useful for trusted clients  - prompt: prompts the end
+                            user for approval of grant requests, useful for third-party
+                            clients  - deny:   always denies grant requests, useful
+                            for black-listed clients'
+                          type: string
+                        serviceAccountMethod:
+                          description: 'serviceAccountMethod is used for determining
+                            client authorization for service account oauth client.
+                            It must be either: deny, prompt'
+                          type: string
+                      type: object
+                    identityProviders:
+                      description: identityProviders is an ordered list of ways for
+                        a user to identify themselves
+                      items:
+                        properties:
+                          challenge:
+                            description: challenge indicates whether to issue WWW-Authenticate
+                              challenges for this provider
+                            type: boolean
+                          login:
+                            description: login indicates whether to use this identity
+                              provider for unauthenticated browsers to login against
+                            type: boolean
+                          mappingMethod:
+                            description: mappingMethod determines how identities from
+                              this provider are mapped to users
+                            type: string
+                          name:
+                            description: name is used to qualify the identities returned
+                              by this provider
+                            type: string
+                          provider:
+                            description: provider contains the information about how
+                              to set up a specific identity provider
+                            type: object
+                        type: object
+                      type: array
+                    loginURL:
+                      description: 'loginURL, along with masterCA, masterURL and masterPublicURL
+                        have distinct meanings depending on how the OAuth server is
+                        run.  The two states are: 1. embedded in the kube api server
+                        (all 3.x releases) 2. as a standalone external process (all
+                        4.x releases) in the embedded configuration, loginURL is equivalent
+                        to masterPublicURL and the other fields have functionality
+                        that matches their docs. in the standalone configuration,
+                        the fields are used as: loginURL is the URL required to login
+                        to the cluster: oc login --server=<loginURL> masterPublicURL
+                        is the issuer URL it is accessible from inside (service network)
+                        and outside (ingress) of the cluster masterURL is the loopback
+                        variation of the token_endpoint URL with no path component
+                        it is only accessible from inside (service network) of the
+                        cluster masterCA is used to perform TLS verification for connections
+                        made to masterURL For further details, see the IETF Draft:
+                        https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2'
+                      type: string
+                    masterCA:
+                      description: masterCA is the CA for verifying the TLS connection
+                        back to the MasterURL. This field is deprecated and will be
+                        removed in a future release. See loginURL for details. Deprecated
+                      type: string
+                    masterPublicURL:
+                      description: masterPublicURL is used for building valid client
+                        redirect URLs for internal and external access This field
+                        is deprecated and will be removed in a future release. See
+                        loginURL for details. Deprecated
+                      type: string
+                    masterURL:
+                      description: masterURL is used for making server-to-server calls
+                        to exchange authorization codes for access tokens This field
+                        is deprecated and will be removed in a future release. See
+                        loginURL for details. Deprecated
+                      type: string
+                    sessionConfig:
+                      description: sessionConfig hold information about configuring
+                        sessions.
+                      properties:
+                        sessionMaxAgeSeconds:
+                          description: sessionMaxAgeSeconds specifies how long created
+                            sessions last. Used by AuthRequestHandlerSession
+                          format: int32
+                          type: integer
+                        sessionName:
+                          description: sessionName is the cookie name used to store
+                            the session
+                          type: string
+                        sessionSecretsFile:
+                          description: sessionSecretsFile is a reference to a file
+                            containing a serialized SessionSecrets object If no file
+                            is specified, a random signing and encryption key are
+                            generated at each server start
+                          type: string
+                      type: object
+                    templates:
+                      description: templates allow you to customize pages like the
+                        login page.
+                      properties:
+                        error:
+                          description: error is a path to a file containing a go template
+                            used to render error pages during the authentication or
+                            grant flow If unspecified, the default error page is used.
+                          type: string
+                        login:
+                          description: login is a path to a file containing a go template
+                            used to render the login page. If unspecified, the default
+                            login page is used.
+                          type: string
+                        providerSelection:
+                          description: providerSelection is a path to a file containing
+                            a go template used to render the provider selection page.
+                            If unspecified, the default provider selection page is
+                            used.
+                          type: string
+                      type: object
+                    tokenConfig:
+                      description: tokenConfig contains options for authorization
+                        and access tokens
+                      properties:
+                        accessTokenInactivityTimeoutSeconds:
+                          description: 'accessTokenInactivityTimeoutSeconds defined
+                            the default token inactivity timeout for tokens granted
+                            by any client. Setting it to nil means the feature is
+                            completely disabled (default) The default setting can
+                            be overriden on OAuthClient basis. The value represents
+                            the maximum amount of time that can occur between consecutive
+                            uses of the token. Tokens become invalid if they are not
+                            used within this temporal window. The user will need to
+                            acquire a new token to regain access once a token times
+                            out. Valid values are: - 0: Tokens never time out - X:
+                            Tokens time out if there is no activity for X seconds
+                            The current minimum allowed value for X is 300 (5 minutes)'
+                          format: int32
+                          type: integer
+                        accessTokenMaxAgeSeconds:
+                          description: accessTokenMaxAgeSeconds defines the maximum
+                            age of access tokens
+                          format: int32
+                          type: integer
+                        authorizeTokenMaxAgeSeconds:
+                          description: authorizeTokenMaxAgeSeconds defines the maximum
+                            age of authorize tokens
+                          format: int32
+                          type: integer
+                      type: object
+                  type: object
+                projectConfig:
+                  description: projectConfig feeds an admission plugin TODO make it
+                    an admission plugin config
+                  properties:
+                    defaultNodeSelector:
+                      description: defaultNodeSelector holds default project node
+                        label selector
+                      type: string
+                  type: object
+                serviceAccountPublicKeyFiles:
+                  description: serviceAccountPublicKeyFiles is a list of files, each
+                    containing a PEM-encoded public RSA key. (If any file contains
+                    a private key, the public portion of the key is used) The list
+                    of public keys is used to verify presented service account tokens.
+                    Each key is tried in order until the list is exhausted or verification
+                    succeeds. If no keys are specified, no service account authentication
+                    will be available.
+                  items:
+                    type: string
+                  type: array
+                servicesNodePortRange:
+                  description: servicesNodePortRange is the range to use for assigning
+                    service public ports on a host.
+                  type: string
+                servicesSubnet:
+                  description: servicesSubnet is the subnet to use for assigning service
+                    IPs
+                  type: string
+                servingInfo:
+                  description: servingInfo describes how to start serving
+                  properties:
+                    bindAddress:
+                      description: BindAddress is the ip:port to serve on
+                      type: string
+                    bindNetwork:
+                      description: BindNetwork is the type of network to bind to -
+                        defaults to "tcp4", accepts "tcp", "tcp4", and "tcp6"
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    cipherSuites:
+                      description: CipherSuites contains an overridden list of ciphers
+                        for the server to support. Values must match cipher suite
+                        IDs from https://golang.org/pkg/crypto/tls/#pkg-constants
+                      items:
+                        type: string
+                      type: array
+                    clientCA:
+                      description: ClientCA is the certificate bundle for all the
+                        signers that you'll recognize for incoming client certificates
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    maxRequestsInFlight:
+                      description: MaxRequestsInFlight is the number of concurrent
+                        requests allowed to the server. If zero, no limit.
+                      format: int64
+                      type: integer
+                    minTLSVersion:
+                      description: MinTLSVersion is the minimum TLS version supported.
+                        Values must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants
+                      type: string
+                    namedCertificates:
+                      description: NamedCertificates is a list of certificates to
+                        use to secure requests to specific hostnames
+                      items:
+                        properties:
+                          certFile:
+                            description: CertFile is a file containing a PEM-encoded
+                              certificate
+                            type: string
+                          keyFile:
+                            description: KeyFile is a file containing a PEM-encoded
+                              private key for the certificate specified by CertFile
+                            type: string
+                          names:
+                            description: Names is a list of DNS names this certificate
+                              should be used to secure A name can be a normal DNS
+                              name, or can contain leading wildcard segments.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      type: array
+                    requestTimeoutSeconds:
+                      description: RequestTimeoutSeconds is the number of seconds
+                        before requests are timed out. The default is 60 minutes,
+                        if -1 there is no limit on requests.
+                      format: int64
+                      type: integer
+                  type: object
+                storageConfig:
+                  description: storageConfig contains information about how to use
+                  properties:
+                    ca:
+                      description: CA is a file containing trusted roots for the etcd
+                        server certificates
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    storagePrefix:
+                      description: StoragePrefix is the path within etcd that the
+                        OpenShift resources will be rooted under. This value, if changed,
+                        will mean existing objects in etcd will no longer be located.
+                      type: string
+                    urls:
+                      description: URLs are the URLs for etcd
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                userAgentMatchingConfig:
+                  description: UserAgentMatchingConfig controls how API calls from
+                    *voluntarily* identifying clients will be handled.  THIS DOES
+                    NOT DEFEND AGAINST MALICIOUS CLIENTS! TODO I think we should just
+                    drop this feature.
+                  properties:
+                    defaultRejectionMessage:
+                      description: defaultRejectionMessage is the message shown when
+                        rejecting a client.  If it is not a set, a generic message
+                        is given.
+                      type: string
+                    deniedClients:
+                      description: deniedClients if this list is non-empty, then a
+                        User-Agent must not match any of the UserAgentRegexes
+                      items:
+                        properties:
+                          httpVerbs:
+                            description: httpVerbs specifies which HTTP verbs should
+                              be matched.  An empty list means "match all verbs".
+                            items:
+                              type: string
+                            type: array
+                          regex:
+                            description: 'regex is a regex that is checked against
+                              the User-Agent. Known variants of oc clients 1. oc accessing
+                              kube resources: oc/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              2. oc accessing openshift resources: oc/v1.1.3 (linux/amd64)
+                              openshift/b348c2f 3. openshift kubectl accessing kube
+                              resources:  openshift/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              4. openshift kubectl accessing openshift resources:
+                              openshift/v1.1.3 (linux/amd64) openshift/b348c2f 5.
+                              oadm accessing kube resources: oadm/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 6. oadm accessing openshift resources:
+                              oadm/v1.1.3 (linux/amd64) openshift/b348c2f 7. openshift
+                              cli accessing kube resources: openshift/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 8. openshift cli accessing openshift
+                              resources: openshift/v1.1.3 (linux/amd64) openshift/b348c2f'
+                            type: string
+                          rejectionMessage:
+                            description: RejectionMessage is the message shown when
+                              rejecting a client.  If it is not a set, the default
+                              message is used.
+                            type: string
+                        type: object
+                      type: array
+                    requiredClients:
+                      description: requiredClients if this list is non-empty, then
+                        a User-Agent must match one of the UserAgentRegexes to be
+                        allowed
+                      items:
+                        properties:
+                          httpVerbs:
+                            description: httpVerbs specifies which HTTP verbs should
+                              be matched.  An empty list means "match all verbs".
+                            items:
+                              type: string
+                            type: array
+                          regex:
+                            description: 'regex is a regex that is checked against
+                              the User-Agent. Known variants of oc clients 1. oc accessing
+                              kube resources: oc/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              2. oc accessing openshift resources: oc/v1.1.3 (linux/amd64)
+                              openshift/b348c2f 3. openshift kubectl accessing kube
+                              resources:  openshift/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              4. openshift kubectl accessing openshift resources:
+                              openshift/v1.1.3 (linux/amd64) openshift/b348c2f 5.
+                              oadm accessing kube resources: oadm/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 6. oadm accessing openshift resources:
+                              oadm/v1.1.3 (linux/amd64) openshift/b348c2f 7. openshift
+                              cli accessing kube resources: openshift/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 8. openshift cli accessing openshift
+                              resources: openshift/v1.1.3 (linux/amd64) openshift/b348c2f'
+                            type: string
+                        type: object
+                      type: array
+                  type: object
               type: object
             operandSpecs:
               description: operandSpecs provide customization for functional units
@@ -113,6 +728,621 @@ spec:
                 fields to override it will end up overlaying in the following order:
                 1. hardcoded defaults 2. observedConfig 3. unsupportedConfigOverrides'
               nullable: true
+              properties:
+                admission:
+                  description: admissionConfig holds information about how to configure
+                    admission.
+                  properties:
+                    disabledPlugins:
+                      description: disabledPlugins is a list of admission plugins
+                        that must be off.  Putting something in this list is almost
+                        always a mistake and likely to result in cluster instability.
+                      items:
+                        type: string
+                      type: array
+                    enabledPlugins:
+                      description: enabledPlugins is a list of admission plugins that
+                        must be on in addition to the default list. Some admission
+                        plugins are disabled by default, but certain configurations
+                        require them.  This is fairly uncommon and can result in performance
+                        penalties and unexpected behavior.
+                      items:
+                        type: string
+                      type: array
+                    pluginConfig:
+                      type: object
+                  type: object
+                admissionPluginConfig:
+                  description: TODO remove this.  We need a cut-over or we'll have
+                    a gap.
+                  type: object
+                aggregatorConfig:
+                  description: aggregatorConfig has options for configuring the aggregator
+                    component of the API server.
+                  properties:
+                    proxyClientInfo:
+                      description: proxyClientInfo specifies the client cert/key to
+                        use when proxying to aggregated API servers
+                      properties:
+                        certFile:
+                          description: CertFile is a file containing a PEM-encoded
+                            certificate
+                          type: string
+                        keyFile:
+                          description: KeyFile is a file containing a PEM-encoded
+                            private key for the certificate specified by CertFile
+                          type: string
+                      type: object
+                  type: object
+                apiServerArguments:
+                  description: TODO this needs to be removed.
+                  type: object
+                apiVersion:
+                  description: 'APIVersion defines the versioned schema of this representation
+                    of an object. Servers should convert recognized schemas to the
+                    latest internal value, and may reject unrecognized values. More
+                    info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+                  type: string
+                auditConfig:
+                  description: auditConfig describes how to configure audit information
+                  properties:
+                    auditFilePath:
+                      description: All requests coming to the apiserver will be logged
+                        to this file.
+                      type: string
+                    enabled:
+                      description: If this flag is set, audit log will be printed
+                        in the logs. The logs contains, method, user and a requested
+                        URL.
+                      type: boolean
+                    logFormat:
+                      description: Format of saved audits (legacy or json).
+                      type: string
+                    maximumFileRetentionDays:
+                      description: Maximum number of days to retain old log files
+                        based on the timestamp encoded in their filename.
+                      format: int32
+                      type: integer
+                    maximumFileSizeMegabytes:
+                      description: Maximum size in megabytes of the log file before
+                        it gets rotated. Defaults to 100MB.
+                      format: int32
+                      type: integer
+                    maximumRetainedFiles:
+                      description: Maximum number of old log files to retain.
+                      format: int32
+                      type: integer
+                    policyConfiguration:
+                      description: PolicyConfiguration is an embedded policy configuration
+                        object to be used as the audit policy configuration. If present,
+                        it will be used instead of the path to the policy file.
+                      nullable: true
+                      type: object
+                    policyFile:
+                      description: PolicyFile is a path to the file that defines the
+                        audit policy configuration.
+                      type: string
+                    webHookKubeConfig:
+                      description: Path to a .kubeconfig formatted file that defines
+                        the audit webhook configuration.
+                      type: string
+                    webHookMode:
+                      description: Strategy for sending audit events (block or batch).
+                      type: string
+                  type: object
+                authConfig:
+                  description: authConfig configures authentication options in addition
+                    to the standard oauth token and client certificate authenticators
+                  properties:
+                    oauthMetadataFile:
+                      description: 'oauthMetadataFile is a path to a file containing
+                        the discovery endpoint for OAuth 2.0 Authorization Server
+                        Metadata for an external OAuth server. See IETF Draft: //
+                        https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2
+                        This option is mutually exclusive with OAuthConfig'
+                      type: string
+                    requestHeader:
+                      description: requestHeader holds options for setting up a front
+                        proxy against the the API.  It is optional.
+                      properties:
+                        clientCA:
+                          description: clientCA is a file with the trusted signer
+                            certs.  It is required.
+                          type: string
+                        clientCommonNames:
+                          description: clientCommonNames is a required list of common
+                            names to require a match from.
+                          items:
+                            type: string
+                          type: array
+                        extraHeaderPrefixes:
+                          description: extraHeaderPrefixes is the set of request header
+                            prefixes to inspect for user extra. X-Remote-Extra- is
+                            suggested.
+                          items:
+                            type: string
+                          type: array
+                        groupHeaders:
+                          description: groupHeaders is the set of headers to check
+                            for group information.  All are unioned.
+                          items:
+                            type: string
+                          type: array
+                        usernameHeaders:
+                          description: usernameHeaders is the list of headers to check
+                            for user information.  First hit wins.
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    webhookTokenAuthenticators:
+                      description: webhookTokenAuthenticators, if present configures
+                        remote token reviewers
+                      items:
+                        properties:
+                          cacheTTL:
+                            description: cacheTTL indicates how long an authentication
+                              result should be cached. It takes a valid time duration
+                              string (e.g. "5m"). If empty, you get a default timeout
+                              of 2 minutes. If zero (e.g. "0m"), caching is disabled
+                            type: string
+                          configFile:
+                            description: configFile is a path to a Kubeconfig file
+                              with the webhook configuration
+                            type: string
+                        type: object
+                      type: array
+                  type: object
+                consolePublicURL:
+                  description: consolePublicURL is an optional URL to provide a redirect
+                    from the kube-apiserver to the webconsole
+                  type: string
+                corsAllowedOrigins:
+                  description: corsAllowedOrigins
+                  items:
+                    type: string
+                  type: array
+                imagePolicyConfig:
+                  description: imagePolicyConfig feeds the image policy admission
+                    plugin TODO make it an admission plugin config
+                  properties:
+                    externalRegistryHostnames:
+                      description: externalRegistryHostnames provides the hostnames
+                        for the default external image registry. The external hostname
+                        should be set only when the image registry is exposed externally.
+                        The first value is used in 'publicDockerImageRepository' field
+                        in ImageStreams. The value must be in "hostname[:port]" format.
+                      items:
+                        type: string
+                      type: array
+                    internalRegistryHostname:
+                      description: internalRegistryHostname sets the hostname for
+                        the default internal image registry. The value must be in
+                        "hostname[:port]" format. For backward compatibility, users
+                        can still use OPENSHIFT_DEFAULT_REGISTRY environment variable
+                        but this setting overrides the environment variable.
+                      type: string
+                  type: object
+                kind:
+                  description: 'Kind is a string value representing the REST resource
+                    this object represents. Servers may infer this from the endpoint
+                    the client submits requests to. Cannot be updated. In CamelCase.
+                    More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                kubeClientConfig:
+                  properties:
+                    connectionOverrides:
+                      description: connectionOverrides specifies client overrides
+                        for system components to loop back to this master.
+                      properties:
+                        acceptContentTypes:
+                          description: acceptContentTypes defines the Accept header
+                            sent by clients when connecting to a server, overriding
+                            the default value of 'application/json'. This field will
+                            control all connections to the server used by a particular
+                            client.
+                          type: string
+                        burst:
+                          description: burst allows extra queries to accumulate when
+                            a client is exceeding its rate.
+                          format: int32
+                          type: integer
+                        contentType:
+                          description: contentType is the content type used when sending
+                            data to the server from this client.
+                          type: string
+                        qps:
+                          description: qps controls the number of queries per second
+                            allowed for this connection.
+                          format: float
+                          type: number
+                      type: object
+                    kubeConfig:
+                      description: kubeConfig is a .kubeconfig filename for going
+                        to the owning kube-apiserver.  Empty uses an in-cluster-config
+                      type: string
+                  type: object
+                kubeletClientInfo:
+                  description: kubeletClientInfo contains information about how to
+                    connect to kubelets
+                  properties:
+                    ca:
+                      description: ca is the CA for verifying TLS connections to kubelets
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    port:
+                      description: port is the port to connect to kubelets on
+                      format: int32
+                      type: integer
+                  type: object
+                oauthConfig:
+                  description: oauthConfig, if present start the /oauth endpoint in
+                    this process
+                  properties:
+                    alwaysShowProviderSelection:
+                      description: alwaysShowProviderSelection will force the provider
+                        selection page to render even when there is only a single
+                        provider.
+                      type: boolean
+                    assetPublicURL:
+                      description: assetPublicURL is used for building valid client
+                        redirect URLs for external access
+                      type: string
+                    grantConfig:
+                      description: grantConfig describes how to handle grants
+                      properties:
+                        method:
+                          description: 'method determines the default strategy to
+                            use when an OAuth client requests a grant. This method
+                            will be used only if the specific OAuth client doesn''t
+                            provide a strategy of their own. Valid grant handling
+                            methods are:  - auto:   always approves grant requests,
+                            useful for trusted clients  - prompt: prompts the end
+                            user for approval of grant requests, useful for third-party
+                            clients  - deny:   always denies grant requests, useful
+                            for black-listed clients'
+                          type: string
+                        serviceAccountMethod:
+                          description: 'serviceAccountMethod is used for determining
+                            client authorization for service account oauth client.
+                            It must be either: deny, prompt'
+                          type: string
+                      type: object
+                    identityProviders:
+                      description: identityProviders is an ordered list of ways for
+                        a user to identify themselves
+                      items:
+                        properties:
+                          challenge:
+                            description: challenge indicates whether to issue WWW-Authenticate
+                              challenges for this provider
+                            type: boolean
+                          login:
+                            description: login indicates whether to use this identity
+                              provider for unauthenticated browsers to login against
+                            type: boolean
+                          mappingMethod:
+                            description: mappingMethod determines how identities from
+                              this provider are mapped to users
+                            type: string
+                          name:
+                            description: name is used to qualify the identities returned
+                              by this provider
+                            type: string
+                          provider:
+                            description: provider contains the information about how
+                              to set up a specific identity provider
+                            type: object
+                        type: object
+                      type: array
+                    loginURL:
+                      description: 'loginURL, along with masterCA, masterURL and masterPublicURL
+                        have distinct meanings depending on how the OAuth server is
+                        run.  The two states are: 1. embedded in the kube api server
+                        (all 3.x releases) 2. as a standalone external process (all
+                        4.x releases) in the embedded configuration, loginURL is equivalent
+                        to masterPublicURL and the other fields have functionality
+                        that matches their docs. in the standalone configuration,
+                        the fields are used as: loginURL is the URL required to login
+                        to the cluster: oc login --server=<loginURL> masterPublicURL
+                        is the issuer URL it is accessible from inside (service network)
+                        and outside (ingress) of the cluster masterURL is the loopback
+                        variation of the token_endpoint URL with no path component
+                        it is only accessible from inside (service network) of the
+                        cluster masterCA is used to perform TLS verification for connections
+                        made to masterURL For further details, see the IETF Draft:
+                        https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2'
+                      type: string
+                    masterCA:
+                      description: masterCA is the CA for verifying the TLS connection
+                        back to the MasterURL. This field is deprecated and will be
+                        removed in a future release. See loginURL for details. Deprecated
+                      type: string
+                    masterPublicURL:
+                      description: masterPublicURL is used for building valid client
+                        redirect URLs for internal and external access This field
+                        is deprecated and will be removed in a future release. See
+                        loginURL for details. Deprecated
+                      type: string
+                    masterURL:
+                      description: masterURL is used for making server-to-server calls
+                        to exchange authorization codes for access tokens This field
+                        is deprecated and will be removed in a future release. See
+                        loginURL for details. Deprecated
+                      type: string
+                    sessionConfig:
+                      description: sessionConfig hold information about configuring
+                        sessions.
+                      properties:
+                        sessionMaxAgeSeconds:
+                          description: sessionMaxAgeSeconds specifies how long created
+                            sessions last. Used by AuthRequestHandlerSession
+                          format: int32
+                          type: integer
+                        sessionName:
+                          description: sessionName is the cookie name used to store
+                            the session
+                          type: string
+                        sessionSecretsFile:
+                          description: sessionSecretsFile is a reference to a file
+                            containing a serialized SessionSecrets object If no file
+                            is specified, a random signing and encryption key are
+                            generated at each server start
+                          type: string
+                      type: object
+                    templates:
+                      description: templates allow you to customize pages like the
+                        login page.
+                      properties:
+                        error:
+                          description: error is a path to a file containing a go template
+                            used to render error pages during the authentication or
+                            grant flow If unspecified, the default error page is used.
+                          type: string
+                        login:
+                          description: login is a path to a file containing a go template
+                            used to render the login page. If unspecified, the default
+                            login page is used.
+                          type: string
+                        providerSelection:
+                          description: providerSelection is a path to a file containing
+                            a go template used to render the provider selection page.
+                            If unspecified, the default provider selection page is
+                            used.
+                          type: string
+                      type: object
+                    tokenConfig:
+                      description: tokenConfig contains options for authorization
+                        and access tokens
+                      properties:
+                        accessTokenInactivityTimeoutSeconds:
+                          description: 'accessTokenInactivityTimeoutSeconds defined
+                            the default token inactivity timeout for tokens granted
+                            by any client. Setting it to nil means the feature is
+                            completely disabled (default) The default setting can
+                            be overriden on OAuthClient basis. The value represents
+                            the maximum amount of time that can occur between consecutive
+                            uses of the token. Tokens become invalid if they are not
+                            used within this temporal window. The user will need to
+                            acquire a new token to regain access once a token times
+                            out. Valid values are: - 0: Tokens never time out - X:
+                            Tokens time out if there is no activity for X seconds
+                            The current minimum allowed value for X is 300 (5 minutes)'
+                          format: int32
+                          type: integer
+                        accessTokenMaxAgeSeconds:
+                          description: accessTokenMaxAgeSeconds defines the maximum
+                            age of access tokens
+                          format: int32
+                          type: integer
+                        authorizeTokenMaxAgeSeconds:
+                          description: authorizeTokenMaxAgeSeconds defines the maximum
+                            age of authorize tokens
+                          format: int32
+                          type: integer
+                      type: object
+                  type: object
+                projectConfig:
+                  description: projectConfig feeds an admission plugin TODO make it
+                    an admission plugin config
+                  properties:
+                    defaultNodeSelector:
+                      description: defaultNodeSelector holds default project node
+                        label selector
+                      type: string
+                  type: object
+                serviceAccountPublicKeyFiles:
+                  description: serviceAccountPublicKeyFiles is a list of files, each
+                    containing a PEM-encoded public RSA key. (If any file contains
+                    a private key, the public portion of the key is used) The list
+                    of public keys is used to verify presented service account tokens.
+                    Each key is tried in order until the list is exhausted or verification
+                    succeeds. If no keys are specified, no service account authentication
+                    will be available.
+                  items:
+                    type: string
+                  type: array
+                servicesNodePortRange:
+                  description: servicesNodePortRange is the range to use for assigning
+                    service public ports on a host.
+                  type: string
+                servicesSubnet:
+                  description: servicesSubnet is the subnet to use for assigning service
+                    IPs
+                  type: string
+                servingInfo:
+                  description: servingInfo describes how to start serving
+                  properties:
+                    bindAddress:
+                      description: BindAddress is the ip:port to serve on
+                      type: string
+                    bindNetwork:
+                      description: BindNetwork is the type of network to bind to -
+                        defaults to "tcp4", accepts "tcp", "tcp4", and "tcp6"
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    cipherSuites:
+                      description: CipherSuites contains an overridden list of ciphers
+                        for the server to support. Values must match cipher suite
+                        IDs from https://golang.org/pkg/crypto/tls/#pkg-constants
+                      items:
+                        type: string
+                      type: array
+                    clientCA:
+                      description: ClientCA is the certificate bundle for all the
+                        signers that you'll recognize for incoming client certificates
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    maxRequestsInFlight:
+                      description: MaxRequestsInFlight is the number of concurrent
+                        requests allowed to the server. If zero, no limit.
+                      format: int64
+                      type: integer
+                    minTLSVersion:
+                      description: MinTLSVersion is the minimum TLS version supported.
+                        Values must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants
+                      type: string
+                    namedCertificates:
+                      description: NamedCertificates is a list of certificates to
+                        use to secure requests to specific hostnames
+                      items:
+                        properties:
+                          certFile:
+                            description: CertFile is a file containing a PEM-encoded
+                              certificate
+                            type: string
+                          keyFile:
+                            description: KeyFile is a file containing a PEM-encoded
+                              private key for the certificate specified by CertFile
+                            type: string
+                          names:
+                            description: Names is a list of DNS names this certificate
+                              should be used to secure A name can be a normal DNS
+                              name, or can contain leading wildcard segments.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      type: array
+                    requestTimeoutSeconds:
+                      description: RequestTimeoutSeconds is the number of seconds
+                        before requests are timed out. The default is 60 minutes,
+                        if -1 there is no limit on requests.
+                      format: int64
+                      type: integer
+                  type: object
+                storageConfig:
+                  description: storageConfig contains information about how to use
+                  properties:
+                    ca:
+                      description: CA is a file containing trusted roots for the etcd
+                        server certificates
+                      type: string
+                    certFile:
+                      description: CertFile is a file containing a PEM-encoded certificate
+                      type: string
+                    keyFile:
+                      description: KeyFile is a file containing a PEM-encoded private
+                        key for the certificate specified by CertFile
+                      type: string
+                    storagePrefix:
+                      description: StoragePrefix is the path within etcd that the
+                        OpenShift resources will be rooted under. This value, if changed,
+                        will mean existing objects in etcd will no longer be located.
+                      type: string
+                    urls:
+                      description: URLs are the URLs for etcd
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                userAgentMatchingConfig:
+                  description: UserAgentMatchingConfig controls how API calls from
+                    *voluntarily* identifying clients will be handled.  THIS DOES
+                    NOT DEFEND AGAINST MALICIOUS CLIENTS! TODO I think we should just
+                    drop this feature.
+                  properties:
+                    defaultRejectionMessage:
+                      description: defaultRejectionMessage is the message shown when
+                        rejecting a client.  If it is not a set, a generic message
+                        is given.
+                      type: string
+                    deniedClients:
+                      description: deniedClients if this list is non-empty, then a
+                        User-Agent must not match any of the UserAgentRegexes
+                      items:
+                        properties:
+                          httpVerbs:
+                            description: httpVerbs specifies which HTTP verbs should
+                              be matched.  An empty list means "match all verbs".
+                            items:
+                              type: string
+                            type: array
+                          regex:
+                            description: 'regex is a regex that is checked against
+                              the User-Agent. Known variants of oc clients 1. oc accessing
+                              kube resources: oc/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              2. oc accessing openshift resources: oc/v1.1.3 (linux/amd64)
+                              openshift/b348c2f 3. openshift kubectl accessing kube
+                              resources:  openshift/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              4. openshift kubectl accessing openshift resources:
+                              openshift/v1.1.3 (linux/amd64) openshift/b348c2f 5.
+                              oadm accessing kube resources: oadm/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 6. oadm accessing openshift resources:
+                              oadm/v1.1.3 (linux/amd64) openshift/b348c2f 7. openshift
+                              cli accessing kube resources: openshift/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 8. openshift cli accessing openshift
+                              resources: openshift/v1.1.3 (linux/amd64) openshift/b348c2f'
+                            type: string
+                          rejectionMessage:
+                            description: RejectionMessage is the message shown when
+                              rejecting a client.  If it is not a set, the default
+                              message is used.
+                            type: string
+                        type: object
+                      type: array
+                    requiredClients:
+                      description: requiredClients if this list is non-empty, then
+                        a User-Agent must match one of the UserAgentRegexes to be
+                        allowed
+                      items:
+                        properties:
+                          httpVerbs:
+                            description: httpVerbs specifies which HTTP verbs should
+                              be matched.  An empty list means "match all verbs".
+                            items:
+                              type: string
+                            type: array
+                          regex:
+                            description: 'regex is a regex that is checked against
+                              the User-Agent. Known variants of oc clients 1. oc accessing
+                              kube resources: oc/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              2. oc accessing openshift resources: oc/v1.1.3 (linux/amd64)
+                              openshift/b348c2f 3. openshift kubectl accessing kube
+                              resources:  openshift/v1.2.0 (linux/amd64) kubernetes/bc4550d
+                              4. openshift kubectl accessing openshift resources:
+                              openshift/v1.1.3 (linux/amd64) openshift/b348c2f 5.
+                              oadm accessing kube resources: oadm/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 6. oadm accessing openshift resources:
+                              oadm/v1.1.3 (linux/amd64) openshift/b348c2f 7. openshift
+                              cli accessing kube resources: openshift/v1.2.0 (linux/amd64)
+                              kubernetes/bc4550d 8. openshift cli accessing openshift
+                              resources: openshift/v1.1.3 (linux/amd64) openshift/b348c2f'
+                            type: string
+                        type: object
+                      type: array
+                  type: object
               type: object
           type: object
         status:
