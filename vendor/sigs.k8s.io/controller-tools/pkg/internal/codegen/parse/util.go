@@ -375,7 +375,7 @@ func parseDescription(res []string) string {
 	var temp strings.Builder
 	var desc string
 	for _, comment := range res {
-		if !(strings.Contains(comment, "+kubebuilder") || strings.Contains(comment, "+optional") || strings.Contains(comment, "+required") || strings.Contains(comment, "+nullable")) {
+		if !(strings.Contains(comment, "+kubebuilder") || strings.Contains(comment, "+k8s:openapi") || strings.Contains(comment, "+optional") || strings.Contains(comment, "+required") || strings.Contains(comment, "+nullable")) {
 			temp.WriteString(comment)
 			temp.WriteString(" ")
 			desc = strings.TrimRight(temp.String(), " ")

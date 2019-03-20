@@ -165,36 +165,70 @@ func (b *APIs) typeToJSONSchemaProps(t *types.Type, found sets.String, comments 
 	rawExtension := types.Name{Name: "RawExtension", Package: "k8s.io/apimachinery/pkg/runtime"}
 
 	// special types first
-	specialTypeProps := v1beta1.JSONSchemaProps{
-		Description: parseDescription(comments),
+	applyComments := func (props v1beta1.JSONSchemaProps) v1beta1.JSONSchemaProps {
+		props.Description = parseDescription(comments)
+		for _, l := range comments {
+			getValidation(l, &props)
+		}
+		return props
 	}
-	for _, l := range comments {
-		getValidation(l, &specialTypeProps)
-	}
+
 	switch t.Name {
 	case time:
-		specialTypeProps.Type = "string"
-		specialTypeProps.Format = "date-time"
-		return specialTypeProps, b.getTime()
+		return applyComments(v1beta1.JSONSchemaProps{
+			Type:   "string",
+			Format: "date-time",
+		}), b.getTime()
 	case duration:
-		specialTypeProps.Type = "string"
-		return specialTypeProps, b.getDuration()
+		return applyComments(v1beta1.JSONSchemaProps{
+			Type: "string",
+		}), b.getDuration()
 	case meta:
-		specialTypeProps.Type = "object"
-		return specialTypeProps, b.objSchema()
+		return applyComments(v1beta1.JSONSchemaProps{
+			Type: "object",
+		}), b.objSchema()
 	case unstructured, rawExtension:
-		specialTypeProps.Type = "object"
-		return specialTypeProps, b.objSchema()
-	case intOrString:
-		specialTypeProps.AnyOf = []v1beta1.JSONSchemaProps{
-			{
-				Type: "string",
-			},
-			{
-				Type: "integer",
-			},
+		ss := []string{}
+		props := []v1beta1.JSONSchemaProps{}
+		for _, l := range comments {
+			if l, prefix := strings.TrimSpace(l), "+k8s:openapi:reference="; strings.HasPrefix(l, prefix) {
+				fqName := l[len(prefix):]
+				name := types.ParseFullyQualifiedName(fqName)
+				if err := b.context.AddDir(name.Package); err != nil {
+					log.Fatalf("failed to parse package referenced in %q: %s", l, err)
+				}
+				t := b.context.Universe.Type(name)
+				schema, s := b.typeToJSONSchemaProps(&types.Type{Kind: types.Pointer, Elem: t}, found, []string{}, IsAPIResource(t))
+				ss = append(ss, s)
+				props = append(props, schema)
+			}
 		}
-		return specialTypeProps, b.objSchema()
+		switch len(props) {
+		case 0:
+			return applyComments(v1beta1.JSONSchemaProps{
+				Type: "object",
+			}), b.objSchema()
+		case 1:
+			return applyComments(props[0]), ss[0]
+		}
+
+		return applyComments(v1beta1.JSONSchemaProps{
+			Type:  "object",
+			AnyOf: props,
+		}), b.objSchema()
+
+	case intOrString:
+		return applyComments(v1beta1.JSONSchemaProps{
+			Type: "object",
+			AnyOf: []v1beta1.JSONSchemaProps{
+				{
+					Type: "string",
+				},
+				{
+					Type: "integer",
+				},
+			},
+		}), b.objSchema()
 	}
 
 	var v v1beta1.JSONSchemaProps
