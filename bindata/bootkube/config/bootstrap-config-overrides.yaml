@@ -25,13 +25,14 @@ storageConfig:
   - {{.}}{{end}}
 {{if .ServiceCIDR | len | ne 0}}
 servicesSubnet: {{index .ServiceCIDR 0}}{{end}}
-admissionPluginConfig:
-  {{if .ServiceCIDR }}
-  network.openshift.io/RestrictedEndpointsAdmission:
-    configuration:
-      apiVersion: network.openshift.io/v1
-      kind: RestrictedEndpointsAdmissionConfig
-      restrictedCIDRs: {{range .ServiceCIDR}}
-      - {{.}}{{end}}{{range .ClusterCIDR}}
-      - {{.}}{{end}}
-  {{end}}
+admission:
+  pluginConfig:
+    {{if .ServiceCIDR }}
+    network.openshift.io/RestrictedEndpointsAdmission:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: RestrictedEndpointsAdmissionConfig
+        restrictedCIDRs: {{range .ServiceCIDR}}
+        - {{.}}{{end}}{{range .ClusterCIDR}}
+        - {{.}}{{end}}
+    {{end}}
