@@ -21,8 +21,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// rotationDay is one day. Set this to short values for testing, e.g. 5 minutes.
-const rotationDay = 24 * time.Hour
+// defaultRotationDay is the default rotation base for all cert rotation operations.
+const defaultRotationDay = 24 * time.Hour
 
 type CertRotationController struct {
 	certRotators []*certrotation.CertRotationController
@@ -44,7 +44,7 @@ func NewCertRotationController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	eventRecorder events.Recorder,
+	eventRecorder events.Recorder, day time.Duration,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
 		networkLister:        configInformer.Config().V1().Networks().Lister(),
@@ -64,6 +64,13 @@ func NewCertRotationController(
 
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.loadBalancerHostnameEventHandler())
+
+	rotationDay := defaultRotationDay
+	if day != time.Duration(0) {
+		rotationDay = day
+		glog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
+		glog.Warningf("Certificate rotation base set to %q", rotationDay)
+	}
 
 	certRotator, err := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
