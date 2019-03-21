@@ -150,9 +150,8 @@ func (r *renderOpts) Run() error {
 		if err != nil {
 			return err
 		}
-		err = discoverCIDRs(clusterConfigFileData, &renderConfig)
-		if err != nil {
-			return fmt.Errorf("unable to parse restricted CIDRs from cluster-api config %q: %v", r.clusterConfigFile, err)
+		if err = discoverCIDRs(clusterConfigFileData, &renderConfig); err != nil {
+			return fmt.Errorf("unable to parse restricted CIDRs from config %q: %v", r.clusterConfigFile, err)
 		}
 	}
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {
@@ -187,6 +186,15 @@ func mustReadTemplateFile(fname string) genericrenderoptions.Template {
 }
 
 func discoverCIDRs(clusterConfigFileData []byte, renderConfig *TemplateData) error {
+	if err := discoverCIDRsFromNetwork(clusterConfigFileData, renderConfig); err != nil {
+		if err = discoverCIDRsFromClusterAPI(clusterConfigFileData, renderConfig); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func discoverCIDRsFromNetwork(clusterConfigFileData []byte, renderConfig *TemplateData) error {
 	configJson, err := yaml.YAMLToJSON(clusterConfigFileData)
 	if err != nil {
 		return err
@@ -199,15 +207,57 @@ func discoverCIDRs(clusterConfigFileData []byte, renderConfig *TemplateData) err
 	if !ok {
 		return fmt.Errorf("unexpected object in %t", clusterConfigObj)
 	}
-	if clusterCIDR, found, err := unstructured.NestedStringSlice(
-		clusterConfig.Object, "spec", "clusterNetwork", "pods", "cidrBlocks"); found && err == nil {
+	clusterCIDR, found, err := unstructured.NestedSlice(
+		clusterConfig.Object, "spec", "clusterNetwork")
+	if found && err == nil {
+		for key := range clusterCIDR {
+			slice, ok := clusterCIDR[key].(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("unexpected object in %t", clusterCIDR[key])
+			}
+			if CIDR, found, err := unstructured.NestedString(slice, "cidr"); found && err == nil {
+				renderConfig.ClusterCIDR = append(renderConfig.ClusterCIDR, CIDR)
+			}
+		}
+	}
+	if err != nil {
+		return err
+	}
+	serviceCIDR, found, err := unstructured.NestedStringSlice(
+		clusterConfig.Object, "spec", "serviceNetwork")
+	if found && err == nil {
+		renderConfig.ServiceCIDR = serviceCIDR
+	}
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func discoverCIDRsFromClusterAPI(clusterConfigFileData []byte, renderConfig *TemplateData) error {
+	configJson, err := yaml.YAMLToJSON(clusterConfigFileData)
+	if err != nil {
+		return err
+	}
+	clusterConfigObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, configJson)
+	if err != nil {
+		return err
+	}
+	clusterConfig, ok := clusterConfigObj.(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected object in %t", clusterConfigObj)
+	}
+	clusterCIDR, found, err := unstructured.NestedStringSlice(
+		clusterConfig.Object, "spec", "clusterNetwork", "pods", "cidrBlocks")
+	if found && err == nil {
 		renderConfig.ClusterCIDR = clusterCIDR
 	}
 	if err != nil {
 		return err
 	}
-	if serviceCIDR, found, err := unstructured.NestedStringSlice(
-		clusterConfig.Object, "spec", "clusterNetwork", "services", "cidrBlocks"); found && err == nil {
+	serviceCIDR, found, err := unstructured.NestedStringSlice(
+		clusterConfig.Object, "spec", "clusterNetwork", "services", "cidrBlocks")
+	if found && err == nil {
 		renderConfig.ServiceCIDR = serviceCIDR
 	}
 	if err != nil {
