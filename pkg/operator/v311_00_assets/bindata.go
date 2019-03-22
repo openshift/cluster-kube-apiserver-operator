@@ -136,6 +136,7 @@ auditConfig:
       - "/api*" # Wildcard matching.
       - "/version"
       - "/healthz"
+      - "/readyz"
     # A catch-all rule to log all other requests at the Metadata level.
     - level: Metadata
       # Long-running requests like watches that fall under this rule will not
