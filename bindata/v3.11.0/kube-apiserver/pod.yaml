@@ -20,7 +20,7 @@ spec:
     - name: wait-for-host-port
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
-      command: ['/usr/bin/timeout', '100', "/bin/bash", "-c"] # 60 sec for graceful termination, 35 for minimum-termination-duration
+      command: ['/usr/bin/timeout', '100', '/bin/bash', '-c'] # 60 sec for graceful termination, 35 for minimum-termination-duration
       args:
       - |
         echo -n "Waiting for port :6443 to be released."
