@@ -13,10 +13,21 @@ spec:
     - name: fix-audit-permissions
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
-      command: ['sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
+      command: ['/bin/sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
       volumeMounts:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
+    - name: wait-for-host-port
+      image: ${IMAGE}
+      imagePullPolicy: IfNotPresent
+      command: ['/usr/bin/timeout', '100', "/bin/bash", "-c"] # 60 sec for graceful termination, 35 for minimum-termination-duration
+      args:
+      - |
+        echo -n "Waiting for port :6443 to be released."
+        while [ -n "$(lsof -ni :6443)" ]; do
+          echo -n "."
+          sleep 1
+        done
   containers:
   - name: kube-apiserver-REVISION
     image: ${IMAGE}
