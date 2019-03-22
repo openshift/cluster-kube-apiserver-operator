@@ -108,7 +108,7 @@ apiServerArguments:
   enable-aggregator-routing:
   - "true"
   minimal-shutdown-duration:
-  - 3s # give SDN some time to converge
+  - 35s # give SDN some time to converge
   http2-max-streams-per-connection:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
 auditConfig:
