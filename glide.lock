@@ -1,5 +1,5 @@
 hash: a25f63d9125e16e1bacc281725d5466152d501da1083289aca88b6652d7a400c
-updated: 2019-03-22T11:14:23.669609+01:00
+updated: 2019-03-25T13:20:07.964353+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -241,7 +241,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 71fdeba186565ceda2c6bde4aac9ea50c42b1c63
+  version: bc6c395d7b3d88cb415dce112eae33908cb72b23
   subpackages:
   - apps
   - apps/v1
@@ -306,7 +306,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: c808b4f42728549453f702c5bdc21413f02f09d4
+  version: 035149b6b1185de7572de96df2dc51570fcf85c7
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -359,7 +359,7 @@ imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
-  version: 22592cc4bae3572d59be8852c6980023e4c9dec5
+  version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/prometheus/client_golang
   version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
