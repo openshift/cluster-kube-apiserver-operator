@@ -5,4 +5,4 @@ spec:
         spec:
           properties:
             managementState:
-              pattern: "^Managed|Force$"
+              pattern: "^(Managed|Force)$"
