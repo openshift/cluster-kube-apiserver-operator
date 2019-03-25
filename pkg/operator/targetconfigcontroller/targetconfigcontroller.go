@@ -223,9 +223,15 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
 	// TODO: If the image pull spec is not specified, the "${IMAGE}" will be used as value and the pod will fail to start.
 	if len(imagePullSpec) > 0 {
-		required.Spec.Containers[0].Image = imagePullSpec
-		if len(required.Spec.InitContainers) > 0 {
-			required.Spec.InitContainers[0].Image = imagePullSpec
+		for i := range required.Spec.Containers {
+			if required.Spec.Containers[i].Image == "${IMAGE}" {
+				required.Spec.Containers[i].Image = imagePullSpec
+			}
+		}
+		for i := range required.Spec.InitContainers {
+			if required.Spec.InitContainers[i].Image == "${IMAGE}" {
+				required.Spec.InitContainers[i].Image = imagePullSpec
+			}
 		}
 	}
 	if len(operatorImagePullSpec) > 0 {
