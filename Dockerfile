@@ -8,6 +8,6 @@ FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
 RUN mkdir -p /usr/share/bootkube/manifests
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/* /usr/share/bootkube/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
-COPY manifests/*.yaml /manifests
-COPY manifests/image-references /manifests
+COPY manifests/*.yaml /manifests/
+COPY manifests/image-references /manifests/
 LABEL io.openshift.release.operator true
