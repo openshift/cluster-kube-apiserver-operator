@@ -44,7 +44,8 @@ func NewCertRotationController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	eventRecorder events.Recorder, day time.Duration,
+	eventRecorder events.Recorder,
+	day time.Duration,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
 		networkLister:        configInformer.Config().V1().Networks().Lister(),
