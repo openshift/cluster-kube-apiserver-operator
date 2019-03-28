@@ -1,0 +1,21 @@
+This directory contains configuration files and scripts to create custom
+certificates that are useful for testing. They assume you have OpenSSL
+and a bash-like shell.
+
+make-certs.sh creates signing requests and certificates from existing key files
+and OpenSSL configuration files. This is useful, for example, if you want to test
+a new extension but don't want to change the keys and dates of the certificates.
+
+new-keys.sh generates new key files. This should not be useful and is included
+only for reproducibility.
+
+
+Issues:
+1. Unfortunately, OpenSSL uses non-deterministic signing for DSA and ECDSA certificate
+requests, so running make-certs.sh will not reproduce the same CSRs despite having
+static keys. These files have to be kept in-sync manually.
+
+2. The x509 package does not currently set CertificateRequest.SignatureAlgorithm for
+DSA CSRs. Therefore the 'leaf2.csr.text' contains the line 'Signature Algorithm: 0'
+instead of 'Signature Algorithm: DSAWithSHA256' to allow the test to pass and
+indicate that the problem is with x509 and not this package.

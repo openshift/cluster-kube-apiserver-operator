@@ -1,0 +1,48 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 3 (0x3)
+    Signature Algorithm: SHA256-RSA
+        Issuer: C=US,ST=California,O=World Widget Authority,OU=Identity Affairs,CN=worldwidgetauthority.com,emailAddress=nobody@worldwidgetauthority.com
+        Validity
+            Not Before: Jul 23 18:56:47 2020 UTC
+            Not After : Jun 30 07:37:21 2040 UTC
+        Subject: C=US,ST=Alaska,O=Northern Widgets Corporation,OU=21st Century Department,CN=northernwidgets.com,emailAddress=nobody@northernwidgets.com
+        Subject Public Key Info:
+            Public Key Algorithm: DSA
+                pub:
+                    3b:2b:f7:05:e5:70:7d:2b:77:89:65:f5:4f:77:c6:
+                    59:17:50:a5:76:ee:51:94:43:b1:8e:51:64:35:4f:
+                    68:42:a3:85:d7:a0:57:a6:55:ef:e5:1a:a0:4f:1a:
+                    2a:61:8a:27:50:55:cc:5c:6b:4e:b1:67:ee:31:4e:
+                    26:33:91:1e
+                P:
+                    fa:9b:a9:7d:fb:27:a0:b5:26:15:2c:16:57:08:b6:
+                    47:8b:ec:64:e2:03:b5:14:b7:c4:56:96:4d:00:28:
+                    b0:26:25:4c:2f:98:48:fc:df:17:71:29:cf:d2:18:
+                    8e:99:1e:fe:bb:78:47:8d:cc:42:9d:82:3a:6d:62:
+                    48:6c:0c:45
+                Q:
+                    82:2b:9e:a3:a6:b4:b3:7d:ae:03:c0:df:2d:3c:99:
+                    e7:e4:72:a4:6f
+                G:
+                    5e:97:51:30:39:77:69:d4:d3:2b:c6:31:27:6d:4f:
+                    c4:71:0a:be:0c:88:b9:53:64:05:ef:4a:0d:19:8f:
+                    71:bc:10:a6:45:dd:a0:55:e1:77:02:28:84:58:09:
+                    da:f9:ad:16:6e:22:3f:13:f7:91:71:44:5b:5f:98:
+                    8c:92:21:13
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                This is a test certificate only
+            X509v3 Subject Key Identifier:
+                8E:15:36:91:A2:96:AE:6B:9B:A3:6A:7C:30:7A:ED:1E:77:4E:16:64
+            X509v3 Authority Key Identifier:
+                keyid:7C:0F:26:9D:ED:C8:7A:C0:05:1E:99:A3:5D:A5:9E:8D:A6:A6:96:5E
+
+    Signature Algorithm: SHA256-RSA
+         4f:9c:7e:54:4c:cd:3f:92:0d:d1:04:a6:86:08:a0:4e:b0:5b:
+         eb:78:02:76:81:d7:05:8e:54:b3:3a:fe:7f:b1:50:7e:30:a3:
+         3e:a7:cf:8c:49:23:20:04:0b:dd:e2:92:c5:53:25:b5:87:3e:
+         1b:9c:99:d4:b4:19:1b:45:c1:64
