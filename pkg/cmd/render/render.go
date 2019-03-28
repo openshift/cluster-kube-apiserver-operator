@@ -4,21 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
@@ -37,8 +32,6 @@ type renderOpts struct {
 	etcdServerURLs    []string
 	etcdServingCA     string
 	clusterConfigFile string
-
-	certRotationBase time.Duration
 }
 
 // NewRenderCommand creates a render command.
@@ -80,9 +73,6 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
-
-	fs.DurationVar(&r.certRotationBase, "unsupported-cert-rotation-base", r.certRotationBase, "UNSUPPORTED! Certificate rotation base unit.")
-	fs.MarkHidden("unsupported-cert-rotation-base")
 }
 
 // Validate verifies the inputs.
@@ -166,12 +156,6 @@ func (r *renderOpts) Run() error {
 		nil,
 	); err != nil {
 		return err
-	}
-
-	if r.certRotationBase > 0 {
-		if err := writeCertRotationConfig(r.generic.AssetOutputDir, r.certRotationBase); err != nil {
-			return err
-		}
 	}
 
 	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig)
@@ -264,22 +248,4 @@ func discoverCIDRsFromClusterAPI(clusterConfigFileData []byte, renderConfig *Tem
 		return err
 	}
 	return nil
-}
-
-func writeCertRotationConfig(assetOutputDir string, certRotationBase time.Duration) error {
-	f := filepath.Join(assetOutputDir, "manifests", "configmap-unsupported-cert-rotation-config.yaml")
-	if err := os.MkdirAll(filepath.Dir(f), os.FileMode(0755)); err != nil {
-		return err
-	}
-	certRotationConfig := corev1.ConfigMap{
-		TypeMeta:   metav1.TypeMeta{APIVersion: corev1.SchemeGroupVersion.String(), Kind: "ConfigMap"},
-		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-cert-rotation-config", Namespace: operatorclient.OperatorNamespace},
-		Data:       map[string]string{"base": certRotationBase.String()},
-	}
-	data, err := yaml.Marshal(certRotationConfig)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Writing asset: %s\n", f)
-	return ioutil.WriteFile(f, data, os.FileMode(0644))
 }
