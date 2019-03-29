@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
@@ -19,6 +18,7 @@ import (
 	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -143,20 +143,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
-	certRotationBase := time.Duration(0)
-	err = wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
-		certRotationConfig, err := kubeClient.CoreV1().ConfigMaps(operatorclient.OperatorNamespace).Get("unsupported-cert-rotation-config", metav1.GetOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return true, nil
-			}
-			return false, err
-		}
-		if value, ok := certRotationConfig.Data["base"]; ok {
-			certRotationBase, _ = time.ParseDuration(value)
-		}
-		return true, nil
-	})
+	certRotationScale, err := certrotation.GetCertRotationScale(kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
 	if err != nil {
 		return err
 	}
@@ -167,7 +154,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configInformers,
 		kubeInformersForNamespaces,
 		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
-		certRotationBase,
+		certRotationScale,
 	)
 	if err != nil {
 		return err
