@@ -8,7 +8,7 @@ authConfig:
   requestHeader:
     clientCA: /etc/kubernetes/secrets/aggregator-signer.crt
 kubeletClientInfo:
-  ca: /etc/kubernetes/secrets/kube-ca.crt # origin 3.11: ca.crt
+  ca: /etc/kubernetes/secrets/kubelet-client-ca-bundle.crt # this is wired to the KCM CSR, which signs serving and client certs for kubelet
   certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.kubelet-client.crt
   keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.kubelet-client.key
 serviceAccountPublicKeyFiles:

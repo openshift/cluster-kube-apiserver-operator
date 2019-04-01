@@ -1,9 +1,5 @@
 apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
-kubeletClientInfo:
-  ca: /var/run/configmaps/kubelet-serving-ca/ca-bundle.crt
-  certFile: /var/run/secrets/kubelet-client/tls.crt
-  keyFile: /var/run/secrets/kubelet-client/tls.key
 serviceAccountPublicKeyFiles:
 - /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
 servingInfo:
