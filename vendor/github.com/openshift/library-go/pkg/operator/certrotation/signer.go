@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
+	"github.com/openshift/library-go/pkg/operator/certmonitor"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +48,8 @@ func (c SigningRotation) ensureSigningCertKeyPair() (*crypto.CA, error) {
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
 			return nil, err
 		}
+
+		certmonitor.SetCertificateMonitoredSecret(signingCertKeyPairSecret, certmonitor.CertificateTypeSigner)
 
 		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {

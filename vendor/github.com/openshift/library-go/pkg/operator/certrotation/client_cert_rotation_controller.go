@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/certmonitor"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -128,6 +129,9 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
+
+	// register prometheus metrics for rotated certificates
+	certmonitor.Register(c.CABundleRotation.Informer.Lister(), c.SigningRotation.Informer.Lister())
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
