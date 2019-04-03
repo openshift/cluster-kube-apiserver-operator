@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  namespace: openshift-kube-apiserver-operator
-  name: version-mapping
-data:
-  "0.0.1-snapshot-kubernetes": "quay.io/openshift/origin-hypershift:v4.0"
-  "0.0.1-snapshot": "docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0"
