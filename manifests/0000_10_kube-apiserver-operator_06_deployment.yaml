@@ -44,7 +44,7 @@ spec:
         - name: OPERATOR_IMAGE
           value: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
         - name: OPERAND_IMAGE_VERSION
-          value: "0.0.1-snapshot_kubernetes"
+          value: "0.0.1-snapshot-kubernetes"
         - name: OPERATOR_IMAGE_VERSION
           value: "0.0.1-snapshot"
         - name: POD_NAME
