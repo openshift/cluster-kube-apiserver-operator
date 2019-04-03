@@ -84,3 +84,5 @@ $ oc adm release new --from-release=registry.svc.ci.openshift.org/openshift/orig
 $ cd ../installer
 $ OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/sttts/origin-release:latest bin/openshift-install cluster ...
 ```
+
+
