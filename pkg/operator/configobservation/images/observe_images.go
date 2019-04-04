@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -37,7 +36,7 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("image.config.openshift.io/cluster: not found")
+		klog.Warningf("image.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
@@ -81,7 +80,7 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("image.config.openshift.io/cluster: not found")
+		klog.Warningf("image.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
@@ -131,7 +130,7 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("image.config.openshift.io/cluster: not found")
+		klog.Warningf("image.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {

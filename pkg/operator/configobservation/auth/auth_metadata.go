@@ -1,10 +1,9 @@
 package auth
 
 import (
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog"
 
 	"github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
@@ -41,7 +40,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	observedConfig := map[string]interface{}{}
 	authConfig, err := listers.AuthConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("authentications.config.openshift.io/cluster: not found")
+		klog.Warningf("authentications.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
@@ -62,7 +61,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	case len(authConfig.Status.IntegratedOAuthMetadata.Name) > 0 && authConfig.Spec.Type == v1.AuthenticationTypeIntegratedOAuth:
 		statusConfigMap = authConfig.Status.IntegratedOAuthMetadata.Name
 	default:
-		glog.V(5).Infof("no integrated oauth metadata configmap observed from status")
+		klog.V(5).Infof("no integrated oauth metadata configmap observed from status")
 	}
 
 	// Spec configMap takes precedence over Status.
@@ -74,7 +73,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		sourceConfigMap = statusConfigMap
 		sourceNamespace = managedNamespace
 	default:
-		glog.V(5).Infof("no authentication config metadata specified")
+		klog.V(5).Infof("no authentication config metadata specified")
 	}
 
 	// Sync the user or status-specified configMap to the well-known resting place that corresponds to the oauthMetadataFile path.

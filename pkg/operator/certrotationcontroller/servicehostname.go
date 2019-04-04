@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/golang/glog"
-
 	"github.com/apparentlymart/go-cidr/cidr"
+
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
 )
 
 const workQueueKey = "key"
@@ -35,7 +35,7 @@ func (c *CertRotationController) syncServiceHostnames() error {
 		hostnames.Insert(ip.String())
 	}
 
-	glog.V(2).Infof("syncing servicenetwork hostnames: %v", hostnames.List())
+	klog.V(2).Infof("syncing servicenetwork hostnames: %v", hostnames.List())
 	c.serviceNetwork.setHostnames(hostnames.List())
 	return nil
 }

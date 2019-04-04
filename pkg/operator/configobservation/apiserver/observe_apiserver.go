@@ -3,12 +3,12 @@ package apiserver
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/imdario/mergo"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
@@ -202,7 +202,7 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 
 	// if something went wrong, keep the previously observed config and resources
 	if err != nil {
-		glog.Warningf("error getting apiservers.%s/cluster: %v", configv1.GroupName, err)
+		klog.Warningf("error getting apiservers.%s/cluster: %v", configv1.GroupName, err)
 		return previouslyObservedConfig, append(errs, err)
 	}
 
@@ -210,14 +210,14 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 
 	// if we get error during observation, skip the merging and return previous config and errors.
 	if len(errs) > 0 {
-		glog.Warningf("errors during apiservers.%s/cluster processing: %+v", configv1.GroupName, errs)
+		klog.Warningf("errors during apiservers.%s/cluster processing: %+v", configv1.GroupName, errs)
 		return previouslyObservedConfig, append(errs, errs...)
 	}
 
 	// default to deleting previous resources, and then merge in observed resources rules
 	resourceSyncRules := deleteSyncRules(o.resourceNames...)
 	if err := mergo.Merge(&resourceSyncRules, &observedResources, mergo.WithOverride); err != nil {
-		glog.Warningf("merging resource sync rules failed: %v", err)
+		klog.Warningf("merging resource sync rules failed: %v", err)
 	}
 
 	errs = append(errs, syncObservedResources(resourceSync, resourceSyncRules)...)

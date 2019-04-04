@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
@@ -49,13 +49,13 @@ func NewRenderCommand() *cobra.Command {
 		Short: "Render kubernetes API server bootstrap manifests, secrets and configMaps",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := renderOpts.Validate(); err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 			if err := renderOpts.Complete(); err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 			if err := renderOpts.Run(); err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 		},
 	}
