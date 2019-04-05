@@ -108,7 +108,7 @@ apiServerArguments:
   enable-aggregator-routing:
   - "true"
   minimal-shutdown-duration:
-  - 35s # give SDN some time to converge
+  - 35s # give SDN some time to converge: 30s for iptable lock contention, 5s for the second try.
   http2-max-streams-per-connection:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
 auditConfig:
@@ -331,7 +331,6 @@ metadata:
     app: openshift-kube-apiserver
     apiserver: "true"
     revision: "REVISION"
-  deletionGracePeriodSeconds: 65 # a bit more than the kube-apiserver shutdown timeout of 60 sec
 spec:
   initContainers:
     - name: fix-audit-permissions
@@ -344,7 +343,7 @@ spec:
     - name: wait-for-host-port
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
-      command: ['/usr/bin/timeout', '100', '/bin/bash', '-c'] # 60 sec for graceful termination, 35 for minimum-termination-duration
+      command: ['/usr/bin/timeout', '105', '/bin/bash', '-c'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
       args:
       - |
         echo -n "Waiting for port :6443 to be released."
@@ -414,6 +413,7 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
+  terminationGracePeriodSeconds: 100 # bit more than 35s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
