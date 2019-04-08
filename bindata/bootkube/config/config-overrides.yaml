@@ -2,9 +2,6 @@ apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
 serviceAccountPublicKeyFiles:
 - /var/run/configmaps/sa-token-signing-certs/ca-bundle.crt
-servingInfo:
-  certFile: /var/run/secrets/serving-cert/tls.crt
-  keyFile: /var/run/secrets/serving-cert/tls.key
 storageConfig:
   ca: /var/run/configmaps/etcd-serving-ca/ca-bundle.crt
   certFile: /var/run/secrets/etcd-client/tls.crt

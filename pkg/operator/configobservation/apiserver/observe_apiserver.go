@@ -105,11 +105,11 @@ func observeDefaultUserServingCertificate(apiServer *configv1.APIServer, recorde
 	// generate an observed configuration that will configure the kube-apiserver to use the user managed default serving
 	// cert info instead of the operator managed default serving cert info.
 	observedConfig := map[string]interface{}{}
-	certFile := fmt.Sprint(userServingCertPublicCertFile)
+	certFile := userServingCertPublicCertFile
 	if err := unstructured.SetNestedField(observedConfig, certFile, "servingInfo", "certFile"); err != nil {
 		return previouslyObservedConfig, nil, append(errs, err)
 	}
-	keyFile := fmt.Sprint(userServingCertPrivateKeyFile)
+	keyFile := userServingCertPrivateKeyFile
 	if err := unstructured.SetNestedField(observedConfig, keyFile, "servingInfo", "keyFile"); err != nil {
 		return previouslyObservedConfig, nil, append(errs, err)
 	}
@@ -134,6 +134,19 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 	namedCertificatesPath := []string{"servingInfo", "namedCertificates"}
 	resourceSyncRules := syncActionRules{}
 	var observedNamedCertificates []interface{}
+
+	// these are always present in the config because we mint and rotate them ourselves.
+	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"})
+	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key"})
+	// TODO I don't think the kubelets trust the new signer
+	//observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+	//	"certFile": "/etc/kubernetes/static-pod-certs/secrets/loadbalancer-serving-certkey/tls.crt",
+	//	"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/loadbalancer-serving-certkey/tls.key"})
+
 	for index, namedCertificate := range namedCertificates {
 		observedNamedCertificate := map[string]interface{}{}
 		if len(namedCertificate.Names) > 0 {
@@ -166,7 +179,8 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 
 		observedNamedCertificates = append(observedNamedCertificates, observedNamedCertificate)
 	}
-	if len(namedCertificates) > 0 {
+
+	if len(observedNamedCertificates) > 0 {
 		if err := unstructured.SetNestedField(observedConfig, observedNamedCertificates, namedCertificatesPath...); err != nil {
 			return previouslyObservedConfig, nil, append(errs, err)
 		}
