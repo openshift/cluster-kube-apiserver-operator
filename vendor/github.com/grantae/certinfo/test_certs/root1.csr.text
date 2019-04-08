@@ -1,0 +1,19 @@
+Certificate Request:
+    Data:
+        Version: 0 (0x0)
+        Subject: C=US,ST=California,UnknownOID=2.5.4.7,O=World Widget Authority,OU=Identity Affairs,CN=worldwidgetauthority.com,emailAddress=nobody@worldwidgetauthority.com
+        Subject Public Key Info:
+            Public Key Algorithm: RSA
+                Public-Key: (512 bit)
+                Modulus:
+                    b5:d6:60:b9:f9:31:09:fe:97:34:c4:f7:6b:7b:06:
+                    01:f4:8b:fe:1a:e0:65:8f:fd:30:c0:82:30:3c:61:
+                    f7:c2:1d:98:7c:3a:ed:9f:b4:5e:8f:15:ce:90:8b:
+                    45:de:db:23:0e:aa:4d:95:e9:af:3b:79:26:a5:ce:
+                    71:8a:3a:bd
+                Exponent: 65537 (0x10001)
+    Signature Algorithm: SHA256-RSA
+         36:f9:ef:78:db:36:5a:f3:82:82:69:5e:f1:4a:61:d1:01:1e:
+         d8:92:ed:41:f5:8b:06:6b:6d:69:da:fe:e0:6e:a1:17:c8:7a:
+         4a:eb:c4:a2:82:aa:65:57:88:0c:98:9f:2d:d5:a5:66:fb:38:
+         b6:03:d0:2e:8a:11:01:ea:0c:75

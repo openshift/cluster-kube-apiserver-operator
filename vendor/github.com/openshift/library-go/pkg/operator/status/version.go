@@ -1,7 +1,6 @@
 package status
 
 import (
-	"os"
 	"sync"
 
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -16,10 +15,6 @@ type versionGetter struct {
 	versions             map[string]string
 	notificationChannels []chan struct{}
 }
-
-const (
-	operandImageVersionEnvVarName = "OPERAND_IMAGE_VERSION"
-)
 
 func NewVersionGetter() VersionGetter {
 	return &versionGetter{
@@ -60,10 +55,6 @@ func (v *versionGetter) VersionChangedChannel() <-chan struct{} {
 	channel := make(chan struct{}, 50)
 	v.notificationChannels = append(v.notificationChannels, channel)
 	return channel
-}
-
-func VersionForOperandFromEnv() string {
-	return os.Getenv(operandImageVersionEnvVarName)
 }
 
 func VersionForOperand(namespace, imagePullSpec string, configMapGetter corev1client.ConfigMapsGetter, eventRecorder events.Recorder) string {
