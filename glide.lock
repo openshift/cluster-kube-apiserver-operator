@@ -1,5 +1,5 @@
-hash: 2a9430b4047772bdf91a494b2b90ce0e3282e0cf5a6f23a4f1f0c812595d73ca
-updated: 2019-04-03T20:08:57.058077896-04:00
+hash: 45f2c70f451057b857f6f21362719990e82dd84c4b330cef7127db559201ab11
+updated: 2019-04-09T14:06:06.374065+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -120,7 +120,7 @@ imports:
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
-  version: 36442dbdb585210f8d5a1b45e67aa323c197d5c4
+  version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
@@ -408,7 +408,7 @@ imports:
 - name: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/stretchr/testify
-  version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
+  version: c679ae2cc0cb27ec3293fea7e254e47386f05d69
   subpackages:
   - assert
   - require
@@ -872,7 +872,7 @@ imports:
   - pkg/util
   - pkg/util/proto
 - name: sigs.k8s.io/controller-tools
-  version: 9023c7551a0d78f09b063fc41cefa8a23bb849ab
+  version: 43466124052c1a1aa7d8fd33624b00bc111fb7cf
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   subpackages:
   - pkg/crd/generator
