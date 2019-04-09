@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const sftpServer = "/usr/lib/openssh/sftp-server"
+
 func TestClientStatVFS(t *testing.T) {
 	if *testServerImpl {
 		t.Skipf("go server does not support FXP_EXTENDED")
@@ -27,14 +29,14 @@ func TestClientStatVFS(t *testing.T) {
 
 	// check some stats
 	if vfs.Frsize != uint64(s.Frsize) {
-		t.Fatalf("fr_size does not match, expected: %v, got: %v", s.Frsize, vfs.Frsize)
+		t.Fatal("fr_size does not match, expected: %v, got: %v", s.Frsize, vfs.Frsize)
 	}
 
 	if vfs.Bsize != uint64(s.Bsize) {
-		t.Fatalf("f_bsize does not match, expected: %v, got: %v", s.Bsize, vfs.Bsize)
+		t.Fatal("f_bsize does not match, expected: %v, got: %v", s.Bsize, vfs.Bsize)
 	}
 
 	if vfs.Namemax != uint64(s.Namelen) {
-		t.Fatalf("f_namemax does not match, expected: %v, got: %v", s.Namelen, vfs.Namemax)
+		t.Fatal("f_namemax does not match, expected: %v, got: %v", s.Namelen, vfs.Namemax)
 	}
 }

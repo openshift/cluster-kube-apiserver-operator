@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const sftpServer = "/usr/libexec/sftp-server"
+
 func TestClientStatVFS(t *testing.T) {
 	if *testServerImpl {
 		t.Skipf("go server does not support FXP_EXTENDED")
