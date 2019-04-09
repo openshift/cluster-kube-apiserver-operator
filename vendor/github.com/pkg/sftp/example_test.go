@@ -1,16 +1,22 @@
 package sftp_test
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"path"
+	"strings"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
-func Example(conn *ssh.Client) {
+func Example() {
+	var conn *ssh.Client
+
 	// open an SFTP session over an existing ssh connection.
 	sftp, err := sftp.NewClient(conn)
 	if err != nil {
@@ -87,4 +93,72 @@ func ExampleNewClientPipe() {
 
 	// close the connection
 	client.Close()
+}
+
+func ExampleClient_Mkdir_parents() {
+	// Example of mimicing 'mkdir --parents'; I.E. recursively create
+	// directoryies and don't error if any directories already exists.
+	var conn *ssh.Client
+
+	client, err := sftp.NewClient(conn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	sshFxFailure := uint32(4)
+	mkdirParents := func(client *sftp.Client, dir string) (err error) {
+		var parents string
+
+		if path.IsAbs(dir) {
+			// Otherwise, an absolute path given below would be turned in to a relative one
+			// by splitting on "/"
+			parents = "/"
+		}
+
+		for _, name := range strings.Split(dir, "/") {
+			if name == "" {
+				// Paths with double-/ in them should just move along
+				// this will also catch the case of the first character being a "/", i.e. an absolute path
+				continue
+			}
+			parents = path.Join(parents, name)
+			err = client.Mkdir(parents)
+			if status, ok := err.(*sftp.StatusError); ok {
+				if status.Code == sshFxFailure {
+					var fi os.FileInfo
+					fi, err = client.Stat(parents)
+					if err == nil {
+						if !fi.IsDir() {
+							return fmt.Errorf("File exists: %s", parents)
+						}
+					}
+				}
+			}
+			if err != nil {
+				break
+			}
+		}
+		return err
+	}
+
+	err = mkdirParents(client, "/tmp/foo/bar")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func ExampleFile_ReadFrom_bufio() {
+	// Using Bufio to buffer writes going to an sftp.File won't buffer as it
+	// skips buffering if the underlying writer support ReadFrom. The
+	// workaround is to wrap your writer in a struct that only implements
+	// io.Writer.
+	//
+	// For background see github.com/pkg/sftp/issues/125
+
+	var data_source io.Reader
+	var f *sftp.File
+	type writerOnly struct{ io.Writer }
+	bw := bufio.NewWriter(writerOnly{f}) // no ReadFrom()
+	bw.ReadFrom(data_source)
 }
