@@ -1,20 +1,20 @@
 package: github.com/openshift/cluster-kube-apiserver-operator
 import:
 - package: k8s.io/apimachinery
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/api
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/apiserver
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/client-go
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/code-generator
-  version: kubernetes-1.12.5
+  version: kubernetes-1.13.4
 - package: k8s.io/apiextensions-apiserver
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
-  version: 36be1826c980fa7ca82d91645e06e3157f159322
+  version: 6e2b3eb1b401beaf836f640f73f730f6da7aff2f # pinned to get nullable patch
 - package: sigs.k8s.io/controller-tools
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   version: master
@@ -27,17 +27,17 @@ import:
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
-  version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
+  version: master
 - package: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - package: github.com/apparentlymart/go-cidr
   version: v1.0.0
 - package: github.com/stretchr/testify
-  version: ~1.3.0
+  version: c679ae2cc0cb27ec3293fea7e254e47386f05d69
 
 # pinned values to land upgrade
 - package: github.com/evanphx/json-patch
-  version: 36442dbdb585210f8d5a1b45e67aa323c197d5c4
+  version: 5858425f75500d40c52783dce87d085a483ce135
 - package: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - package: github.com/davecgh/go-spew
