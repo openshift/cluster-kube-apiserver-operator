@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -24,7 +24,7 @@ func (c *CertRotationController) syncLoadBalancerHostnames() error {
 
 	hostnames.Insert(hostname)
 
-	glog.V(2).Infof("syncing loadbalancer hostnames: %v", hostnames.List())
+	klog.V(2).Infof("syncing loadbalancer hostnames: %v", hostnames.List())
 	c.loadBalancer.setHostnames(hostnames.List())
 	return nil
 }
