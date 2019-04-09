@@ -37,7 +37,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	serverstorage "k8s.io/apiserver/pkg/server/storage"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -47,9 +47,7 @@ import (
 	internalinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/internalversion"
 	"k8s.io/apiextensions-apiserver/pkg/controller/establish"
 	"k8s.io/apiextensions-apiserver/pkg/controller/finalizer"
-	openapicontroller "k8s.io/apiextensions-apiserver/pkg/controller/openapi"
 	"k8s.io/apiextensions-apiserver/pkg/controller/status"
-	apiextensionsfeatures "k8s.io/apiextensions-apiserver/pkg/features"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresourcedefinition"
 
 	_ "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -88,6 +86,11 @@ type ExtraConfig struct {
 	// MasterCount is used to detect whether cluster is HA, and if it is
 	// the CRD Establishing will be hold by 5 seconds.
 	MasterCount int
+
+	// ServiceResolver is used in CR webhook converters to resolve webhook's service names
+	ServiceResolver webhook.ServiceResolver
+	// AuthResolverWrapper is used in CR webhook converters
+	AuthResolverWrapper webhook.AuthenticationInfoResolverWrapper
 }
 
 type Config struct {
@@ -177,7 +180,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		delegate:  delegateHandler,
 	}
 	establishingController := establish.NewEstablishingController(s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(), crdClient.Apiextensions())
-	crdHandler := NewCustomResourceDefinitionHandler(
+	crdHandler, err := NewCustomResourceDefinitionHandler(
 		versionDiscoveryHandler,
 		groupDiscoveryHandler,
 		s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions(),
@@ -185,8 +188,13 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		c.ExtraConfig.CRDRESTOptionsGetter,
 		c.GenericConfig.AdmissionControl,
 		establishingController,
+		c.ExtraConfig.ServiceResolver,
+		c.ExtraConfig.AuthResolverWrapper,
 		c.ExtraConfig.MasterCount,
 	)
+	if err != nil {
+		return nil, err
+	}
 	s.GenericAPIServer.Handler.NonGoRestfulMux.Handle("/apis", crdHandler)
 	s.GenericAPIServer.Handler.NonGoRestfulMux.HandlePrefix("/apis/", crdHandler)
 
@@ -197,17 +205,12 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		crdClient.Apiextensions(),
 		crdHandler,
 	)
-	openapiController := openapicontroller.NewController(s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions())
 
 	s.GenericAPIServer.AddPostStartHook("start-apiextensions-informers", func(context genericapiserver.PostStartHookContext) error {
 		s.Informers.Start(context.StopCh)
 		return nil
 	})
 	s.GenericAPIServer.AddPostStartHook("start-apiextensions-controllers", func(context genericapiserver.PostStartHookContext) error {
-		if utilfeature.DefaultFeatureGate.Enabled(apiextensionsfeatures.CustomResourcePublishOpenAPI) {
-			go openapiController.Run(s.GenericAPIServer.StaticOpenAPISpec, s.GenericAPIServer.OpenAPIVersionedService, context.StopCh)
-		}
-
 		go crdController.Run(context.StopCh)
 		go namingController.Run(context.StopCh)
 		go establishingController.Run(context.StopCh)
@@ -215,6 +218,9 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		return nil
 	})
 	s.GenericAPIServer.AddPostStartHookOrDie("crd-discovery-available", func(context genericapiserver.PostStartHookContext) error {
+		if true {
+			return nil
+		}
 		return wait.PollImmediateUntil(100*time.Millisecond, func() (bool, error) {
 			// only check if we have a valid list for a given resourceversion
 			if !s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions().Informer().HasSynced() {
@@ -262,6 +268,18 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 			return true, nil
 		}, context.StopCh)
 	})
+
+	// we don't want to report healthy until we can handle all CRDs that have already been registered.  Waiting for the informer
+	// to sync makes sure that the lister will be valid before we begin.  There may still be races for CRDs added after startup,
+	// but we won't go healthy until we can handle the ones already present.
+	if err := s.GenericAPIServer.AddHealthzChecks(
+		&informerSyncedHealthCheck{
+			name:   "crd-informer-synced",
+			synced: s.Informers.Apiextensions().InternalVersion().CustomResourceDefinitions().Informer().HasSynced,
+		},
+	); err != nil {
+		return nil, err
+	}
 
 	// we don't want to report healthy until we can handle all CRDs that have already been registered.  Waiting for the informer
 	// to sync makes sure that the lister will be valid before we begin.  There may still be races for CRDs added after startup,
