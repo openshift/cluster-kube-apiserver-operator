@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -69,8 +69,8 @@ func NewCertRotationController(
 	rotationDay := defaultRotationDay
 	if day != time.Duration(0) {
 		rotationDay = day
-		glog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
-		glog.Warningf("Certificate rotation base set to %q", rotationDay)
+		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
+		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	}
 
 	certRotator, err := certrotation.NewCertRotationController(
@@ -362,8 +362,8 @@ func NewCertRotationController(
 }
 
 func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
-	glog.Infof("Starting CertRotation")
-	defer glog.Infof("Shutting down CertRotation")
+	klog.Infof("Starting CertRotation")
+	defer klog.Infof("Shutting down CertRotation")
 
 	if !cache.WaitForCacheSync(stopCh, c.cachesSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
