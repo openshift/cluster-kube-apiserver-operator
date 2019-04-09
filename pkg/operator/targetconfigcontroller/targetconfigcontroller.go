@@ -223,21 +223,29 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	required := resourceread.ReadPodV1OrDie(v311_00_assets.MustAsset("v3.11.0/kube-apiserver/pod.yaml"))
 	// TODO: If the image pull spec is not specified, the "${IMAGE}" will be used as value and the pod will fail to start.
+	images := map[string]string{
+		"${IMAGE}":          imagePullSpec,
+		"${OPERATOR_IMAGE}": operatorImagePullSpec,
+	}
 	if len(imagePullSpec) > 0 {
 		for i := range required.Spec.Containers {
-			if required.Spec.Containers[i].Image == "${IMAGE}" {
-				required.Spec.Containers[i].Image = imagePullSpec
+			for pat, img := range images {
+				if required.Spec.Containers[i].Image == pat {
+					required.Spec.Containers[i].Image = img
+					break
+				}
 			}
 		}
 		for i := range required.Spec.InitContainers {
-			if required.Spec.InitContainers[i].Image == "${IMAGE}" {
-				required.Spec.InitContainers[i].Image = imagePullSpec
+			for pat, img := range images {
+				if required.Spec.InitContainers[i].Image == pat {
+					required.Spec.InitContainers[i].Image = img
+					break
+				}
 			}
 		}
 	}
-	if len(operatorImagePullSpec) > 0 {
-		required.Spec.Containers[1].Image = operatorImagePullSpec
-	}
+
 	var v int
 	switch operatorConfig.Spec.LogLevel {
 	case operatorv1.Normal:
