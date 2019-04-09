@@ -19,11 +19,11 @@ import:
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   version: master
 - package: github.com/openshift/api
-  version: ad6339a9e4ce20fffe56b91dc9c9ee7a4d04ebd7
+  version: master
 - package: github.com/openshift/client-go
-  version: 8ae2a9c33ba2a3d2ed5dc13d536ca935fc9625b9 # FIXME: pre-1.13-rebase SHA
+  version: master
 - package: github.com/openshift/library-go
-  version: temporary-1.12 # FIXME: This is temporary until we manage to merge 1.13 branch
+  version: master
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
