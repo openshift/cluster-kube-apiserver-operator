@@ -9,12 +9,14 @@ import (
 )
 
 type Listers struct {
-	AuthConfigLister  configlistersv1.AuthenticationLister
-	ImageConfigLister configlistersv1.ImageLister
-	EndpointsLister   corelistersv1.EndpointsLister
-	ConfigmapLister   corelistersv1.ConfigMapLister
 	APIServerLister   configlistersv1.APIServerLister
+	AuthConfigLister  configlistersv1.AuthenticationLister
+	FeatureGateLister configlistersv1.FeatureGateLister
+	ImageConfigLister configlistersv1.ImageLister
 	NetworkLister     configlistersv1.NetworkLister
+
+	EndpointsLister corelistersv1.EndpointsLister
+	ConfigmapLister corelistersv1.ConfigMapLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced

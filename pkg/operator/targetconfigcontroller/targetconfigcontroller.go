@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +122,7 @@ func (c TargetConfigController) sync() error {
 	// don't worry about errors.  If we can't decode, we'll simply stomp over the field.
 	existingConfig := map[string]interface{}{}
 	if err := json.NewDecoder(bytes.NewBuffer(operatorConfig.Spec.ObservedConfig.Raw)).Decode(&existingConfig); err != nil {
-		glog.V(4).Infof("decode of existing config failed with error: %v", err)
+		klog.V(4).Infof("decode of existing config failed with error: %v", err)
 	}
 	requiredPaths := [][]string{
 		{"serviceAccountPublicKeyFiles"},
@@ -322,8 +322,8 @@ func (c *TargetConfigController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting TargetConfigController")
-	defer glog.Infof("Shutting down TargetConfigController")
+	klog.Infof("Starting TargetConfigController")
+	defer klog.Infof("Shutting down TargetConfigController")
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)

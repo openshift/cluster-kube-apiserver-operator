@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/featuregates"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/satokencerts"
@@ -40,14 +41,9 @@ func NewConfigObserver(
 		"kube-system",
 	}
 
-	preRunCaches := []cache.InformerSynced{
-		operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
-		kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Informer().HasSynced,
-		configInformer.Config().V1().Authentications().Informer().HasSynced,
-		configInformer.Config().V1().Images().Informer().HasSynced,
-	}
+	configMapPreRunCacheSynced := []cache.InformerSynced{}
 	for _, ns := range interestingNamespaces {
-		preRunCaches = append(preRunCaches, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced)
+		configMapPreRunCacheSynced = append(configMapPreRunCacheSynced, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced)
 	}
 
 	c := &ConfigObserver{
@@ -55,27 +51,34 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
-				AuthConfigLister:  configInformer.Config().V1().Authentications().Lister(),
-				ImageConfigLister: configInformer.Config().V1().Images().Lister(),
-				ConfigmapLister:   kubeInformersForNamespaces.ConfigMapLister(),
-				EndpointsLister:   kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
 				APIServerLister:   configInformer.Config().V1().APIServers().Lister(),
+				AuthConfigLister:  configInformer.Config().V1().Authentications().Lister(),
+				FeatureGateLister: configInformer.Config().V1().FeatureGates().Lister(),
+				ImageConfigLister: configInformer.Config().V1().Images().Lister(),
 				NetworkLister:     configInformer.Config().V1().Networks().Lister(),
-				ResourceSync:      resourceSyncer,
-				PreRunCachesSynced: []cache.InformerSynced{
+
+				ConfigmapLister: kubeInformersForNamespaces.ConfigMapLister(),
+				EndpointsLister: kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
+
+				ResourceSync: resourceSyncer,
+				PreRunCachesSynced: append(configMapPreRunCacheSynced,
 					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
+
 					kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Informer().HasSynced,
-					configInformer.Config().V1().Authentications().Informer().HasSynced,
-					configInformer.Config().V1().Images().Informer().HasSynced,
+
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
+					configInformer.Config().V1().Authentications().Informer().HasSynced,
+					configInformer.Config().V1().FeatureGates().Informer().HasSynced,
+					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
-				},
+				),
 			},
 			apiserver.ObserveDefaultUserServingCertificate,
 			apiserver.ObserveNamedCertificates,
 			apiserver.ObserveUserClientCABundle,
 			auth.ObserveAuthMetadata,
 			etcd.ObserveStorageURLs,
+			featuregates.ObserveFeatureFlags,
 			network.ObserveRestrictedCIDRs,
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,

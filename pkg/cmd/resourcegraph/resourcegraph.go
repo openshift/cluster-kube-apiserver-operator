@@ -3,9 +3,9 @@ package resourcegraph
 import (
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/gonum/graph/encoding/dot"
 	"github.com/spf13/cobra"
+	"k8s.io/klog"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcegraph"
@@ -21,7 +21,7 @@ func NewResourceChainCommand() *cobra.Command {
 
 			data, err := dot.Marshal(g, resourcegraph.Quote("kube-apiserver-operator"), "", "  ", false)
 			if err != nil {
-				glog.Fatal(err)
+				klog.Fatal(err)
 			}
 			fmt.Println(string(data))
 		},
