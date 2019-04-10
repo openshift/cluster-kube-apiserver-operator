@@ -7,34 +7,50 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-var configPath = []string{"apiServerArguments", "feature-gates"}
+type FeatureGateLister interface {
+	FeatureGateLister() configlistersv1.FeatureGateLister
+}
+
+func NewObserveFeatureFlagsFunc(knownFeatures sets.String, configPath []string) configobserver.ObserveConfigFunc {
+	return (&featureFlags{
+		allowAll:      len(knownFeatures) == 0,
+		knownFeatures: knownFeatures,
+		configPath:    configPath,
+	}).ObserveFeatureFlags
+}
+
+type featureFlags struct {
+	allowAll      bool
+	knownFeatures sets.String
+	configPath    []string
+}
 
 // ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
-// TODO make this actually filter out only the featuregates that apply to an individual binary
-func ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
+func (f *featureFlags) ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	listers := genericListers.(FeatureGateLister)
 	errs := []error{}
 	prevObservedConfig := map[string]interface{}{}
 
-	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, configPath...)
+	currentConfigValue, _, err := unstructured.NestedStringSlice(existingConfig, f.configPath...)
 	if err != nil {
 		errs = append(errs, err)
 	}
 	if len(currentConfigValue) > 0 {
-		if err := unstructured.SetNestedStringSlice(prevObservedConfig, currentConfigValue, configPath...); err != nil {
+		if err := unstructured.SetNestedStringSlice(prevObservedConfig, currentConfigValue, f.configPath...); err != nil {
 			errs = append(errs, err)
 		}
 	}
 
 	observedConfig := map[string]interface{}{}
-	configResource, err := listers.FeatureGateLister.Get("cluster")
+	configResource, err := listers.FeatureGateLister().Get("cluster")
 	// if we have no featuregate, then the installer and MCO probably still have way to reconcile certain custom resources
 	// we will assume that this means the same as default and hope for the best
 	if apierrors.IsNotFound(err) {
@@ -51,9 +67,17 @@ func ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.
 	var newConfigValue []string
 	if featureSet, ok := configv1.FeatureSets[configResource.Spec.FeatureSet]; ok {
 		for _, enable := range featureSet.Enabled {
+			// only add whitelisted feature flags
+			if !f.allowAll && !f.knownFeatures.Has(enable) {
+				continue
+			}
 			newConfigValue = append(newConfigValue, enable+"=true")
 		}
 		for _, disable := range featureSet.Disabled {
+			// only add whitelisted feature flags
+			if !f.allowAll && !f.knownFeatures.Has(disable) {
+				continue
+			}
 			newConfigValue = append(newConfigValue, disable+"=false")
 		}
 	} else {
@@ -61,11 +85,11 @@ func ObserveFeatureFlags(genericListers configobserver.Listers, recorder events.
 		return prevObservedConfig, errs
 	}
 	if !reflect.DeepEqual(currentConfigValue, newConfigValue) {
-		recorder.Eventf("ObserveFeatureFlagsUpdated", "Updated %v to %s", strings.Join(configPath, "."), strings.Join(newConfigValue, ","))
+		recorder.Eventf("ObserveFeatureFlagsUpdated", "Updated %v to %s", strings.Join(f.configPath, "."), strings.Join(newConfigValue, ","))
 	}
 
-	if err := unstructured.SetNestedStringSlice(observedConfig, newConfigValue, configPath...); err != nil {
-		recorder.Warningf("ObserveFeatureFlags", "Failed setting %v: %v", strings.Join(configPath, "."), err)
+	if err := unstructured.SetNestedStringSlice(observedConfig, newConfigValue, f.configPath...); err != nil {
+		recorder.Warningf("ObserveFeatureFlags", "Failed setting %v: %v", strings.Join(f.configPath, "."), err)
 		errs = append(errs, err)
 	}
 

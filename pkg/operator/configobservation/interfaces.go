@@ -9,17 +9,21 @@ import (
 )
 
 type Listers struct {
-	APIServerLister   configlistersv1.APIServerLister
-	AuthConfigLister  configlistersv1.AuthenticationLister
-	FeatureGateLister configlistersv1.FeatureGateLister
-	ImageConfigLister configlistersv1.ImageLister
-	NetworkLister     configlistersv1.NetworkLister
+	APIServerLister    configlistersv1.APIServerLister
+	AuthConfigLister   configlistersv1.AuthenticationLister
+	FeatureGateLister_ configlistersv1.FeatureGateLister
+	ImageConfigLister  configlistersv1.ImageLister
+	NetworkLister      configlistersv1.NetworkLister
 
 	EndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister corelistersv1.ConfigMapLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
+}
+
+func (l Listers) FeatureGateLister() configlistersv1.FeatureGateLister {
+	return l.FeatureGateLister_
 }
 
 func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {

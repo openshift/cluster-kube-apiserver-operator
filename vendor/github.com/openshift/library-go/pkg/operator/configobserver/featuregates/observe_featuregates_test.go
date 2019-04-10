@@ -4,17 +4,36 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
+type testLister struct {
+	lister configlistersv1.FeatureGateLister
+}
+
+func (l testLister) FeatureGateLister() configlistersv1.FeatureGateLister {
+	return l.lister
+}
+
+func (l testLister) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
+	return nil
+}
+
+func (l testLister) PreRunHasSynced() []cache.InformerSynced {
+	return nil
+}
+
 func TestObserveFeatureFlags(t *testing.T) {
+	configPath := []string{"foo", "bar"}
+
 	tests := []struct {
 		name string
 
@@ -53,14 +72,16 @@ func TestObserveFeatureFlags(t *testing.T) {
 					FeatureSet: tc.configValue,
 				},
 			})
-			listers := configobservation.Listers{
-				FeatureGateLister: configlistersv1.NewFeatureGateLister(indexer),
+			listers := testLister{
+				lister: configlistersv1.NewFeatureGateLister(indexer),
 			}
 			eventRecorder := events.NewInMemoryRecorder("")
 
 			initialExistingConfig := map[string]interface{}{}
 
-			observed, errs := ObserveFeatureFlags(listers, eventRecorder, initialExistingConfig)
+			observeFn := NewObserveFeatureFlagsFunc(nil, configPath)
+
+			observed, errs := observeFn(listers, eventRecorder, initialExistingConfig)
 			if len(errs) != 0 {
 				t.Fatal(errs)
 			}
