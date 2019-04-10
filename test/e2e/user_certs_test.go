@@ -91,6 +91,7 @@ func TestNamedCertificates(t *testing.T) {
 	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "serving-cert")
 	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
 	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
+	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
 
 	// execute test cases
 	testCases := []struct {
@@ -156,7 +157,7 @@ func TestNamedCertificates(t *testing.T) {
 		{
 			name:                 "LoadBalancerHostname",
 			serverName:           getAPIServiceHostNameOrFail(t, configClient),
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: externalLoadBalancerCertSerialNumber,
 		},
 		{
 			name:                 "UnknownServerHostname",

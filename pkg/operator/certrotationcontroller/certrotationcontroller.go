@@ -216,7 +216,7 @@ func NewCertRotationController(
 		},
 		certrotation.TargetRotation{
 			Namespace: operatorclient.TargetNamespace,
-			Name:      "loadbalancer-serving-certkey",
+			Name:      "external-loadbalancer-serving-certkey",
 			Validity:  30 * rotationDay,
 			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ServingRotation{
