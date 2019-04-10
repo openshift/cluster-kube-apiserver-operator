@@ -65,9 +65,18 @@ func TestObserveUserClientCABundle(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			networkIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			networkIndexer.Add(&configv1.Network{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Status: configv1.NetworkStatus{
+					ServiceNetwork: []string{"10.0.0.1/16"},
+				},
+			})
+
 			synced := map[string]string{}
 			listers := configobservation.Listers{
 				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
+				NetworkLister:   configlistersv1.NewNetworkLister(networkIndexer),
 				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveUserClientCABundle(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
@@ -136,9 +145,18 @@ func TestObserveDefaultServingCertificate(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			networkIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			networkIndexer.Add(&configv1.Network{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Status: configv1.NetworkStatus{
+					ServiceNetwork: []string{"10.0.0.1/16"},
+				},
+			})
+
 			synced := map[string]string{}
 			listers := configobservation.Listers{
 				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
+				NetworkLister:   configlistersv1.NewNetworkLister(networkIndexer),
 				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveDefaultUserServingCertificate(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
@@ -207,6 +225,13 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"names": []interface{}{
+								"kubernetes",
+								"kubernetes.default",
+								"kubernetes.default.svc",
+								"kubernetes.default.svc.cluster.local",
+								"10.0.0.1",
+							},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
@@ -243,6 +268,13 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"names": []interface{}{
+								"kubernetes",
+								"kubernetes.default",
+								"kubernetes.default.svc",
+								"kubernetes.default.svc.cluster.local",
+								"10.0.0.1",
+							},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
@@ -283,6 +315,13 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"names": []interface{}{
+								"kubernetes",
+								"kubernetes.default",
+								"kubernetes.default.svc",
+								"kubernetes.default.svc.cluster.local",
+								"10.0.0.1",
+							},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
@@ -325,6 +364,13 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"names": []interface{}{
+								"kubernetes",
+								"kubernetes.default",
+								"kubernetes.default.svc",
+								"kubernetes.default.svc.cluster.local",
+								"10.0.0.1",
+							},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
@@ -374,6 +420,13 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"names": []interface{}{
+								"kubernetes",
+								"kubernetes.default",
+								"kubernetes.default.svc",
+								"kubernetes.default.svc.cluster.local",
+								"10.0.0.1",
+							},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
@@ -440,9 +493,9 @@ func TestObserveNamedCertificates(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			apiServerIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			if tc.config != nil {
-				if err := indexer.Add(tc.config); err != nil {
+				if err := apiServerIndexer.Add(tc.config); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -463,9 +516,18 @@ func TestObserveNamedCertificates(t *testing.T) {
 				}
 			}
 
+			networkIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			networkIndexer.Add(&configv1.Network{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Status: configv1.NetworkStatus{
+					ServiceNetwork: []string{"10.0.0.1/16"},
+				},
+			})
+
 			synced := map[string]string{}
 			listers := configobservation.Listers{
-				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
+				APIServerLister: configlistersv1.NewAPIServerLister(apiServerIndexer),
+				NetworkLister:   configlistersv1.NewNetworkLister(networkIndexer),
 				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveNamedCertificates(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)

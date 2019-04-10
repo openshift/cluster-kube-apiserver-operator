@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
+
+	"github.com/apparentlymart/go-cidr/cidr"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -126,6 +129,9 @@ type TemplateData struct {
 
 	// ServiceClusterIPRange is the IP range for service IPs.
 	ServiceCIDR []string
+
+	// KubernetesServiceIP is the predicted IP for the kubernetes service.
+	KubernetesServiceIP string
 }
 
 // Run contains the logic of the render command.
@@ -211,6 +217,16 @@ func discoverCIDRsFromNetwork(clusterConfigFileData []byte, renderConfig *Templa
 		clusterConfig.Object, "spec", "serviceNetwork")
 	if found && err == nil {
 		renderConfig.ServiceCIDR = serviceCIDR
+
+		_, serviceCIDR, err := net.ParseCIDR(serviceCIDR[0])
+		if err != nil {
+			return err
+		}
+		ip, err := cidr.Host(serviceCIDR, 1)
+		if err != nil {
+			return err
+		}
+		renderConfig.KubernetesServiceIP = ip.String()
 	}
 	if err != nil {
 		return err
@@ -243,9 +259,20 @@ func discoverCIDRsFromClusterAPI(clusterConfigFileData []byte, renderConfig *Tem
 		clusterConfig.Object, "spec", "clusterNetwork", "services", "cidrBlocks")
 	if found && err == nil {
 		renderConfig.ServiceCIDR = serviceCIDR
+
+		_, serviceCIDR, err := net.ParseCIDR(serviceCIDR[0])
+		if err != nil {
+			return err
+		}
+		ip, err := cidr.Host(serviceCIDR, 1)
+		if err != nil {
+			return err
+		}
+		renderConfig.KubernetesServiceIP = ip.String()
 	}
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

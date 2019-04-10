@@ -2,7 +2,9 @@ package apiserver
 
 import (
 	"fmt"
+	"net"
 
+	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/imdario/mergo"
 	"k8s.io/klog"
 
@@ -47,11 +49,18 @@ type syncActionRules map[string]string
 // resourceSyncFunc syncs a resource from the source location to the destination location.
 type resourceSyncFunc func(destination, source resourcesynccontroller.ResourceLocation) error
 
+// IPContext contains IP addresses which can vary between installations and even state of the cluster
+// TODO will probably contain loadbalancer IPs
+type IPContext struct {
+	// KubernetesServiceIP is the IP of the kube service
+	KubernetesServiceIP string
+}
+
 // observeAPIServerConfigFunc observes configuration and returns the observedConfig and a map describing a list of
 // resources to sync.
 // It returns the observed config, sync rules and possibly an error. Nil sync rules mean to ignore all resources
 // in case of error. Otherwise, resources are deleted by default and the returned sync rules are taken as overrides of that.
-type observeAPIServerConfigFunc func(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error)
+type observeAPIServerConfigFunc func(ipContext IPContext, apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error)
 
 // ObserveUserClientCABundle returns an ObserveConfigFunc that observes a user managed certificate bundle containing
 // signers that will be recognized for incoming client certificates in addition to the operator managed signers.
@@ -82,7 +91,7 @@ var ObserveNamedCertificates configobserver.ObserveConfigFunc = (&apiServerObser
 
 // observeUserClientCABundle observes a user managed ConfigMap containing a certificate bundle for the signers that will
 // be recognized for incoming client certificates in addition to the operator managed signers.
-func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeUserClientCABundle(_ IPContext, apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
 	configMapName := apiServer.Spec.ClientCA.Name
 	if len(configMapName) == 0 {
 		return nil, nil, nil // previously observed resource (if any) should be deleted
@@ -96,7 +105,7 @@ func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Re
 
 // observeDefaultUserServingCertificate observes user managed Secret containing the default cert info for serving
 // secure traffic.
-func observeDefaultUserServingCertificate(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeDefaultUserServingCertificate(_ IPContext, apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
 	var errs []error
 	servingCertSecretName := apiServer.Spec.ServingCerts.DefaultServingCertificate.Name
 	if len(servingCertSecretName) == 0 {
@@ -118,7 +127,7 @@ func observeDefaultUserServingCertificate(apiServer *configv1.APIServer, recorde
 
 // observeNamedCertificates observes user managed Secrets containing TLS cert info for serving secure traffic to
 // specific hostnames.
-func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeNamedCertificates(ipContext IPContext, apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
 	var errs []error
 	observedConfig := map[string]interface{}{}
 
@@ -135,11 +144,22 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 	resourceSyncRules := syncActionRules{}
 	var observedNamedCertificates []interface{}
 
+	serviceNetworkNames := []interface{}{
+		"kubernetes",
+		"kubernetes.default",
+		"kubernetes.default.svc",
+		"kubernetes.default.svc.cluster.local",
+	}
+	if len(ipContext.KubernetesServiceIP) > 0 {
+		serviceNetworkNames = append(serviceNetworkNames, ipContext.KubernetesServiceIP)
+	}
+
 	// these are always present in the config because we mint and rotate them ourselves.
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
 		"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"})
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"names":    serviceNetworkNames,
 		"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key"})
 	// TODO I don't think the kubelets trust the new signer
@@ -213,14 +233,33 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 		// no error, just clear the observed config and observed resources
 		return nil, append(errs, syncObservedResources(resourceSync, deleteSyncRules(o.resourceNames...))...)
 	}
-
 	// if something went wrong, keep the previously observed config and resources
 	if err != nil {
 		klog.Warningf("error getting apiservers.%s/cluster: %v", configv1.GroupName, err)
 		return previouslyObservedConfig, append(errs, err)
 	}
 
-	observedConfig, observedResources, errs := o.observerFunc(apiServer, recorder, previouslyObservedConfig)
+	ipContext := IPContext{}
+
+	networkConfig, err := listers.NetworkLister.Get("cluster")
+	if err != nil {
+		klog.Warningf("error getting networks.%s/cluster: %v", configv1.GroupName, err)
+		return previouslyObservedConfig, append(errs, err)
+	}
+	for _, cidrString := range networkConfig.Status.ServiceNetwork {
+		_, serviceCIDR, err := net.ParseCIDR(cidrString)
+		if err != nil {
+			return previouslyObservedConfig, append(errs, err)
+		}
+		ip, err := cidr.Host(serviceCIDR, 1)
+		if err != nil {
+			return previouslyObservedConfig, append(errs, err)
+		}
+		ipContext.KubernetesServiceIP = ip.String()
+		break
+	}
+
+	observedConfig, observedResources, errs := o.observerFunc(ipContext, apiServer, recorder, previouslyObservedConfig)
 
 	// if we get error during observation, skip the merging and return previous config and errors.
 	if len(errs) > 0 {

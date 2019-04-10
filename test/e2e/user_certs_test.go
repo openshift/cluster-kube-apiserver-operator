@@ -141,7 +141,7 @@ func TestNamedCertificates(t *testing.T) {
 		{
 			name:                 "ServiceIP",
 			serverName:           getKubernetesServiceClusterIPOrFail(t, kubeClient),
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: serviceServingCertSerialNumber,
 		},
 		{
 			name:                 "Localhost localhost",

@@ -23,6 +23,7 @@ servingInfo:
       - "kubernetes.default"
       - "kubernetes.default.svc"
       - "kubernetes.default.svc.cluster.local"
+      - "{{.KubernetesServiceIP}}"
       certFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
       keyFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
     - names:
