@@ -210,6 +210,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
+						map[string]interface{}{
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key",
+						},
 					},
 				},
 			},
@@ -245,6 +249,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
+						},
+						map[string]interface{}{
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key",
 						},
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
@@ -287,6 +295,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
 						},
 						map[string]interface{}{
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key",
+						},
+						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.key",
 						},
@@ -327,6 +339,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
+						},
+						map[string]interface{}{
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key",
 						},
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",
@@ -376,6 +392,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key",
+						},
+						map[string]interface{}{
+							"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key",
 						},
 						map[string]interface{}{
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert-000/tls.crt",

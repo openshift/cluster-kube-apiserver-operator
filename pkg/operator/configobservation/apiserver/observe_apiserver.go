@@ -142,10 +142,9 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
 		"certFile": "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key"})
-	// TODO I don't think the kubelets trust the new signer
-	//observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
-	//	"certFile": "/etc/kubernetes/static-pod-certs/secrets/loadbalancer-serving-certkey/tls.crt",
-	//	"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/loadbalancer-serving-certkey/tls.key"})
+	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"certFile": "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/external-loadbalancer-serving-certkey/tls.key"})
 
 	for index, namedCertificate := range namedCertificates {
 		observedNamedCertificate := map[string]interface{}{}
