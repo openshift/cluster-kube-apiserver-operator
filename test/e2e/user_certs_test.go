@@ -151,7 +151,7 @@ func TestNamedCertificates(t *testing.T) {
 		{
 			name:                 "Localhost 127.0.0.1",
 			serverName:           "127.0.0.1",
-			expectedSerialNumber: defaultServingCertSerialNumber,
+			expectedSerialNumber: localhostServingCertSerialNumber,
 		},
 		{
 			name:                 "LoadBalancerHostname",

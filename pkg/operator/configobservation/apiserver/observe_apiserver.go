@@ -137,6 +137,11 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 
 	// these are always present in the config because we mint and rotate them ourselves.
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"names": []interface{}{
+			"localhost",
+			"127.0.0.1",
+			"::1",
+		},
 		"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"})
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{

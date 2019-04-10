@@ -203,6 +203,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
+							"names":    []interface{}{"localhost", "127.0.0.1", "::1"},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
@@ -239,6 +240,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
+							"names":    []interface{}{"localhost", "127.0.0.1", "::1"},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
@@ -279,6 +281,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
+							"names":    []interface{}{"localhost", "127.0.0.1", "::1"},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
@@ -321,6 +324,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
+							"names":    []interface{}{"localhost", "127.0.0.1", "::1"},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
@@ -370,6 +374,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"servingInfo": map[string]interface{}{
 					"namedCertificates": []interface{}{
 						map[string]interface{}{
+							"names":    []interface{}{"localhost", "127.0.0.1", "::1"},
 							"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
 							"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key",
 						},
