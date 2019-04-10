@@ -1,5 +1,5 @@
-hash: efe02039dae0ebe86262fd427751b20c05b0c039aa473eb75445db14ac4b3ccd
-updated: 2019-04-09T16:31:19.277614021-04:00
+hash: 0ef6b2a70f28d69376b7a9610304d8fc53f51bb52cc83ed78d997fe78df04ba9
+updated: 2019-04-10T11:24:10.084541806-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -240,7 +240,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 275768afc8f66b79aeb12debf94ffc85255104ad
+  version: 87f97e6c35f4e067e1c744b3013fd902c5baa4ad
   subpackages:
   - apps
   - apps/v1
@@ -305,7 +305,8 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 8feeb2216a12650b738e6199e27e3f6a5a77abe3
+  version: 1dfa94e49540140c4bdba0f0bc2ababf9cbad60e
+  repo: https://github.com/deads2k/library-go
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -321,6 +322,7 @@ imports:
   - pkg/crypto
   - pkg/operator/certrotation
   - pkg/operator/configobserver
+  - pkg/operator/configobserver/featuregates
   - pkg/operator/configobserver/network
   - pkg/operator/events
   - pkg/operator/management
