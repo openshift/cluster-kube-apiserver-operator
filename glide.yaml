@@ -14,10 +14,10 @@ import:
   version: kubernetes-1.13.4
 - package: k8s.io/apiextensions-apiserver
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
-  version: 6e2b3eb1b401beaf836f640f73f730f6da7aff2f # pinned to get nullable patch
+  version: origin-4.1-kubernetes-1.13.4 # pinned to get nullable patch
 - package: sigs.k8s.io/controller-tools
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
-  version: master
+  version: origin-4.0-kubernetes-1.12.4 # TODO: move to 1.13
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go
@@ -27,7 +27,7 @@ import:
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
-  version: master
+  version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
 - package: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - package: github.com/apparentlymart/go-cidr
