@@ -1,5 +1,5 @@
 hash: 1de0ffa21bb6942fef498ca1d717dcc22463737ad24eb4731f84e46ad0d5a076
-updated: 2019-04-11T12:13:55.369626+02:00
+updated: 2019-04-11T11:13:53.707857216-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -99,7 +99,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/docker/docker
@@ -120,7 +120,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -303,7 +303,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: a0f83294d69c791f53d01d5f6d6bf4f4cd7fd3a9
+  version: fc857b53b17e044799ff5134e1185256bd41155a
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -318,7 +318,6 @@ imports:
   - pkg/controller/metrics
   - pkg/crypto
   - pkg/operator/certrotation
-  - pkg/operator/certrotation/metrics
   - pkg/operator/configobserver
   - pkg/operator/configobserver/featuregates
   - pkg/operator/configobserver/network
@@ -367,6 +366,7 @@ imports:
   version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
   - prometheus
+  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -512,7 +512,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
   version: 5cb15d34447165a97c76ed5a60e4e99c8a01ecfe
   subpackages:
@@ -862,7 +862,7 @@ imports:
   - parser
   - types
 - name: k8s.io/klog
-  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
+  version: aaeac2fedbead93263ae78b80849cac7ff5a5fbb
 - name: k8s.io/kube-aggregator
   version: 3e0149950b0e22a3b8579db52bd50e40d0dac10e
   subpackages:
