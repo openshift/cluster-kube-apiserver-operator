@@ -336,7 +336,7 @@ spec:
     - name: fix-audit-permissions
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
-      command: ['/bin/sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
+      command: ['/bin/sh', '-c', 'chmod 0700 /var/log/kube-apiserver && touch /var/log/kube-apiserver/audit.log && chmod 0600 /var/log/kube-apiserver/audit.log']
       volumeMounts:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
