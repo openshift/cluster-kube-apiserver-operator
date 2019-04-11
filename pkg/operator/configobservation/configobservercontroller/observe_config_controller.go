@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"k8s.io/client-go/tools/cache"
 
@@ -51,11 +52,12 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
-				APIServerLister:    configInformer.Config().V1().APIServers().Lister(),
-				AuthConfigLister:   configInformer.Config().V1().Authentications().Lister(),
-				FeatureGateLister_: configInformer.Config().V1().FeatureGates().Lister(),
-				ImageConfigLister:  configInformer.Config().V1().Images().Lister(),
-				NetworkLister:      configInformer.Config().V1().Networks().Lister(),
+				APIServerLister:       configInformer.Config().V1().APIServers().Lister(),
+				AuthConfigLister:      configInformer.Config().V1().Authentications().Lister(),
+				FeatureGateLister_:    configInformer.Config().V1().FeatureGates().Lister(),
+				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
+				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
+				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
 
 				ConfigmapLister: kubeInformersForNamespaces.ConfigMapLister(),
 				EndpointsLister: kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
@@ -70,6 +72,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Authentications().Informer().HasSynced,
 					configInformer.Config().V1().FeatureGates().Informer().HasSynced,
 					configInformer.Config().V1().Images().Informer().HasSynced,
+					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
 				),
 			},
@@ -78,6 +81,10 @@ func NewConfigObserver(
 			apiserver.ObserveUserClientCABundle,
 			auth.ObserveAuthMetadata,
 			etcd.ObserveStorageURLs,
+			cloudprovider.NewCloudProviderObserver(
+				"openshift-kube-apiserver",
+				[]string{"apiServerArguments", "cloud-provider"},
+				[]string{"apiServerArguments", "cloud-config"}),
 			featuregates.NewObserveFeatureFlagsFunc(nil, []string{"apiServerArguments", "feature-gates"}),
 			network.ObserveRestrictedCIDRs,
 			images.ObserveInternalRegistryHostname,
@@ -95,6 +102,7 @@ func NewConfigObserver(
 	kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
