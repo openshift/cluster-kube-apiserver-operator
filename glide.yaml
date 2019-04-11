@@ -17,7 +17,7 @@ import:
   version: origin-4.1-kubernetes-1.13.4 # pinned to get nullable patch
 - package: sigs.k8s.io/controller-tools
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
-  version: origin-4.0-kubernetes-1.12.4 # TODO: move to 1.13
+  version: origin-4.1-kubernetes-1.13.4
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go

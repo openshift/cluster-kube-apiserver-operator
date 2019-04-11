@@ -147,6 +147,12 @@ func (b *APIs) getDuration() string {
 }`
 }
 
+func (b *APIs) getQuantity() string {
+	return `v1beta1.JSONSchemaProps{
+    Type:   "string",
+}`
+}
+
 func (b *APIs) objSchema() string {
 	return `v1beta1.JSONSchemaProps{
     Type:   "object",
@@ -159,11 +165,11 @@ func (b *APIs) typeToJSONSchemaProps(t *types.Type, found sets.String, comments 
 	// Special cases
 	time := types.Name{Name: "Time", Package: "k8s.io/apimachinery/pkg/apis/meta/v1"}
 	duration := types.Name{Name: "Duration", Package: "k8s.io/apimachinery/pkg/apis/meta/v1"}
+	quantity := types.Name{Name: "Quantity", Package: "k8s.io/apimachinery/pkg/api/resource"}
 	meta := types.Name{Name: "ObjectMeta", Package: "k8s.io/apimachinery/pkg/apis/meta/v1"}
 	unstructured := types.Name{Name: "Unstructured", Package: "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"}
-	intOrString := types.Name{Name: "IntOrString", Package: "k8s.io/apimachinery/pkg/util/intstr"}
 	rawExtension := types.Name{Name: "RawExtension", Package: "k8s.io/apimachinery/pkg/runtime"}
-
+	intOrString := types.Name{Name: "IntOrString", Package: "k8s.io/apimachinery/pkg/util/intstr"}
 	// special types first
 	specialTypeProps := v1beta1.JSONSchemaProps{
 		Description: parseDescription(comments),
@@ -179,10 +185,10 @@ func (b *APIs) typeToJSONSchemaProps(t *types.Type, found sets.String, comments 
 	case duration:
 		specialTypeProps.Type = "string"
 		return specialTypeProps, b.getDuration()
-	case meta:
-		specialTypeProps.Type = "object"
-		return specialTypeProps, b.objSchema()
-	case unstructured, rawExtension:
+	case quantity:
+		specialTypeProps.Type = "string"
+		return specialTypeProps, b.getQuantity()
+	case meta, unstructured, rawExtension:
 		specialTypeProps.Type = "object"
 		return specialTypeProps, b.objSchema()
 	case intOrString:
@@ -221,7 +227,7 @@ func (b *APIs) typeToJSONSchemaProps(t *types.Type, found sets.String, comments 
 	return v, s
 }
 
-var jsonRegex = regexp.MustCompile("json:\"([a-zA-Z,]+)\"")
+var jsonRegex = regexp.MustCompile("json:\"([a-zA-Z0-9,]+)\"")
 
 type primitiveTemplateArgs struct {
 	v1beta1.JSONSchemaProps

@@ -40,10 +40,10 @@ test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
 test-e2e: test-unit
 
 update-codegen-crds:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --domain openshift.io --apis-dir vendor/github.com/openshift/api
 update-codegen: update-codegen-crds
 verify-codegen-crds:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --apis-dir vendor/github.com/openshift/api --verify-only
+	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --domain openshift.io --apis-dir vendor/github.com/openshift/api --verify-only
 verify-codegen: verify-codegen-crds
 verify: verify-codegen
 .PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify
