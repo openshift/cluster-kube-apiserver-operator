@@ -410,11 +410,10 @@ func InitFlags(flagset *flag.FlagSet) {
 	}
 	flagset.StringVar(&logging.logDir, "log_dir", "", "If non-empty, write log files in this directory")
 	flagset.StringVar(&logging.logFile, "log_file", "", "If non-empty, use this log file")
-	flagset.BoolVar(&logging.toStderr, "logtostderr", true, "log to standard error instead of files")
+	flagset.BoolVar(&logging.toStderr, "logtostderr", false, "log to standard error instead of files")
 	flagset.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
-	flagset.Var(&logging.verbosity, "v", "number for the log level verbosity")
+	flagset.Var(&logging.verbosity, "v", "log level for V logs")
 	flagset.BoolVar(&logging.skipHeaders, "skip_headers", false, "If true, avoid header prefixes in the log messages")
-	flagset.BoolVar(&logging.skipLogHeaders, "skip_log_headers", false, "If true, avoid headers when openning log files")
 	flagset.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flagset.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flagset.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
@@ -474,9 +473,6 @@ type loggingT struct {
 
 	// If true, do not add the prefix headers, useful when used with SetOutput
 	skipHeaders bool
-
-	// If true, do not add the headers to log files
-	skipLogHeaders bool
 }
 
 // buffer holds a byte Buffer for reuse. The zero value is ready for use.
@@ -876,7 +872,7 @@ func (sb *syncBuffer) Sync() error {
 
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 	if sb.nbytes+uint64(len(p)) >= MaxSize {
-		if err := sb.rotateFile(time.Now(), false); err != nil {
+		if err := sb.rotateFile(time.Now()); err != nil {
 			sb.logger.exit(err)
 		}
 	}
@@ -889,25 +885,19 @@ func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 }
 
 // rotateFile closes the syncBuffer's file and starts a new one.
-// The startup argument indicates whether this is the initial startup of klog.
-// If startup is true, existing files are opened for apending instead of truncated.
-func (sb *syncBuffer) rotateFile(now time.Time, startup bool) error {
+func (sb *syncBuffer) rotateFile(now time.Time) error {
 	if sb.file != nil {
 		sb.Flush()
 		sb.file.Close()
 	}
 	var err error
-	sb.file, _, err = create(severityName[sb.sev], now, startup)
+	sb.file, _, err = create(severityName[sb.sev], now)
 	sb.nbytes = 0
 	if err != nil {
 		return err
 	}
 
 	sb.Writer = bufio.NewWriterSize(sb.file, bufferSize)
-
-	if sb.logger.skipLogHeaders {
-		return nil
-	}
 
 	// Write header.
 	var buf bytes.Buffer
@@ -936,7 +926,7 @@ func (l *loggingT) createFiles(sev severity) error {
 			logger: l,
 			sev:    s,
 		}
-		if err := sb.rotateFile(now, true); err != nil {
+		if err := sb.rotateFile(now); err != nil {
 			return err
 		}
 		l.file[s] = sb
@@ -944,7 +934,7 @@ func (l *loggingT) createFiles(sev severity) error {
 	return nil
 }
 
-const flushInterval = 5 * time.Second
+const flushInterval = 30 * time.Second
 
 // flushDaemon periodically flushes the log file buffers.
 func (l *loggingT) flushDaemon() {
