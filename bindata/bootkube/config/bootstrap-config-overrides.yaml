@@ -31,6 +31,8 @@ servingInfo:
         - "::1"
       certFile: /etc/kubernetes/secrets/kube-apiserver-localhost-server.crt
       keyFile: /etc/kubernetes/secrets/kube-apiserver-localhost-server.key
+    - certFile: /etc/kubernetes/secrets/kube-apiserver-lb-server.crt
+      keyFile: /etc/kubernetes/secrets/kube-apiserver-lb-server.key
 storageConfig:
   ca: /etc/kubernetes/secrets/{{.EtcdServingCA}} # origin 3.11: ca.crt
   certFile: /etc/kubernetes/secrets/etcd-client.crt # origin 3.11: master.etcd-client.crt
