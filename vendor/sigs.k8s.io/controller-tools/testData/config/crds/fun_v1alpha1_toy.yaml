@@ -119,10 +119,17 @@ spec:
               format: int32
               type: integer
             rook:
-              description: This is a newly added field. Using this for testing purpose.
-              oneOf:
+              anyOf:
               - type: string
               - type: integer
+              description: This is a newly added field. Using this for testing purpose.
+            s3Log:
+              description: Used this for testing fieldNames with number.
+              properties:
+                bucket:
+                  minLength: 1
+                  type: string
+              type: object
             template:
               description: This is a comment on an object field.
               type: object
@@ -135,6 +142,7 @@ spec:
           - template
           - replicas
           - rook
+          - s3Log
           - location
           - address
           - addresses
