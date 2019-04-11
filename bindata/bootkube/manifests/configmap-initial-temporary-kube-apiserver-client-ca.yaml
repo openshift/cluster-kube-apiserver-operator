@@ -2,6 +2,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: initial-temporary-client-ca
+  labels:
+    "auth.openshift.io/managed-certificate-type": ca-bundle
   namespace: openshift-kube-apiserver-operator
 data:
   ca-bundle.crt: |

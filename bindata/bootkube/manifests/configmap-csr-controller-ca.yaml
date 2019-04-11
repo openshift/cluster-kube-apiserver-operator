@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: csr-controller-ca
   namespace: openshift-config-managed
+  labels:
+    "auth.openshift.io/managed-certificate-type": ca-bundle
 data:
   ca-bundle.crt: |
     {{ .Assets | load "kubelet-client-ca-bundle.crt" | indent 4 }}

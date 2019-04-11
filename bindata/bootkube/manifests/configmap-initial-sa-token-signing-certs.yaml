@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: initial-sa-token-signing-certs
   namespace: openshift-config
+  labels:
+    "auth.openshift.io/managed-certificate-type": ca-bundle
 data:
   ca-bundle.crt: |
     {{ .Assets | load "service-account.pub" | indent 4 }}
