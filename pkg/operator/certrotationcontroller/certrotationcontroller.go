@@ -107,6 +107,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		true,
 	)
 	if err != nil {
 		return nil, err
@@ -147,6 +148,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -188,6 +190,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -229,6 +232,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -269,6 +273,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -309,6 +314,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
@@ -352,6 +358,7 @@ func NewCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		false,
 	)
 	if err != nil {
 		return nil, err
