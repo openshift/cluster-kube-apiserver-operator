@@ -6,4 +6,4 @@ metadata:
   namespace: openshift-config
 data:
   ca-bundle.crt: |
-    {{ .Assets | load "kube-ca.crt" | indent 4 }}
+    {{ .Assets | load "kube-apiserver-complete-server-ca-bundle.crt" | indent 4 }}
