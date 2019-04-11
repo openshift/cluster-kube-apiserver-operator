@@ -211,7 +211,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "serving-cert"},
 	{Name: "localhost-serving-cert-certkey"},
 	{Name: "service-network-serving-certkey"},
-	{Name: "loadbalancer-serving-certkey"},
+	{Name: "external-loadbalancer-serving-certkey"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
