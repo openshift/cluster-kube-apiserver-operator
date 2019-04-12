@@ -14,9 +14,9 @@ kubeletClientInfo:
 serviceAccountPublicKeyFiles:
 - /etc/kubernetes/secrets/service-account.pub # origin 3.11: serviceaccounts.public.key
 servingInfo:
-  certFile: /etc/kubernetes/secrets/apiserver.crt # origin 3.11: master.server.crt
+  certFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   clientCA: /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
-  keyFile: /etc/kubernetes/secrets/apiserver.key # origin 3.11: master.server.key
+  keyFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
   namedCertificates:
     - names:
       - "kubernetes"

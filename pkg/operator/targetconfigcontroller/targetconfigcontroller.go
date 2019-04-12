@@ -279,8 +279,6 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		// this is from the installer and contains the value to verify the admin.kubeconfig user
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
 		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images
-		// TODO the MCO should take care of rotating this.
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "node-bootstrap-client-ca"},
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
@@ -301,8 +299,6 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 		lister,
 		nil, // TODO remove this
 		nil, // TODO remove this
-		// this is from the installer and contains the value they think we should have
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kube-apiserver-server-ca"},
 		// this bundle is what this operator uses to mint loadbalancers certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "loadbalancer-serving-ca"},
 		// this bundle is what this operator uses to mint localhost certs
