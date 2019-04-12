@@ -4,7 +4,6 @@
 // bindata/v3.11.0/kube-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/kube-apiserver/kubeconfig-cm.yaml
 // bindata/v3.11.0/kube-apiserver/ns.yaml
-// bindata/v3.11.0/kube-apiserver/operator-config.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
 // bindata/v3.11.0/kube-apiserver/pod.yaml
 // bindata/v3.11.0/kube-apiserver/svc.yaml
@@ -273,29 +272,6 @@ func v3110KubeApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverOperatorConfigYaml = []byte(`apiVersion: operator.openshift.io/v1
-kind: KubeAPIServer
-metadata:
-  name: cluster
-spec:
-  managementState: Managed
-`)
-
-func v3110KubeApiserverOperatorConfigYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverOperatorConfigYaml, nil
-}
-
-func v3110KubeApiserverOperatorConfigYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverOperatorConfigYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/operator-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v3110KubeApiserverPodCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -531,14 +507,13 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml":              v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml":   v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/kube-apiserver/kubeconfig-cm.yaml":   v3110KubeApiserverKubeconfigCmYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":              v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/operator-config.yaml": v3110KubeApiserverOperatorConfigYaml,
-	"v3.11.0/kube-apiserver/pod-cm.yaml":          v3110KubeApiserverPodCmYaml,
-	"v3.11.0/kube-apiserver/pod.yaml":             v3110KubeApiserverPodYaml,
-	"v3.11.0/kube-apiserver/svc.yaml":             v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":            v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/kubeconfig-cm.yaml": v3110KubeApiserverKubeconfigCmYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":            v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":        v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":           v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":           v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -584,14 +559,13 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":              {v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":   {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"kubeconfig-cm.yaml":   {v3110KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
-			"ns.yaml":              {v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"operator-config.yaml": {v3110KubeApiserverOperatorConfigYaml, map[string]*bintree{}},
-			"pod-cm.yaml":          {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":             {v3110KubeApiserverPodYaml, map[string]*bintree{}},
-			"svc.yaml":             {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml":            {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml": {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"kubeconfig-cm.yaml": {v3110KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
+			"ns.yaml":            {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"pod-cm.yaml":        {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":           {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"svc.yaml":           {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
