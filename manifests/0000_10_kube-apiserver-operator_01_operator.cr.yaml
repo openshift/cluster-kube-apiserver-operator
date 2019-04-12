@@ -2,5 +2,7 @@ apiVersion: operator.openshift.io/v1
 kind: KubeAPIServer
 metadata:
   name: cluster
+  annotations:
+    release.openshift.io/create-only: "true"
 spec:
   managementState: Managed
