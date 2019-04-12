@@ -63,15 +63,6 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
-	// this secret contains the serving cert/key pair for the kube-apiserver
-	// TODO this will logically become two secrets: one for the ELB/default, another for the loopback and service network
-	if err := resourceSyncController.SyncSecret(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "serving-cert"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-serving-cert"},
-	); err != nil {
-		return nil, err
-	}
-
 	// this ca bundle contains certs to verify the aggregator.  We copy it from the shared location to here.
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
