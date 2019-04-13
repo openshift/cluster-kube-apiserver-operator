@@ -7,6 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +22,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
@@ -43,8 +45,6 @@ func TestNamedCertificates(t *testing.T) {
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	operatorClient, err := operatorclient.NewForConfig(kubeConfig)
-	require.NoError(t, err)
 
 	// kube-apiserver must be available, not progressing, and not failing to continue
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
@@ -58,9 +58,6 @@ func TestNamedCertificates(t *testing.T) {
 		_, err := createTLSSecret(kubeClient, "openshift-config", info.secretName, info.crypto.PrivateKey, info.crypto.Certificate)
 		require.NoError(t, err)
 	}
-
-	// before updating the config, note current generation of KubeApiServer/cluster.
-	initialConfigGeneration := test.GetKubeAPIServerOperatorConfigGeneration(t, operatorClient)
 
 	// configure named certificates
 	defer func() {
@@ -83,9 +80,46 @@ func TestNamedCertificates(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// wait for configuration to become effective
-	test.WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t, operatorClient, initialConfigGeneration)
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
+	// wait for configuration to become effective three times in a row
+	// this is hack around some bad condition testing.
+	// wait until the setting appears to work five times in a row to try to deal with a loadbalancer
+	err = wait.PollImmediate(1*time.Second, 9*time.Minute, func() (bool, error) {
+		var serialNumber string
+		verifyPeerCertificate := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			var err error
+			if certificate, err := x509.ParseCertificate(rawCerts[0]); err == nil {
+				serialNumber = certificate.SerialNumber.String()
+			}
+			return err
+		}
+		tlsConf := &tls.Config{
+			VerifyPeerCertificate: verifyPeerCertificate,
+			ServerName:            "one.test",
+			InsecureSkipVerify:    true,
+		}
+		hostURL, err := url.Parse(kubeConfig.Host)
+		require.NoError(t, err)
+
+		for i := 0; i < 5; i++ {
+			conn, err := tls.Dial("tcp", hostURL.Host, tlsConf)
+			if err != nil {
+				t.Log(err)
+				return false, nil
+			}
+			conn.Close()
+			if testCertInfoById["one"].crypto.Certificate.SerialNumber.String() != serialNumber {
+				t.Log(serialNumber)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//test.WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t, operatorClient, initialConfigGeneration)
+	//test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
 
 	// get serial number of default serving certificate
 	// the default is actually the service-network so that we can easily recognize it in error messages for bad names
