@@ -88,10 +88,16 @@ func TestNamedCertificates(t *testing.T) {
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
 
 	// get serial number of default serving certificate
-	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "serving-cert")
+	// the default is actually the service-network so that we can easily recognize it in error messages for bad names
+	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
 	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
 	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
 	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
+
+	t.Logf("default serial: %v", defaultServingCertSerialNumber)
+	t.Logf("localhost serial: %v", localhostServingCertSerialNumber)
+	t.Logf("service serial: %v", serviceServingCertSerialNumber)
+	t.Logf("external lb serial: %v", externalLoadBalancerCertSerialNumber)
 
 	// execute test cases
 	testCases := []struct {
