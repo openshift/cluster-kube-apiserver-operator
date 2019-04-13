@@ -59,9 +59,6 @@ func TestNamedCertificates(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// before updating the config, note current generation of KubeApiServer/cluster.
-	initialConfigGeneration := test.GetKubeAPIServerOperatorConfigGeneration(t, operatorClient)
-
 	// configure named certificates
 	defer func() {
 		_, err := updateAPIServerClusterConfigSpec(configClient, func(apiserver *configv1.APIServer) {
@@ -73,6 +70,8 @@ func TestNamedCertificates(t *testing.T) {
 		})
 		assert.NoError(t, err)
 	}()
+
+	beforeChange := metav1.Now()
 	_, err = updateAPIServerClusterConfigSpec(configClient, func(apiServer *configv1.APIServer) {
 		apiServer.Spec.ServingCerts.NamedCertificates = append(
 			apiServer.Spec.ServingCerts.NamedCertificates,
@@ -84,8 +83,7 @@ func TestNamedCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	// wait for configuration to become effective
-	test.WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t, operatorClient, initialConfigGeneration)
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
+	test.WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t, operatorClient, &beforeChange)
 
 	// get serial number of default serving certificate
 	// the default is actually the service-network so that we can easily recognize it in error messages for bad names

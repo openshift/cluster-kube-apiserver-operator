@@ -2,7 +2,6 @@ package library
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -29,39 +28,26 @@ func GetKubeAPIServerOperatorConfigGeneration(t *testing.T, operatorClient *oper
 
 // WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing waits for a new KubeApiServer/cluster generation
 // to start and finish progressing.
-func WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t *testing.T, client *operatorclient.OperatorV1Client, generation int64) {
-
-	// the generation gets updated before the status does, so note the timestamp on the old Progressing status
-	var lastTransitionTime metav1.Time
-
+func WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t *testing.T, client *operatorclient.OperatorV1Client, startingTime *metav1.Time) {
 	// wait for Available=true and Progressing=false to stop
-	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
+	err := wait.PollImmediate(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
 		config, err := client.KubeAPIServers().Get("cluster", metav1.GetOptions{})
 		if err != nil {
 			t.Log(err)
 			return false, nil
 		}
-		if config.Generation == generation {
-			t.Logf("KubeAPIServer/cluster: waiting for new generation > %d", generation)
-			lastTransitionTime = operatorhelpers.FindOperatorCondition(config.Status.Conditions, operatorv1.OperatorStatusTypeProgressing).LastTransitionTime
+
+		if doneProgressing := operatorhelpers.IsOperatorConditionFalse(config.Status.Conditions, operatorv1.OperatorStatusTypeProgressing); !doneProgressing {
+			t.Logf("KubeAPIServer/cluster: waiting for kube-apiserver is not done progressing")
 			return false, nil
 		}
-		conditions := config.Status.Conditions
-		progressingCondition := operatorhelpers.FindOperatorCondition(conditions, operatorv1.OperatorStatusTypeProgressing)
-		progressing := operatorhelpers.IsOperatorConditionPresentAndEqual(conditions, operatorv1.OperatorStatusTypeProgressing, operatorv1.ConditionTrue)
-		if !progressing && !progressingCondition.LastTransitionTime.After(lastTransitionTime.Time) {
-			t.Logf("KubeAPIServer/cluster: waiting for kube-apiserver to start progressing (LastTransitionTime=%v)", progressingCondition.LastTransitionTime.UTC().Format(time.RFC3339))
+
+		progressingCondition := operatorhelpers.FindOperatorCondition(config.Status.Conditions, operatorv1.OperatorStatusTypeProgressing)
+		if progressingCondition.LastTransitionTime.Before(startingTime) {
+			t.Logf("KubeAPIServer/cluster: has not yet started: %v", progressingCondition.Message)
 			return false, nil
 		}
-		if progressing {
-			t.Logf("KubeAPIServer/cluster: waiting for kube-apiserver to finish progressing: %v", progressingCondition.Message)
-			return false, nil
-		}
-		available := operatorhelpers.IsOperatorConditionPresentAndEqual(conditions, operatorv1.OperatorStatusTypeAvailable, operatorv1.ConditionTrue)
-		if !available {
-			t.Logf("KubeAPIServer/cluster: waiting for kube-apiserver become available")
-			return false, nil
-		}
+
 		return true, nil
 	})
 	require.NoError(t, err)
