@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/openshift/api/config/v1"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -39,7 +39,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	}
 
 	observedConfig := map[string]interface{}{}
-	authConfig, err := listers.AuthConfigLister.Get("cluster")
+	authConfigNoDefaults, err := listers.AuthConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
 		klog.Warningf("authentications.config.openshift.io/cluster: not found")
 		return observedConfig, errs
@@ -48,6 +48,8 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		errs = append(errs, err)
 		return prevObservedConfig, errs
 	}
+
+	authConfig := defaultAuthConfig(authConfigNoDefaults)
 
 	var (
 		sourceNamespace string
@@ -59,7 +61,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 
 	// TODO: Add a case here for the KeyCloak type.
 	switch {
-	case len(authConfig.Status.IntegratedOAuthMetadata.Name) > 0 && authConfig.Spec.Type == v1.AuthenticationTypeIntegratedOAuth:
+	case len(authConfig.Status.IntegratedOAuthMetadata.Name) > 0 && authConfig.Spec.Type == configv1.AuthenticationTypeIntegratedOAuth:
 		statusConfigMap = authConfig.Status.IntegratedOAuthMetadata.Name
 	default:
 		klog.V(5).Infof("no integrated oauth metadata configmap observed from status")
@@ -106,4 +108,14 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	}
 
 	return observedConfig, errs
+}
+
+func defaultAuthConfig(authConfig *configv1.Authentication) *configv1.Authentication {
+	out := authConfig.DeepCopy() // do not mutate informer cache
+
+	if len(out.Spec.Type) == 0 {
+		out.Spec.Type = configv1.AuthenticationTypeIntegratedOAuth
+	}
+
+	return out
 }
