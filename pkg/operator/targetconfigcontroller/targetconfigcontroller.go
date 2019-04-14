@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -272,8 +271,6 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
 		lister,
-		nil, // TODO remove this
-		nil, // TODO remove this
 		// this is from the installer and contains the value they think we should have
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "initial-temporary-client-ca"},
 		// this is from the installer and contains the value to verify the admin.kubeconfig user
@@ -297,8 +294,6 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
 		lister,
-		nil, // TODO remove this
-		nil, // TODO remove this
 		// this bundle is what this operator uses to mint loadbalancers certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "loadbalancer-serving-ca"},
 		// this bundle is what this operator uses to mint localhost certs
@@ -359,9 +354,6 @@ func (c *TargetConfigController) eventHandler() cache.ResourceEventHandler {
 		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
 	}
 }
-
-// this set of namespaces will include things like logging and metrics which are used to drive
-var interestingNamespaces = sets.NewString(operatorclient.TargetNamespace)
 
 func (c *TargetConfigController) namespaceEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
