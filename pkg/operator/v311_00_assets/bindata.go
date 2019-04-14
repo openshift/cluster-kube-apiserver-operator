@@ -334,6 +334,7 @@ metadata:
 spec:
   initContainers:
     - name: fix-audit-permissions
+      terminationMessagePolicy: FallbackToLogsOnError
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
       command: ['/bin/sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
@@ -341,6 +342,7 @@ spec:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
     - name: wait-for-host-port
+      terminationMessagePolicy: FallbackToLogsOnError
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
       command: ['/usr/bin/timeout', '105', '/bin/bash', '-c'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
