@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,12 +15,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/cert"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
@@ -43,8 +44,6 @@ func TestNamedCertificates(t *testing.T) {
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	operatorClient, err := operatorclient.NewForConfig(kubeConfig)
-	require.NoError(t, err)
 
 	// kube-apiserver must be available, not progressing, and not failing to continue
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
@@ -58,9 +57,6 @@ func TestNamedCertificates(t *testing.T) {
 		_, err := createTLSSecret(kubeClient, "openshift-config", info.secretName, info.crypto.PrivateKey, info.crypto.Certificate)
 		require.NoError(t, err)
 	}
-
-	// before updating the config, note current generation of KubeApiServer/cluster.
-	initialConfigGeneration := test.GetKubeAPIServerOperatorConfigGeneration(t, operatorClient)
 
 	// configure named certificates
 	defer func() {
@@ -82,10 +78,6 @@ func TestNamedCertificates(t *testing.T) {
 		)
 	})
 	require.NoError(t, err)
-
-	// wait for configuration to become effective
-	test.WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t, operatorClient, initialConfigGeneration)
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
 
 	// get serial number of default serving certificate
 	// the default is actually the service-network so that we can easily recognize it in error messages for bad names
@@ -172,35 +164,57 @@ func TestNamedCertificates(t *testing.T) {
 		},
 	}
 
+	// wait for configuration to become effective.
+	// if the first test case passes onceq, then we are at least progressing.
+	// this is a hack to work around some bad condition testing.
+	err = wait.PollImmediate(time.Second, 9*time.Minute, func() (bool, error) {
+		serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, testCases[0].serverName)
+		if err != nil || serialNumber != testCases[0].expectedSerialNumber {
+			return false, nil
+		}
+		return true, nil
+	})
+	require.NoError(t, err)
+	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
+
 	// execute test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			// connect to apiserver using a custom ServerName and examine the returned certificate's
 			// serial number to determine if the expected serving certificate was returned.
-
-			var serialNumber string
-			verifyPeerCertificate := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-				var err error
-				if certificate, err := x509.ParseCertificate(rawCerts[0]); err == nil {
-					serialNumber = certificate.SerialNumber.String()
-				}
-				return err
-			}
-			tlsConf := &tls.Config{
-				VerifyPeerCertificate: verifyPeerCertificate,
-				ServerName:            tc.serverName,
-				InsecureSkipVerify:    true,
-			}
-			hostURL, err := url.Parse(kubeConfig.Host)
-			require.NoError(t, err)
-			conn, err := tls.Dial("tcp", hostURL.Host, tlsConf)
-			defer conn.Close()
+			serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, tc.serverName)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedSerialNumber, serialNumber, "Retrieved certificate serial number")
 		})
 	}
+}
 
+// getReturnedCertSerialNumber connects to apiserver using a custom ServerName and returns the serial number of
+// the certificate that the server presents
+func getReturnedCertSerialNumber(host, serverName string) (string, error) {
+	var serialNumber string
+	verifyPeerCertificate := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		var err error
+		if certificate, err := x509.ParseCertificate(rawCerts[0]); err == nil {
+			serialNumber = certificate.SerialNumber.String()
+		}
+		return err
+	}
+	tlsConf := &tls.Config{
+		VerifyPeerCertificate: verifyPeerCertificate,
+		ServerName:            serverName,
+		InsecureSkipVerify:    true,
+	}
+	hostURL, err := url.Parse(host)
+	if err != nil {
+		return "", err
+	}
+	conn, err := tls.Dial("tcp", hostURL.Host, tlsConf)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	return serialNumber, nil
 }
 
 func deleteSecret(client *clientcorev1.CoreV1Client, namespace, name string) error {
