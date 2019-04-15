@@ -17,7 +17,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/satokencerts"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
@@ -83,7 +82,6 @@ func NewConfigObserver(
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
-			satokencerts.ObserveSATokenCerts,
 		),
 	}
 

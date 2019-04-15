@@ -124,7 +124,6 @@ func (c TargetConfigController) sync() error {
 		klog.V(4).Infof("decode of existing config failed with error: %v", err)
 	}
 	requiredPaths := [][]string{
-		{"serviceAccountPublicKeyFiles"},
 		{"servingInfo", "namedCertificates"},
 	}
 	for _, requiredPath := range requiredPaths {

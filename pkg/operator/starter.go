@@ -186,10 +186,9 @@ var revisionConfigMaps = []revision.RevisionResource{
 
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-serving-ca"},
-	{Name: "initial-sa-token-signing-certs", Optional: true},
 	{Name: "kube-apiserver-server-ca", Optional: true},
-	{Name: "kube-controller-manager-sa-token-signing-certs", Optional: true},
 	{Name: "kubelet-serving-ca"},
+	{Name: "sa-token-signing-certs"},
 }
 
 // revisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
