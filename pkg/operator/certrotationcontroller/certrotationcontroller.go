@@ -33,8 +33,11 @@ type CertRotationController struct {
 	serviceNetwork        *DynamicServingRotation
 	serviceHostnamesQueue workqueue.RateLimitingInterface
 
-	loadBalancer               *DynamicServingRotation
-	loadBalancerHostnamesQueue workqueue.RateLimitingInterface
+	externalLoadBalancer               *DynamicServingRotation
+	externalLoadBalancerHostnamesQueue workqueue.RateLimitingInterface
+
+	internalLoadBalancer               *DynamicServingRotation
+	internalLoadBalancerHostnamesQueue workqueue.RateLimitingInterface
 
 	cachesSynced []cache.InformerSynced
 }
@@ -54,8 +57,11 @@ func NewCertRotationController(
 		serviceHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ServiceHostnames"),
 		serviceNetwork:        &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
 
-		loadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "LoadBalancerHostnames"),
-		loadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
+		externalLoadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ExternalLoadBalancerHostnames"),
+		externalLoadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
+
+		internalLoadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InternalLoadBalancerHostnames"),
+		internalLoadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
 
 		cachesSynced: []cache.InformerSynced{
 			configInformer.Config().V1().Networks().Informer().HasSynced,
@@ -64,7 +70,7 @@ func NewCertRotationController(
 	}
 
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
-	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.loadBalancerHostnameEventHandler())
+	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
 
 	rotationDay := defaultRotationDay
 	if day != time.Duration(0) {
@@ -195,7 +201,7 @@ func NewCertRotationController(
 	ret.certRotators = append(ret.certRotators, certRotator)
 
 	certRotator, err = certrotation.NewCertRotationController(
-		"LoadBalancerServing",
+		"ExternalLoadBalancerServing",
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-signer",
@@ -220,8 +226,49 @@ func NewCertRotationController(
 			Validity:  30 * rotationDay,
 			Refresh:   15 * rotationDay,
 			CertCreator: &certrotation.ServingRotation{
-				Hostnames:        ret.loadBalancer.GetHostnames,
-				HostnamesChanged: ret.loadBalancer.hostnamesChanged,
+				Hostnames:        ret.externalLoadBalancer.GetHostnames,
+				HostnamesChanged: ret.externalLoadBalancer.hostnamesChanged,
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ret.certRotators = append(ret.certRotators, certRotator)
+
+	certRotator, err = certrotation.NewCertRotationController(
+		"InternalLoadBalancerServing",
+		certrotation.SigningRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "loadbalancer-serving-signer",
+			Validity:      10 * 365 * rotationDay, // this comes from the installer
+			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "loadbalancer-serving-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "internal-loadbalancer-serving-certkey",
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
+			CertCreator: &certrotation.ServingRotation{
+				Hostnames:        ret.internalLoadBalancer.GetHostnames,
+				HostnamesChanged: ret.internalLoadBalancer.hostnamesChanged,
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
@@ -374,12 +421,16 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 	if err := c.syncServiceHostnames(); err != nil {
 		panic(err)
 	}
-	if err := c.syncLoadBalancerHostnames(); err != nil {
+	if err := c.syncExternalLoadBalancerHostnames(); err != nil {
+		panic(err)
+	}
+	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
 
 	go wait.Until(c.runServiceHostnames, time.Second, stopCh)
-	go wait.Until(c.runLoadBalancerHostnames, time.Second, stopCh)
+	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, stopCh)
+	go wait.Until(c.runInternalLoadBalancerHostnames, time.Second, stopCh)
 
 	for _, certRotator := range c.certRotators {
 		go certRotator.Run(workers, stopCh)
