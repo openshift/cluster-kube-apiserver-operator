@@ -25,7 +25,6 @@ import (
 )
 
 func TestNamedCertificates(t *testing.T) {
-	t.Skip("fails proper detection of change")
 
 	// create a root certificate authority crypto materials
 	rootCA := test.NewCertificateAuthorityCertificate(t, nil)
