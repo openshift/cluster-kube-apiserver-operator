@@ -108,7 +108,7 @@ apiServerArguments:
   enable-aggregator-routing:
   - "true"
   minimal-shutdown-duration:
-  - 35s # give SDN some time to converge: 30s for iptable lock contention, 5s for the second try.
+  - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   http2-max-streams-per-connection:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
 auditConfig:
@@ -413,7 +413,7 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
-  terminationGracePeriodSeconds: 100 # bit more than 35s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
