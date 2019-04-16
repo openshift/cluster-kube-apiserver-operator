@@ -45,7 +45,7 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
-  terminationGracePeriodSeconds: 100 # bit more than 35s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: 120 # bit more than 55s (minimal termination period) + 60s (apiserver graceful termination)
   volumes:
   - hostPath:
       path: {{ .SecretsHostPath }}
