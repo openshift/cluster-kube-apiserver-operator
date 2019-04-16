@@ -38,17 +38,9 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
-	// this configmap holds the cert used to verify SA token JWTs created by the bootstrap kube-controller-manager
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "initial-sa-token-signing-certs"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-sa-token-signing-certs"},
-	); err != nil {
-		return nil, err
-	}
-
 	// this configmaps holds the certs used to verify the SA token JWTs created by the kube-controller-manager-operator
 	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-controller-manager-sa-token-signing-certs"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "sa-token-signing-certs"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "sa-token-signing-certs"},
 	); err != nil {
 		return nil, err
