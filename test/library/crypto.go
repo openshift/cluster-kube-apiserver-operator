@@ -76,7 +76,7 @@ func NewCertificateAuthorityCertificate(t *testing.T, parent *x509.Certificate) 
 		SerialNumber:          serialNumber,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 	if parent == nil {
 		parent = template
