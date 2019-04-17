@@ -335,21 +335,18 @@ metadata:
     revision: "REVISION"
 spec:
   initContainers:
-    - name: fix-audit-permissions
+    - name: setup
       terminationMessagePolicy: FallbackToLogsOnError
       image: ${IMAGE}
       imagePullPolicy: IfNotPresent
-      command: ['/bin/sh', '-c', 'chmod 0700 /var/log/kube-apiserver']
       volumeMounts:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
-    - name: wait-for-host-port
-      terminationMessagePolicy: FallbackToLogsOnError
-      image: ${IMAGE}
-      imagePullPolicy: IfNotPresent
-      command: ['/usr/bin/timeout', '105', '/bin/bash', '-c'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
+      command: ['/usr/bin/timeout', '105', '/bin/bash', '-ec'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
       args:
       - |
+        echo -n "Fixing audit permissions."
+        chmod 0700 /var/log/kube-apiserver
         echo -n "Waiting for port :6443 to be released."
         while [ -n "$(lsof -ni :6443)" ]; do
           echo -n "."
