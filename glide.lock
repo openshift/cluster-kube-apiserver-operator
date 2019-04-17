@@ -1,5 +1,5 @@
 hash: 1de0ffa21bb6942fef498ca1d717dcc22463737ad24eb4731f84e46ad0d5a076
-updated: 2019-04-12T10:39:55.70577262-04:00
+updated: 2019-04-17T12:30:08.26337+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -130,7 +130,7 @@ imports:
 - name: github.com/go-openapi/swag
   version: 5899d5c5e619fda5fa86e14795a835f473ca284c
 - name: github.com/gobuffalo/envy
-  version: 1e6702b55a7afe795770f86ce76c13836a591904
+  version: 043cb4b8af871b49563291e32c66bb84378a60ac
 - name: github.com/gogo/protobuf
   version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
   subpackages:
@@ -303,7 +303,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 5565b0112c2efd6e428244bbf5b60320ee7d9cf5
+  version: 1b1cfee06f448d0a55ed7499ebe76e4ed254cfc1
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -551,7 +551,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 8772a1fb4e1ec06c1b2301bf78f48613a53107f7
+  version: 3c74db8dd172051b029f91536c681a1b43694809
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
