@@ -183,6 +183,7 @@ var revisionConfigMaps = []revision.RevisionResource{
 	{Name: "config"},
 	{Name: "kube-apiserver-cert-syncer-kubeconfig"},
 	{Name: "oauth-metadata", Optional: true},
+	{Name: "cloud-config", Optional: true},
 
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-serving-ca"},
