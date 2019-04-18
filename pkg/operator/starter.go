@@ -7,12 +7,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
-	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
@@ -29,7 +27,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -65,12 +62,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		Informers: operatorConfigInformers,
 		Client:    operatorConfigClient.OperatorV1(),
 	}
-
-	v1helpers.EnsureOperatorConfigExists(
-		dynamicClient,
-		v311_00_assets.MustAsset("v3.11.0/kube-apiserver/operator-config.yaml"),
-		schema.GroupVersionResource{Group: operatorv1.GroupName, Version: "v1", Resource: "kubeapiservers"},
-	)
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
