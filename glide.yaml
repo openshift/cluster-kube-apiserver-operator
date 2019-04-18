@@ -19,11 +19,12 @@ import:
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   version: origin-4.1-kubernetes-1.13.4
 - package: github.com/openshift/api
-  version: master
+  version: 0f522af5ff8bb3aa7a7181e163a7b9294b55cc4d
 - package: github.com/openshift/client-go
   version: master
 - package: github.com/openshift/library-go
-  version: master
+  repo: https://github.com/mfojtik/library-go
+  version: resource-sync-delete
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
