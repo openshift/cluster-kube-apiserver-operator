@@ -38,7 +38,6 @@ func NewConfigObserver(
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.TargetNamespace,
 		operatorclient.OperatorNamespace,
-		"kube-system",
 	}
 
 	configMapPreRunCacheSynced := []cache.InformerSynced{}
