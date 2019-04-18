@@ -1,9 +1,0 @@
-# the MCO appears to be relying on this in some weird way that breaks if you ever update it.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: initial-client-ca
-  namespace: openshift-config
-data:
-  ca-bundle.crt: |
-    {{ .Assets | load "kube-apiserver-complete-server-ca-bundle.crt" | indent 4 }}
