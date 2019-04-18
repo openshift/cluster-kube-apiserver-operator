@@ -46,7 +46,7 @@ func TestNamedCertificates(t *testing.T) {
 	require.NoError(t, err)
 
 	// kube-apiserver must be available, not progressing, and not failing to continue
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
+	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 	// create secrets for named serving certificates
 	for _, info := range testCertInfoById {
@@ -175,7 +175,7 @@ func TestNamedCertificates(t *testing.T) {
 		return true, nil
 	})
 	require.NoError(t, err)
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotFailing(t, configClient)
+	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 	// execute test cases
 	for _, tc := range testCases {
