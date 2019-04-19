@@ -19,8 +19,9 @@ type Listers struct {
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
 
-	EndpointsLister corelistersv1.EndpointsLister
-	ConfigmapLister corelistersv1.ConfigMapLister
+	KubeSystemEndpointsLister    corelistersv1.EndpointsLister
+	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
+	ConfigmapLister              corelistersv1.ConfigMapLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced

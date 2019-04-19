@@ -57,14 +57,16 @@ func NewConfigObserver(
 				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
 				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
 
-				ConfigmapLister: kubeInformersForNamespaces.ConfigMapLister(),
-				EndpointsLister: kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
+				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
+				KubeSystemEndpointsLister:    kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Lister(),
+				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(configMapPreRunCacheSynced,
 					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Informer().HasSynced,
+					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
 
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
 					configInformer.Config().V1().Authentications().Informer().HasSynced,
@@ -97,6 +99,7 @@ func NewConfigObserver(
 		kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
 	}
 	kubeInformersForNamespaces.InformersFor("kube-system").Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
+	kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 
 	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(c.EventHandler())
