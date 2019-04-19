@@ -120,6 +120,46 @@ func NewCertRotationController(
 	ret.certRotators = append(ret.certRotators, certRotator)
 
 	certRotator, err = certrotation.NewCertRotationController(
+		"KubeAPIServerToKubeletClientCert",
+		certrotation.SigningRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-apiserver-to-kubelet-signer",
+			Validity:      10 * 365 * rotationDay, // this comes from the installer
+			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-apiserver-to-kubelet-client-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "kubelet-client",
+			Validity:  30 * rotationDay,
+			Refresh:   15 * rotationDay,
+			CertCreator: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+	ret.certRotators = append(ret.certRotators, certRotator)
+
+	certRotator, err = certrotation.NewCertRotationController(
 		"LocalhostServing",
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
