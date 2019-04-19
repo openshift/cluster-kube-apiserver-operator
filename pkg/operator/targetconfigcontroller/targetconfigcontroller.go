@@ -275,6 +275,8 @@ func manageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images
 		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
+		// this is from the installer and contains the value to verify the kube-apiserver communicating to the kubelet
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-apiserver-to-kubelet-client-ca"},
 		// this bundle is what this operator uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-control-plane-signer-ca"},
 		// this bundle is what a user uses to mint new client certs it directly manages

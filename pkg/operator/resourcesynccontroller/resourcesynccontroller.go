@@ -46,15 +46,6 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
-	// this secret contains the client cert/key pair used to communicate to kubelets
-	// TODO this needs to rotate and we will consume it as input from the kubelet operator
-	if err := resourceSyncController.SyncSecret(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kubelet-client"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "initial-kubelet-client"},
-	); err != nil {
-		return nil, err
-	}
-
 	// this ca bundle contains certs to verify the aggregator.  We copy it from the shared location to here.
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},

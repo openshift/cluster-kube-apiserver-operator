@@ -1,3 +1,4 @@
+# this is written by the kcm-o, but we initialize here to cleanly handle the adoption case
 apiVersion: v1
 kind: ConfigMap
 metadata:
