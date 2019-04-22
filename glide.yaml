@@ -28,8 +28,6 @@ import:
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
   version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
-- package: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - package: github.com/apparentlymart/go-cidr
   version: v1.0.0
 - package: github.com/stretchr/testify
