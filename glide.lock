@@ -1,5 +1,5 @@
-hash: 1de0ffa21bb6942fef498ca1d717dcc22463737ad24eb4731f84e46ad0d5a076
-updated: 2019-04-19T12:16:22.506374867-04:00
+hash: 318a34f93be123023d3c25d1e9d077924d191e34f6e499923ca74d4727271303
+updated: 2019-04-22T08:18:51.473644515-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -138,8 +138,6 @@ imports:
   - proto
   - protoc-gen-gogo/descriptor
   - sortkeys
-- name: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -303,7 +301,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: dff853cadf399fbc70bec4ed5db8410e7808ba27
+  version: 4bae0f495ea7919c8a72153bb6a811bc17458c04
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
