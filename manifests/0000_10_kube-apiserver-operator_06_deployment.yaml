@@ -7,6 +7,8 @@ metadata:
     app: kube-apiserver-operator
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: kube-apiserver-operator
@@ -18,7 +20,7 @@ spec:
     spec:
       serviceAccountName: kube-apiserver-operator
       containers:
-      - name: operator
+      - name: kube-apiserver-operator
         image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
         imagePullPolicy: IfNotPresent
         ports:
