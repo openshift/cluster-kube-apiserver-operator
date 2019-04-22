@@ -155,6 +155,11 @@ func TestNamedCertificates(t *testing.T) {
 			expectedSerialNumber: defaultServingCertSerialNumber,
 		},
 		{
+			name:                 "ExternalLoadBalancerHostname",
+			serverName:           getExternalAPIServiceHostNameOrFail(t, configClient),
+			expectedSerialNumber: externalLoadBalancerCertSerialNumber,
+		},
+		{
 			name:                 "InternalLoadBalancerHostname",
 			serverName:           getInternalAPIServiceHostNameOrFail(t, configClient),
 			expectedSerialNumber: internalLoadBalancerCertSerialNumber,
@@ -167,8 +172,8 @@ func TestNamedCertificates(t *testing.T) {
 	}
 
 	// wait for configuration to become effective.
-	// if the first test case passes onceq, then we are at least progressing.
-	// this is a hack to work around some bad condition testing.
+	// if the first test case passes once, then we are at least progressing.
+	// this is a hack to work around having to wait for all nodes to be updated
 	err = wait.PollImmediate(time.Second, 9*time.Minute, func() (bool, error) {
 		serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, testCases[0].serverName)
 		if err != nil || serialNumber != testCases[0].expectedSerialNumber {
@@ -177,16 +182,19 @@ func TestNamedCertificates(t *testing.T) {
 		return true, nil
 	})
 	require.NoError(t, err)
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 	// execute test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// connect to apiserver using a custom ServerName and examine the returned certificate's
-			// serial number to determine if the expected serving certificate was returned.
-			serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, tc.serverName)
+			// since not all nodes are guaranteed to be updated, give each test case up to a minute to find the right one
+			err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+				// connect to apiserver using a custom ServerName and examine the returned certificate's
+				// serial number to determine if the expected serving certificate was returned.
+				serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, tc.serverName)
+				require.NoError(t, err)
+				return tc.expectedSerialNumber == serialNumber, nil
+			})
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedSerialNumber, serialNumber, "Retrieved certificate serial number")
 		})
 	}
 }
@@ -281,9 +289,29 @@ func removeNamedCertificatesBySecretName(apiServer *configv1.APIServer, secretNa
 	apiServer.Spec.ServingCerts.NamedCertificates = result
 }
 
+func getExternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
+	result, err := getExternalAPIServiceHostName(client)
+	require.NoError(t, err)
+	t.Logf("external api service hostname: %v", result)
+	return result
+}
+
+func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
+	infrastructure, err := client.Infrastructures().Get("cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	apiServerURL, err := url.Parse(infrastructure.Status.APIServerURL)
+	if err != nil {
+		return "", err
+	}
+	return strings.Replace(strings.Split(apiServerURL.Host, ":")[0], "api-int.", "api.", 1), nil
+}
+
 func getInternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
 	result, err := getInternalAPIServiceHostName(client)
 	require.NoError(t, err)
+	t.Logf("internal api service hostname: %v", result)
 	return result
 }
 
