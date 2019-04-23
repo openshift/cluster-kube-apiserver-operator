@@ -85,11 +85,13 @@ func TestNamedCertificates(t *testing.T) {
 	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
 	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
 	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
+	internalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "internal-loadbalancer-serving-certkey")
 
 	t.Logf("default serial: %v", defaultServingCertSerialNumber)
 	t.Logf("localhost serial: %v", localhostServingCertSerialNumber)
 	t.Logf("service serial: %v", serviceServingCertSerialNumber)
 	t.Logf("external lb serial: %v", externalLoadBalancerCertSerialNumber)
+	t.Logf("internal lb serial: %v", internalLoadBalancerCertSerialNumber)
 
 	// execute test cases
 	testCases := []struct {
@@ -153,9 +155,9 @@ func TestNamedCertificates(t *testing.T) {
 			expectedSerialNumber: defaultServingCertSerialNumber,
 		},
 		{
-			name:                 "LoadBalancerHostname",
-			serverName:           getAPIServiceHostNameOrFail(t, configClient),
-			expectedSerialNumber: externalLoadBalancerCertSerialNumber,
+			name:                 "InternalLoadBalancerHostname",
+			serverName:           getInternalAPIServiceHostNameOrFail(t, configClient),
+			expectedSerialNumber: internalLoadBalancerCertSerialNumber,
 		},
 		{
 			name:                 "UnknownServerHostname",
@@ -279,13 +281,13 @@ func removeNamedCertificatesBySecretName(apiServer *configv1.APIServer, secretNa
 	apiServer.Spec.ServingCerts.NamedCertificates = result
 }
 
-func getAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
-	result, err := getAPIServiceHostName(client)
+func getInternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
+	result, err := getInternalAPIServiceHostName(client)
 	require.NoError(t, err)
 	return result
 }
 
-func getAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
+func getInternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
 	infrastructure, err := client.Infrastructures().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", err
