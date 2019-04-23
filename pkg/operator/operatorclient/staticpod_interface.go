@@ -36,6 +36,23 @@ func (c *OperatorClient) GetStaticPodOperatorStateWithQuorum() (*operatorv1.Stat
 	return &instance.Spec.StaticPodOperatorSpec, &instance.Status.StaticPodOperatorStatus, instance.ResourceVersion, nil
 }
 
+func (c *OperatorClient) UpdateStaticPodOperatorSpec(resourceVersion string, spec *operatorv1.StaticPodOperatorSpec) (*operatorv1.StaticPodOperatorSpec, string, error) {
+	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
+	if err != nil {
+		return nil, "", err
+	}
+	copy := original.DeepCopy()
+	copy.ResourceVersion = resourceVersion
+	copy.Spec.StaticPodOperatorSpec = *spec
+
+	ret, err := c.Client.KubeAPIServers().Update(copy)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return &ret.Spec.StaticPodOperatorSpec, ret.ResourceVersion, nil
+}
+
 func (c *OperatorClient) UpdateStaticPodOperatorStatus(resourceVersion string, status *operatorv1.StaticPodOperatorStatus) (*operatorv1.StaticPodOperatorStatus, error) {
 	original, err := c.Informers.Operator().V1().KubeAPIServers().Lister().Get("cluster")
 	if err != nil {
