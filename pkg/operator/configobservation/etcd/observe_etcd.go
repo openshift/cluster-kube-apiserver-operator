@@ -15,11 +15,9 @@ import (
 )
 
 const (
-	etcdEndpointName = "host-etcd"
+	etcdEndpointNamespace = "openshift-etcd"
+	etcdEndpointName      = "host-etcd"
 )
-
-// tolerate both namespaces.  First match wins
-var etcdEndpointNamespaces = []string{"openshift-etcd", "kube-system"}
 
 // ObserveStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
 // then the previously observed storage config URLs will be re-used.
@@ -38,14 +36,8 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		}
 	}
 
-	etcdEndpointNamespace := etcdEndpointNamespaces[0]
-	etcdEndpoints, err := listers.OpenshiftEtcdEndpointsLister.Endpoints(etcdEndpointNamespaces[0]).Get(etcdEndpointName)
-	if errors.IsNotFound(err) {
-		etcdEndpointNamespace = etcdEndpointNamespaces[1]
-		etcdEndpoints, err = listers.KubeSystemEndpointsLister.Endpoints(etcdEndpointNamespaces[1]).Get(etcdEndpointName)
-	}
-
 	var etcdURLs []string
+	etcdEndpoints, err := listers.OpenshiftEtcdEndpointsLister.Endpoints(etcdEndpointNamespace).Get(etcdEndpointName)
 	if errors.IsNotFound(err) {
 		recorder.Warningf("ObserveStorageFailed", "Required %s/%s endpoint not found", etcdEndpointNamespace, etcdEndpointName)
 		errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: not found"))

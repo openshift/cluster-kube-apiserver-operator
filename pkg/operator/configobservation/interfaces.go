@@ -19,7 +19,6 @@ type Listers struct {
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
 
-	KubeSystemEndpointsLister    corelistersv1.EndpointsLister
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
 
