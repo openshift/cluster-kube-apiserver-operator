@@ -18,6 +18,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
@@ -56,6 +58,7 @@ func NewConfigObserver(
 				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
 				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
 				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
+				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
@@ -72,6 +75,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
+					configInformer.Config().V1().Schedulers().Informer().HasSynced,
 				),
 			},
 			apiserver.ObserveDefaultUserServingCertificate,
@@ -88,6 +92,7 @@ func NewConfigObserver(
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
+			scheduler.ObserveDefaultNodeSelector,
 		),
 	}
 
@@ -103,6 +108,7 @@ func NewConfigObserver(
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().Schedulers().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }

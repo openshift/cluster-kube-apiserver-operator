@@ -18,6 +18,7 @@ type Listers struct {
 	InfrastructureLister_ configlistersv1.InfrastructureLister
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
+	SchedulerLister       configlistersv1.SchedulerLister
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
