@@ -103,7 +103,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	for _, version := range clusterOperator.Status.Versions {
 		versionRecorder.SetVersion(version.Name, version.Version)
 	}
-	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
+	versionRecorder.SetVersion("raw-internal", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
 	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
 		WithEvents(ctx.EventRecorder).
