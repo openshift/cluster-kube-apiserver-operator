@@ -363,6 +363,13 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
+    env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: STATIC_POD_VERSION # Avoid using 'REVISION' here otherwise it will be substituted
+        value: REVISION
   - name: kube-apiserver-cert-syncer-REVISION
     env:
     - name: POD_NAME
