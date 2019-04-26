@@ -255,6 +255,8 @@ var _v3110KubeApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
   name: openshift-kube-apiserver
+  annotations:
+    openshift.io/node-selector: ""
   labels:
     openshift.io/run-level: "0"
 `)
