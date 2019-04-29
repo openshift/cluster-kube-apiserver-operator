@@ -7,5 +7,7 @@ status:
   versions:
   - name: operator
     version: "0.0.1-snapshot"
+  - name: raw-internal
+    version: "0.0.1-snapshot"
   - name: kube-apiserver
     version: "0.0.1-snapshot-kubernetes"
