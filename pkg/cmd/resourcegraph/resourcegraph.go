@@ -95,70 +95,71 @@ func Resources() resourcegraph.Resources {
 		From(user).
 		From(networkOperator).
 		Add(ret)
-
-	// aggregator client
-	initialAggregatorCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-aggregator-client-ca").
-		Note("Static").
+	infrastructureConfig := resourcegraph.NewConfig("infrastructure").
+		From(user).
 		From(installer).
 		Add(ret)
+
+	// aggregator client
 	aggregatorSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "aggregator-client-signer").
 		Note("Rotated").
 		From(kasOperator).
+		From(installer).
 		Add(ret)
 	aggregatorClient := resourcegraph.NewSecret(operatorclient.TargetNamespace, "aggregator-client").
 		Note("Rotated").
 		From(aggregatorSigner).
 		Add(ret)
-	operatorManagedAggregatorClientCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "managed-aggregator-client-ca").
+	// this is a destination and consumed by OAS
+	operatorManagedAggregatorClientCA := resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
 		Note("Rotated").
 		From(aggregatorSigner).
 		Add(ret)
 	kasAggregatorClientCAForPod := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "aggregator-client-ca").
-		Note("Unioned").
-		From(initialAggregatorCA).
-		From(operatorManagedAggregatorClientCA).
-		Add(ret)
-	// this is a destination and consumed by OAS
-	_ = resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
 		Note("Synchronized").
-		From(kasAggregatorClientCAForPod).
+		From(operatorManagedAggregatorClientCA).
 		Add(ret)
 
 	// client CAs
-	initialClientCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-client-ca").
+	adminKubeconfigCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "admin-kubeconfig-client-ca").
 		Note("Static").
 		From(installer).
 		Add(ret)
 	kcmControllerCSRCA := resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "csr-controller-ca").
 		Note("Synchronized").
 		From(kcmOperator).
+		From(installer).
 		Add(ret)
-	// TODO this appears to be dead
-	_ = resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "csr-controller-ca").
-		Note("Synchronized").
-		From(kcmControllerCSRCA).
-		Add(ret)
-	managedClientSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "managed-kube-apiserver-client-signer").
+	kasToKubeletSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "kube-apiserver-to-kubelet-signer").
 		Note("Rotated").
-		From(kasOperator).
+		From(installer).
+		Add(ret)
+	kasToKubeletCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "kube-apiserver-to-kubelet-client-ca").
+		Note("Rotated").
+		From(kasToKubeletSigner).
+		Add(ret)
+	kubeControlPlaneSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "kube-control-plane-signer").
+		Note("Rotated").
+		From(installer).
 		Add(ret)
 	_ = resourcegraph.NewSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-controller-manager-client-cert-key").
 		Note("Rotated").
-		From(managedClientSigner).
+		From(kubeControlPlaneSigner).
 		Add(ret)
 	_ = resourcegraph.NewSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-scheduler-client-cert-key").
 		Note("Rotated").
-		From(managedClientSigner).
+		From(kubeControlPlaneSigner).
 		Add(ret)
-	managedClientCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "managed-kube-apiserver-client-ca-bundle").
+	kubeControlPlaneCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "kube-control-plane-signer-ca").
 		Note("Rotated").
-		From(managedClientSigner).
+		From(kubeControlPlaneSigner).
 		Add(ret)
 	clientCA := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "client-ca").
 		Note("Unioned").
-		From(initialClientCA).
+		From(adminKubeconfigCA).
 		From(kcmControllerCSRCA).
-		From(managedClientCA).
+		From(kasToKubeletCA).
+		From(kubeControlPlaneCA).
 		From(userClientCA).
 		Add(ret)
 	// this is a destination and consumed by OAS
@@ -168,11 +169,11 @@ func Resources() resourcegraph.Resources {
 		Add(ret)
 
 	// etcd certs
-	fromEtcdServingCA := resourcegraph.NewConfigMap("kube-system", "etcd-serving-ca").
+	fromEtcdServingCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "etcd-serving-ca").
 		Note("Static").
 		From(installer).
 		Add(ret)
-	fromEtcdClient := resourcegraph.NewSecret("kube-system", "etcd-client").
+	fromEtcdClient := resourcegraph.NewSecret(operatorclient.GlobalUserSpecifiedConfigNamespace, "etcd-client").
 		Note("Static").
 		From(installer).
 		Add(ret)
@@ -186,48 +187,83 @@ func Resources() resourcegraph.Resources {
 		Add(ret)
 
 	// kubelet client
-	initialKubeletClient := resourcegraph.NewSecret(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-kubelet-client").
-		Note("Static").
-		From(installer).
-		Add(ret)
 	kubeletClient := resourcegraph.NewSecret(operatorclient.TargetNamespace, "kubelet-client").
-		Note("Synchronized").
-		From(initialKubeletClient).
+		Note("Rotated").
+		From(kasToKubeletSigner).
 		Add(ret)
 
 	// kubelet serving
 	// TODO this is just a courtesy for the pod team
-	intialKubeletServingCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-kubelet-serving-ca").
-		Note("Static").
-		From(installer).
-		Add(ret)
 	kubeletServingCA := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "kubelet-serving-ca").
-		Note("Unioned").
-		From(intialKubeletServingCA).
+		Note("Synchronized").
 		From(kcmControllerCSRCA).
 		Add(ret)
 	// this is a destination for things like monitoring to get a kubelet serving CA
 	_ = resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kubelet-serving-ca").
-		Note("Synchroinized").
+		Note("Synchronized").
 		From(kubeletServingCA).
 		Add(ret)
 
 	// sa token verification
-	initialSATokenPub := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "initial-sa-token-signing-certs").
-		Note("Static").
-		From(installer).
-		Add(ret)
-	mountedInitialSATokenPub := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "initial-sa-token-signing-certs").
-		Note("Synchronized").
-		From(initialSATokenPub).
-		Add(ret)
 	kcmSATokenPub := resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "sa-token-signing-certs").
 		Note("Static").
+		From(kcmOperator).
 		From(installer).
 		Add(ret)
-	mountedKCMSATokenPub := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "kube-controller-manager-sa-token-signing-certs").
+
+	// serving
+	loadBalancerSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "loadbalancer-serving-signer").
+		Note("Rotated").
+		From(installer).
+		Add(ret)
+	loadBalancerCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "loadbalancer-serving-ca").
+		Note("Rotated").
+		From(loadBalancerSigner).
+		Add(ret)
+	internalLBServing := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "internal-loadbalancer-serving-certkey").
+		Note("Rotated").
+		From(loadBalancerSigner).
+		From(infrastructureConfig).
+		Add(ret)
+	externalLBServing := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "external-loadbalancer-serving-certkey").
+		Note("Rotated").
+		From(loadBalancerSigner).
+		From(infrastructureConfig).
+		Add(ret)
+	localhostSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "localhost-serving-signer").
+		Note("Rotated").
+		From(installer).
+		Add(ret)
+	localhostCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "localhost-serving-ca").
+		Note("Rotated").
+		From(localhostSigner).
+		Add(ret)
+	localhostServing := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "localhost-serving-cert-certkey").
+		Note("Rotated").
+		From(localhostSigner).
+		Add(ret)
+	serviceNetworkSigner := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "service-network-serving-signer").
+		Note("Rotated").
+		From(installer).
+		Add(ret)
+	serviceNetworkCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "service-network-serving-ca").
+		Note("Rotated").
+		From(serviceNetworkSigner).
+		Add(ret)
+	serviceNetworkServing := resourcegraph.NewSecret(operatorclient.OperatorNamespace, "service-network-serving-cert-certkey").
+		Note("Rotated").
+		From(serviceNetworkSigner).
+		From(networkConfig).
+		Add(ret)
+	kasServingCA := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "kube-apiserver-server-ca").
+		Note("Unioned").
+		From(loadBalancerCA).
+		From(localhostCA).
+		From(serviceNetworkCA).
+		Add(ret)
+	_ = resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-server-ca").
 		Note("Synchronized").
-		From(kcmSATokenPub).
+		From(kasServingCA).
 		Add(ret)
 
 	// well_known
@@ -240,12 +276,11 @@ func Resources() resourcegraph.Resources {
 	// observedConfig
 	config := resourcegraph.NewConfigMap(operatorclient.OperatorNamespace, "config").
 		Note("Managed").
-		From(apiserverConfig).          // to specify client-ca, default serving, sni serving
-		From(authenticationConfig).     // to specify well_known
-		From(imageConfig).              // to specify internal and external registries and trust
-		From(mountedInitialSATokenPub). // to choose which SA token files are used
-		From(mountedKCMSATokenPub).     // to choose which SA token files are used
-		From(networkConfig).            // to choose which SA token files are used
+		From(apiserverConfig).      // to specify client-ca, default serving, sni serving
+		From(authenticationConfig). // to specify well_known
+		From(imageConfig).          // to specify internal and external registries and trust
+		From(kcmSATokenPub).
+		From(networkConfig).
 		Add(ret)
 
 	// and finally our target pod
@@ -258,9 +293,12 @@ func Resources() resourcegraph.Resources {
 		From(etcdClient).
 		From(kubeletClient).
 		From(kubeletServingCA).
-		From(mountedInitialSATokenPub).
-		From(mountedKCMSATokenPub).
+		From(kcmSATokenPub).
 		From(userDefaultServing).
+		From(internalLBServing).
+		From(externalLBServing).
+		From(localhostServing).
+		From(serviceNetworkServing).
 		From(wellKnown).
 		Add(ret)
 
