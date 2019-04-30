@@ -1,5 +1,5 @@
 hash: 318a34f93be123023d3c25d1e9d077924d191e34f6e499923ca74d4727271303
-updated: 2019-04-29T11:26:02.104199928-04:00
+updated: 2019-04-30T15:57:07.356444+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -301,7 +301,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: d30d2ce056122ec5b5bc0a35056c220103ef7026
+  version: 4fd6b40fd308c7c291ab73ac3d6cc73a603fdf96
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -879,7 +879,7 @@ imports:
   - pkg/util
   - pkg/util/proto
 - name: sigs.k8s.io/controller-tools
-  version: 61258e1c31f7a84247fd608c0bda7274a50c2d67
+  version: 72ae52c08b9dd626cfb64ebef0fbf40ce667939b
   repo: https://github.com/openshift/kubernetes-sigs-controller-tools
   subpackages:
   - pkg/crd/generator
