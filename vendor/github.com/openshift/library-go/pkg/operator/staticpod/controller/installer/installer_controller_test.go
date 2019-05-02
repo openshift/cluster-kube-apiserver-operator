@@ -30,6 +30,10 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 2)}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 2)}},
 	)
 
 	var installerPod *corev1.Pod
@@ -248,6 +252,8 @@ func TestCreateInstallerPod(t *testing.T) {
 	kubeClient := fake.NewSimpleClientset(
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-config"}},
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "test-secret"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-secret", 1)}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: fmt.Sprintf("%s-%d", "test-config", 1)}},
 	)
 
 	var installerPod *corev1.Pod
@@ -898,6 +904,8 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test-secret"}},
 				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test-config"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: fmt.Sprintf("%s-%d", "test-secret", test.latestAvailableRevision)}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: fmt.Sprintf("%s-%d", "test-config", test.latestAvailableRevision)}},
 			)
 			kubeClient.PrependReactor("create", "pods", func(action ktesting.Action) (handled bool, ret runtime.Object, err error) {
 				createdPod := action.(ktesting.CreateAction).GetObject().(*corev1.Pod)
@@ -1340,8 +1348,9 @@ func TestEnsureRequiredResources(t *testing.T) {
 		certConfigMaps []revision.RevisionResource
 		certSecrets    []revision.RevisionResource
 
-		configMaps []revision.RevisionResource
-		secrets    []revision.RevisionResource
+		revisionNumber int32
+		configMaps     []revision.RevisionResource
+		secrets        []revision.RevisionResource
 
 		startingResources []runtime.Object
 		expectedErr       string
@@ -1366,7 +1375,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			secrets: []revision.RevisionResource{
 				{Name: "foo-s"},
 			},
-			expectedErr: "required resources missing: configmaps: ns/foo-cm, secrets: ns/foo-s",
+			expectedErr: "missing required resources: [configmaps: foo-cm-0, secrets: foo-s-0]",
 		},
 		{
 			name: "found-required",
@@ -1377,8 +1386,8 @@ func TestEnsureRequiredResources(t *testing.T) {
 				{Name: "foo-s"},
 			},
 			startingResources: []runtime.Object{
-				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-cm"}},
-				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-s"}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-cm-0"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "foo-s-0"}},
 			},
 		},
 		{
@@ -1389,7 +1398,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			certSecrets: []revision.RevisionResource{
 				{Name: "foo-s"},
 			},
-			expectedErr: "required resources missing: configmaps: ns/foo-cm, secrets: ns/foo-s",
+			expectedErr: "missing required resources: [configmaps: foo-cm, secrets: foo-s]",
 		},
 		{
 			name: "found-required-certs",
@@ -1421,7 +1430,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 				secretsGetter:    client.CoreV1(),
 			}
 
-			actual := c.ensureRequiredResourcesExist()
+			actual := c.ensureRequiredResourcesExist(test.revisionNumber)
 			switch {
 			case len(test.expectedErr) == 0 && actual == nil:
 			case len(test.expectedErr) == 0 && actual != nil:
@@ -1429,7 +1438,7 @@ func TestEnsureRequiredResources(t *testing.T) {
 			case len(test.expectedErr) != 0 && actual == nil:
 				t.Fatal(actual)
 			case len(test.expectedErr) != 0 && actual != nil && !strings.Contains(actual.Error(), test.expectedErr):
-				t.Fatal(actual)
+				t.Fatalf("actual error: %q does not match expected: %q", actual.Error(), test.expectedErr)
 			}
 
 		})
