@@ -143,7 +143,7 @@ func (c *CertSyncController) sync() error {
 			}
 
 			klog.Infof("Writing secret manifest %q ...", fullFilename)
-			if err := ioutil.WriteFile(fullFilename, content, 0644); err != nil {
+			if err := ioutil.WriteFile(fullFilename, content, 0600); err != nil {
 				errors = append(errors, err)
 				continue
 			}
