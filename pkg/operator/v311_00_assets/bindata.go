@@ -312,6 +312,7 @@ metadata:
     apiserver: "true"
     revision: "REVISION"
 spec:
+  shareProcessNamespace: true
   initContainers:
     - name: setup
       terminationMessagePolicy: FallbackToLogsOnError
@@ -399,6 +400,38 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
+  - name: kube-apiserver-watchdog-REVISION
+    securityContext:
+      capabilities:
+        add:
+          - SYS_PTRACE
+    env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["cluster-kube-apiserver-operator", "file-watcher-watchdog"]
+    args:
+      - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --namespace=$(POD_NAMESPACE)
+      - --process-name=hypershift
+      - --files=/etc/kubernetes/static-pod-resources/test
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 10m
+    volumeMounts:
+      - mountPath: /etc/kubernetes/static-pod-resources
+        name: resource-dir
+      - mountPath: /etc/kubernetes/static-pod-certs
+        name: cert-dir
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical

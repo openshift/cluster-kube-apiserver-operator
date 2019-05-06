@@ -20,8 +20,10 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
+	"github.com/openshift/library-go/pkg/operator/watchdog"
 )
 
 func main() {
@@ -60,6 +62,7 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(render.NewRenderCommand())
 	cmd.AddCommand(installerpod.NewInstaller())
 	cmd.AddCommand(prune.NewPrune())
+	cmd.AddCommand(watchdog.NewFileWatcherWatchdog())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
 

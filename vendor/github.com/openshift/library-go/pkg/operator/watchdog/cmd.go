@@ -156,12 +156,14 @@ func (o *FileWatcherOptions) Validate() error {
 func (o *FileWatcherOptions) startPidObserver(ctx context.Context, pidObservedCh chan int) {
 	defer close(pidObservedCh)
 	currentPID := 0
+	retries := 0
 	pollErr := wait.PollImmediateUntil(1*time.Second, func() (done bool, err error) {
+		retries++
 		// get the monitored process PID
 		observedPID, found, err := o.handleFindPidByNameFn(o.ProcessName)
 		if !found || err != nil {
-			klog.Warningf("Process %q does not have PID", o.ProcessName)
-			klog.Warningf("Failed to find the process PID: %v", err)
+			klog.Warningf("Unable to determine PID for %q (retry: %d, err: %v)", o.ProcessName, retries, err)
+			return false, nil
 		}
 
 		if currentPID == 0 {
@@ -251,6 +253,7 @@ func (o *FileWatcherOptions) runWatchdog(ctx context.Context) error {
 	// This means side-car container don't have to duplicate the mounts from main container.
 	// This require shared PID namespace feature.
 	filesToWatch := o.handleAddProcPrefixToFilesFn(o.Files, currentPID)
+	klog.Infof("Watching for changes in: %s", spew.Sdump(filesToWatch))
 
 	// Read initial file content. If shared PID namespace does not work, this will error.
 	initialContent, err := readInitialFileContent(filesToWatch)
