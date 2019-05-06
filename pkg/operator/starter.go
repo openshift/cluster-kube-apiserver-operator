@@ -199,7 +199,6 @@ var CertConfigMaps = []revision.RevisionResource{
 
 var CertSecrets = []revision.RevisionResource{
 	{Name: "aggregator-client"},
-	{Name: "serving-cert"},
 	{Name: "localhost-serving-cert-certkey"},
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
