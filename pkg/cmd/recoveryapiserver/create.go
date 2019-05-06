@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apiserver/pkg/server"
@@ -19,16 +18,12 @@ type CreateOptions struct {
 	Options
 
 	StaticPodResourcesDir string
-	Timeout               time.Duration
-	Wait                  bool
 }
 
 func NewCreateCommand() *cobra.Command {
 	o := &CreateOptions{
 		Options:               NewDefaultOptions(),
 		StaticPodResourcesDir: "/etc/kubernetes/static-pod-resources",
-		Timeout:               5 * time.Minute,
-		Wait:                  true,
 	}
 
 	cmd := &cobra.Command{
@@ -55,9 +50,6 @@ func NewCreateCommand() *cobra.Command {
 		SilenceUsage:  true,
 	}
 
-	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "startup timeout, 0 means infinite")
-	cmd.Flags().BoolVar(&o.Wait, "wait", o.Wait, "wait for recovery apiserver to become ready")
-
 	return cmd
 }
 
@@ -80,7 +72,7 @@ func (o *CreateOptions) Validate() error {
 }
 
 func (o *CreateOptions) Run() error {
-	ctx, cancel := watch.ContextWithOptionalTimeout(context.TODO(), o.Timeout)
+	ctx, cancel := watch.ContextWithOptionalTimeout(context.TODO(), 0 /*infinity*/)
 	defer cancel()
 
 	signalHandler := server.SetupSignalHandler()
@@ -98,20 +90,26 @@ func (o *CreateOptions) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to create recovery apiserver: %v", err)
 	}
+	// destroy the server when we're done
+	defer func() {
+		if err := recoveryApiserver.Destroy(); err != nil {
+			klog.Errorf("failed to destroy the recovery apiserver")
+		}
+	}()
 
 	kubeconfigPath := path.Join(recoveryApiserver.GetRecoveryResourcesDir(), recovery.AdminKubeconfigFileName)
-	klog.Infof("system:admin kubeconfig written to %q", kubeconfigPath)
+	klog.Infof("Waiting for recovery apiserver to be healthy.")
+	klog.Infof("    export KUBECONFIG=%s", kubeconfigPath)
+	klog.Infof("to access the server.")
 
-	if !o.Wait {
-		return nil
-	}
-
-	klog.Infof("Waiting for recovery apiserver to come up.")
 	err = recoveryApiserver.WaitForHealthz(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to wait for recovery apiserver to be ready: %v", err)
 	}
 	klog.Infof("Recovery apiserver is up.")
+
+	<-ctx.Done()
+	klog.Infof("Exit requested.")
 
 	return nil
 }
