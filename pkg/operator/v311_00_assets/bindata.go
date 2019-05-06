@@ -6,6 +6,8 @@
 // bindata/v3.11.0/kube-apiserver/ns.yaml
 // bindata/v3.11.0/kube-apiserver/pod-cm.yaml
 // bindata/v3.11.0/kube-apiserver/pod.yaml
+// bindata/v3.11.0/kube-apiserver/recovery-config.yaml
+// bindata/v3.11.0/kube-apiserver/recovery-pod.yaml
 // bindata/v3.11.0/kube-apiserver/svc.yaml
 // DO NOT EDIT!
 
@@ -431,6 +433,112 @@ func v3110KubeApiserverPodYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110KubeApiserverRecoveryConfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
+apiServerArguments:
+  storage-backend:
+  - etcd3
+  storage-media-type:
+  - application/vnd.kubernetes.protobuf
+servingInfo:
+  bindAddress: 127.0.0.1:7443
+  bindNetwork: tcp4
+  certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
+  clientCA: /etc/kubernetes/static-pod-resources/serving-ca.crt
+storageConfig:
+  keyFile: /etc/kubernetes/static-pod-resources/etcd-client.key
+  certFile: /etc/kubernetes/static-pod-resources/etcd-client.crt
+  ca: /etc/kubernetes/static-pod-resources/etcd-serving-ca-bundle.crt
+  storagePrefix: openshift.io
+  urls:
+  - "https://localhost:2379"
+
+# Make hypershift happy.
+# (Everything bellow this line is just to provide some certs file
+# because hypershift tries to read those even if you don't want to set them up.)
+authConfig:
+  oauthMetadataFile: ""
+  requestHeader:
+    clientCA: /etc/kubernetes/static-pod-resources/serving-ca.crt
+serviceAccountPublicKeyFiles:
+- /etc/kubernetes/static-pod-resources/serving-ca.crt
+kubeletClientInfo:
+  ca: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+    keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
+`)
+
+func v3110KubeApiserverRecoveryConfigYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverRecoveryConfigYaml, nil
+}
+
+func v3110KubeApiserverRecoveryConfigYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverRecoveryConfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/recovery-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110KubeApiserverRecoveryPodYaml = []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: kube-apiserver-recovery
+  labels:
+    revision: "recovery"
+spec:
+  containers:
+  - name: kube-apiserver-recovery
+    image: "{{ .KubeApiserverImage }}"
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["hypershift", "openshift-kube-apiserver"]
+    args:
+    - --config=/etc/kubernetes/static-pod-resources/config.yaml
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 150m
+    ports:
+    - containerPort: 7443
+    volumeMounts:
+    - mountPath: /etc/kubernetes/static-pod-resources
+      name: resource-dir
+  terminationGracePeriodSeconds: 0
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  tolerations:
+  - operator: "Exists"
+  volumes:
+  - hostPath:
+      path: "{{ .ResourceDir }}"
+    name: resource-dir
+`)
+
+func v3110KubeApiserverRecoveryPodYamlBytes() ([]byte, error) {
+	return _v3110KubeApiserverRecoveryPodYaml, nil
+}
+
+func v3110KubeApiserverRecoveryPodYaml() (*asset, error) {
+	bytes, err := v3110KubeApiserverRecoveryPodYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/kube-apiserver/recovery-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110KubeApiserverSvcYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
@@ -517,13 +625,15 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/kube-apiserver/cm.yaml":            v3110KubeApiserverCmYaml,
-	"v3.11.0/kube-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/kube-apiserver/kubeconfig-cm.yaml": v3110KubeApiserverKubeconfigCmYaml,
-	"v3.11.0/kube-apiserver/ns.yaml":            v3110KubeApiserverNsYaml,
-	"v3.11.0/kube-apiserver/pod-cm.yaml":        v3110KubeApiserverPodCmYaml,
-	"v3.11.0/kube-apiserver/pod.yaml":           v3110KubeApiserverPodYaml,
-	"v3.11.0/kube-apiserver/svc.yaml":           v3110KubeApiserverSvcYaml,
+	"v3.11.0/kube-apiserver/cm.yaml":              v3110KubeApiserverCmYaml,
+	"v3.11.0/kube-apiserver/defaultconfig.yaml":   v3110KubeApiserverDefaultconfigYaml,
+	"v3.11.0/kube-apiserver/kubeconfig-cm.yaml":   v3110KubeApiserverKubeconfigCmYaml,
+	"v3.11.0/kube-apiserver/ns.yaml":              v3110KubeApiserverNsYaml,
+	"v3.11.0/kube-apiserver/pod-cm.yaml":          v3110KubeApiserverPodCmYaml,
+	"v3.11.0/kube-apiserver/pod.yaml":             v3110KubeApiserverPodYaml,
+	"v3.11.0/kube-apiserver/recovery-config.yaml": v3110KubeApiserverRecoveryConfigYaml,
+	"v3.11.0/kube-apiserver/recovery-pod.yaml":    v3110KubeApiserverRecoveryPodYaml,
+	"v3.11.0/kube-apiserver/svc.yaml":             v3110KubeApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -569,13 +679,15 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":            {v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml": {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"kubeconfig-cm.yaml": {v3110KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
-			"ns.yaml":            {v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"pod-cm.yaml":        {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":           {v3110KubeApiserverPodYaml, map[string]*bintree{}},
-			"svc.yaml":           {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml":              {v3110KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":   {v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"kubeconfig-cm.yaml":   {v3110KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
+			"ns.yaml":              {v3110KubeApiserverNsYaml, map[string]*bintree{}},
+			"pod-cm.yaml":          {v3110KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":             {v3110KubeApiserverPodYaml, map[string]*bintree{}},
+			"recovery-config.yaml": {v3110KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
+			"recovery-pod.yaml":    {v3110KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
+			"svc.yaml":             {v3110KubeApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

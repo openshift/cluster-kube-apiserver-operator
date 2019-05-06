@@ -1,6 +1,8 @@
 package test
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -13,8 +15,12 @@ func TestYamlCorrectness(t *testing.T) {
 	readAllYaml("../../manifests/", t)
 	readAllYaml("../../bindata/", t)
 }
+
 func readAllYaml(path string, t *testing.T) {
-	manifests, err := assets.New(path, render.TemplateData{}, assets.OnlyYaml)
+	// TODO: validate also recovery manifest but they take different template and are covered by unit tests
+	manifests, err := assets.New(path, render.TemplateData{}, func(info os.FileInfo) bool {
+		return assets.OnlyYaml(info) && !strings.HasPrefix(info.Name(), "recovery-")
+	})
 	if err != nil {
 		t.Errorf("Unexpected error reading manifests from %s: %v", path, err)
 	}

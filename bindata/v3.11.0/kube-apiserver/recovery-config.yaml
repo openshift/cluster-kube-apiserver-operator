@@ -1,0 +1,38 @@
+apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
+apiServerArguments:
+  storage-backend:
+  - etcd3
+  storage-media-type:
+  - application/vnd.kubernetes.protobuf
+servingInfo:
+  bindAddress: 127.0.0.1:7443
+  bindNetwork: tcp4
+  certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
+  clientCA: /etc/kubernetes/static-pod-resources/serving-ca.crt
+storageConfig:
+  keyFile: /etc/kubernetes/static-pod-resources/etcd-client.key
+  certFile: /etc/kubernetes/static-pod-resources/etcd-client.crt
+  ca: /etc/kubernetes/static-pod-resources/etcd-serving-ca-bundle.crt
+  storagePrefix: openshift.io
+  urls:
+  - "https://localhost:2379"
+
+# Make hypershift happy.
+# (Everything bellow this line is just to provide some certs file
+# because hypershift tries to read those even if you don't want to set them up.)
+authConfig:
+  oauthMetadataFile: ""
+  requestHeader:
+    clientCA: /etc/kubernetes/static-pod-resources/serving-ca.crt
+serviceAccountPublicKeyFiles:
+- /etc/kubernetes/static-pod-resources/serving-ca.crt
+kubeletClientInfo:
+  ca: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+  keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
+aggregatorConfig:
+  proxyClientInfo:
+    certFile: /etc/kubernetes/static-pod-resources/serving-ca.crt
+    keyFile: /etc/kubernetes/static-pod-resources/serving-ca.key
