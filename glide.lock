@@ -1,5 +1,5 @@
 hash: 318a34f93be123023d3c25d1e9d077924d191e34f6e499923ca74d4727271303
-updated: 2019-05-03T14:44:03.105393+02:00
+updated: 2019-05-06T15:18:29.832210756-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -236,7 +236,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 168fd4e3c55217ad0042c4ee1ec79e9ce40d5c21
+  version: e8b4038cdb379e8633cb09de2e4119f059890c1e
   subpackages:
   - apps
   - apps/v1
@@ -301,7 +301,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 30efb8b70b661872bd0fd9de4ae37f61815bf161
+  version: 93b3a4f7887ba3426204a6d19dd75c74054e8e9b
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -841,6 +841,7 @@ imports:
   - tools/pager
   - tools/record
   - tools/reference
+  - tools/watch
   - transport
   - util/buffer
   - util/cert
@@ -861,7 +862,7 @@ imports:
   - parser
   - types
 - name: k8s.io/klog
-  version: e531227889390a39d9533dde61f590fe9f4b0035
+  version: e88f7305ac70285fef29b8acebb00ba53136eab4
 - name: k8s.io/kube-aggregator
   version: 3e0149950b0e22a3b8579db52bd50e40d0dac10e
   subpackages:

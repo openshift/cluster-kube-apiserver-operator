@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/klog"
-
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -39,7 +39,7 @@ type CertRotationController struct {
 	internalLoadBalancer               *DynamicServingRotation
 	internalLoadBalancerHostnamesQueue workqueue.RateLimitingInterface
 
-	cachesSynced []cache.InformerSynced
+	cachesToSync []cache.InformerSynced
 }
 
 func NewCertRotationController(
@@ -63,7 +63,7 @@ func NewCertRotationController(
 		internalLoadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InternalLoadBalancerHostnames"),
 		internalLoadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
 
-		cachesSynced: []cache.InformerSynced{
+		cachesToSync: []cache.InformerSynced{
 			configInformer.Config().V1().Networks().Informer().HasSynced,
 			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 		},
@@ -448,11 +448,11 @@ func NewCertRotationController(
 	return ret, nil
 }
 
-func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
-	klog.Infof("Starting CertRotation")
-	defer klog.Infof("Shutting down CertRotation")
+func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
+	klog.Infof("Waiting for CertRotation")
+	defer klog.Infof("Finished waiting for CertRotation")
 
-	if !cache.WaitForCacheSync(stopCh, c.cachesSynced...) {
+	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
@@ -467,6 +467,29 @@ func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+
+	for _, certRotator := range c.certRotators {
+		certRotator.WaitForReady(stopCh)
+	}
+}
+
+// RunOnce will run the cert rotation logic, but will not try to update the static pod status.
+// This eliminates the need to pass an OperatorClient and avoids dubious writes and status.
+func (c *CertRotationController) RunOnce() error {
+	errlist := []error{}
+	for _, certRotator := range c.certRotators {
+		if err := certRotator.RunOnce(); err != nil {
+			errlist = append(errlist, err)
+		}
+	}
+
+	return utilerrors.NewAggregate(errlist)
+}
+
+func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
+	klog.Infof("Starting CertRotation")
+	defer klog.Infof("Shutting down CertRotation")
+	c.WaitForReady(stopCh)
 
 	go wait.Until(c.runServiceHostnames, time.Second, stopCh)
 	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, stopCh)
