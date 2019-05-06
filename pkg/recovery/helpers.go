@@ -73,6 +73,8 @@ func GetVolumeHostPathPath(volumeName string, volumes []corev1.Volume) (string, 
 }
 
 func EnsureFileContent(filePath string, data []byte) error {
+	klog.V(1).Infof("Reconciling file %q", filePath)
+
 	exists := true
 	mode := os.FileMode(600) // default mode
 
@@ -107,12 +109,16 @@ func EnsureFileContent(filePath string, data []byte) error {
 		}
 
 		mode = fileInfo.Mode().Perm()
+	} else {
+		klog.Warningf("File %q doesn't exist.", filePath)
 	}
 
 	err = ioutil.WriteFile(filePath, data, mode)
 	if err != nil {
 		return fmt.Errorf("failed to write content into %q: %v", filePath, err)
 	}
+
+	klog.Infof("Wrote new content to file %q", filePath)
 
 	return nil
 }
