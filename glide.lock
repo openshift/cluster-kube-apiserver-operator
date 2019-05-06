@@ -1,5 +1,5 @@
-hash: 318a34f93be123023d3c25d1e9d077924d191e34f6e499923ca74d4727271303
-updated: 2019-05-03T14:44:03.105393+02:00
+hash: f6f54ad2b35970d33a2b36eefd4e1d88cbf66bf1d37a4e124d04a6b8600f56c9
+updated: 2019-05-06T11:19:59.0669+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -99,7 +99,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
 - name: github.com/docker/docker
@@ -120,7 +120,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: 32a13797442ccb601b11761d74232773c1402d14
 - name: github.com/ghodss/yaml
-  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
+  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -236,7 +236,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 168fd4e3c55217ad0042c4ee1ec79e9ce40d5c21
+  version: e8b4038cdb379e8633cb09de2e4119f059890c1e
   subpackages:
   - apps
   - apps/v1
@@ -301,7 +301,8 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 30efb8b70b661872bd0fd9de4ae37f61815bf161
+  version: 5470e09eb7a8777e48b6cc48a1008c5ec2381ce9
+  repo: https://github.com/mfojtik/library-go
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -511,7 +512,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
+  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 - name: k8s.io/api
   version: 5cb15d34447165a97c76ed5a60e4e99c8a01ecfe
   subpackages:
@@ -861,7 +862,7 @@ imports:
   - parser
   - types
 - name: k8s.io/klog
-  version: e531227889390a39d9533dde61f590fe9f4b0035
+  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
 - name: k8s.io/kube-aggregator
   version: 3e0149950b0e22a3b8579db52bd50e40d0dac10e
   subpackages:

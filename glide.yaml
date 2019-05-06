@@ -23,7 +23,8 @@ import:
 - package: github.com/openshift/client-go
   version: master
 - package: github.com/openshift/library-go
-  version: master
+  repo: https://github.com/mfojtik/library-go
+  version: suicider
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
