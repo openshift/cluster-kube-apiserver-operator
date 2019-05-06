@@ -54,6 +54,14 @@ func (s *Apiserver) GetRecoveryResourcesDir() string {
 	return s.recoveryResourcesDir
 }
 
+func (s *Apiserver) GetKubeApiserverStaticPod() *corev1.Pod {
+	return s.kubeApiserverStaticPod
+}
+
+func (s *Apiserver) KubeApiserverManifestPath() string {
+	return filepath.Join(s.PodManifestDir, KubeApiserverStaticPodFileName)
+}
+
 func (s *Apiserver) RestConfig() (*rest.Config, error) {
 	if s.restConfig == nil {
 		return nil, errors.New("no rest config is set yet")
@@ -170,7 +178,7 @@ func (s *Apiserver) recoveryPod() (*corev1.Pod, error) {
 }
 
 func (s *Apiserver) Create() error {
-	kubeApiserverManifestPath := filepath.Join(s.PodManifestDir, KubeApiserverStaticPodFileName)
+	kubeApiserverManifestPath := s.KubeApiserverManifestPath()
 	var err error
 	s.kubeApiserverStaticPod, err = ReadManifestToV1Pod(kubeApiserverManifestPath)
 	if err != nil {

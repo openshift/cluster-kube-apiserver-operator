@@ -109,7 +109,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		WithEvents(ctx.EventRecorder).
 		WithInstaller([]string{"cluster-kube-apiserver-operator", "installer"}).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
-		WithResources(operatorclient.TargetNamespace, "kube-apiserver", revisionConfigMaps, revisionSecrets).
+		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithServiceMonitor(dynamicClient).
 		WithVersioning(operatorclient.OperatorNamespace, "kube-apiserver", versionRecorder).
@@ -166,9 +166,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	return fmt.Errorf("stopped")
 }
 
-// revisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
+// RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
 // the first element should be the configmap that contains the static pod manifest
-var revisionConfigMaps = []revision.RevisionResource{
+var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-pod"},
 
 	{Name: "config"},
@@ -183,8 +183,8 @@ var revisionConfigMaps = []revision.RevisionResource{
 	{Name: "sa-token-signing-certs"},
 }
 
-// revisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
-var revisionSecrets = []revision.RevisionResource{
+// RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
+var RevisionSecrets = []revision.RevisionResource{
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-client"},
 	// this is needed so that the cert syncer itself can request certs.  It uses localhost

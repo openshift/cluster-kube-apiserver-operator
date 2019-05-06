@@ -123,6 +123,10 @@ func guessControllerReferenceForNamespace(client corev1client.PodInterface) (*co
 
 	pod := &pods.Items[0]
 	ownerRef := metav1.GetControllerOf(pod)
+	if ownerRef == nil {
+		return nil, fmt.Errorf("pod %s/%s has no ownerRefs", pod.Namespace, pod.Name)
+	}
+
 	return &corev1.ObjectReference{
 		Kind:       ownerRef.Kind,
 		Namespace:  pod.Namespace,
