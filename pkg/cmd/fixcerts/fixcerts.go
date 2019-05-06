@@ -6,8 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -24,8 +25,7 @@ import (
 
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configexternalinformers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
-	operatorexternalinformers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
@@ -37,6 +37,8 @@ import (
 )
 
 const (
+	RecoveryPodKubeConfig                  = "/etc/kubernetes/static-pod-resources/recovery-kube-apiserver-pod/admin.kubeconfig"
+	KubeAPIServerStaticPodFileName         = "kube-apiserver-pod.yaml"
 	KubeControllerManagerStaticPodFileName = "kube-controller-manager-pod.yaml"
 	KubeSchedulerStaticPodFileName         = "kube-scheduler-pod.yaml"
 
@@ -58,14 +60,12 @@ type Options struct {
 	// TODO: merge with CreateOptions
 	PodManifestDir        string
 	StaticPodResourcesDir string
-	Timeout               time.Duration
 }
 
 func NewCommand() *cobra.Command {
 	o := &Options{
 		PodManifestDir:        "/etc/kubernetes/manifests",
 		StaticPodResourcesDir: "/etc/kubernetes/static-pod-resources",
-		Timeout:               5 * time.Minute,
 	}
 
 	cmd := &cobra.Command{
@@ -93,8 +93,6 @@ func NewCommand() *cobra.Command {
 		SilenceUsage:  true,
 	}
 
-	cmd.Flags().DurationVar(&o.Timeout, "timeout", o.Timeout, "timeout for the command, 0 means infinite")
-
 	return cmd
 }
 
@@ -107,7 +105,7 @@ func (o *Options) Validate() error {
 }
 
 func (o *Options) Run() error {
-	ctx, cancel := watch.ContextWithOptionalTimeout(context.TODO(), o.Timeout)
+	ctx, cancel := watch.ContextWithOptionalTimeout(context.TODO(), 0 /*infinity*/)
 	defer cancel()
 
 	signalHandler := server.SetupSignalHandler()
@@ -116,76 +114,20 @@ func (o *Options) Run() error {
 		cancel()
 	}()
 
-	recoveryApiserver := &recovery.Apiserver{
-		PodManifestDir:        o.PodManifestDir,
-		StaticPodResourcesDir: o.StaticPodResourcesDir,
-	}
-
-	err := recoveryApiserver.Create()
-	if err != nil {
-		return fmt.Errorf("failed to create recovery recoveryApiserver: %v", err)
-	}
-	defer recoveryApiserver.Destroy()
-
-	klog.Info("Waiting for recovery recoveryApiserver to come up")
-	err = recoveryApiserver.WaitForHealthz(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to wait for recovery recoveryApiserver to be ready: %v", err)
-	}
-	klog.Info("Recovery recoveryApiserver is up")
-
-	// Run cert recovery
-
-	// We already have kubeClient created
-	kubeClient, err := recoveryApiserver.GetKubeClientset()
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes clientset: %v", err)
-	}
-
-	restConfig, err := recoveryApiserver.RestConfig()
+	restConfig, err := client.GetClientConfig(RecoveryPodKubeConfig, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get kubernetes rest config: %v", err)
 	}
-
-	operatorConfigClient, err := operatorversionedclient.NewForConfig(restConfig)
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
-
 	configClient, err := configeversionedclient.NewForConfig(restConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create config client: %v", err)
 	}
 
-	certRotationCtx, certRotationCtxCancel := context.WithCancel(ctx)
-	defer certRotationCtxCancel()
-
-	certRotationWg := sync.WaitGroup{}
-
-	operatorConfigInformers := operatorexternalinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
-		operatorConfigInformers.Start(certRotationCtx.Done())
-	}()
-
 	configInformers := configexternalinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
-		configInformers.Start(certRotationCtx.Done())
-	}()
-
-	kubeApiserverOperatorClient := &kubeapiserveroperatorclient.OperatorClient{
-		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OperatorV1(),
-	}
-
-	kubeControllerManagerOperatorClient := &kubecontrollermanageroperatorclient.OperatorClient{
-		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OperatorV1(),
-	}
-
 	kubeApiserverInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -195,12 +137,6 @@ func (o *Options) Run() error {
 		kubeapiserveroperatorclient.OperatorNamespace,
 		"kube-system",
 	)
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
-		kubeApiserverInformersForNamespaces.Start(certRotationCtx.Done())
-	}()
-
 	kubeControllerManagerInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -210,21 +146,16 @@ func (o *Options) Run() error {
 		kubecontrollermanageroperatorclient.OperatorNamespace,
 		"kube-system",
 	)
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
-		kubeControllerManagerInformersForNamespaces.Start(certRotationCtx.Done())
-	}()
-
 	eventRecorder := events.NewKubeRecorder(kubeClient.CoreV1().Events(""), "fix-certs (CLI)", &corev1.ObjectReference{
 		APIVersion: "v1",
 		Kind:       "namespace",
-		Name:       "kube-system",
-	}) // fake
+		Name:       "openshift-kube-apiserver-operator",
+		Namespace:  "openshift-kube-apiserver-operator",
+	}) // this is a fake object-reference that should hopefully place us in the correct namespace
 
 	kubeApiserverCertRotationController, err := kubeapiservercertrotationcontroller.NewCertRotationController(
 		kubeClient,
-		kubeApiserverOperatorClient,
+		nil,
 		configInformers,
 		kubeApiserverInformersForNamespaces,
 		eventRecorder.WithComponentSuffix("cert-rotation-controller-kas"),
@@ -233,17 +164,9 @@ func (o *Options) Run() error {
 	if err != nil {
 		return err
 	}
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
-
-		kubeApiserverCertRotationController.Run(1, certRotationCtx.Done())
-	}()
-
 	kubeControllerManagerCertRotationController, err := kubecontrollermanagercertrotationcontroller.NewCertRotationController(
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
-		kubeControllerManagerOperatorClient,
 		kubeControllerManagerInformersForNamespaces,
 		eventRecorder.WithComponentSuffix("cert-rotation-controller-kcm"),
 		0,
@@ -251,25 +174,35 @@ func (o *Options) Run() error {
 	if err != nil {
 		return err
 	}
-	certRotationWg.Add(1)
-	go func() {
-		defer certRotationWg.Done()
 
-		kubeControllerManagerCertRotationController.Run(1, certRotationCtx.Done())
-	}()
+	// you can't start informers until after the resources have been requested
+	configInformers.Start(ctx.Done())
+	kubeApiserverInformersForNamespaces.Start(ctx.Done())
+	kubeControllerManagerInformersForNamespaces.Start(ctx.Done())
 
-	klog.Info("Waiting for certs to be refreshed...")
-	// FIXME: wait for valid certs
-	// time.Sleep(5*time.Minute)
-	time.Sleep(30 * time.Second)
+	// wait until the controllers are ready
+	kubeApiserverCertRotationController.WaitForReady(ctx.Done())
+	kubeControllerManagerCertRotationController.WaitForReady(ctx.Done())
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+	}
+
+	klog.Info("Refreshing certificates.")
+	if err := kubeApiserverCertRotationController.RunOnce(); err != nil {
+		return err
+	}
+	if err := kubeControllerManagerCertRotationController.RunOnce(); err != nil {
+		return err
+	}
 	klog.Info("Certificates refreshed.")
 
-	klog.V(1).Info("Stopping CertRotationController...")
-	certRotationCtxCancel()
-	certRotationWg.Wait()
-	klog.V(1).Info("Stopped CertRotationController...")
-
-	kubeApiserverPod := recoveryApiserver.GetKubeApiserverStaticPod()
+	kubeApiserverManifestPath := filepath.Join(o.PodManifestDir, KubeAPIServerStaticPodFileName)
+	kubeApiserverPod, err := recovery.ReadManifestToV1Pod(kubeApiserverManifestPath)
+	if err != nil {
+		return fmt.Errorf("failed to read kube-apiserver manifest at %q: %v", kubeApiserverManifestPath, err)
+	}
 	kubeApiserverCertsDir, err := recovery.GetVolumeHostPathPath("cert-dir", kubeApiserverPod.Spec.Volumes)
 	if err != nil {
 		return fmt.Errorf("failed to find kube-recoveryApiserver certs dir: %v", err)
@@ -301,7 +234,6 @@ func (o *Options) Run() error {
 		namespace   string
 		toplevelDir string
 	}{
-		// Fix kube-recoveryApiserver serving certs
 		{
 			objectType:  secretsType,
 			name:        "service-network-serving-certkey",
@@ -389,19 +321,28 @@ func (o *Options) Run() error {
 	}
 
 	timestamp := time.Now().Format(time.RFC3339)
+	if kubeApiserverPod.Annotations == nil {
+		kubeApiserverPod.Annotations = map[string]string{}
+	}
+	kubeApiserverPod.Annotations["force-triggered-by-fix-certs-at"] = timestamp
+	if kubeControllerManagerPod.Annotations == nil {
+		kubeControllerManagerPod.Annotations = map[string]string{}
+	}
 	kubeControllerManagerPod.Annotations["force-triggered-by-fix-certs-at"] = timestamp
+	if kubeSchedulerPod.Annotations == nil {
+		kubeSchedulerPod.Annotations = map[string]string{}
+	}
 	kubeSchedulerPod.Annotations["force-triggered-by-fix-certs-at"] = timestamp
 
-	// Force restart kube-recoveryApiserver just in case (even all its cert files are dynamically reloaded)
-	kubeApiserverManifestPath := recoveryApiserver.KubeApiserverManifestPath()
+	// Force restart kube-apiserver just in case (even all its cert files are dynamically reloaded)
 	kubeApiserverBytes, err := yaml.Marshal(kubeApiserverPod)
 	if err != nil {
-		return fmt.Errorf("failed to marshal kube-recoveryApiserver pod: %v", err)
+		return fmt.Errorf("failed to marshal kube-apiserver pod: %v", err)
 	}
 
 	err = ioutil.WriteFile(kubeApiserverManifestPath, kubeApiserverBytes, 644)
 	if err != nil {
-		return fmt.Errorf("failed to write kube-recoveryApiserver pod manifest %q: %v", kubeApiserverManifestPath, err)
+		return fmt.Errorf("failed to write kube-apiserver pod manifest %q: %v", kubeApiserverManifestPath, err)
 	}
 
 	// Force restart kube-controller-manager

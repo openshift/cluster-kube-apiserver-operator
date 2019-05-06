@@ -3,15 +3,14 @@ package certrotationcontroller
 import (
 	"time"
 
-	"k8s.io/klog"
-
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog"
 
-	"github.com/openshift/cluster-kube-controller-manager-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/fixcerts/carry/kubecontrollermanager/operatorclient"
 )
 
 // defaultRotationDay is the default rotation base for all cert rotation operations.
@@ -24,7 +23,6 @@ type CertRotationController struct {
 func NewCertRotationController(
 	secretsGetter corev1client.SecretsGetter,
 	configMapsGetter corev1client.ConfigMapsGetter,
-	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
 	day time.Duration,
@@ -72,7 +70,7 @@ func NewCertRotationController(
 			Client:        secretsGetter,
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
+		nil,
 	)
 	if err != nil {
 		return nil, err
@@ -82,8 +80,24 @@ func NewCertRotationController(
 	return ret, nil
 }
 
-func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
+func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
+	klog.Infof("Waiting for CertRotation")
+	defer klog.Infof("Finished waiting for CertRotation")
+
 	for _, certRotator := range c.certRotators {
-		go certRotator.Run(workers, stopCh)
+		certRotator.WaitForReady(stopCh)
 	}
+}
+
+// RunOnce will run the cert rotation logic, but will not try to update the static pod status.
+// This eliminates the need to pass an OperatorClient and avoids dubious writes and status.
+func (c *CertRotationController) RunOnce() error {
+	errlist := []error{}
+	for _, certRotator := range c.certRotators {
+		if err := certRotator.RunOnce(); err != nil {
+			errlist = append(errlist, err)
+		}
+	}
+
+	return utilerrors.NewAggregate(errlist)
 }

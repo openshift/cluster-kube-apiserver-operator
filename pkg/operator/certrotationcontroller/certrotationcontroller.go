@@ -468,6 +468,9 @@ func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
 		panic(err)
 	}
 
+	for _, certRotator := range c.certRotators {
+		certRotator.WaitForReady(stopCh)
+	}
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.
