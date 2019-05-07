@@ -301,11 +301,11 @@ func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string,
 	if err != nil {
 		return "", err
 	}
-	apiServerURL, err := url.Parse(infrastructure.Status.APIServerInternalURL)
+	apiServerURL, err := url.Parse(infrastructure.Status.APIServerURL)
 	if err != nil {
 		return "", err
 	}
-	return strings.Replace(strings.Split(apiServerURL.Host, ":")[0], "api-int.", "api.", 1), nil
+	return strings.Split(apiServerURL.Host, ":")[0], nil
 }
 
 func getInternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
