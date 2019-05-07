@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -113,26 +112,9 @@ func (c TargetConfigController) sync() error {
 	}
 
 	// block until config is observed and specific paths are present
-	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
-		message := "no observedConfig"
-		c.eventRecorder.Warning("ConfigMissing", message)
-		return errors.New(message)
-	}
-	// don't worry about errors.  If we can't decode, we'll simply stomp over the field.
-	existingConfig := map[string]interface{}{}
-	if err := json.NewDecoder(bytes.NewBuffer(operatorConfig.Spec.ObservedConfig.Raw)).Decode(&existingConfig); err != nil {
-		klog.V(4).Infof("decode of existing config failed with error: %v", err)
-	}
-	requiredPaths := [][]string{
-		{"servingInfo", "namedCertificates"},
-	}
-	for _, requiredPath := range requiredPaths {
-		_, found, _ := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
-		if !found {
-			message := fmt.Errorf("%v missing from config", strings.Join(requiredPath, "."))
-			c.eventRecorder.Warning("ConfigMissing", message.Error())
-			return message
-		}
+	if err := isRequiredConfigPresent(operatorConfig.Spec.ObservedConfig.Raw); err != nil {
+		c.eventRecorder.Warning("ConfigMissing", err.Error())
+		return err
 	}
 
 	requeue, err := createTargetConfig(c, c.eventRecorder, operatorConfig)
@@ -143,6 +125,41 @@ func (c TargetConfigController) sync() error {
 		return fmt.Errorf("synthetic requeue request")
 	}
 
+	return nil
+}
+
+func isRequiredConfigPresent(config []byte) error {
+	if len(config) == 0 {
+		return fmt.Errorf("no observedConfig")
+	}
+
+	existingConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(config)).Decode(&existingConfig); err != nil {
+		return fmt.Errorf("error parsing config, %v", err)
+	}
+
+	requiredPaths := [][]string{
+		{"servingInfo", "namedCertificates"},
+		{"storageConfig", "urls"},
+	}
+	for _, requiredPath := range requiredPaths {
+		configVal, found, err := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
+		if err != nil {
+			return fmt.Errorf("error reading %v from config, %v", strings.Join(requiredPath, "."), err)
+		}
+		if !found {
+			return fmt.Errorf("%v missing from config", strings.Join(requiredPath, "."))
+		}
+		if configVal == nil {
+			return fmt.Errorf("%v null in config", strings.Join(requiredPath, "."))
+		}
+		if configValSlice, ok := configVal.([]interface{}); ok && len(configValSlice) == 0 {
+			return fmt.Errorf("%v empty in config", strings.Join(requiredPath, "."))
+		}
+		if configValString, ok := configVal.(string); ok && len(configValString) == 0 {
+			return fmt.Errorf("%v empty in config", strings.Join(requiredPath, "."))
+		}
+	}
 	return nil
 }
 
