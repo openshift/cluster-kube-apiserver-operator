@@ -15,19 +15,19 @@ import (
 )
 
 type CreateOptions struct {
-	Options
+	PodManifestDir string
 
 	StaticPodResourcesDir string
 }
 
-func NewCreateCommand() *cobra.Command {
+func NewStartCommand() *cobra.Command {
 	o := &CreateOptions{
-		Options:               NewDefaultOptions(),
+		PodManifestDir:        "/etc/kubernetes/manifests",
 		StaticPodResourcesDir: "/etc/kubernetes/static-pod-resources",
 	}
 
 	cmd := &cobra.Command{
-		Use: "create",
+		Use: "start",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := o.Complete()
 			if err != nil {
@@ -54,20 +54,10 @@ func NewCreateCommand() *cobra.Command {
 }
 
 func (o *CreateOptions) Complete() error {
-	err := o.Options.Complete()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (o *CreateOptions) Validate() error {
-	err := o.Options.Validate()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

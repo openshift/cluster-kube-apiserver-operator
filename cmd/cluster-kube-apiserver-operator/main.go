@@ -64,8 +64,8 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
-	cmd.AddCommand(recoveryapiserver.NewCommand())
-	cmd.AddCommand(fixcerts.NewCommand())
+	cmd.AddCommand(recoveryapiserver.NewRecoveryAPIServerCommand())
+	cmd.AddCommand(fixcerts.NewRegenerateCertificatesCommand())
 
 	return cmd
 }

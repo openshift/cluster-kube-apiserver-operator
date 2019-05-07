@@ -62,14 +62,14 @@ type Options struct {
 	StaticPodResourcesDir string
 }
 
-func NewCommand() *cobra.Command {
+func NewRegenerateCertificatesCommand() *cobra.Command {
 	o := &Options{
 		PodManifestDir:        "/etc/kubernetes/manifests",
 		StaticPodResourcesDir: "/etc/kubernetes/static-pod-resources",
 	}
 
 	cmd := &cobra.Command{
-		Use: "fix-certs",
+		Use: "regenerate-certificates",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := o.Complete()
 			if err != nil {
