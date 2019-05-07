@@ -545,7 +545,6 @@ metadata:
   namespace: openshift-kube-apiserver
   name: apiserver
   annotations:
-    service.alpha.openshift.io/serving-cert-secret-name: serving-cert
     prometheus.io/scrape: "true"
     prometheus.io/scheme: https
 spec:
