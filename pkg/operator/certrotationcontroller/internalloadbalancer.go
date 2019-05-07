@@ -15,7 +15,7 @@ func (c *CertRotationController) syncInternalLoadBalancerHostnames() error {
 	if err != nil {
 		return err
 	}
-	hostname := infrastructureConfig.Status.APIServerURL
+	hostname := infrastructureConfig.Status.APIServerInternalURL
 	hostname = strings.Replace(hostname, "https://", "", 1)
 	hostname = hostname[0:strings.LastIndex(hostname, ":")]
 
