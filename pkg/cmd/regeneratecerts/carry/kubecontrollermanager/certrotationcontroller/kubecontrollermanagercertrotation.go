@@ -10,7 +10,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/fixcerts/carry/kubecontrollermanager/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/operatorclient"
 )
 
 // defaultRotationDay is the default rotation base for all cert rotation operations.
