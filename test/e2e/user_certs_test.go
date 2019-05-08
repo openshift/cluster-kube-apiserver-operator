@@ -301,7 +301,7 @@ func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string,
 	if err != nil {
 		return "", err
 	}
-	apiServerURL, err := url.Parse(infrastructure.Status.APIServerURL)
+	apiServerURL, err := url.Parse(infrastructure.Status.APIServerInternalURL)
 	if err != nil {
 		return "", err
 	}
@@ -320,7 +320,7 @@ func getInternalAPIServiceHostName(client *configclient.ConfigV1Client) (string,
 	if err != nil {
 		return "", err
 	}
-	apiServerURL, err := url.Parse(infrastructure.Status.APIServerURL)
+	apiServerURL, err := url.Parse(infrastructure.Status.APIServerInternalURL)
 	if err != nil {
 		return "", err
 	}
