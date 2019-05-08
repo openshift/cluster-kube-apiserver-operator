@@ -15,9 +15,9 @@ import (
 	utilflag "k8s.io/apiserver/pkg/util/flag"
 	"k8s.io/apiserver/pkg/util/logs"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/fixcerts"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/recoveryapiserver"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
@@ -64,8 +64,8 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
-	cmd.AddCommand(recoveryapiserver.NewCommand())
-	cmd.AddCommand(fixcerts.NewCommand())
+	cmd.AddCommand(recoveryapiserver.NewRecoveryAPIServerCommand())
+	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
 
 	return cmd
 }

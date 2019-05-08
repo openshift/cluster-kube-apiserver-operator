@@ -1,4 +1,4 @@
-package fixcerts
+package regeneratecerts
 
 import (
 	"context"
@@ -29,8 +29,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
-	kubecontrollermanagercertrotationcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/fixcerts/carry/kubecontrollermanager/certrotationcontroller"
-	kubecontrollermanageroperatorclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/fixcerts/carry/kubecontrollermanager/operatorclient"
+	kubecontrollermanagercertrotationcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/certrotationcontroller"
+	kubecontrollermanageroperatorclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/operatorclient"
 	kubeapiservercertrotationcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	kubeapiserveroperatorclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/recovery"
@@ -57,19 +57,18 @@ func init() {
 }
 
 type Options struct {
-	// TODO: merge with CreateOptions
 	PodManifestDir        string
 	StaticPodResourcesDir string
 }
 
-func NewCommand() *cobra.Command {
+func NewRegenerateCertsCommand() *cobra.Command {
 	o := &Options{
 		PodManifestDir:        "/etc/kubernetes/manifests",
 		StaticPodResourcesDir: "/etc/kubernetes/static-pod-resources",
 	}
 
 	cmd := &cobra.Command{
-		Use: "fix-certs",
+		Use: "regenerate-certificates",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := o.Complete()
 			if err != nil {

@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func NewRecoveryAPIServerCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "recovery-apiserver",
 	}
