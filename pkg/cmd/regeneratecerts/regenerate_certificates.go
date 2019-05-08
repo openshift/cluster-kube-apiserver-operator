@@ -8,6 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
+
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/ghodss/yaml"
@@ -31,6 +35,7 @@ import (
 
 	kubecontrollermanagercertrotationcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/certrotationcontroller"
 	kubecontrollermanageroperatorclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/operatorclient"
+	kcmtargetconfigcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/targetconfigcontroller"
 	kubeapiservercertrotationcontroller "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	kubeapiserveroperatorclient "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/recovery"
@@ -127,7 +132,7 @@ func (o *Options) Run() error {
 	}
 
 	configInformers := configexternalinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	kubeApiserverInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
+	kubeAPIServerInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
 		kubeapiserveroperatorclient.GlobalUserSpecifiedConfigNamespace,
@@ -152,11 +157,11 @@ func (o *Options) Run() error {
 		Namespace:  "openshift-kube-apiserver-operator",
 	}) // this is a fake object-reference that should hopefully place us in the correct namespace
 
-	kubeApiserverCertRotationController, err := kubeapiservercertrotationcontroller.NewCertRotationController(
+	kubeAPIServerCertRotationController, err := kubeapiservercertrotationcontroller.NewCertRotationController(
 		kubeClient,
 		nil,
 		configInformers,
-		kubeApiserverInformersForNamespaces,
+		kubeAPIServerInformersForNamespaces,
 		eventRecorder.WithComponentSuffix("cert-rotation-controller-kas"),
 		0,
 	)
@@ -176,11 +181,11 @@ func (o *Options) Run() error {
 
 	// you can't start informers until after the resources have been requested
 	configInformers.Start(ctx.Done())
-	kubeApiserverInformersForNamespaces.Start(ctx.Done())
+	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
 	kubeControllerManagerInformersForNamespaces.Start(ctx.Done())
 
 	// wait until the controllers are ready
-	kubeApiserverCertRotationController.WaitForReady(ctx.Done())
+	kubeAPIServerCertRotationController.WaitForReady(ctx.Done())
 	kubeControllerManagerCertRotationController.WaitForReady(ctx.Done())
 	select {
 	case <-ctx.Done():
@@ -189,13 +194,43 @@ func (o *Options) Run() error {
 	}
 
 	klog.Info("Refreshing certificates.")
-	if err := kubeApiserverCertRotationController.RunOnce(); err != nil {
+	if err := kubeAPIServerCertRotationController.RunOnce(); err != nil {
 		return err
 	}
 	if err := kubeControllerManagerCertRotationController.RunOnce(); err != nil {
 		return err
 	}
 	klog.Info("Certificates refreshed.")
+
+	klog.Info("Refreshing derivative resources.")
+	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
+	time.Sleep(2 * time.Second)
+	if _, _, err = kcmtargetconfigcontroller.ManageCSRIntermediateCABundle(kubeControllerManagerInformersForNamespaces.SecretLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
+		return err
+	}
+	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
+	time.Sleep(2 * time.Second)
+	if _, _, err = kcmtargetconfigcontroller.ManageCSRCABundle(kubeControllerManagerInformersForNamespaces.ConfigMapLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
+		return err
+	}
+	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
+	time.Sleep(2 * time.Second)
+	if _, _, err = kcmtargetconfigcontroller.ManageCSRSigner(kubeControllerManagerInformersForNamespaces.SecretLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
+		return err
+	}
+	// copy to shared location so that the "normal" client-ca building can be used
+	if _, _, err := resourceapply.SyncConfigMap(
+		kubeClient.CoreV1(), eventRecorder,
+		kubecontrollermanageroperatorclient.OperatorNamespace, "csr-controller-ca",
+		kubecontrollermanageroperatorclient.GlobalMachineSpecifiedConfigNamespace, "csr-controller-ca", []metav1.OwnerReference{}); err != nil {
+		return err
+	}
+	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
+	time.Sleep(2 * time.Second)
+	if _, _, err := targetconfigcontroller.ManageClientCABundle(kubeAPIServerInformersForNamespaces.ConfigMapLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
+		return err
+	}
+	klog.Info("Derivative resources refreshed.")
 
 	kubeApiserverManifestPath := filepath.Join(o.PodManifestDir, KubeAPIServerStaticPodFileName)
 	kubeApiserverPod, err := recovery.ReadManifestToV1Pod(kubeApiserverManifestPath)
