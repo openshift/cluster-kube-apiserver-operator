@@ -2,7 +2,6 @@ package recovery
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -297,30 +295,6 @@ func (s *Apiserver) Create() error {
 	}
 
 	return nil
-}
-
-func (s *Apiserver) WaitForHealthz(ctx context.Context) error {
-	// We don't have to worry about connecting to an old, terminating apiserver
-	// as our client certs are unique to this instance
-
-	kubeClientset, err := s.GetKubeClientset()
-	if err != nil {
-		return err
-	}
-
-	return wait.PollUntil(500*time.Millisecond, func() (bool, error) {
-		req := kubeClientset.RESTClient().Get().AbsPath("/healthz")
-
-		klog.V(1).Infof("Waiting for recovery apiserver to come up at %q", req.URL())
-
-		_, err = req.DoRaw()
-		if err != nil {
-			klog.V(5).Infof("apiserver returned error: %v", err)
-			return false, nil
-		}
-
-		return true, nil
-	}, ctx.Done())
 }
 
 func (s *Apiserver) Destroy() error {
