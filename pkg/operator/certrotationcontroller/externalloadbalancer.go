@@ -15,10 +15,9 @@ func (c *CertRotationController) syncExternalLoadBalancerHostnames() error {
 	if err != nil {
 		return err
 	}
-	hostname := infrastructureConfig.Status.APIServerInternalURL
+	hostname := infrastructureConfig.Status.APIServerURL
 	hostname = strings.Replace(hostname, "https://", "", 1)
 	hostname = hostname[0:strings.LastIndex(hostname, ":")]
-	hostname = strings.Replace(hostname, "api-int.", "api.", 1)
 
 	klog.V(2).Infof("syncing external loadbalancer hostnames: %v", hostname)
 	c.externalLoadBalancer.setHostnames([]string{hostname})
