@@ -303,7 +303,7 @@ func (o *Options) Run() error {
 		{
 			objectType:  secretsType,
 			name:        "csr-signer",
-			namespace:   kubecontrollermanageroperatorclient.OperatorNamespace,
+			namespace:   kubecontrollermanageroperatorclient.TargetNamespace,
 			toplevelDir: kubeControllerManagerResourceDir,
 		},
 
