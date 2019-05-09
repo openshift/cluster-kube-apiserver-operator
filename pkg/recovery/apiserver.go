@@ -262,7 +262,15 @@ func (s *Apiserver) Create() error {
 
 	// Create client certificates for system:admin
 	// (Reuse the serving CA as client CA, this is fine for shortlived localhost recovery apiserver.)
-	clientCert, err := ca.MakeClientCertificateForDuration(&user.DefaultInfo{Name: "system:admin"}, certValidity)
+	clientCert, err := ca.MakeClientCertificateForDuration(
+		&user.DefaultInfo{
+			Name: "system:admin",
+			Groups: []string{
+				"system:masters",
+			},
+		},
+		certValidity,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create client certificate: %v", err)
 	}
