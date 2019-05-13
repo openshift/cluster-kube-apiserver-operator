@@ -24,7 +24,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 )
 
 const (
@@ -33,8 +33,8 @@ const (
 	RecoveryCofigFileName          = "config.yaml"
 	AdminKubeconfigFileName        = "admin.kubeconfig"
 
-	RecoveryPodAsset    = "v3.11.0/kube-apiserver/recovery-pod.yaml"
-	RecoveryConfigAsset = "v3.11.0/kube-apiserver/recovery-config.yaml"
+	RecoveryPodAsset    = "v4.1.0/kube-apiserver/recovery-pod.yaml"
+	RecoveryConfigAsset = "v4.1.0/kube-apiserver/recovery-config.yaml"
 )
 
 type Apiserver struct {
@@ -129,7 +129,7 @@ func (s *Apiserver) GetKubeClientset() (*kubernetes.Clientset, error) {
 
 func (s *Apiserver) recoveryPod() (*corev1.Pod, error) {
 	// Create the manifest to run recovery apiserver
-	recoveryPodTemplateBytes, err := v311_00_assets.Asset(RecoveryPodAsset)
+	recoveryPodTemplateBytes, err := v410_00_assets.Asset(RecoveryPodAsset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find internal recovery pod asset %q: %v", RecoveryPodAsset, err)
 	}
@@ -227,7 +227,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	// Create config for recovery apiserver
-	recoveryConfigBytes, err := v311_00_assets.Asset(RecoveryConfigAsset)
+	recoveryConfigBytes, err := v410_00_assets.Asset(RecoveryConfigAsset)
 	if err != nil {
 		return fmt.Errorf("fail to find internal recovery config asset %q: %v", RecoveryConfigAsset, err)
 	}

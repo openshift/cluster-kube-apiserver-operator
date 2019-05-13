@@ -14,13 +14,13 @@ import (
 	"k8s.io/klog"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 )
 
 const (
-	bootstrapVersion = "v3.11.0"
+	bootstrapVersion = "v4.1.0"
 )
 
 // renderOpts holds values to drive the render command.
@@ -149,7 +149,7 @@ func (r *renderOpts) Run() error {
 	}
 	if err := r.generic.ApplyTo(
 		&renderConfig.FileConfig,
-		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v311_00_assets.MustAsset(filepath.Join(bootstrapVersion, "kube-apiserver", "defaultconfig.yaml"))},
+		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v410_00_assets.MustAsset(filepath.Join(bootstrapVersion, "kube-apiserver", "defaultconfig.yaml"))},
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "config-overrides.yaml")),
 		&renderConfig,
