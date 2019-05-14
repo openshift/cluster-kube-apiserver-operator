@@ -140,6 +140,26 @@ func TestNamedCertificates(t *testing.T) {
 			expectedSerialNumber: serviceServingCertSerialNumber,
 		},
 		{
+			name:                 "Service openshift",
+			serverName:           "openshift",
+			expectedSerialNumber: serviceServingCertSerialNumber,
+		},
+		{
+			name:                 "Service openshift.default",
+			serverName:           "openshift.default",
+			expectedSerialNumber: serviceServingCertSerialNumber,
+		},
+		{
+			name:                 "Service openshift.default.svc",
+			serverName:           "openshift.default.svc",
+			expectedSerialNumber: serviceServingCertSerialNumber,
+		},
+		{
+			name:                 "Service openshift.default.svc.cluster.local",
+			serverName:           "openshift.default.svc.cluster.local",
+			expectedSerialNumber: serviceServingCertSerialNumber,
+		},
+		{
 			name:                 "ServiceIP",
 			serverName:           getKubernetesServiceClusterIPOrFail(t, kubeClient),
 			expectedSerialNumber: defaultServingCertSerialNumber,
