@@ -17,6 +17,7 @@ storageConfig:
   ca: /etc/kubernetes/static-pod-resources/etcd-serving-ca-bundle.crt
   urls:
   - "https://localhost:2379"
+servicesSubnet: 172.30.0.0/16
 
 # Make hypershift happy.
 # (Everything bellow this line is just to provide some certs file
