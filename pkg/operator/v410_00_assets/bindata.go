@@ -449,7 +449,6 @@ storageConfig:
   keyFile: /etc/kubernetes/static-pod-resources/etcd-client.key
   certFile: /etc/kubernetes/static-pod-resources/etcd-client.crt
   ca: /etc/kubernetes/static-pod-resources/etcd-serving-ca-bundle.crt
-  storagePrefix: openshift.io
   urls:
   - "https://localhost:2379"
 
