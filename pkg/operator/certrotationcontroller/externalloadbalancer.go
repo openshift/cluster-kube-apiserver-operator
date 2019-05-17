@@ -16,10 +16,6 @@ func (c *CertRotationController) syncExternalLoadBalancerHostnames() error {
 		return err
 	}
 	hostname := infrastructureConfig.Status.APIServerURL
-	if len(hostname) == 0 {
-		klog.Warningf("Failed to set external loadbalancer: APIServerURL is not set")
-		return nil
-	}
 	hostname = strings.Replace(hostname, "https://", "", 1)
 	hostname = hostname[0:strings.LastIndex(hostname, ":")]
 
