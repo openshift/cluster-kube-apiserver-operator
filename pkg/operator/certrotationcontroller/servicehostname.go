@@ -16,8 +16,10 @@ const workQueueKey = "key"
 
 func (c *CertRotationController) syncServiceHostnames() error {
 	hostnames := sets.NewString("kubernetes", "kubernetes.default", "kubernetes.default.svc")
+	hostnames.Insert("openshift", "openshift.default", "openshift.default.svc")
 	// our DNS operator doesn't allow this to change and doesn't expose this value anywhere.
 	hostnames.Insert("kubernetes.default.svc." + "cluster.local")
+	hostnames.Insert("openshift.default.svc." + "cluster.local")
 
 	networkConfig, err := c.networkLister.Get("cluster")
 	if err != nil {
