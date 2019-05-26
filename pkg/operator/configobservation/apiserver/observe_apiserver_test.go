@@ -104,14 +104,14 @@ func TestObserveDefaultServingCertificate(t *testing.T) {
 			config:         nil,
 			existing:       existingConfig,
 			expected:       map[string]interface{}{},
-			expectedSynced: map[string]string{"configmap/user-serving-cert.openshift-kube-apiserver": "DELETE"},
+			expectedSynced: map[string]string{"secret/user-serving-cert.openshift-kube-apiserver": "DELETE"},
 		},
 		{
 			name:           "NoUserServingCertRef",
 			config:         newAPIServerConfig(),
 			existing:       existingConfig,
 			expected:       map[string]interface{}{},
-			expectedSynced: map[string]string{"configmap/user-serving-cert.openshift-kube-apiserver": "DELETE"},
+			expectedSynced: map[string]string{"secret/user-serving-cert.openshift-kube-apiserver": "DELETE"},
 		},
 		{
 			name:     "HappyPath",
@@ -124,7 +124,7 @@ func TestObserveDefaultServingCertificate(t *testing.T) {
 				},
 			},
 			expectedSynced: map[string]string{
-				"configmap/user-serving-cert.openshift-kube-apiserver": "configmap/happy.openshift-config",
+				"secret/user-serving-cert.openshift-kube-apiserver": "secret/happy.openshift-config",
 			},
 		},
 	}

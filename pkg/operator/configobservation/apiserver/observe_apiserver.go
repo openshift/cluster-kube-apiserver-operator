@@ -68,7 +68,7 @@ var ObserveDefaultUserServingCertificate configobserver.ObserveConfigFunc = (&ap
 	observerFunc:  observeDefaultUserServingCertificate,
 	configPaths:   [][]string{{"servingInfo", "certFile"}, {"servingInfo", "keyFile"}},
 	resourceNames: []string{"user-serving-cert"},
-	resourceType:  corev1.ConfigMap{},
+	resourceType:  corev1.Secret{},
 }).observe
 
 // ObserveNamedCertificates returns an ObserveConfigFunc that observes user managed TLS cert info for serving secure
