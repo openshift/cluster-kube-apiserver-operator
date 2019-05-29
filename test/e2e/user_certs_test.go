@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"net/url"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/keyutil"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -250,14 +252,27 @@ func getReturnedCertSerialNumber(host, serverName string) (string, error) {
 func deleteSecret(client *clientcorev1.CoreV1Client, namespace, name string) error {
 	return client.Secrets(namespace).Delete(name, &metav1.DeleteOptions{})
 }
+
+func encodeCertPEM(c *x509.Certificate) []byte {
+	block := pem.Block{
+		Type:  cert.CertificateBlockType,
+		Bytes: c.Raw,
+	}
+	return pem.EncodeToMemory(&block)
+}
+
 func createTLSSecret(client *clientcorev1.CoreV1Client, namespace, name string, privateKey *rsa.PrivateKey, certificate *x509.Certificate) (*corev1.Secret, error) {
+	privateKeyBytes, err := keyutil.MarshalPrivateKeyToPEM(privateKey)
+	if err != nil {
+		return nil, err
+	}
 	return client.Secrets(namespace).Create(
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Type:       corev1.SecretTypeTLS,
 			Data: map[string][]byte{
-				corev1.TLSPrivateKeyKey: cert.EncodePrivateKeyPEM(privateKey),
-				corev1.TLSCertKey:       cert.EncodeCertPEM(certificate),
+				corev1.TLSPrivateKeyKey: privateKeyBytes,
+				corev1.TLSCertKey:       encodeCertPEM(certificate),
 			},
 		})
 }

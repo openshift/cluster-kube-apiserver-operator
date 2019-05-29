@@ -35,7 +35,7 @@ func TestUserClientCABundle(t *testing.T) {
 	_, err = kubeClient.ConfigMaps("openshift-config").Create(
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: configMapName},
-			Data:       map[string]string{"ca-bundle.crt": string(cert.EncodeCertPEM(clientCA.Certificate))},
+			Data:       map[string]string{"ca-bundle.crt": string(encodeCertPEM(clientCA.Certificate))},
 		},
 	)
 	require.NoError(t, err)

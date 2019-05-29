@@ -132,6 +132,10 @@ spec:
                 recent deployment
               format: int32
               type: integer
+            latestAvailableRevisionReason:
+              description: latestAvailableRevisionReason describe the detailed reason
+                for the most recent deployment
+              type: string
             nodeStatuses:
               description: nodeStatuses track the deployment values and errors across
                 individual nodes
