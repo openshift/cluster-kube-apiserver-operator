@@ -1,0 +1,37 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 4 (0x4)
+    Signature Algorithm: SHA256-RSA
+        Issuer: C=US,ST=California,O=World Widget Authority,OU=Identity Affairs,CN=worldwidgetauthority.com,emailAddress=nobody@worldwidgetauthority.com
+        Validity
+            Not Before: Jul 23 18:56:47 2020 UTC
+            Not After : Jun 30 07:37:21 2040 UTC
+        Subject: C=ZA,ST=Gauteng,O=Sub-Saharan Widgets Corporation,OU=21st Century Department,CN=subsaharanwidgets.com,emailAddress=nobody@subsaharanwidgets.com
+        Subject Public Key Info:
+            Public Key Algorithm: ECDSA
+                Public-Key: (256 bit)
+                X:
+                    84:25:d6:a2:d0:91:8a:0b:9d:7e:82:51:29:29:fc:
+                    61:d7:31:00:d9:31:62:39:1c:0a:72:65:20:94:d8:
+                    c0:28
+                Y:
+                    60:03:44:db:e4:e8:42:2e:a5:e4:36:ff:2d:13:12:
+                    b7:c2:9c:a8:af:10:2d:af:07:02:ba:08:7f:37:ce:
+                    1f:bc
+                Curve: P-256
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:FALSE
+            Netscape Comment:
+                This is a test certificate only
+            X509v3 Subject Key Identifier:
+                01:27:7C:0E:46:3D:5B:DA:40:EF:37:5B:B6:B4:4A:30:58:A8:4C:76
+            X509v3 Authority Key Identifier:
+                keyid:7C:0F:26:9D:ED:C8:7A:C0:05:1E:99:A3:5D:A5:9E:8D:A6:A6:96:5E
+
+    Signature Algorithm: SHA256-RSA
+         4c:66:23:bd:22:0d:20:f4:d1:ce:ad:f6:55:ff:9e:6c:e5:fb:
+         09:08:e6:2f:ad:a7:db:85:67:a8:d5:c6:1c:83:6c:8f:68:7c:
+         8f:3e:f6:bd:d8:17:85:79:5b:6f:e6:57:c8:9e:12:13:e0:9f:
+         88:ee:d5:75:66:fc:95:92:f9:7c

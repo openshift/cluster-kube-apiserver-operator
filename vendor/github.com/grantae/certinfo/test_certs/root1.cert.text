@@ -1,0 +1,35 @@
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 1 (0x1)
+    Signature Algorithm: SHA256-RSA
+        Issuer: C=US,ST=California,O=World Widget Authority,OU=Identity Affairs,CN=worldwidgetauthority.com,emailAddress=nobody@worldwidgetauthority.com
+        Validity
+            Not Before: Jul 23 18:56:47 2020 UTC
+            Not After : Jun 30 07:37:21 2040 UTC
+        Subject: C=US,ST=California,O=World Widget Authority,OU=Identity Affairs,CN=worldwidgetauthority.com,emailAddress=nobody@worldwidgetauthority.com
+        Subject Public Key Info:
+            Public Key Algorithm: RSA
+                Public-Key: (512 bit)
+                Modulus:
+                    b5:d6:60:b9:f9:31:09:fe:97:34:c4:f7:6b:7b:06:
+                    01:f4:8b:fe:1a:e0:65:8f:fd:30:c0:82:30:3c:61:
+                    f7:c2:1d:98:7c:3a:ed:9f:b4:5e:8f:15:ce:90:8b:
+                    45:de:db:23:0e:aa:4d:95:e9:af:3b:79:26:a5:ce:
+                    71:8a:3a:bd
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Basic Constraints:
+                CA:TRUE
+            Netscape Comment:
+                This is a test certificate only
+            X509v3 Subject Key Identifier:
+                7C:0F:26:9D:ED:C8:7A:C0:05:1E:99:A3:5D:A5:9E:8D:A6:A6:96:5E
+            X509v3 Authority Key Identifier:
+                keyid:7C:0F:26:9D:ED:C8:7A:C0:05:1E:99:A3:5D:A5:9E:8D:A6:A6:96:5E
+
+    Signature Algorithm: SHA256-RSA
+         60:bd:b4:c4:9a:09:0d:7a:d7:b4:6b:e2:85:3b:78:0b:97:de:
+         57:47:34:19:37:2a:82:1a:79:c3:3f:0b:71:46:fe:9b:db:ce:
+         c7:41:42:2b:17:22:b4:d5:f1:fc:18:c3:31:af:c9:c4:4d:2d:
+         92:16:f7:a6:6d:4f:5d:e0:8c:83

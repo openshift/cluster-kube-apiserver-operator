@@ -59,7 +59,24 @@ func NewCertSyncController(targetDir, targetNamespace string, configmaps, secret
 	informers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	informers.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
 
+	informers.Core().V1().ConfigMaps().Informer().AddEventHandler(loggingEventHandler{})
+	informers.Core().V1().Secrets().Informer().AddEventHandler(loggingEventHandler{})
+
 	return c, nil
+}
+
+type loggingEventHandler struct{}
+
+func (loggingEventHandler) OnAdd(obj interface{}) {
+	klog.V(2).Infof("ADD: %v", obj)
+}
+
+func (loggingEventHandler) OnUpdate(oldObj, newObj interface{}) {
+	klog.V(2).Infof("UPDATE: %v -> %v", oldObj, newObj)
+}
+
+func (loggingEventHandler) OnDelete(obj interface{}) {
+	klog.V(2).Infof("DELETE: %v", obj)
 }
 
 func getConfigMapDir(targetDir, configMapName string) string {
@@ -168,7 +185,9 @@ func (c *CertSyncController) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *CertSyncController) runWorker() {
+	klog.Infof("runWorker")
 	for c.processNextWorkItem() {
+		klog.Infof("item processed")
 	}
 }
 
@@ -196,8 +215,17 @@ const workQueueKey = "key"
 // eventHandler queues the operator to check spec and status
 func (c *CertSyncController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
+		AddFunc: func(obj interface{}) {
+			klog.Infof("ADD: %v", obj)
+			c.queue.Add(workQueueKey)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			klog.Infof("UPDATE: %v -> %v", old, new)
+			c.queue.Add(workQueueKey)
+		},
+		DeleteFunc: func(obj interface{}) {
+			klog.Infof("DELETE: %v", obj)
+			c.queue.Add(workQueueKey)
+		},
 	}
 }

@@ -1,5 +1,5 @@
-hash: 6c0d683271ba7f65b364e9d19138ed147fed5003f1e13900e696d21663d277fc
-updated: 2019-05-24T12:19:09.205111+02:00
+hash: 01db406992ac69af7c61b8d1057137fb62fd8b5dcd38007881b472579b260bee
+updated: 2019-05-30T15:07:38.241450222-04:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -93,7 +93,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/emicklei/go-restful
@@ -103,9 +103,9 @@ imports:
 - name: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
-  version: 32a13797442ccb601b11761d74232773c1402d14
+  version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -178,6 +178,8 @@ imports:
   - OpenAPIv2
   - compiler
   - extensions
+- name: github.com/grantae/certinfo
+  version: 59d56a35515b3ab2326749924739cfe58facc991
 - name: github.com/grpc-ecosystem/go-grpc-prometheus
   version: 2500245aa6110c562d17020fb31a2c133d737799
 - name: github.com/hashicorp/golang-lru
@@ -215,7 +217,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 924343028ee3dc875057861a5faa5b817ec87f5b
+  version: dafd2647cb03b7e8b3ccec0eba3f7af85df898d6
   subpackages:
   - apps
   - apps/v1
@@ -280,7 +282,8 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: b262054915f9601d663211a625695845c2c8ff57
+  version: c600dcab8a14277cd9328da7865326ab7663deab
+  repo: https://github.com/sanchezl/library-go
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -491,7 +494,7 @@ imports:
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
 - name: k8s.io/api
   version: 40a48860b5abbba9aa891b02b32da429b08d96a0
   subpackages:
@@ -860,7 +863,7 @@ imports:
   - parser
   - types
 - name: k8s.io/klog
-  version: 8e90cee79f823779174776412c13478955131846
+  version: 78315d914a8af2453db4864e69230b647b1ff711
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
