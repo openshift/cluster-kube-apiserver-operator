@@ -6,9 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
+	"github.com/openshift/library-go/pkg/filelock"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticpod/hold"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 
@@ -117,6 +120,23 @@ func (o *Options) Run() error {
 		<-signalHandler
 		cancel()
 	}()
+
+	var unlockOnce sync.Once
+	l := filelock.NewLock(hold.InstallerFile(o.PodManifestDir))
+	locked, err := l.TryLock()
+	if err != nil {
+		return err
+	}
+	if !locked {
+		// Another instance has lock static pod manifest and is either still running or failed to cleanup.
+		return fmt.Errorf("static pods manifests are locked by another instance (in case you are sure there is no recovery instance running on your masters and this state persist, you can unstuck it by removing file %q)", l.Path())
+	}
+	defer unlockOnce.Do(func() {
+		err := l.Unlock()
+		if err != nil {
+			klog.Error(err)
+		}
+	})
 
 	restConfig, err := client.GetClientConfig(RecoveryPodKubeConfig, nil)
 	if err != nil {
@@ -352,6 +372,15 @@ func (o *Options) Run() error {
 				return fmt.Errorf("failed to write file %q: %v", filePath, err)
 			}
 		}
+	}
+
+	// Remove hold file so installers can proceed
+
+	unlockOnce.Do(func() {
+		err = l.Unlock()
+	})
+	if err != nil {
+		return err
 	}
 
 	timestamp := time.Now().Format(time.RFC3339)
