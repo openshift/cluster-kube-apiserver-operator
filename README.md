@@ -35,7 +35,7 @@ Currently changes in following external components are being observed:
 
 The configuration for the Kubernetes API server is the result of merging:
 
-* a [default config](https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/v3.11.0/kube-apiserver/defaultconfig.yaml)
+* a [default config](https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/v4.1.0/kube-apiserver/defaultconfig.yaml)
 * observed config (compare observed values above) `spec.spec.unsupportedConfigOverrides` from the `kubeapiserveroperatorconfig`.
 
 All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end.
