@@ -391,6 +391,7 @@ spec:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
       - --destination-dir=/etc/kubernetes/static-pod-certs
+      - --pod-manifest-dir=/etc/kubernetes/manifests
     resources:
       requests:
         memory: 50Mi
@@ -400,6 +401,8 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
+    - mountPath: /etc/kubernetes/manifests
+      name: manifest-dir
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical
@@ -412,6 +415,9 @@ spec:
   - hostPath:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-certs
     name: cert-dir
+  - hostPath:
+      path: /etc/kubernetes/manifests
+    name: manifest-dir
   - hostPath:
       path: /var/log/kube-apiserver
     name: audit-dir
