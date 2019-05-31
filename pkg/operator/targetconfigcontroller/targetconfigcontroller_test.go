@@ -25,58 +25,34 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 			expectedError: "no observedConfig",
 		},
 		{
-			name: "nil-storage-urls",
+			name: "nil-namedCertificates",
 			config: `{
 		 "servingInfo": {
-		   "namedCertificates": [
-		     {
-		       "certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
-		       "keyFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"
-		     }
-		   ]
-		 },
-		 "storageConfig": {
-		   "urls": null
+		   "namedCertificates": null
 		 }
 		}
 		`,
-			expectedError: "storageConfig.urls null in config",
+			expectedError: "servingInfo.namedCertificates null in config",
 		},
 		{
-			name: "missing-storage-urls",
+			name: "missing-namedCertificates",
 			config: `{
 		 "servingInfo": {
-		   "namedCertificates": [
-		     {
-		       "certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
-		       "keyFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"
-		     }
-		   ]
-		 },
-		 "storageConfig": {
-		   "urls": []
+		   "namedCertificates": []
 		 }
 		}
 		`,
-			expectedError: "storageConfig.urls empty in config",
+			expectedError: "servingInfo.namedCertificates empty in config",
 		},
 		{
-			name: "empty-string-storage-urls",
+			name: "empty-string-namedCertificates",
 			config: `{
   "servingInfo": {
-    "namedCertificates": [
-      {
-        "certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
-        "keyFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"
-      }
-    ]
-  },
-  "storageConfig": {
-    "urls": ""
+    "namedCertificates": ""
   }
 }
 `,
-			expectedError: "storageConfig.urls empty in config",
+			expectedError: "servingInfo.namedCertificates empty in config",
 		},
 		{
 			name: "good",
@@ -88,9 +64,6 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		       "keyFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"
 		     }
 		   ]
-		 },
-		 "storageConfig": {
-		   "urls": [ "val" ]
 		 }
 		}
 		`,

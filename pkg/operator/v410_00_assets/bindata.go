@@ -187,7 +187,8 @@ storageConfig:
   ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
   keyFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
-  urls: null
+  urls:
+    - https://localhost:2379
 userAgentMatchingConfig:
   defaultRejectionMessage: ""
   deniedClients: null

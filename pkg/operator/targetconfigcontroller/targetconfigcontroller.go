@@ -140,7 +140,6 @@ func isRequiredConfigPresent(config []byte) error {
 
 	requiredPaths := [][]string{
 		{"servingInfo", "namedCertificates"},
-		{"storageConfig", "urls"},
 	}
 	for _, requiredPath := range requiredPaths {
 		configVal, found, err := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
