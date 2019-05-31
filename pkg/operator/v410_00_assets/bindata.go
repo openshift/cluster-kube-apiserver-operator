@@ -313,6 +313,8 @@ metadata:
     apiserver: "true"
     revision: "REVISION"
 spec:
+  # be sure that we don't use cluster DNS for this pod since we suspect it is unstable.
+  dnsPolicy: Default
   initContainers:
     - name: setup
       terminationMessagePolicy: FallbackToLogsOnError
