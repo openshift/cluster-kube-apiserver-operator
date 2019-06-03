@@ -141,6 +141,7 @@ func isRequiredConfigPresent(config []byte) error {
 	requiredPaths := [][]string{
 		{"servingInfo", "namedCertificates"},
 		{"storageConfig", "urls"},
+		{"admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission"},
 	}
 	for _, requiredPath := range requiredPaths {
 		configVal, found, err := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)

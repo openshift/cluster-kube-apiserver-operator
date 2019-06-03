@@ -35,6 +35,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		     }
 		   ]
 		 },
+         "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
 		 "storageConfig": {
 		   "urls": null
 		 }
@@ -53,6 +54,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		     }
 		   ]
 		 },
+        "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
 		 "storageConfig": {
 		   "urls": []
 		 }
@@ -71,6 +73,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
       }
     ]
   },
+  "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
   "storageConfig": {
     "urls": ""
   }
@@ -89,6 +92,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		     }
 		   ]
 		 },
+         "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
 		 "storageConfig": {
 		   "urls": [ "val" ]
 		 }

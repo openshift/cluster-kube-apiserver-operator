@@ -1,9 +1,10 @@
 package network
 
 import (
+	"testing"
+
 	configv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
@@ -31,7 +32,7 @@ func TestObserveClusterConfig(t *testing.T) {
 	if len(errors) > 0 {
 		t.Error("expected len(errors) == 0")
 	}
-	restrictedCIDRs, _, err := unstructured.NestedSlice(result, "admissionPluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
+	restrictedCIDRs, _, err := unstructured.NestedSlice(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
 	if err != nil {
 		t.Fatal(err)
 	}
