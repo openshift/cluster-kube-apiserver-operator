@@ -35,7 +35,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		     }
 		   ]
 		 },
-         "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
+		 "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
 		 "storageConfig": {
 		   "urls": null
 		 }
