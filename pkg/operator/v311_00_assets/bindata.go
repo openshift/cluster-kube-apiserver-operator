@@ -79,15 +79,6 @@ func v3110KubeApiserverCmYaml() (*asset, error) {
 
 var _v3110KubeApiserverDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
-admission:
-  pluginConfig:
-    network.openshift.io/ExternalIPRanger:
-      configuration:
-        allowIngressIP: true
-        apiVersion: network.openshift.io/v1
-        externalIPNetworkCIDRs: null
-        kind: ExternalIPRangerAdmissionConfig
-      location: ""
 aggregatorConfig:
   proxyClientInfo:
     certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
