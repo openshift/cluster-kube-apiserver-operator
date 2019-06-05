@@ -84,8 +84,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "aggregator-client-signer",
-			Validity:      30 * rotationDay,
-			Refresh:       15 * rotationDay,
+			Validity:      30 * defaultRotationDay,
+			Refresh:       15 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -124,8 +124,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-apiserver-to-kubelet-signer",
-			Validity:      10 * 365 * rotationDay, // this comes from the installer
-			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -164,8 +164,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "localhost-serving-signer",
-			Validity:      10 * 365 * rotationDay, // this comes from the installer
-			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -204,8 +204,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "service-network-serving-signer",
-			Validity:      10 * 365 * rotationDay, // this comes from the installer
-			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -245,8 +245,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-signer",
-			Validity:      10 * 365 * rotationDay, // this comes from the installer
-			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -286,8 +286,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-signer",
-			Validity:      10 * 365 * rotationDay, // this comes from the installer
-			Refresh:       8 * 365 * rotationDay,  // this means we effectively do not rotate
+			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -327,8 +327,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      60 * rotationDay,
-			Refresh:       30 * rotationDay,
+			Validity:      60 * defaultRotationDay,
+			Refresh:       30 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -367,8 +367,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      60 * rotationDay,
-			Refresh:       30 * rotationDay,
+			Validity:      60 * defaultRotationDay,
+			Refresh:       30 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -407,8 +407,8 @@ func NewCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer",
-			Validity:      60 * rotationDay,
-			Refresh:       30 * rotationDay,
+			Validity:      60 * defaultRotationDay,
+			Refresh:       30 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
