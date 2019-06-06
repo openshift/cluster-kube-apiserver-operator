@@ -34,6 +34,11 @@ auditConfig:
       resources:
       - group: ""
         resources: ["events"]
+    # Don't log oauth tokens as metadata.name is the secret
+    - level: None
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
     # Don't log authenticated requests to certain non-resource URL paths.
     - level: None
       userGroups: ["system:authenticated", "system:unauthenticated"]
