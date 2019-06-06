@@ -1,5 +1,5 @@
 hash: 6c0d683271ba7f65b364e9d19138ed147fed5003f1e13900e696d21663d277fc
-updated: 2019-05-24T12:19:09.205111+02:00
+updated: 2019-06-06T21:46:57.561999+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -103,7 +103,7 @@ imports:
 - name: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
-  version: 32a13797442ccb601b11761d74232773c1402d14
+  version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
   version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
@@ -215,7 +215,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 924343028ee3dc875057861a5faa5b817ec87f5b
+  version: 353170832db777aa57e3bb3b083bb3fd27a05d0d
   subpackages:
   - apps
   - apps/v1
@@ -280,7 +280,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: b262054915f9601d663211a625695845c2c8ff57
+  version: a56f86358bff444e116cb5e1916671aff8a07744
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -444,7 +444,7 @@ imports:
   - go/ast/astutil
   - imports
 - name: google.golang.org/appengine
-  version: 311d3c5cf9373249645db030e53c37c209a8b378
+  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
   subpackages:
   - internal
   - internal/base
