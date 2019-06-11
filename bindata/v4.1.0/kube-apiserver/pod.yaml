@@ -72,6 +72,8 @@ spec:
             fieldPath: metadata.namespace
       - name: STATIC_POD_VERSION # Avoid using 'REVISION' here otherwise it will be substituted
         value: REVISION
+      - name: KUBE_CACHE_MUTATION_DETECTOR
+        value: "true"
   - name: kube-apiserver-cert-syncer-REVISION
     env:
     - name: POD_NAME
