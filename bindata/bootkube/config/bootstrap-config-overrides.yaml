@@ -54,3 +54,9 @@ admission:
         - {{.}}{{end}}{{range .ClusterCIDR}}
         - {{.}}{{end}}
     {{end}}
+apiServerArguments:
+  feature-gates:
+    - "ExperimentalCriticalPodAnnotation=true"
+    - "RotateKubeletServerCertificate=true"
+    - "SupportPodPidsLimit=true"
+    - "LocalStorageCapacityIsolation=false"

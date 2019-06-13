@@ -1,8 +1,19 @@
 package render
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/ghodss/yaml"
+
+	configv1 "github.com/openshift/api/config/v1"
+	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 )
 
 var (
@@ -108,4 +119,137 @@ func TestDiscoverCIDRs(t *testing.T) {
 			t.Errorf("Got: %v, expected: %v", renderConfig.ServiceCIDR, expectedServiceCIDR)
 		}
 	}
+}
+
+func TestRenderCommand(t *testing.T) {
+	assetsInputDir, err := ioutil.TempDir("", "testdata")
+	if err != nil {
+		t.Errorf("unable to create assets input directory, error: %v", err)
+	}
+	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
+
+	tests := []struct {
+		// note the name is used as a name for a temporary directory
+		name         string
+		args         []string
+		testFunction func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
+	}{
+		{
+			name: "scenario 1 checks feature gates",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				actualGates, ok := cfg.APIServerArguments["feature-gates"]
+				if !ok {
+					return fmt.Errorf("missing \"feature-gates\" entry in APIServerArguments")
+				}
+				defaultFG, ok := configv1.FeatureSets[configv1.Default]
+				if !ok {
+					t.Fatalf("configv1.FeatureSets doesn't contain entries under %s (Default) key", configv1.Default)
+				}
+				expectedGates := []string{}
+				for _, enabledFG := range defaultFG.Enabled {
+					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG))
+				}
+				for _, disabledFG := range defaultFG.Disabled {
+					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG))
+				}
+				if len(actualGates) != len(expectedGates) {
+					return fmt.Errorf("expected to get exactly %d feature gates but found %d", len(expectedGates), len(actualGates))
+				}
+				for _, actualGate := range actualGates {
+					found := false
+					for _, expectedGate := range expectedGates {
+						if actualGate == expectedGate {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						return fmt.Errorf("%q not found on the list of expected feature gates %v", actualGate, expectedGates)
+					}
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, test := range tests {
+		outDirName := strings.ReplaceAll(test.name, " ", "_")
+		teardown, outputDir, err := setupAssetOutputDir(outDirName)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", test.name, err)
+		}
+		defer teardown()
+
+		test.args = setOutputFlags(test.args, outputDir)
+		err = runRender(test.args...)
+		if err != nil {
+			t.Fatalf("%s: got unexpected error %v", test.name, err)
+		}
+
+		rawConfigFile, err := ioutil.ReadFile(filepath.Join(outputDir, "configs", "config.yaml"))
+		if err != nil {
+			t.Fatalf("cannot read the rendered config file, error: %v", err)
+		}
+
+		configJson, err := yaml.YAMLToJSON(rawConfigFile)
+		if err != nil {
+			t.Fatalf("cannot transform the config file to JSON format, error: %v", err)
+		}
+
+		cfg := &kubecontrolplanev1.KubeAPIServerConfig{}
+		if err := json.Unmarshal(configJson, cfg); err != nil {
+			t.Fatalf("cannot unmarshal config into KubeAPIServerConfig, error: %v", err)
+		}
+		if test.testFunction != nil {
+			if err := test.testFunction(cfg); err != nil {
+				t.Fatalf("%q reports incorrect config file, error: %v", test.name, err)
+			}
+		}
+	}
+}
+
+func setupAssetOutputDir(testName string) (teardown func(), outputDir string, err error) {
+	outputDir, err = ioutil.TempDir("", testName)
+	if err != nil {
+		return nil, "", err
+	}
+	if err := os.MkdirAll(filepath.Join(outputDir, "manifests"), os.ModePerm); err != nil {
+		return nil, "", err
+	}
+	if err := os.MkdirAll(filepath.Join(outputDir, "configs"), os.ModePerm); err != nil {
+		return nil, "", err
+	}
+	teardown = func() {
+		os.RemoveAll(outputDir)
+	}
+	return
+}
+
+func setOutputFlags(args []string, dir string) []string {
+	newArgs := []string{}
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--asset-output-dir=") {
+			newArgs = append(newArgs, "--asset-output-dir="+filepath.Join(dir, "manifests"))
+			continue
+		}
+		if strings.HasPrefix(arg, "--config-output-file=") {
+			newArgs = append(newArgs, "--config-output-file="+filepath.Join(dir, "configs", "config.yaml"))
+			continue
+		}
+		newArgs = append(newArgs, arg)
+	}
+	return newArgs
+}
+
+func runRender(args ...string) error {
+	c := NewRenderCommand()
+	os.Args = append([]string{""}, args...)
+	return c.Execute()
 }
