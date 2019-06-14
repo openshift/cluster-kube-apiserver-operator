@@ -6,3 +6,4 @@ metadata:
   name: openshift-kube-apiserver
   labels:
     openshift.io/run-level: "0"
+    openshift.io/cluster-monitoring: "true"

@@ -257,6 +257,7 @@ metadata:
     openshift.io/node-selector: ""
   labels:
     openshift.io/run-level: "0"
+    openshift.io/cluster-monitoring: "true"
 `)
 
 func v410KubeApiserverNsYamlBytes() ([]byte, error) {
