@@ -20,26 +20,26 @@
 //
 // Basic examples:
 //
-//	glog.Info("Prepare to repel boarders")
+//	klog.Info("Prepare to repel boarders")
 //
-//	glog.Fatalf("Initialization failed: %s", err)
+//	klog.Fatalf("Initialization failed: %s", err)
 //
 // See the documentation for the V function for an explanation of these examples:
 //
-//	if glog.V(2) {
-//		glog.Info("Starting transaction...")
+//	if klog.V(2) {
+//		klog.Info("Starting transaction...")
 //	}
 //
-//	glog.V(2).Infoln("Processed", nItems, "elements")
+//	klog.V(2).Infoln("Processed", nItems, "elements")
 //
 // Log output is buffered and written periodically using Flush. Programs
 // should call Flush before exiting to guarantee all log output is written.
 //
-// By default, all log statements write to files in a temporary directory.
+// By default, all log statements write to standard error.
 // This package provides several flags that modify this behavior.
 // As a result, flag.Parse must be called before any logging is done.
 //
-//	-logtostderr=false
+//	-logtostderr=true
 //		Logs are written to standard error instead of to files.
 //	-alsologtostderr=false
 //		Logs are written to standard error as well as to files.
@@ -78,6 +78,7 @@ import (
 	"fmt"
 	"io"
 	stdLog "log"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -403,17 +404,36 @@ func init() {
 	go logging.flushDaemon()
 }
 
-// InitFlags is for explicitly initializing the flags
+var initDefaultsOnce sync.Once
+
+// InitFlags is for explicitly initializing the flags.
 func InitFlags(flagset *flag.FlagSet) {
+
+	// Initialize defaults.
+	initDefaultsOnce.Do(func() {
+		logging.logDir = ""
+		logging.logFile = ""
+		logging.logFileMaxSizeMB = 1800
+		logging.toStderr = true
+		logging.alsoToStderr = false
+		logging.skipHeaders = false
+		logging.skipLogHeaders = false
+	})
+
 	if flagset == nil {
 		flagset = flag.CommandLine
 	}
-	flagset.StringVar(&logging.logDir, "log_dir", "", "If non-empty, write log files in this directory")
-	flagset.StringVar(&logging.logFile, "log_file", "", "If non-empty, use this log file")
-	flagset.BoolVar(&logging.toStderr, "logtostderr", true, "log to standard error instead of files")
-	flagset.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
+
+	flagset.StringVar(&logging.logDir, "log_dir", logging.logDir, "If non-empty, write log files in this directory")
+	flagset.StringVar(&logging.logFile, "log_file", logging.logFile, "If non-empty, use this log file")
+	flagset.Uint64Var(&logging.logFileMaxSizeMB, "log_file_max_size", logging.logFileMaxSizeMB,
+		"Defines the maximum size a log file can grow to. Unit is megabytes. "+
+			"If the value is 0, the maximum file size is unlimited.")
+	flagset.BoolVar(&logging.toStderr, "logtostderr", logging.toStderr, "log to standard error instead of files")
+	flagset.BoolVar(&logging.alsoToStderr, "alsologtostderr", logging.alsoToStderr, "log to standard error as well as files")
 	flagset.Var(&logging.verbosity, "v", "number for the log level verbosity")
-	flagset.BoolVar(&logging.skipHeaders, "skip_headers", false, "If true, avoid header prefixes in the log messages")
+	flagset.BoolVar(&logging.skipHeaders, "skip_headers", logging.skipHeaders, "If true, avoid header prefixes in the log messages")
+	flagset.BoolVar(&logging.skipLogHeaders, "skip_log_headers", logging.skipLogHeaders, "If true, avoid headers when opening log files")
 	flagset.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flagset.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flagset.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
@@ -471,8 +491,15 @@ type loggingT struct {
 	// with the log-dir option.
 	logFile string
 
+	// When logFile is specified, this limiter makes sure the logFile won't exceeds a certain size. When exceeds, the
+	// logFile will be cleaned up. If this value is 0, no size limitation will be applied to logFile.
+	logFileMaxSizeMB uint64
+
 	// If true, do not add the prefix headers, useful when used with SetOutput
 	skipHeaders bool
+
+	// If true, do not add the headers to log files
+	skipLogHeaders bool
 }
 
 // buffer holds a byte Buffer for reuse. The zero value is ready for use.
@@ -800,7 +827,7 @@ func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 
 // timeoutFlush calls Flush and returns when it completes or after timeout
 // elapses, whichever happens first.  This is needed because the hooks invoked
-// by Flush may deadlock when glog.Fatal is called from a hook that holds
+// by Flush may deadlock when klog.Fatal is called from a hook that holds
 // a lock.
 func timeoutFlush(timeout time.Duration) {
 	done := make(chan bool, 1)
@@ -811,7 +838,7 @@ func timeoutFlush(timeout time.Duration) {
 	select {
 	case <-done:
 	case <-time.After(timeout):
-		fmt.Fprintln(os.Stderr, "glog: Flush took longer than", timeout)
+		fmt.Fprintln(os.Stderr, "klog: Flush took longer than", timeout)
 	}
 }
 
@@ -861,17 +888,32 @@ func (l *loggingT) exit(err error) {
 type syncBuffer struct {
 	logger *loggingT
 	*bufio.Writer
-	file   *os.File
-	sev    severity
-	nbytes uint64 // The number of bytes written to this file
+	file     *os.File
+	sev      severity
+	nbytes   uint64 // The number of bytes written to this file
+	maxbytes uint64 // The max number of bytes this syncBuffer.file can hold before cleaning up.
 }
 
 func (sb *syncBuffer) Sync() error {
 	return sb.file.Sync()
 }
 
+// CalculateMaxSize returns the real max size in bytes after considering the default max size and the flag options.
+func CalculateMaxSize() uint64 {
+	if logging.logFile != "" {
+		if logging.logFileMaxSizeMB == 0 {
+			// If logFileMaxSizeMB is zero, we don't have limitations on the log size.
+			return math.MaxUint64
+		}
+		// Flag logFileMaxSizeMB is in MB for user convenience.
+		return logging.logFileMaxSizeMB * 1024 * 1024
+	}
+	// If "log_file" flag is not specified, the target file (sb.file) will be cleaned up when reaches a fixed size.
+	return MaxSize
+}
+
 func (sb *syncBuffer) Write(p []byte) (n int, err error) {
-	if sb.nbytes+uint64(len(p)) >= MaxSize {
+	if sb.nbytes+uint64(len(p)) >= sb.maxbytes {
 		if err := sb.rotateFile(time.Now(), false); err != nil {
 			sb.logger.exit(err)
 		}
@@ -886,7 +928,7 @@ func (sb *syncBuffer) Write(p []byte) (n int, err error) {
 
 // rotateFile closes the syncBuffer's file and starts a new one.
 // The startup argument indicates whether this is the initial startup of klog.
-// If startup is true, existing files are opened for apending instead of truncated.
+// If startup is true, existing files are opened for appending instead of truncated.
 func (sb *syncBuffer) rotateFile(now time.Time, startup bool) error {
 	if sb.file != nil {
 		sb.Flush()
@@ -900,6 +942,10 @@ func (sb *syncBuffer) rotateFile(now time.Time, startup bool) error {
 	}
 
 	sb.Writer = bufio.NewWriterSize(sb.file, bufferSize)
+
+	if sb.logger.skipLogHeaders {
+		return nil
+	}
 
 	// Write header.
 	var buf bytes.Buffer
@@ -925,8 +971,9 @@ func (l *loggingT) createFiles(sev severity) error {
 	// has already been created, we can stop.
 	for s := sev; s >= infoLog && l.file[s] == nil; s-- {
 		sb := &syncBuffer{
-			logger: l,
-			sev:    s,
+			logger:   l,
+			sev:      s,
+			maxbytes: CalculateMaxSize(),
 		}
 		if err := sb.rotateFile(now, true); err != nil {
 			return err
@@ -1047,9 +1094,9 @@ type Verbose bool
 // The returned value is a boolean of type Verbose, which implements Info, Infoln
 // and Infof. These methods will write to the Info log if called.
 // Thus, one may write either
-//	if glog.V(2) { glog.Info("log this") }
+//	if klog.V(2) { klog.Info("log this") }
 // or
-//	glog.V(2).Info("log this")
+//	klog.V(2).Info("log this")
 // The second form is shorter but the first is cheaper if logging is off because it does
 // not evaluate its arguments.
 //
