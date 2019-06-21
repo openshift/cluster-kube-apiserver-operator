@@ -32,16 +32,6 @@ type renderOpts struct {
 	etcdServerURLs    []string
 	etcdServingCA     string
 	clusterConfigFile string
-
-	// newImage allows us to change our image to one with a different binary without breaking functionality at intermediate steps
-	// 1. allow --new-image
-	// 2. installer passes --image=old and --new-image=new
-	// 3. operator render uses --new-image only
-	// 4. installer passes --image=new and --new-image=new
-	// 5. operator switches back to --image
-	// 6. installer passes --image=new
-	// 7. operator removes --new-image
-	newImage string
 }
 
 // NewRenderCommand creates a render command.
@@ -83,7 +73,6 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
-	fs.StringVar(&r.newImage, "new-image", r.newImage, "temporary flag to start using hyperkube")
 }
 
 // Validate verifies the inputs.
