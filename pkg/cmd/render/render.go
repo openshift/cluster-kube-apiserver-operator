@@ -158,6 +158,9 @@ func (r *renderOpts) Run() error {
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {
 		return err
 	}
+	// stomp the image until we cycle past our change
+	renderConfig.Image = r.newImage
+
 	if err := r.generic.ApplyTo(
 		&renderConfig.FileConfig,
 		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v410_00_assets.MustAsset(filepath.Join(bootstrapVersion, "kube-apiserver", "defaultconfig.yaml"))},

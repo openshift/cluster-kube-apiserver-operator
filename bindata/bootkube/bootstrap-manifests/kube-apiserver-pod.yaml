@@ -15,9 +15,9 @@ spec:
   - name: kube-apiserver
     image: {{ .Image }}
     imagePullPolicy: {{ .ImagePullPolicy }}
-    command: ["hypershift", "openshift-kube-apiserver"]
+    command: ["hyperkube", "kube-apiserver"]
     args:
-    - --config=/etc/kubernetes/config/{{ .ConfigFileName }}
+    - --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
