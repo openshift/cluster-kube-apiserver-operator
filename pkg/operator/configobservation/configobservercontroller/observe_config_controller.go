@@ -91,6 +91,7 @@ func NewConfigObserver(
 			featuregates.NewObserveFeatureFlagsFunc(nil, []string{"apiServerArguments", "feature-gates"}),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,
+			network.ObserveExternalIPPolicy,
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
