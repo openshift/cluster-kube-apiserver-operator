@@ -81,6 +81,7 @@ func NewConfigObserver(
 			apiserver.ObserveDefaultUserServingCertificate,
 			apiserver.ObserveNamedCertificates,
 			apiserver.ObserveUserClientCABundle,
+			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			auth.ObserveAuthMetadata,
 			etcd.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
