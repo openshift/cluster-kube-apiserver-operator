@@ -189,7 +189,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	s.recoveryResourcesDir = filepath.Join(s.StaticPodResourcesDir, "recovery-kube-apiserver-pod")
-	err = os.Mkdir(s.recoveryResourcesDir, 755)
+	err = os.Mkdir(s.recoveryResourcesDir, 0750)
 	if err != nil {
 		if os.IsExist(err) {
 			klog.Errorf("Recovery dir %q already exist. Please use `recovery-apiserver destroy` command or remove the dir manually.", s.recoveryResourcesDir)

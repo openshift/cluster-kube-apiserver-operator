@@ -71,6 +71,9 @@ func (r *readyzOpts) Complete() error {
 
 // Run contains the logic of the insecure-readyz command.
 func (r *readyzOpts) Run() error {
+	// #nosec
+	// gosec(G402): This is already assumed to skip the verification and that's
+	// the intent. So we can ignore this warning.
 	client := &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}}

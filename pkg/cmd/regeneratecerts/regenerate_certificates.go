@@ -340,6 +340,9 @@ func (o *Options) Run() error {
 		}
 
 		dir := filepath.Join(def.toplevelDir, def.objectType, def.name)
+		// #nosec
+		// gosec(G301): This contains public certiicates, so it should be
+		// public.
 		err = os.MkdirAll(dir, 0755)
 		if err != nil {
 			return fmt.Errorf("failed to create dir %q: %v", dir, err)
