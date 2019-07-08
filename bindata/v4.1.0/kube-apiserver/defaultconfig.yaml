@@ -78,9 +78,6 @@ authConfig:
     - X-Remote-User
   webhookTokenAuthenticators: null
 consolePublicURL: ""
-corsAllowedOrigins:
-- //127\.0\.0\.1(:|$)
-- //localhost(:|$)
 kubeletClientInfo:
   ca: /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
