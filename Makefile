@@ -40,11 +40,19 @@ test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
 test-e2e: GO_TEST_FLAGS += -v
 test-e2e: test-unit
 
-update-codegen-crds:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --domain openshift.io --apis-dir vendor/github.com/openshift/api
+CRD_SCHEMA_GEN_VERSION := v1.0.0
+crd-schema-gen:
+	git clone -b $(CRD_SCHEMA_GEN_VERSION) --single-branch --depth 1 https://github.com/openshift/crd-schema-gen.git $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen
+	GOPATH=$(CRD_SCHEMA_GEN_GOPATH) GOBIN=$(CRD_SCHEMA_GEN_GOPATH)/bin go install $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen/cmd/crd-schema-gen
+
+update-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
+update-codegen-crds: crd-schema-gen
+	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1
 update-codegen: update-codegen-crds
-verify-codegen-crds:
-	go run ./vendor/github.com/openshift/library-go/cmd/crd-schema-gen/main.go --domain openshift.io --apis-dir vendor/github.com/openshift/api --verify-only
+
+verify-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
+verify-codegen-crds: crd-schema-gen
+	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1 --verify-only
 verify-codegen: verify-codegen-crds
 verify: verify-codegen
-.PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify
+.PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify crd-schema-gen
