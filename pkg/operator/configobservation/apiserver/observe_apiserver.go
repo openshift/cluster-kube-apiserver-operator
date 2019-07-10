@@ -64,6 +64,8 @@ var ObserveUserClientCABundle configobserver.ObserveConfigFunc = (&apiServerObse
 
 // ObserveDefaultUserServingCertificate returns an ObserveConfigFunc that observes user managed TLS cert info for
 // serving secure traffic.
+// We are disabling this because it doesn't work today and customers aren't going to be able to get the kube service network options right.
+// Customers may only use SNI.  I'm leaving this code in case we ever come up with a way to make an SNI-like thing based on IPs.
 var ObserveDefaultUserServingCertificate configobserver.ObserveConfigFunc = (&apiServerObserver{
 	observerFunc:  observeDefaultUserServingCertificate,
 	configPaths:   [][]string{{"servingInfo", "certFile"}, {"servingInfo", "keyFile"}},
