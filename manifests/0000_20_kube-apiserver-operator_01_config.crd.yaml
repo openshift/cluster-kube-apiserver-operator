@@ -557,4 +557,6 @@ spec:
               description: version is the level this availability applies to
               type: string
           type: object
+      required:
+      - spec
       type: object
