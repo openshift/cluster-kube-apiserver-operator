@@ -62,17 +62,6 @@ var ObserveUserClientCABundle configobserver.ObserveConfigFunc = (&apiServerObse
 	resourceType:  corev1.ConfigMap{},
 }).observe
 
-// ObserveDefaultUserServingCertificate returns an ObserveConfigFunc that observes user managed TLS cert info for
-// serving secure traffic.
-// We are disabling this because it doesn't work today and customers aren't going to be able to get the kube service network options right.
-// Customers may only use SNI.  I'm leaving this code in case we ever come up with a way to make an SNI-like thing based on IPs.
-var ObserveDefaultUserServingCertificate configobserver.ObserveConfigFunc = (&apiServerObserver{
-	observerFunc:  observeDefaultUserServingCertificate,
-	configPaths:   [][]string{{"servingInfo", "certFile"}, {"servingInfo", "keyFile"}},
-	resourceNames: []string{"user-serving-cert"},
-	resourceType:  corev1.Secret{},
-}).observe
-
 // ObserveNamedCertificates returns an ObserveConfigFunc that observes user managed TLS cert info for serving secure
 // traffic to specific hostnames.
 var ObserveNamedCertificates configobserver.ObserveConfigFunc = (&apiServerObserver{
@@ -94,28 +83,6 @@ func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Re
 	// CA bundle is never explicitly referenced in the kube-apiserver config, the returned observed config will always
 	// be empty.
 	return nil, syncActionRules{"user-client-ca": configMapName}, nil
-}
-
-// observeDefaultUserServingCertificate observes user managed Secret containing the default cert info for serving
-// secure traffic.
-func observeDefaultUserServingCertificate(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
-	var errs []error
-	servingCertSecretName := apiServer.Spec.ServingCerts.DefaultServingCertificate.Name
-	if len(servingCertSecretName) == 0 {
-		return nil, nil, nil // previously observed config and resources (if any) should be deleted
-	}
-	// generate an observed configuration that will configure the kube-apiserver to use the user managed default serving
-	// cert info instead of the operator managed default serving cert info.
-	observedConfig := map[string]interface{}{}
-	certFile := userServingCertPublicCertFile
-	if err := unstructured.SetNestedField(observedConfig, certFile, "servingInfo", "certFile"); err != nil {
-		return previouslyObservedConfig, nil, append(errs, err)
-	}
-	keyFile := userServingCertPrivateKeyFile
-	if err := unstructured.SetNestedField(observedConfig, keyFile, "servingInfo", "keyFile"); err != nil {
-		return previouslyObservedConfig, nil, append(errs, err)
-	}
-	return observedConfig, syncActionRules{"user-serving-cert": servingCertSecretName}, errs
 }
 
 // observeNamedCertificates observes user managed Secrets containing TLS cert info for serving secure traffic to
