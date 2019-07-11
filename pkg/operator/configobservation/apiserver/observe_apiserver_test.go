@@ -84,77 +84,6 @@ func TestObserveUserClientCABundle(t *testing.T) {
 	}
 }
 
-func TestObserveDefaultServingCertificate(t *testing.T) {
-
-	existingConfig := map[string]interface{}{
-		"servingInfo": map[string]interface{}{
-			"certFile": "/etc/kubernetes/static-pod-certs/secrets/existing/tls.key",
-		},
-	}
-
-	testCases := []struct {
-		name           string
-		config         *configv1.APIServer
-		existing       map[string]interface{}
-		expected       map[string]interface{}
-		expectedSynced map[string]string
-	}{
-		{
-			name:           "NoAPIServerConfig",
-			config:         nil,
-			existing:       existingConfig,
-			expected:       map[string]interface{}{},
-			expectedSynced: map[string]string{"configmap/user-serving-cert.openshift-kube-apiserver": "DELETE"},
-		},
-		{
-			name:           "NoUserServingCertRef",
-			config:         newAPIServerConfig(),
-			existing:       existingConfig,
-			expected:       map[string]interface{}{},
-			expectedSynced: map[string]string{"configmap/user-serving-cert.openshift-kube-apiserver": "DELETE"},
-		},
-		{
-			name:     "HappyPath",
-			config:   newAPIServerConfig(withDefaultSecret("happy")),
-			existing: existingConfig,
-			expected: map[string]interface{}{
-				"servingInfo": map[string]interface{}{
-					"certFile": "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.crt",
-					"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.key",
-				},
-			},
-			expectedSynced: map[string]string{
-				"configmap/user-serving-cert.openshift-kube-apiserver": "configmap/happy.openshift-config",
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			if tc.config != nil {
-				if err := indexer.Add(tc.config); err != nil {
-					t.Fatal(err)
-				}
-			}
-			synced := map[string]string{}
-			listers := configobservation.Listers{
-				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
-				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
-			}
-			result, errs := ObserveDefaultUserServingCertificate(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
-			if len(errs) > 0 {
-				t.Errorf("Expected 0 errors, got %v.", len(errs))
-			}
-			if !equality.Semantic.DeepEqual(tc.expected, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(tc.expected, result))
-			}
-			if !equality.Semantic.DeepEqual(tc.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tc.expectedSynced, synced))
-			}
-		})
-	}
-}
-
 func TestObserveNamedCertificates(t *testing.T) {
 
 	existingConfig := map[string]interface{}{
@@ -580,12 +509,6 @@ func withName(name string) func(*configv1.APIServerNamedServingCert) {
 func withSecret(name string) func(*configv1.APIServerNamedServingCert) {
 	return func(cert *configv1.APIServerNamedServingCert) {
 		cert.ServingCertificate.Name = name
-	}
-}
-
-func withDefaultSecret(name string) func(*configv1.APIServer) {
-	return func(apiserver *configv1.APIServer) {
-		apiserver.Spec.ServingCerts.DefaultServingCertificate.Name = name
 	}
 }
 
