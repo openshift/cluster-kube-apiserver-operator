@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -9,6 +10,8 @@ import (
 
 	"k8s.io/klog"
 )
+
+const workerNodeSelector = "node-role.kubernetes.io/worker=\"\""
 
 // ObserveDefaultNodeSelector reads the defaultNodeSelector from the scheduler configuration instance cluster
 func ObserveDefaultNodeSelector(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
@@ -36,7 +39,12 @@ func ObserveDefaultNodeSelector(genericListers configobserver.Listers, recorder 
 	if err != nil {
 		return prevObservedConfig, errs
 	}
-
+	if schedulerConfig.Spec == (configv1.SchedulerSpec{}) {
+		if err := unstructured.SetNestedField(observedConfig, workerNodeSelector, defaultNodeSelectorPath...); err != nil {
+			errs = append(errs, err)
+		}
+		klog.V(4).Infof("Found an empty scheduler spec, so setting the defaultNodeSelector to worker nodes")
+	}
 	defaultNodeSelector := schedulerConfig.Spec.DefaultNodeSelector
 	if len(defaultNodeSelector) > 0 {
 		if err := unstructured.SetNestedField(observedConfig, defaultNodeSelector, defaultNodeSelectorPath...); err != nil {
