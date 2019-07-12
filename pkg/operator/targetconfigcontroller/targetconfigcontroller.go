@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"k8s.io/klog"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	controlplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
@@ -222,6 +224,19 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 	return false, nil
 }
 
+// extraConfig are additional config fields in the observed config which are only used inside the
+// operator. They are pruned before sending the config to the operand.
+type extraConfig struct {
+}
+
+// operandConfigContainer defines the permissible schema for the observed configuration. It is a
+// superset of the operand configuration. We prune the extra config when creating the config map
+// for the operand.
+type operandConfigContainer struct {
+	controlplanev1.KubeAPIServerConfig
+	extraConfig
+}
+
 func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.KubeAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/kube-apiserver/defaultconfig.yaml")
@@ -229,10 +244,22 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		".oauthConfig": RemoveConfig,
 	}
 
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", specialMergeRules, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	// sanity check that observers create a valid config
+	configWithoutUserOverrides, err := resourcemerge.MergeProcessConfig(specialMergeRules, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw)
 	if err != nil {
 		return nil, false, err
 	}
+	cfg := &operandConfigContainer{}
+	if err := yaml.UnmarshalStrict(configWithoutUserOverrides, cfg); err != nil {
+		return nil, false, fmt.Errorf("invalid KubeAPIServerConfig.controlplane.openshift.io/v1 config generated: %v", err)
+	}
+
+	// do the complete merge including UnsupportedConfigOverrides
+	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(&controlplanev1.KubeAPIServerConfig{}, configMap, "config.yaml", specialMergeRules, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	if err != nil {
+		return nil, false, err
+	}
+
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
