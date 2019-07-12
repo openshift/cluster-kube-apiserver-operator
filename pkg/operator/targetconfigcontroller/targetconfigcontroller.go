@@ -277,6 +277,23 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 	}
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", v))
 
+	// all this is psuedo code
+	defaultConfig := v410_00_assets.MustAsset("v4.1.0/kube-apiserver/defaultconfig.yaml")
+	specialMergeRules := map[string]resourcemerge.MergeFunc{
+		".oauthConfig": RemoveConfig,
+	}
+	configBytes, err := resourcemerge.MergeProcessConfig(specialMergeRules, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	if err != nil {
+		return nil, false, err
+	}
+	prevConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(configBytes)).Decode(&prevConfig); err != nil {
+		return nil, false, err
+	}
+	for k, v := range prevConfig["envVars"].(map[string]interface{}) {
+		required.Spec.Containers[0].Env = append(required.Spec.Containers[0].Env, corev1.EnvVar{Name: k, Value: v.(string)})
+	}
+
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorConfig.Spec.ForceRedeploymentReason

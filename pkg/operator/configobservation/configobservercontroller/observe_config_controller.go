@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/proxy"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"k8s.io/client-go/tools/cache"
@@ -93,6 +94,7 @@ func NewConfigObserver(
 			featuregates.NewObserveFeatureFlagsFunc(nil, []string{"apiServerArguments", "feature-gates"}),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,
+			proxy.ObserveProxyEnvVars,
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
