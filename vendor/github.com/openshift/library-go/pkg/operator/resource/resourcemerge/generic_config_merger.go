@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"k8s.io/klog"
+	"sigs.k8s.io/yaml"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,7 +18,14 @@ import (
 // MergeConfigMap takes a configmap, the target key, special overlay funcs a list of config configs to overlay on top of each other
 // It returns the resultant configmap and a bool indicating if any changes were made to the configmap
 func MergeConfigMap(configMap *corev1.ConfigMap, configKey string, specialCases map[string]MergeFunc, configYAMLs ...[]byte) (*corev1.ConfigMap, bool, error) {
-	configBytes, err := MergeProcessConfig(specialCases, configYAMLs...)
+	return MergePrunedConfigMap(nil, configMap, configKey, specialCases, configYAMLs...)
+}
+
+// MergeConfigMap takes a configmap, the target key, special overlay funcs a list of config configs to overlay on top of each other
+// It returns the resultant configmap and a bool indicating if any changes were made to the configmap.
+// It roundtrips the config through the given schema.
+func MergePrunedConfigMap(schema runtime.Object, configMap *corev1.ConfigMap, configKey string, specialCases map[string]MergeFunc, configYAMLs ...[]byte) (*corev1.ConfigMap, bool, error) {
+	configBytes, err := MergePrunedProcessConfig(schema, specialCases, configYAMLs...)
 	if err != nil {
 		return nil, false, err
 	}
@@ -83,6 +91,26 @@ func MergeProcessConfig(specialCases map[string]MergeFunc, configYAMLs ...[]byte
 	}
 
 	return currentConfigYAML, nil
+}
+
+// MergePrunedProcessConfig merges a series of config yaml files together with each later one overlaying all previous.
+// The result is roundtripped through the given schema if it is non-nil.
+func MergePrunedProcessConfig(schema runtime.Object, specialCases map[string]MergeFunc, configYAMLs ...[]byte) ([]byte, error) {
+	bs, err := MergeProcessConfig(specialCases, configYAMLs...)
+	if err != nil {
+		return nil, err
+	}
+
+	if schema == nil {
+		return bs, nil
+	}
+
+	// roundtrip through the schema
+	x := schema.DeepCopyObject()
+	if err := yaml.Unmarshal(bs, x); err != nil {
+		return nil, err
+	}
+	return yaml.Marshal(x)
 }
 
 type MergeFunc func(dst, src interface{}, currentPath string) (interface{}, error)
