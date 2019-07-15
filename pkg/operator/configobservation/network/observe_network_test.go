@@ -3,10 +3,11 @@ package network
 import (
 	"testing"
 
+	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"k8s.io/client-go/tools/cache"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -29,25 +30,15 @@ func TestObserveRestrictedCIDRs(t *testing.T) {
 	if result == nil {
 		t.Errorf("expected result != nil")
 	}
-
-	conf, ok, err := unstructured.NestedMap(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration")
-	if err != nil || !ok {
-		t.Errorf("Unexpected configuration returned: %v", result)
-	}
-	if conf["kind"] != "RestrictedEndpointsAdmissionConfig" {
-		t.Errorf("unexpected Kind %v", conf["kind"])
-	}
-	if conf["apiVersion"] != "network.openshift.io/v1" {
-		t.Errorf("unexpected APIVersion %v", conf["apiVersion"])
-	}
-
-	cidrs, ok, err := unstructured.NestedStringSlice(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
-	if err != nil {
-		t.Errorf("unexpected error %v", err)
-	}
-	if len(cidrs) != 0 {
-		t.Errorf("expected restrictedCIDRs to be empty, got %v", cidrs)
-	}
+	assert.Empty(t, errors)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/RestrictedEndpointsAdmission:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: RestrictedEndpointsAdmissionConfig
+`)
 
 	// Next, add the network config and see that it reacts
 	if err := indexer.Add(&configv1.Network{
@@ -61,17 +52,18 @@ func TestObserveRestrictedCIDRs(t *testing.T) {
 	}
 
 	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
-
-	restrictedCIDRs, _, err := unstructured.NestedStringSlice(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if restrictedCIDRs[0] != "podCIDR" {
-		t.Error(restrictedCIDRs[0])
-	}
-	if restrictedCIDRs[1] != "serviceCIDR" {
-		t.Error(restrictedCIDRs[1])
-	}
+	assert.Empty(t, errors)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/RestrictedEndpointsAdmission:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: RestrictedEndpointsAdmissionConfig
+        restrictedCIDRs:
+        - podCIDR
+        - serviceCIDR
+`)
 
 	// Update the network config and see that it works
 	if err := indexer.Update(&configv1.Network{
@@ -87,16 +79,18 @@ func TestObserveRestrictedCIDRs(t *testing.T) {
 	// Note that we pass the previous result back in
 	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), result)
 
-	restrictedCIDRs, _, err = unstructured.NestedStringSlice(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if restrictedCIDRs[0] != "podCIDR2" {
-		t.Error(restrictedCIDRs[0])
-	}
-	if restrictedCIDRs[1] != "serviceCIDR2" {
-		t.Error(restrictedCIDRs[1])
-	}
+	assert.Empty(t, errors)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/RestrictedEndpointsAdmission:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: RestrictedEndpointsAdmissionConfig
+        restrictedCIDRs:
+        - podCIDR2
+        - serviceCIDR2
+`)
 
 	// When the network object goes missing (simulate transient failure),
 	// you stll get the old config
@@ -108,20 +102,18 @@ func TestObserveRestrictedCIDRs(t *testing.T) {
 
 	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), result)
 
-	restrictedCIDRs, _, err = unstructured.NestedStringSlice(result, "admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration", "restrictedCIDRs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(restrictedCIDRs) != 2 {
-		t.Fatalf("expected 2 restrictedCIDRs, got %v", result)
-	}
-	if restrictedCIDRs[0] != "podCIDR2" {
-		t.Error(restrictedCIDRs[0])
-	}
-	if restrictedCIDRs[1] != "serviceCIDR2" {
-		t.Error(restrictedCIDRs[1])
-	}
-
+	assert.Empty(t, errors)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/RestrictedEndpointsAdmission:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: RestrictedEndpointsAdmissionConfig
+        restrictedCIDRs:
+        - podCIDR2
+        - serviceCIDR2
+`)
 }
 
 func TestObserveServicesSubnet(t *testing.T) {
@@ -187,4 +179,97 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if conf != "serviceCIDR1" {
 		t.Errorf("Unexpected value: %v", conf)
 	}
+}
+
+func TestObserveExternalIPPolicy(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+
+	listers := configobservation.Listers{
+		NetworkLister: configlistersv1.NewNetworkLister(indexer),
+	}
+
+	// With no external IPs, check that no configuration is returned
+	result, errors := ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	assert.Empty(t, errors)
+	assert.Empty(t, result)
+
+	// Add a configuration with no policy
+	err := indexer.Add(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec:       configv1.NetworkSpec{},
+	})
+	assert.Nil(t, err)
+
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	assert.Empty(t, errors)
+	assert.Empty(t, result)
+
+	// Add an empty configuration,
+	// check that the policy is created
+	err = indexer.Update(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.NetworkSpec{
+			ExternalIP: &configv1.ExternalIPConfig{
+				Policy: &configv1.ExternalIPPolicy{},
+			},
+		},
+	})
+	assert.Nil(t, err)
+
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	assert.Empty(t, errors)
+
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/ExternalIPRanger:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: ExternalIPRangerAdmissionConfig
+        allowIngressIP: false
+        apiVersion: network.openshift.io/v1`)
+
+	// Set non-empty policy
+	err = indexer.Update(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.NetworkSpec{
+			ExternalIP: &configv1.ExternalIPConfig{
+				Policy: &configv1.ExternalIPPolicy{
+					RejectedCIDRs: []string{"1.0.0.0/20", "2.0.2.0/24"},
+					AllowedCIDRs:  []string{"3.0.0.0/18", "42.0.1.0/30"},
+				},
+				AutoAssignCIDRs: []string{"99.1.0.0/24"},
+			},
+		},
+	})
+	assert.Nil(t, err)
+
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	assert.Empty(t, errors)
+
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/ExternalIPRanger:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: ExternalIPRangerAdmissionConfig
+        allowIngressIP: true
+        apiVersion: network.openshift.io/v1
+        externalIPNetworkCIDRs:
+        - "!1.0.0.0/20"
+        - "!2.0.2.0/24"
+        - 3.0.0.0/18
+        - 42.0.1.0/30
+`)
+}
+
+func shouldMatchYaml(t *testing.T, obj map[string]interface{}, expected string) {
+	t.Helper()
+	exp := map[string]interface{}{}
+	err := yaml.Unmarshal([]byte(expected), &exp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, exp, obj)
 }
