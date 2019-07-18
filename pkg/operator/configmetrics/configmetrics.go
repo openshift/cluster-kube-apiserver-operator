@@ -17,6 +17,11 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 			Name: "cluster_infrastructure_provider",
 			Help: "Reports whether the cluster is configured with an infrastructure provider. type is unset if no cloud provider is recognized or set to the constant used by the Infrastructure config. Region is set when the cluster clearly identifies a region within the provider.",
 		}, []string{"type", "region"}),
+		featuregateLister: configInformer.Config().V1().FeatureGates().Lister(),
+		featureSet: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cluster_feature_set",
+			Help: "Reports the feature set the cluster is configured to expose. name corresponds to the featureSet field of the cluster.",
+		}, []string{"name"}),
 	})
 }
 
@@ -24,11 +29,14 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 type configMetrics struct {
 	infrastructureLister configlisters.InfrastructureLister
 	cloudProvider        *prometheus.GaugeVec
+	featuregateLister    configlisters.FeatureGateLister
+	featureSet           *prometheus.GaugeVec
 }
 
 // Describe reports the metadata for metrics to the prometheus collector.
 func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- m.cloudProvider.WithLabelValues("", "").Desc()
+	ch <- m.featureSet.WithLabelValues("").Desc()
 }
 
 // Collect calculates metrics from the cached config and reports them to the prometheus collector.
@@ -44,5 +52,8 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 				ch <- m.cloudProvider.WithLabelValues(string(status.Type), "")
 			}
 		}
+	}
+	if features, err := m.featuregateLister.Get("cluster"); err == nil {
+		ch <- m.featureSet.WithLabelValues(string(features.Spec.FeatureSet))
 	}
 }
