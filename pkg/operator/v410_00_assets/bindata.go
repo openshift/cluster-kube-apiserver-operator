@@ -321,8 +321,8 @@ spec:
       - |
         echo -n "Fixing audit permissions."
         chmod 0700 /var/log/kube-apiserver
-        echo -n "Waiting for port :6443 to be released."
-        while [ -n "$(lsof -ni :6443)" ]; do
+        echo -n "Waiting for port :6443 and :6080 to be released."
+        while [ -n "$(lsof -ni :6443)$(lsof -ni :6080)" ]; do
           echo -n "."
           sleep 1
         done
@@ -399,6 +399,20 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
+  - name: kube-apiserver-insecure-readyz-REVISION
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
+    args:
+    - --insecure-port=6080
+    - --delegate-url=https://localhost:6443/readyz
+    ports:
+    - containerPort: 6080
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 10m
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical

@@ -84,6 +84,10 @@ func (r *renderOpts) Validate() error {
 		return err
 	}
 
+	// TODO: enable check when the installer is updated
+	//if len(r.manifest.OperatorImage) == 0 {
+	//	return errors.New("missing required flag: --manifest-operator-image")
+	//}
 	if len(r.lockHostPath) == 0 {
 		return errors.New("missing required flag: --manifest-lock-host-path")
 	}

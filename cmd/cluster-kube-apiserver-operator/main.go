@@ -7,14 +7,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/recoveryapiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts"
@@ -22,6 +21,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
 )
@@ -66,6 +66,7 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
 	cmd.AddCommand(recoveryapiserver.NewRecoveryAPIServerCommand())
 	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
+	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 
 	return cmd
 }

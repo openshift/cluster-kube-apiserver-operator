@@ -1,5 +1,5 @@
 hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-07-11T14:38:38.395729541-04:00
+updated: 2019-07-18T09:33:18.52109+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -134,13 +134,13 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/gonum/blas
-  version: f22b278b28ac9805aadd613a754a60c35b24ae69
+  version: 37e82626499e1df7c54aeaba0959fd6e7e8dc1e4
   subpackages:
   - blas64
   - native
   - native/internal/math32
 - name: github.com/gonum/floats
-  version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
+  version: f74b330d45c56584a6ea7a27f5c64ea2900631e9
 - name: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
@@ -155,17 +155,17 @@ imports:
   - internal/ordered
   - simple
 - name: github.com/gonum/internal
-  version: f884aa71402950fb2796dbea0d5aa9ef9cfad8ca
+  version: e57e4534cf9b3b00ef6c0175f59d8d2d34f60914
   subpackages:
   - asm/f32
   - asm/f64
 - name: github.com/gonum/lapack
-  version: e4cdc5a0bff924bb10be88482e635bd40429f65e
+  version: 5ed4b826becd1807e09377508f51756586d1a98c
   subpackages:
   - lapack64
   - native
 - name: github.com/gonum/matrix
-  version: c518dec07be9a636c38a4650e217be059b5952ec
+  version: dd6034299e4242c9f0ea36735e6d4264dfcb3f9f
   subpackages:
   - mat64
 - name: github.com/google/gofuzz
@@ -209,7 +209,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: cf189d3400156fba0afb233aa8fca57a7ff61cb2
+  version: 0390d1e77d6496df897e3a9d48b32d8827425320
   subpackages:
   - apps
   - apps/v1
@@ -277,7 +277,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: f8abdcd57c468b7f49a91caa77212c12bd05fa9f
+  version: 83581c469d2eeb6dadfe86a4b6d8033b465ffd15
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -335,9 +335,11 @@ imports:
   subpackages:
   - difflib
 - name: github.com/prometheus/client_golang
-  version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
+  version: 505eaef017263e299324067d40ca2c48f6a2cf50
   subpackages:
   - prometheus
+  - prometheus/internal
+  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -425,7 +427,7 @@ imports:
   - container/intsets
   - imports
 - name: google.golang.org/appengine
-  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
+  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
   - internal
   - internal/base
@@ -837,7 +839,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8e90cee79f823779174776412c13478955131846
+  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:

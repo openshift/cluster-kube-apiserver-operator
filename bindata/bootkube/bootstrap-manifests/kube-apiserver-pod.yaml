@@ -45,6 +45,18 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
+{{if .OperatorImage}}
+  - name: kube-apiserver-insecure-readyz
+    image: ${.OperatorImage}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
+    args:
+    - --insecure-port=6080
+    - --delegate-url=https://localhost:6443/readyz
+    ports:
+    - containerPort: 6080
+{{end}}
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   volumes:
   - hostPath:
