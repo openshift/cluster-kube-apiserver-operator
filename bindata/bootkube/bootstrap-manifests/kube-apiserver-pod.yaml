@@ -47,7 +47,7 @@ spec:
       timeoutSeconds: 10
 {{if .OperatorImage}}
   - name: kube-apiserver-insecure-readyz
-    image: ${.OperatorImage}
+    image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
