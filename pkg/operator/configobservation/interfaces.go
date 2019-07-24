@@ -18,6 +18,7 @@ type Listers struct {
 	InfrastructureLister_ configlistersv1.InfrastructureLister
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
+	ProxyLister_          configlistersv1.ProxyLister
 	SchedulerLister       configlistersv1.SchedulerLister
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
@@ -37,6 +38,10 @@ func (l Listers) InfrastructureLister() configlistersv1.InfrastructureLister {
 
 func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 	return l.ResourceSync
+}
+
+func (l Listers) ProxyLister() configlistersv1.ProxyLister {
+	return l.ProxyLister_
 }
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {

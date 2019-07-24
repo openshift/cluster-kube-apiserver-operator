@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
+
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -222,7 +225,15 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		".oauthConfig": RemoveConfig,
 	}
 
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", specialMergeRules, defaultConfig, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
+		&kubecontrolplanev1.KubeAPIServerConfig{},
+		configMap,
+		"config.yaml",
+		specialMergeRules,
+		defaultConfig,
+		operatorSpec.ObservedConfig.Raw,
+		operatorSpec.UnsupportedConfigOverrides.Raw,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -269,6 +280,20 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 		v = 2
 	}
 	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", v))
+
+	var observedConfig map[string]interface{}
+	if err := yaml.Unmarshal(operatorSpec.ObservedConfig.Raw, &observedConfig); err != nil {
+		return nil, false, fmt.Errorf("failed to unmarshal the observedConfig: %v", err)
+	}
+	proxyConfig, _, err := unstructured.NestedStringMap(observedConfig, "targetconfigcontroller", "proxy")
+	if err != nil {
+		return nil, false, fmt.Errorf("couldn't get the proxy config from observedConfig: %v", err)
+	}
+
+	proxyEnvVars := proxyMapToEnvVars(proxyConfig)
+	for i, container := range required.Spec.Containers {
+		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
+	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
@@ -404,4 +429,17 @@ func (c *TargetConfigController) namespaceEventHandler() cache.ResourceEventHand
 			}
 		},
 	}
+}
+
+func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
+	if proxyConfig == nil {
+		return nil
+	}
+
+	envVars := []corev1.EnvVar{}
+	for k, v := range proxyConfig {
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
+	}
+
+	return envVars
 }
