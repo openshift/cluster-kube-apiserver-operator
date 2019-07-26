@@ -3,6 +3,7 @@ updated: 2019-06-04T10:03:55.608161341-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
+  vcs: hg
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
   subpackages:
