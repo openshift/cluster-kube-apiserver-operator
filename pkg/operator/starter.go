@@ -11,32 +11,27 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
-	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
 	kubeClient, err := kubernetes.NewForConfig(ctx.ProtoKubeConfig)
-	if err != nil {
-		return err
-	}
-	operatorConfigClient, err := operatorversionedclient.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -48,7 +43,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -59,9 +53,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		"openshift-etcd",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	operatorClient := &operatorclient.OperatorClient{
-		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OperatorV1(),
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(ctx.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	if err != nil {
+		return err
 	}
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
@@ -76,7 +70,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
-		operatorConfigInformers,
 		kubeInformersForNamespaces,
 		configInformers,
 		resourceSyncController,
@@ -86,11 +79,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
-		operatorConfigInformers.Operator().V1().KubeAPIServers(),
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
-		operatorConfigClient.OperatorV1(),
 		kubeClient,
 		ctx.EventRecorder,
 	)
@@ -154,9 +145,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	configmetrics.Register(configInformers)
 
-	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
+	dynamicInformers.Start(ctx.Done())
 
 	go staticPodControllers.Run(ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())

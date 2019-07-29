@@ -4,7 +4,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
@@ -30,7 +29,6 @@ type ConfigObserver struct {
 
 func NewConfigObserver(
 	operatorClient v1helpers.OperatorClient,
-	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
@@ -66,7 +64,7 @@ func NewConfigObserver(
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(configMapPreRunCacheSynced,
-					operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().HasSynced,
+					operatorClient.Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
 
@@ -102,7 +100,7 @@ func NewConfigObserver(
 		),
 	}
 
-	operatorConfigInformers.Operator().V1().KubeAPIServers().Informer().AddEventHandler(c.EventHandler())
+	operatorClient.Informer().AddEventHandler(c.EventHandler())
 
 	for _, ns := range interestingNamespaces {
 		kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())

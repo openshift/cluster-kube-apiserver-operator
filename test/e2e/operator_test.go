@@ -6,18 +6,15 @@ import (
 	"testing"
 	"time"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
+	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
+	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/stretchr/testify/require"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-
-	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	operatorversionedclient "github.com/openshift/client-go/operator/clientset/versioned"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
 
 func TestOperatorNamespace(t *testing.T) {
@@ -50,13 +47,8 @@ func TestRevisionLimits(t *testing.T) {
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	operatorConfigClient, err := operatorversionedclient.NewForConfig(kubeConfig)
+	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(kubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
 	require.NoError(t, err)
-	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	operatorClient := &operatorclient.OperatorClient{
-		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OperatorV1(),
-	}
 
 	// Get current revision limits
 	operatorSpec, _, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
