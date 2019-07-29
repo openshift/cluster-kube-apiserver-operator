@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -143,6 +145,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
+		operatorClient,
+		configInformers,
+		ctx.EventRecorder,
+	)
+
 	configmetrics.Register(configInformers)
 
 	kubeInformersForNamespaces.Start(ctx.Done())
@@ -155,6 +163,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go configObserver.Run(1, ctx.Done())
 	go clusterOperatorStatus.Run(1, ctx.Done())
 	go certRotationController.Run(1, ctx.Done())
+	go featureUpgradeableController.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
