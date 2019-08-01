@@ -1,5 +1,5 @@
 hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-07-29T08:45:39.190269525-04:00
+updated: 2019-07-31T14:54:14.270029363-04:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -105,7 +105,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -134,13 +134,13 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/gonum/blas
-  version: 37e82626499e1df7c54aeaba0959fd6e7e8dc1e4
+  version: f22b278b28ac9805aadd613a754a60c35b24ae69
   subpackages:
   - blas64
   - native
   - native/internal/math32
 - name: github.com/gonum/floats
-  version: f74b330d45c56584a6ea7a27f5c64ea2900631e9
+  version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
 - name: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
@@ -155,17 +155,17 @@ imports:
   - internal/ordered
   - simple
 - name: github.com/gonum/internal
-  version: e57e4534cf9b3b00ef6c0175f59d8d2d34f60914
+  version: f884aa71402950fb2796dbea0d5aa9ef9cfad8ca
   subpackages:
   - asm/f32
   - asm/f64
 - name: github.com/gonum/lapack
-  version: 5ed4b826becd1807e09377508f51756586d1a98c
+  version: e4cdc5a0bff924bb10be88482e635bd40429f65e
   subpackages:
   - lapack64
   - native
 - name: github.com/gonum/matrix
-  version: dd6034299e4242c9f0ea36735e6d4264dfcb3f9f
+  version: c518dec07be9a636c38a4650e217be059b5952ec
   subpackages:
   - mat64
 - name: github.com/google/gofuzz
@@ -209,7 +209,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 406574a7aa1eb0e916f4029433e5c28c6a53099b
+  version: 0922aa5a655be314e20a3e0e94f4f2b105100154
   subpackages:
   - apps
   - apps/v1
@@ -265,19 +265,10 @@ imports:
   - config/informers/externalversions/config/v1
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
-  - operator/clientset/versioned
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
-  - operator/clientset/versioned/typed/operator/v1alpha1
-  - operator/informers/externalversions
-  - operator/informers/externalversions/internalinterfaces
-  - operator/informers/externalversions/operator
-  - operator/informers/externalversions/operator/v1
-  - operator/informers/externalversions/operator/v1alpha1
-  - operator/listers/operator/v1
-  - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: 36633f9f3e364a749e55f44e1cce0af47b7c65b3
+  version: 950af653b51af28697df79f1406fc9d21f722db8
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -297,6 +288,7 @@ imports:
   - pkg/operator/configobserver/featuregates
   - pkg/operator/configobserver/network
   - pkg/operator/events
+  - pkg/operator/genericoperatorclient
   - pkg/operator/loglevel
   - pkg/operator/management
   - pkg/operator/render
@@ -427,7 +419,7 @@ imports:
   - container/intsets
   - imports
 - name: google.golang.org/appengine
-  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
+  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
   subpackages:
   - internal
   - internal/base
@@ -677,6 +669,8 @@ imports:
   subpackages:
   - discovery
   - dynamic
+  - dynamic/dynamicinformer
+  - dynamic/dynamiclister
   - informers
   - informers/admissionregistration
   - informers/admissionregistration/v1beta1
@@ -839,7 +833,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
+  version: 6a023d6d0e0954feabd46dc2d3a6a2c3c991fe1a
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
