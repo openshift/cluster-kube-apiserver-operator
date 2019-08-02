@@ -1,5 +1,5 @@
 hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-07-31T14:54:14.270029363-04:00
+updated: 2019-08-02T14:02:34.100638375+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -268,7 +268,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: 950af653b51af28697df79f1406fc9d21f722db8
+  version: 2532fbc98082c0e00f29fca09d97bcb0d774b9d2
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -287,6 +287,7 @@ imports:
   - pkg/operator/configobserver/cloudprovider
   - pkg/operator/configobserver/featuregates
   - pkg/operator/configobserver/network
+  - pkg/operator/configobserver/proxy
   - pkg/operator/events
   - pkg/operator/genericoperatorclient
   - pkg/operator/loglevel
@@ -419,7 +420,7 @@ imports:
   - container/intsets
   - imports
 - name: google.golang.org/appengine
-  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
+  version: fb139bde60fa77cede04f226b4d5a3cf68dcce27
   subpackages:
   - internal
   - internal/base
