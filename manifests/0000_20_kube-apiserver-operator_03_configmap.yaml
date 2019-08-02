@@ -5,5 +5,5 @@ metadata:
   name: kube-apiserver-operator-config
 data:
   config.yaml: |
-    apiVersion: operator.openshift.io/v1alpha1
+    apiVersion: operator.openshift.io/v1
     kind: GenericOperatorConfig
