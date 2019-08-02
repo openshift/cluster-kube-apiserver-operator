@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -57,6 +58,7 @@ func NewConfigObserver(
 				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
 				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
 				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
+				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
@@ -74,6 +76,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
+					configInformer.Config().V1().Proxies().Informer().HasSynced,
 					configInformer.Config().V1().Schedulers().Informer().HasSynced,
 				),
 			},
@@ -93,6 +96,7 @@ func NewConfigObserver(
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,
 			network.ObserveExternalIPPolicy,
+			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
@@ -112,6 +116,7 @@ func NewConfigObserver(
 	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
+	configInformer.Config().V1().Proxies().Informer().AddEventHandler(c.EventHandler())
 	configInformer.Config().V1().Schedulers().Informer().AddEventHandler(c.EventHandler())
 
 	return c
