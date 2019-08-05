@@ -17,7 +17,7 @@ func int64Ptr(v int64) *int64 {
 }
 
 func TestApiserverRecoveryPod(t *testing.T) {
-	const image = "hypershift:latest"
+	const image = "hyperkube:latest"
 
 	tt := []struct {
 		name          string
@@ -65,8 +65,8 @@ func TestApiserverRecoveryPod(t *testing.T) {
 						{
 							Name:    "kube-apiserver-recovery",
 							Image:   image,
-							Command: []string{"hypershift", "openshift-kube-apiserver"},
-							Args:    []string{"--config=/etc/kubernetes/static-pod-resources/config.yaml"},
+							Command: []string{"hyperkube", "kube-apiserver"},
+							Args:    []string{"--openshift-config=/etc/kubernetes/static-pod-resources/config.yaml"},
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: 7443,

@@ -465,9 +465,9 @@ storageConfig:
   urls:
   - "https://localhost:2379"
 
-# Make hypershift happy.
+# Make our modified kube-apiserver happy.
 # (Everything bellow this line is just to provide some certs file
-# because hypershift tries to read those even if you don't want to set them up.)
+# because our modified kube-apiserver tries to read those even if you don't want to set them up.)
 authConfig:
   oauthMetadataFile: ""
   requestHeader:
@@ -512,9 +512,9 @@ spec:
     image: "{{ .KubeApiserverImage }}"
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["hypershift", "openshift-kube-apiserver"]
+    command: ["hyperkube", "kube-apiserver"]
     args:
-    - --config=/etc/kubernetes/static-pod-resources/config.yaml
+    - --openshift-config=/etc/kubernetes/static-pod-resources/config.yaml
     resources:
       requests:
         memory: 1Gi

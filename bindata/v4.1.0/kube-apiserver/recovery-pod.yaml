@@ -11,9 +11,9 @@ spec:
     image: "{{ .KubeApiserverImage }}"
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["hypershift", "openshift-kube-apiserver"]
+    command: ["hyperkube", "kube-apiserver"]
     args:
-    - --config=/etc/kubernetes/static-pod-resources/config.yaml
+    - --openshift-config=/etc/kubernetes/static-pod-resources/config.yaml
     resources:
       requests:
         memory: 1Gi
