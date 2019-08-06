@@ -38,7 +38,7 @@ type renderOpts struct {
 func NewRenderCommand() *cobra.Command {
 	renderOpts := renderOpts{
 		generic:  *genericrenderoptions.NewGenericOptions(),
-		manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hypershift:latest"),
+		manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hyperkube:latest"),
 
 		lockHostPath:   "/var/run/kubernetes/lock",
 		etcdServerURLs: []string{"https://127.0.0.1:2379"},
