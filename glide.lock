@@ -1,5 +1,5 @@
 hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-08-05T13:30:10.223824641+02:00
+updated: 2019-08-08T16:37:31.611330871+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -105,7 +105,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -209,7 +209,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 0922aa5a655be314e20a3e0e94f4f2b105100154
+  version: b76189cc788c46038952dba8fbccd76b3eba866f
   subpackages:
   - apps
   - apps/v1
@@ -255,7 +255,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: a85ea6a6b3a5d2dbe41582ee35695dd4683e1f02
+  version: e9678e3b850da36470c5554609c6cd110aace47e
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -268,7 +268,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: cab1b771d4dcaacbe1333de6edde4e272f012b8d
+  version: a5507e7eb29c0ec68b73bd355cf5d248586fd776
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -332,7 +332,6 @@ imports:
   subpackages:
   - prometheus
   - prometheus/internal
-  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -834,7 +833,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8e90cee79f823779174776412c13478955131846
+  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
@@ -868,5 +867,5 @@ imports:
   - typed
   - value
 - name: sigs.k8s.io/yaml
-  version: 4cd0c284b15f1735b8cc247df097d262b8903f9f
+  version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
 testImports: []
