@@ -59,6 +59,22 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 			}
 			g.Set(value)
 			ch <- g
+		} else {
+			// if the parent has not reported platform status yet
+			infraType := infra.Status.Platform
+			var g prometheus.Gauge
+			var value float64 = 1
+			switch {
+			// it is illegal to set type to empty string, so let the default case handle
+			// empty string (so we can detect it) while preserving the constant None here
+			case infraType == configv1.NonePlatformType:
+				g = m.cloudProvider.WithLabelValues(string(infraType), "")
+				value = 0
+			default:
+				g = m.cloudProvider.WithLabelValues(string(infraType), "")
+			}
+			g.Set(value)
+			ch <- g
 		}
 	}
 	if features, err := m.featuregateLister.Get("cluster"); err == nil {
