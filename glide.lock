@@ -1,5 +1,5 @@
 hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-08-08T16:37:31.611330871+02:00
+updated: 2019-08-13T13:43:48.190741178-04:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -93,7 +93,7 @@ imports:
   - daemon
   - journal
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/emicklei/go-restful
@@ -105,7 +105,7 @@ imports:
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -209,7 +209,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: b76189cc788c46038952dba8fbccd76b3eba866f
+  version: b5570061b31fed3b06c24077c534b1a1bf7ecf8b
   subpackages:
   - apps
   - apps/v1
@@ -268,7 +268,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: a5507e7eb29c0ec68b73bd355cf5d248586fd776
+  version: 1eb1131507bff6d494f05b23c8ecf850836d7328
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -332,6 +332,7 @@ imports:
   subpackages:
   - prometheus
   - prometheus/internal
+  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -419,7 +420,7 @@ imports:
   - container/intsets
   - imports
 - name: google.golang.org/appengine
-  version: fb139bde60fa77cede04f226b4d5a3cf68dcce27
+  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
   subpackages:
   - internal
   - internal/base
@@ -833,7 +834,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
+  version: e531227889390a39d9533dde61f590fe9f4b0035
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
