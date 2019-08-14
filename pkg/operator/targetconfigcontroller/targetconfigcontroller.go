@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -441,5 +442,7 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
 	}
 
+	// need to sort the slice so that kube-apiserver-pod configmap does not change all the time
+	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
 }
