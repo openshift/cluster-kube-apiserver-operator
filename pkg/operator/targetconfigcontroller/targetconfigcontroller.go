@@ -12,6 +12,8 @@ import (
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -194,6 +196,11 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
 	}
 
+	err = ensureKubeAPIServerTrustedCA(c.kubeClient.CoreV1(), recorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/trusted-ca-bundle", err))
+	}
+
 	if len(errors) > 0 {
 		condition := operatorv1.OperatorCondition{
 			Type:    "TargetConfigControllerDegraded",
@@ -341,6 +348,28 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 	}
 
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+}
+
+func ensureKubeAPIServerTrustedCA(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+	required := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/trusted-ca-cm.yaml"))
+	cmCLient := client.ConfigMaps(operatorclient.TargetNamespace)
+
+	cm, err := cmCLient.Get("trusted-ca-bundle", metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err = cmCLient.Create(required)
+		}
+		return err
+	}
+
+	// update if modified by the user
+	if val, ok := cm.Labels["config.openshift.io/inject-trusted-cabundle"]; !ok || val != "true" {
+		cm.Labels["config.openshift.io/inject-trusted-cabundle"] = "true"
+		_, err = cmCLient.Update(cm)
+		return err
+	}
+
+	return err
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.

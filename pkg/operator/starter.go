@@ -204,6 +204,9 @@ var RevisionSecrets = []revision.RevisionResource{
 var CertConfigMaps = []revision.RevisionResource{
 	{Name: "aggregator-client-ca"},
 	{Name: "client-ca"},
+
+	// this is a copy of trusted-ca-bundle CM but with key modified to "tls-ca-bundle.pem" so that we can mount it the way we need
+	{Name: "trusted-ca-bundle", Optional: true},
 }
 
 var CertSecrets = []revision.RevisionResource{

@@ -9,6 +9,7 @@
 // bindata/v4.1.0/kube-apiserver/recovery-config.yaml
 // bindata/v4.1.0/kube-apiserver/recovery-pod.yaml
 // bindata/v4.1.0/kube-apiserver/svc.yaml
+// bindata/v4.1.0/kube-apiserver/trusted-ca-cm.yaml
 // DO NOT EDIT!
 
 package v410_00_assets
@@ -331,9 +332,14 @@ spec:
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
-    command: ["hyperkube", "kube-apiserver"]
+    command: ["/bin/bash", "-ec"]
     args:
-    - --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
+        - |
+          if [ -f /etc/kubernetes/static-pod-resources/kube-apiserver-certs/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
+            echo "Copying system trust bundle"
+            cp -f /etc/kubernetes/static-pod-resources/kube-apiserver-certs/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+          fi
+          exec hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
     resources:
       requests:
         memory: 1Gi
@@ -583,6 +589,30 @@ func v410KubeApiserverSvcYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverTrustedCaCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: trusted-ca-bundle
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+`)
+
+func v410KubeApiserverTrustedCaCmYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverTrustedCaCmYaml, nil
+}
+
+func v410KubeApiserverTrustedCaCmYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverTrustedCaCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/trusted-ca-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -644,6 +674,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/recovery-config.yaml": v410KubeApiserverRecoveryConfigYaml,
 	"v4.1.0/kube-apiserver/recovery-pod.yaml":    v410KubeApiserverRecoveryPodYaml,
 	"v4.1.0/kube-apiserver/svc.yaml":             v410KubeApiserverSvcYaml,
+	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":   v410KubeApiserverTrustedCaCmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -698,6 +729,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"recovery-config.yaml": {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
 			"recovery-pod.yaml":    {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
 			"svc.yaml":             {v410KubeApiserverSvcYaml, map[string]*bintree{}},
+			"trusted-ca-cm.yaml":   {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
