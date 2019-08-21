@@ -1,12 +1,15 @@
 package encryption
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -14,6 +17,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/pager"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
@@ -164,15 +168,25 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {
 	// TODO version hack
 	d := c.dynamicClient.Resource(gr.WithVersion("v1"))
-	allResource, err := d.List(metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
+
 	var errs []error
-	for _, obj := range allResource.Items { // TODO parallelize for-loop
-		_, updateErr := d.Namespace(obj.GetNamespace()).Update(&obj, metav1.UpdateOptions{})
-		errs = append(errs, updateErr)
-	}
+
+	listPager := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
+		allResource, err := d.List(opts)
+		if err != nil {
+			return nil, err // TODO this can wedge on resource expired errors with large overall list
+		}
+		for _, obj := range allResource.Items { // TODO parallelize for-loop
+			_, updateErr := d.Namespace(obj.GetNamespace()).Update(&obj, metav1.UpdateOptions{})
+			errs = append(errs, updateErr)
+		}
+		return &unstructured.UnstructuredList{}, nil // do not accumulate list, this fakes the visitor pattern
+	}))
+
+	listPager.FullListIfExpired = false // prevent memory explosion from full list
+	_, listErr := listPager.List(context.TODO(), metav1.ListOptions{})
+	errs = append(errs, listErr)
+
 	return utilerrors.FilterOut(utilerrors.NewAggregate(errs), errors.IsNotFound, errors.IsConflict)
 }
 
