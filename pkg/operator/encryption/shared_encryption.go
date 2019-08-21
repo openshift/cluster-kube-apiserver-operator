@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -21,6 +21,7 @@ import (
 	apiserverconfig "k8s.io/apiserver/pkg/apis/config"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -41,6 +42,7 @@ const (
 // annotations used to mark the current state of the secret
 const (
 	encryptionSecretMigratedTimestamp = "encryption.operator.openshift.io/migrated-timestamp"
+	encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?
 	// encryptionSecretMigrationJob       = "encryption.operator.openshift.io/migration-job"
 
 	encryptionSecretReadTimestamp  = "encryption.operator.openshift.io/read-timestamp"
@@ -91,18 +93,28 @@ type desiredKeys struct {
 	readKeys    []apiserverconfigv1.Key
 }
 
-func getEncryptionState(encryptionSecrets []*corev1.Secret, validGRs map[schema.GroupResource]bool) groupResourcesState {
+func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
+	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
+	if err != nil {
+		return nil, err
+	}
+	encryptionSecrets := encryptionSecretList.Items
+
 	// make sure we order to get the correct desired write key, see comment at top
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
-		a, _ := secretToKeyID(encryptionSecrets[i])
-		b, _ := secretToKeyID(encryptionSecrets[j])
+		a, _ := secretToKeyID(&encryptionSecrets[i])
+		b, _ := secretToKeyID(&encryptionSecrets[j])
 		return a < b
 	})
 
 	encryptionState := groupResourcesState{}
 
-	for _, encryptionSecret := range encryptionSecrets {
-		gr, key, _, ok := secretToKey(encryptionSecret, validGRs)
+	for _, secret := range encryptionSecrets {
+		// TODO clean this up
+		secret := secret
+		encryptionSecret := &secret
+
+		gr, key, _, ok := secretToKey(encryptionSecret, encryptedGRs)
 		if !ok {
 			klog.Infof("skipping encryption secret %s as it has invalid data", encryptionSecret.Name)
 			continue
@@ -132,7 +144,7 @@ func getEncryptionState(encryptionSecrets []*corev1.Secret, validGRs map[schema.
 		encryptionState[gr] = grState
 	}
 
-	return encryptionState
+	return encryptionState, nil
 }
 
 func appendSecretPerAnnotationState(in, out *[]*corev1.Secret, secret *corev1.Secret, annotation string) {
@@ -273,18 +285,6 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOpe
 	return management.IsOperatorManaged(operatorSpec.ManagementState), nil
 }
 
-func labelSelectorOrDie(label string) labels.Selector {
-	labelSelector, err := metav1.ParseToLabelSelector(label)
-	if err != nil {
-		panic(err) // coding error
-	}
-	componentSelector, err := metav1.LabelSelectorAsSelector(labelSelector)
-	if err != nil {
-		panic(err) // coding error
-	}
-	return componentSelector
-}
-
 func getAPIServerRevision(podClient corev1client.PodInterface) (string, error) {
 	// do a live list so we never get confused about what revision we are on
 	apiServerPods, err := podClient.List(metav1.ListOptions{LabelSelector: "apiserver=true"})
@@ -392,4 +392,40 @@ func setSecretAnnotation(secretClient corev1client.SecretsGetter, recorder event
 
 	_, _, updateErr := resourceapply.ApplySecret(secretClient, recorder, secret)
 	return updateErr // let conflict errors cause a retry
+}
+
+func setUpGlobalMachineConfigEncryptionInformers(
+	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
+	eventHandler cache.ResourceEventHandler,
+) []cache.InformerSynced {
+	operatorInformer := operatorClient.Informer()
+	operatorInformer.AddEventHandler(eventHandler)
+
+	secretsInformer := kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer()
+	secretsInformer.AddEventHandler(eventHandler)
+
+	return []cache.InformerSynced{
+		operatorInformer.HasSynced,
+		secretsInformer.HasSynced,
+	}
+}
+
+func setUpAllEncryptionInformers(
+	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	targetNamespace string,
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
+	eventHandler cache.ResourceEventHandler,
+) []cache.InformerSynced {
+	podInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer()
+	podInformer.AddEventHandler(eventHandler)
+
+	secretsInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer()
+	secretsInformer.AddEventHandler(eventHandler)
+
+	return append([]cache.InformerSynced{
+		podInformer.HasSynced,
+		secretsInformer.HasSynced,
+	},
+		setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, eventHandler)...)
 }

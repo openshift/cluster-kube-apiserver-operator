@@ -5,14 +5,12 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -29,15 +27,15 @@ type encryptionPruneController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 
 	queue         workqueue.RateLimitingInterface
-	eventRecorder events.Recorder // TODO this is currently not used
+	eventRecorder events.Recorder
 
 	preRunCachesSynced []cache.InformerSynced
 
-	validGRs map[schema.GroupResource]bool
+	encryptedGRs map[schema.GroupResource]bool
 
-	componentSelector labels.Selector
+	targetNamespace          string
+	encryptionSecretSelector metav1.ListOptions
 
-	secretLister corev1listers.SecretNamespaceLister
 	secretClient corev1client.SecretInterface
 }
 
@@ -45,32 +43,25 @@ func newEncryptionPruneController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	secretClient corev1client.SecretsGetter,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	validGRs map[schema.GroupResource]bool,
+	encryptedGRs map[schema.GroupResource]bool,
 ) *encryptionPruneController {
 	c := &encryptionPruneController{
 		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder.WithComponentSuffix("encryption-prune-controller"),
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPruneController"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPruneController"),
+		eventRecorder: eventRecorder.WithComponentSuffix("encryption-prune-controller"), // TODO unused
 
-		preRunCachesSynced: []cache.InformerSynced{
-			operatorClient.Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().HasSynced,
-		},
+		encryptedGRs:    encryptedGRs,
+		targetNamespace: targetNamespace,
 
-		validGRs: validGRs,
+		encryptionSecretSelector: encryptionSecretSelector,
+		secretClient:             secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 	}
 
-	c.componentSelector = labelSelectorOrDie(encryptionSecretComponent + "=" + targetNamespace)
-
-	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-
-	c.secretLister = kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).
-		Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
-	c.secretClient = kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
+	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -103,12 +94,10 @@ func (c *encryptionPruneController) sync() error {
 }
 
 func (c *encryptionPruneController) handleEncryptionPrune() error {
-	encryptionSecrets, err := c.secretLister.List(c.componentSelector)
+	encryptionState, err := getEncryptionState(c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-
-	encryptionState := getEncryptionState(encryptionSecrets, c.validGRs)
 
 	var deleteErrs []error
 	for _, grKeys := range encryptionState {

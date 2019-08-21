@@ -6,14 +6,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -35,14 +33,11 @@ type encryptionStateController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	validGRs map[schema.GroupResource]bool
+	encryptedGRs map[schema.GroupResource]bool
 
-	targetNamespace   string
-	destName          string
-	componentSelector labels.Selector
+	destName                 string
+	encryptionSecretSelector metav1.ListOptions
 
-	// TODO fix and combine
-	secretLister corev1listers.SecretLister
 	secretClient corev1client.SecretsGetter
 
 	podClient corev1client.PodInterface
@@ -53,39 +48,26 @@ func newEncryptionStateController(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
-	podClient corev1client.PodsGetter,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	validGRs map[schema.GroupResource]bool,
+	encryptedGRs map[schema.GroupResource]bool,
+	podClient corev1client.PodInterface,
 ) *encryptionStateController {
 	c := &encryptionStateController{
 		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
+		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		preRunCachesSynced: []cache.InformerSynced{
-			operatorClient.Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer().HasSynced,
-		},
+		encryptedGRs: encryptedGRs,
+		destName:     destName,
 
-		validGRs: validGRs,
-
-		targetNamespace: targetNamespace,
-		destName:        destName,
+		encryptionSecretSelector: encryptionSecretSelector,
+		secretClient:             secretClient,
+		podClient:                podClient,
 	}
 
-	c.componentSelector = labelSelectorOrDie(encryptionSecretComponent + "=" + targetNamespace)
-
-	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
-
-	c.secretLister = kubeInformersForNamespaces.InformersFor("").Core().V1().Secrets().Lister()
-	c.secretClient = secretClient
-	c.podClient = podClient.Pods(targetNamespace)
+	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -122,12 +104,10 @@ func (c *encryptionStateController) handleEncryptionStateConfig() error {
 		return err
 	}
 
-	encryptionSecrets, err := c.secretLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.componentSelector)
+	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-
-	encryptionState := getEncryptionState(encryptionSecrets, c.validGRs)
 
 	resourceConfigs := getResourceConfigs(encryptionState)
 

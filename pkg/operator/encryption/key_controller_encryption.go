@@ -8,14 +8,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -36,12 +33,11 @@ type encryptionKeyController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	validGRs map[schema.GroupResource]bool
+	encryptedGRs map[schema.GroupResource]bool
 
-	componentName     string
-	componentSelector labels.Selector
+	targetNamespace          string
+	encryptionSecretSelector metav1.ListOptions
 
-	secretLister corev1listers.SecretNamespaceLister
 	secretClient corev1client.SecretInterface
 }
 
@@ -49,34 +45,25 @@ func newEncryptionKeyController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	secretClient corev1client.SecretsGetter,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	validGRs map[schema.GroupResource]bool,
+	encryptedGRs map[schema.GroupResource]bool,
 ) *encryptionKeyController {
 	c := &encryptionKeyController{
 		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
+		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
 
-		preRunCachesSynced: []cache.InformerSynced{
-			operatorClient.Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().HasSynced,
-		},
+		encryptedGRs:    encryptedGRs,
+		targetNamespace: targetNamespace,
 
-		validGRs: validGRs,
-
-		componentName: targetNamespace,
+		encryptionSecretSelector: encryptionSecretSelector,
+		secretClient:             secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 	}
 
-	c.componentSelector = labelSelectorOrDie(encryptionSecretComponent + "=" + targetNamespace)
-
-	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-
-	c.secretLister = kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).
-		Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
-	c.secretClient = kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
+	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -86,7 +73,7 @@ func (c *encryptionKeyController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.handleEncryptionKey()
+	configError := c.checkAndCreateKeys()
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -105,16 +92,14 @@ func (c *encryptionKeyController) sync() error {
 	return configError
 }
 
-func (c *encryptionKeyController) handleEncryptionKey() error {
-	encryptionSecrets, err := c.secretLister.List(c.componentSelector)
+func (c *encryptionKeyController) checkAndCreateKeys() error {
+	encryptionState, err := getEncryptionState(c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
 
-	encryptionState := getEncryptionState(encryptionSecrets, c.validGRs)
-
 	// make sure we look for all resources that we are managing
-	for gr := range c.validGRs {
+	for gr := range c.encryptedGRs {
 		if _, ok := encryptionState[gr]; !ok {
 			encryptionState[gr] = keysState{}
 		}
@@ -131,10 +116,11 @@ func (c *encryptionKeyController) handleEncryptionKey() error {
 		keySecret := c.generateKeySecret(gr, nextKeyID)
 		_, createErr := c.secretClient.Create(keySecret)
 		if errors.IsAlreadyExists(createErr) {
+			// TODO maybe drop all of this Get logic
 			actualKeySecret, getErr := c.secretClient.Get(keySecret.Name, metav1.GetOptions{})
 			errs = append(errs, getErr)
 			if getErr == nil {
-				keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.validGRs)
+				keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.encryptedGRs)
 				if valid := keyGR == gr && actualKeyID == nextKeyID && validKey; valid {
 					continue // we made this key earlier
 				}
@@ -149,12 +135,17 @@ func (c *encryptionKeyController) handleEncryptionKey() error {
 }
 
 func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64) *corev1.Secret {
+	group := gr.Group
+	if len(group) == 0 {
+		group = "core" // TODO may make more sense to do gr.String()
+	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("encryption-%s-%s-%s-%d", c.componentName, gr.Group, gr.Resource, keyID),
+			// this ends up looking like kube-apiserver-core-secrets-encryption-3
+			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", c.targetNamespace, group, gr.Resource, keyID),
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Labels: map[string]string{
-				encryptionSecretComponent: c.componentName,
+				encryptionSecretComponent: c.targetNamespace,
 
 				encryptionSecretGroup:    gr.Group,
 				encryptionSecretResource: gr.Resource,
@@ -185,7 +176,7 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 		return keyID, true // eh?
 	}
 
-	return keyID, time.Now().After(migrationTimestamp.Add(30 * time.Minute)) // TODO how often?
+	return keyID, time.Now().After(migrationTimestamp.Add(encryptionSecretMigrationInterval))
 }
 
 func newAES256Key() []byte {

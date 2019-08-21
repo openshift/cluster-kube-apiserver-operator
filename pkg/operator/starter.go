@@ -86,8 +86,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorClient,
 		kubeInformersForNamespaces,
 		kubeClient,
-		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		kubeClient.CoreV1(),
 		ctx.EventRecorder,
 		resourceSyncController,
 		dynamicClient,

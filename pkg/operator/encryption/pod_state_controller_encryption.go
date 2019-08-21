@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
@@ -31,13 +30,11 @@ type encryptionPodStateController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	validGRs map[schema.GroupResource]bool
+	encryptedGRs map[schema.GroupResource]bool
 
-	targetNamespace   string
-	componentSelector labels.Selector
+	targetNamespace          string
+	encryptionSecretSelector metav1.ListOptions
 
-	// TODO fix and combine
-	secretLister corev1listers.SecretLister
 	secretClient corev1client.SecretsGetter
 
 	podClient corev1client.PodInterface
@@ -48,38 +45,26 @@ func newEncryptionPodStateController(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
-	podClient corev1client.PodsGetter,
+	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	validGRs map[schema.GroupResource]bool,
+	encryptedGRs map[schema.GroupResource]bool,
+	podClient corev1client.PodInterface,
 ) *encryptionPodStateController {
 	c := &encryptionPodStateController{
 		operatorClient: operatorClient,
-		eventRecorder:  eventRecorder.WithComponentSuffix("encryption-pod-state-controller"),
 
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPodStateController"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPodStateController"),
+		eventRecorder: eventRecorder.WithComponentSuffix("encryption-pod-state-controller"),
 
-		preRunCachesSynced: []cache.InformerSynced{
-			operatorClient.Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer().HasSynced,
-			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer().HasSynced,
-		},
-
-		validGRs: validGRs,
-
+		encryptedGRs:    encryptedGRs,
 		targetNamespace: targetNamespace,
+
+		encryptionSecretSelector: encryptionSecretSelector,
+		secretClient:             secretClient,
+		podClient:                podClient,
 	}
 
-	c.componentSelector = labelSelectorOrDie(encryptionSecretComponent + "=" + targetNamespace)
-
-	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
-
-	c.secretLister = kubeInformersForNamespaces.InformersFor("").Core().V1().Secrets().Lister()
-	c.secretClient = secretClient
-	c.podClient = podClient.Pods(targetNamespace)
+	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -135,12 +120,10 @@ func (c *encryptionPodStateController) handleEncryptionPodState() (error, bool) 
 		return err, false
 	}
 
-	encryptionSecrets, err := c.secretLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.componentSelector)
+	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err, false
 	}
-
-	encryptionState := getEncryptionState(encryptionSecrets, c.validGRs)
 
 	// now we can attempt to annotate based on current pod state
 	var errs []error

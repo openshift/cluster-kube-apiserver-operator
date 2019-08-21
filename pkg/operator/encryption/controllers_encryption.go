@@ -1,14 +1,15 @@
 package encryption
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -21,13 +22,15 @@ func NewEncryptionControllers(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
-	secretClient corev1client.SecretsGetter,
-	podClient corev1client.PodsGetter,
 	eventRecorder events.Recorder,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	dynamicClient dynamic.Interface, // temporary hack for in-process storage migration
 	groupResources ...schema.GroupResource,
 ) (*EncryptionControllers, error) {
+	secretClient := v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces)
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionSecretComponent + "=" + targetNamespace}
+	podClient := kubeClient.CoreV1().Pods(targetNamespace)
+
 	if err := resourceSyncer.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionConfSecret},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: destName},
@@ -35,9 +38,9 @@ func NewEncryptionControllers(
 		return nil, err
 	}
 
-	validGRs := map[schema.GroupResource]bool{}
+	encryptedGRs := map[schema.GroupResource]bool{}
 	for _, gr := range groupResources {
-		validGRs[gr] = true
+		encryptedGRs[gr] = true
 	}
 
 	return &EncryptionControllers{
@@ -46,9 +49,10 @@ func NewEncryptionControllers(
 				targetNamespace,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient,
+				secretClient,
+				encryptionSecretSelector,
 				eventRecorder,
-				validGRs,
+				encryptedGRs,
 			),
 			newEncryptionStateController(
 				targetNamespace,
@@ -56,26 +60,29 @@ func NewEncryptionControllers(
 				operatorClient,
 				kubeInformersForNamespaces,
 				secretClient,
-				podClient,
+				encryptionSecretSelector,
 				eventRecorder,
-				validGRs,
+				encryptedGRs,
+				podClient,
 			),
 			newEncryptionPruneController(
 				targetNamespace,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient,
+				secretClient,
+				encryptionSecretSelector,
 				eventRecorder,
-				validGRs,
+				encryptedGRs,
 			),
 			newEncryptionMigrationController(
 				targetNamespace,
 				operatorClient,
 				kubeInformersForNamespaces,
 				secretClient,
-				podClient,
+				encryptionSecretSelector,
 				eventRecorder,
-				validGRs,
+				encryptedGRs,
+				podClient,
 				dynamicClient,
 			),
 			newEncryptionPodStateController(
@@ -83,9 +90,10 @@ func NewEncryptionControllers(
 				operatorClient,
 				kubeInformersForNamespaces,
 				secretClient,
-				podClient,
+				encryptionSecretSelector,
 				eventRecorder,
-				validGRs,
+				encryptedGRs,
+				podClient,
 			),
 		},
 	}, nil
