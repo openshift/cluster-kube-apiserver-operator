@@ -93,9 +93,9 @@ func (c *encryptionPodStateController) sync() error {
 		Status: operatorv1.ConditionFalse,
 	}
 	if configError == nil && isProgressing { // TODO need to think this logic through
-		degraded.Status = operatorv1.ConditionTrue
-		degraded.Reason = "PodStateNotConverged"
-		degraded.Message = "" // TODO
+		progressing.Status = operatorv1.ConditionTrue
+		progressing.Reason = "PodStateNotConverged"
+		progressing.Message = "" // TODO
 	}
 
 	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient,

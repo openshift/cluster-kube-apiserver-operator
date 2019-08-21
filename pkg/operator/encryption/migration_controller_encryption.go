@@ -104,9 +104,9 @@ func (c *encryptionMigrationController) sync() error {
 		Status: operatorv1.ConditionFalse,
 	}
 	if configError == nil && isProgressing { // TODO need to think this logic through
-		degraded.Status = operatorv1.ConditionTrue
-		degraded.Reason = "StorageMigration"
-		degraded.Message = "" // TODO maybe put job information
+		progressing.Status = operatorv1.ConditionTrue
+		progressing.Reason = "StorageMigration"
+		progressing.Message = "" // TODO maybe put job information
 	}
 
 	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient,
