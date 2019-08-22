@@ -19,10 +19,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-const (
-	encryptionSecretKeyDataForTest = "encryption.operator.openshift.io-key"
-)
-
 func TestEncryptionKeyController(t *testing.T) {
 	scenarios := []struct {
 		name                     string
@@ -30,7 +26,9 @@ func TestEncryptionKeyController(t *testing.T) {
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
-		validateFunc             func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
+		// expectedActions holds actions to be verified in the form of "verb:resource"
+		expectedActions []string
+		validateFunc    func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
 	}{
 		// scenario 1: assumes a clean slate, that is, there are no previous resources in the system.
 		// It expects that a secret resource with an appropriate key, name and labels will be created.
@@ -40,20 +38,19 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets", "create:secrets"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
 				var targetGR schema.GroupResource
 				for targetGR = range targetGRs {
 					break
-				}
-				if len(actions) != 2 {
-					ts.Fatalf("expected to get 2 actions but got %d", len(actions))
 				}
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
-						expectedSecret := createSecretFor(targetNamespace, targetGR, 1, actualSecret)
+						expectedSecret := createSecretBuilder(targetNamespace, targetGR, 1).
+							withEncryptionKeyFrom(actualSecret).toCoreV1Secret()
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}
@@ -110,35 +107,13 @@ func TestEncryptionKeyController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+				t.Fatalf("incorrect action(s) detected: %v", err)
+			}
 			if scenario.validateFunc != nil {
 				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.targetNamespace, scenario.targetGRs)
 			}
 		})
-	}
-}
-
-func createSecretFor(targetNS string, gr schema.GroupResource, keyID uint64, actualSecret *corev1.Secret) *corev1.Secret {
-	group := gr.Group
-	if len(group) == 0 {
-		group = "core"
-	}
-
-	data := map[string][]byte{}
-	if rawKey, exist := actualSecret.Data[encryptionSecretKeyDataForTest]; exist {
-		data[encryptionSecretKeyDataForTest] = rawKey
-	}
-
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
-			Namespace: "openshift-config-managed",
-			Labels: map[string]string{
-				"encryption.operator.openshift.io/component": targetNS,
-				"encryption.operator.openshift.io/group":     gr.Group,
-				"encryption.operator.openshift.io/resource":  gr.Resource,
-			},
-		},
-		Data: data,
 	}
 }
 

@@ -1,12 +1,16 @@
 package encryption
 
 import (
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/diff"
+	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -21,11 +25,14 @@ func TestEncryptionStateController(t *testing.T) {
 		initialResources         []runtime.Object
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
+		targetGRs                map[schema.GroupResource]bool
+		// expectedActions holds actions to be verified in the form of "verb:resource"
+		expectedActions []string
 		// destName denotes the name of the secret that contains EncryptionConfiguration
 		// this field is required to create the controller
-		destName     string
-		targetGRs    map[schema.GroupResource]bool
-		validateFunc func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
+		destName              string
+		expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration
+		validateFunc          func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
 	}{
 		// scenario 1: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace
 		// was not created when no secrets with encryption keys are present in that namespace.
@@ -39,14 +46,42 @@ func TestEncryptionStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
-				if len(actions) != 2 {
-					ts.Fatalf("expected to get 2 actions but got %d", len(actions))
-				}
+			expectedActions: []string{"list:pods", "list:secrets"},
+		},
+
+		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
+		// it also checks the content and the order of encryption providers, this test expects identity first and aescbc second
+		{
+			name:                     "secret with EncryptionConfig is created and it contains a read only key",
+			targetNamespace:          "kms",
+			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.operator.openshift.io/component=kms"},
+			destName:                 "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createSecretBuilder("kms", schema.GroupResource{"", "secrets"}, 1).
+					withEncryptionKey([]byte("61def964fb967f5d7c44a2af8dab6865")).toCoreV1Secret(),
+			},
+			expectedActions:       []string{"list:pods", "list:secrets", "get:secrets", "create:secrets", "create:events"},
+			expectedEncryptionCfg: createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
-						t.Fatalf("unexpecte acction was created %v", action)
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
 					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
 				}
 			},
 		},
@@ -102,30 +137,61 @@ func TestEncryptionStateController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+				t.Fatalf("incorrect action(s) detected: %v", err)
+			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.targetNamespace, scenario.targetGRs)
+				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.destName, scenario.expectedEncryptionCfg)
 			}
 		})
 	}
-
 }
 
-func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
-	return &corev1.Pod{
+func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration, expectedSecretName string) error {
+	actualEncryptionCfg, err := secretDataToEncryptionConfig(actualSecret)
+	if err != nil {
+		return fmt.Errorf("failed to verfy the encryption config, due to %v", err)
+	}
+
+	if !equality.Semantic.DeepEqual(actualEncryptionCfg, expectedEncryptionCfg) {
+		return fmt.Errorf("%s", diff.ObjectDiff(actualEncryptionCfg, expectedEncryptionCfg))
+	}
+
+	// rewrite the payload and compare the rest
+	expectedSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"apiserver": "true",
-				"revision":  "1",
-			},
+			Name:      expectedSecretName,
+			Namespace: "openshift-config-managed",
 		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
-			Conditions: []corev1.PodCondition{
-				corev1.PodCondition{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
+		Data: actualSecret.Data,
+	}
+	if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+		return fmt.Errorf("%s", diff.ObjectDiff(actualSecret, expectedSecret))
+	}
+
+	return nil
+}
+
+func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
+	return &apiserverconfigv1.EncryptionConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "EncryptionConfiguration",
+			APIVersion: "apiserver.config.k8s.io/v1",
+		},
+		Resources: []apiserverconfigv1.ResourceConfiguration{
+			apiserverconfigv1.ResourceConfiguration{
+				Resources: resources,
+				Providers: []apiserverconfigv1.ProviderConfiguration{
+					apiserverconfigv1.ProviderConfiguration{
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					},
+					apiserverconfigv1.ProviderConfiguration{
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{
+								apiserverconfigv1.Key{Name: keyID, Secret: keyBase64},
+							},
+						},
+					},
 				},
 			},
 		},
