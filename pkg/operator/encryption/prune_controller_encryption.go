@@ -23,6 +23,12 @@ import (
 
 const pruneWorkKey = "key"
 
+// encryptionPruneController prevents an unbounded growth of old encryption keys.
+// For a given resource, if there are more than ten keys which have been migrated,
+// this controller will delete the oldest migrated keys until there are ten migrated
+// keys total.  These keys are safe to delete since no data in etcd is encrypted using
+// them.  Keeping a small number of old keys around is meant to help facilitate
+// decryption of old backups (and general precaution).
 type encryptionPruneController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 
