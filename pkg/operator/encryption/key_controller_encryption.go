@@ -25,6 +25,24 @@ import (
 
 const encWorkKey = "key"
 
+// encryptionKeyController watches secrets in openshift-config-managed
+// to determine if a new AES-256 bit encryption key should be created.
+// It finds the secrets that contain the keys using the encryptionSecretSelector.
+// There are distinct keys for each resource that is encrypted per encryptedGRs.
+// Thus the key rotation of all encrypted resources is independent of other resources.
+// The criteria for a making a new key is as follows:
+//   1. There are no unmigrated keys (see encryptionMigrationController).
+//   2. If all existing keys are migrated, determine when the last migration completed.
+//   3. If the current time is after last migration + encryptionSecretMigrationInterval,
+//      create a new key.  Thus the speed of migration serves as back pressure.
+// A key is always created when no other keys exist.
+// Each key contains the following data:
+//   1. A key ID.  This is a monotonically increasing integer that is used to order keys.
+//   2. The component which will consume the key (generally the namespace of said component).
+//   3. The group and resource that the key will be used to encrypt.
+//   4. The AES-256 bit encryption key itself.
+// Note that keys live in openshift-config-managed because deleting them is
+// catastrophic to the cluster - this namespace is immortal and cannot be deleted.
 type encryptionKeyController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 
