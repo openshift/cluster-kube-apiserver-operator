@@ -15,6 +15,7 @@ spec:
   - name: kube-apiserver
     image: {{ .Image }}
     imagePullPolicy: {{ .ImagePullPolicy }}
+    terminationMessagePolicy: FallbackToLogsOnError
     command: ["hyperkube", "kube-apiserver"]
     args:
     - --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
