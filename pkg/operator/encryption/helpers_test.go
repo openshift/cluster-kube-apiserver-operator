@@ -14,49 +14,43 @@ import (
 )
 
 const (
-	encryptionSecretKeyDataForTest = "encryption.operator.openshift.io-key"
+	encryptionSecretKeyDataForTest       = "encryption.operator.openshift.io-key"
+	encryptionConfSecretForTest          = "encryption-config"
+	encryptionSecretReadTimestampForTest = "encryption.operator.openshift.io/read-timestamp"
 )
 
-type secretBuilder struct {
-	secret *corev1.Secret
-}
-
-func (sb *secretBuilder) toCoreV1Secret() *corev1.Secret {
-	return sb.secret
-}
-
-func (sb *secretBuilder) withEncryptionKey(key []byte) *secretBuilder {
-	sb.secret.Data[encryptionSecretKeyDataForTest] = key
-	return sb
-}
-
-func (sb *secretBuilder) withEncryptionKeyFrom(secret *corev1.Secret) *secretBuilder {
-	if rawKey, exist := secret.Data[encryptionSecretKeyDataForTest]; exist {
-		sb.secret.Data[encryptionSecretKeyDataForTest] = rawKey
-	}
-	return sb
-}
-
-func createSecretBuilder(targetNS string, gr schema.GroupResource, keyID uint64) *secretBuilder {
+func createEncryptionKeySecretNoData(targetNS string, gr schema.GroupResource, keyID uint64) *corev1.Secret {
 	group := gr.Group
 	if len(group) == 0 {
 		group = "core"
 	}
 
-	return &secretBuilder{
-		secret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
-				Namespace: "openshift-config-managed",
-				Labels: map[string]string{
-					"encryption.operator.openshift.io/component": targetNS,
-					"encryption.operator.openshift.io/group":     gr.Group,
-					"encryption.operator.openshift.io/resource":  gr.Resource,
-				},
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
+			Namespace: "openshift-config-managed",
+			Labels: map[string]string{
+				"encryption.operator.openshift.io/component": targetNS,
+				"encryption.operator.openshift.io/group":     gr.Group,
+				"encryption.operator.openshift.io/resource":  gr.Resource,
 			},
-			Data: map[string][]byte{},
 		},
+		Data: map[string][]byte{},
 	}
+}
+
+func createEncryptionKeySecretWithRawKey(targetNS string, gr schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
+	secret := createEncryptionKeySecretNoData(targetNS, gr, keyID)
+	secret.Data[encryptionSecretKeyDataForTest] = rawKey
+	return secret
+}
+
+func createEncryptionKeySecretWithKeyFromExistingSecret(targetNS string, gr schema.GroupResource, keyID uint64, existingSecret *corev1.Secret) *corev1.Secret {
+	secret := createEncryptionKeySecretNoData(targetNS, gr, keyID)
+	if rawKey, exist := existingSecret.Data[encryptionSecretKeyDataForTest]; exist {
+		secret.Data[encryptionSecretKeyDataForTest] = rawKey
+	}
+	return secret
 }
 
 func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
@@ -82,7 +76,7 @@ func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 }
 
 func secretDataToEncryptionConfig(secret *corev1.Secret) (*apiserverconfigv1.EncryptionConfiguration, error) {
-	rawEncryptionConfig, exist := secret.Data["encryption-config"]
+	rawEncryptionConfig, exist := secret.Data[encryptionConfSecretForTest]
 	if !exist {
 		return nil, errors.New("the secret doesn't contain an encryption configuration")
 	}
@@ -123,4 +117,30 @@ func validateActionsVerbs(actualActions []clientgotesting.Action, expectedAction
 		}
 	}
 	return nil
+}
+
+func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
+	return &apiserverconfigv1.EncryptionConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "EncryptionConfiguration",
+			APIVersion: "apiserver.config.k8s.io/v1",
+		},
+		Resources: []apiserverconfigv1.ResourceConfiguration{
+			apiserverconfigv1.ResourceConfiguration{
+				Resources: resources,
+				Providers: []apiserverconfigv1.ProviderConfiguration{
+					apiserverconfigv1.ProviderConfiguration{
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					},
+					apiserverconfigv1.ProviderConfiguration{
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{
+								apiserverconfigv1.Key{Name: keyID, Secret: keyBase64},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

@@ -19,10 +19,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestEncryptionStateController(t *testing.T) {
+func TestEncryptionPodStateController(t *testing.T) {
 	scenarios := []struct {
 		name                     string
 		initialResources         []runtime.Object
+		initialSecrets           []*corev1.Secret
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
@@ -32,12 +33,11 @@ func TestEncryptionStateController(t *testing.T) {
 		// this field is required to create the controller
 		destName              string
 		expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration
-		validateFunc          func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
+		validateFunc          func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret)
 	}{
-		// scenario 1: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace
-		// was not created when no secrets with encryption keys are present in that namespace.
+		// scenario 1: checks if the controller reads encryption-config secret with an EncryptionConfiguration and if it finds and marks containing secret key as a read only key
 		{
-			name:            "no secret with EncryptionConfig is created when there are no secrets with the encryption keys",
+			name:            "verifies if a secret with an encryption key is marked as observed as a read key",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
@@ -46,41 +46,35 @@ func TestEncryptionStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
-			expectedActions: []string{"list:pods", "list:secrets"},
-		},
-
-		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
-		// it also checks the content and the order of encryption providers, this test expects identity first and aescbc second
-		{
-			name:                     "secret with EncryptionConfig is created and it contains a read only key",
-			targetNamespace:          "kms",
-			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.operator.openshift.io/component=kms"},
-			destName:                 "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
-			},
-			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+			initialSecrets: []*corev1.Secret{
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createNoWriteKeyEncryptionCfgSecret(t, "kms", "1", "1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
 			},
-			expectedActions:       []string{"list:pods", "list:secrets", "get:secrets", "create:secrets", "create:events"},
-			expectedEncryptionCfg: createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+			expectedActions: []string{"list:pods", "get:secrets", "list:secrets", "get:secrets", "update:secrets", "create:events"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret) {
 				wasSecretValidated := false
 				for _, action := range actions {
-					if action.Matches("create", "secrets") {
-						createAction := action.(clientgotesting.CreateAction)
-						actualSecret := createAction.GetObject().(*corev1.Secret)
-						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
-						if err != nil {
-							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						actualSecret := updateAction.GetObject().(*corev1.Secret)
+
+						// this test assumes that the encryption key secret is annotated
+						// thus for simplicity, we rewrite the annotation and compare the rest
+						expectedSecret := initialSecrets[0]
+						if expectedSecret.Annotations == nil {
+							expectedSecret.Annotations = map[string]string{}
+						}
+						expectedSecret.Annotations[encryptionSecretReadTimestampForTest] = actualSecret.Annotations[encryptionSecretReadTimestampForTest]
+
+						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}
 						wasSecretValidated = true
 						break
 					}
 				}
 				if !wasSecretValidated {
-					ts.Errorf("the secret wasn't created and validated")
+					ts.Errorf("the secret wasn't updated and validated")
 				}
 			},
 		},
@@ -101,8 +95,12 @@ func TestEncryptionStateController(t *testing.T) {
 						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
 						Conditions: []operatorv1.OperatorCondition{
 							operatorv1.OperatorCondition{
-								Type:   "EncryptionStateControllerDegraded",
+								Type:   "EncryptionPodStateControllerDegraded",
 								Status: "False",
+							},
+							operatorv1.OperatorCondition{
+								Type:   "EncryptionPodStateControllerProgressing",
+								Status: operatorv1.ConditionFalse,
 							},
 						},
 					},
@@ -110,6 +108,9 @@ func TestEncryptionStateController(t *testing.T) {
 				nil,
 				nil,
 			)
+			for _, initialSecret := range scenario.initialSecrets {
+				scenario.initialResources = append(scenario.initialResources, initialSecret)
+			}
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialResources...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
@@ -118,8 +119,8 @@ func TestEncryptionStateController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1().Pods(scenario.targetNamespace)
 
-			target := newEncryptionStateController(
-				scenario.targetNamespace, scenario.destName,
+			target := newEncryptionPodStateController(
+				scenario.targetNamespace,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
@@ -140,33 +141,28 @@ func TestEncryptionStateController(t *testing.T) {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.destName, scenario.expectedEncryptionCfg)
+				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.initialSecrets)
 			}
 		})
 	}
 }
 
-func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration, expectedSecretName string) error {
-	actualEncryptionCfg, err := secretDataToEncryptionConfig(actualSecret)
+func createNoWriteKeyEncryptionCfgSecret(t *testing.T, targetNs, revision, keyID, keyBase64, keyResources string) *corev1.Secret {
+	t.Helper()
+
+	encryptionCfg := createEncryptionCfgNoWriteKey(keyID, keyBase64, keyResources)
+	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
-		return fmt.Errorf("failed to verfy the encryption config, due to %v", err)
+		t.Fatalf("unable to encode the encryption config, err = %v", err)
 	}
 
-	if !equality.Semantic.DeepEqual(actualEncryptionCfg, expectedEncryptionCfg) {
-		return fmt.Errorf("%s", diff.ObjectDiff(actualEncryptionCfg, expectedEncryptionCfg))
-	}
-
-	// rewrite the payload and compare the rest
-	expectedSecret := &corev1.Secret{
+	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      expectedSecretName,
-			Namespace: "openshift-config-managed",
+			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
+			Namespace: targetNs,
 		},
-		Data: actualSecret.Data,
+		Data: map[string][]byte{
+			encryptionConfSecretForTest: rawEncryptionCfg,
+		},
 	}
-	if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
-		return fmt.Errorf("%s", diff.ObjectDiff(actualSecret, expectedSecret))
-	}
-
-	return nil
 }

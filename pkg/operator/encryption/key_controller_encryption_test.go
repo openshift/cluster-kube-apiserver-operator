@@ -49,8 +49,7 @@ func TestEncryptionKeyController(t *testing.T) {
 					if action.Matches("create", "secrets") {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
-						expectedSecret := createSecretBuilder(targetNamespace, targetGR, 1).
-							withEncryptionKeyFrom(actualSecret).toCoreV1Secret()
+						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, targetGR, 1, actualSecret)
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}
