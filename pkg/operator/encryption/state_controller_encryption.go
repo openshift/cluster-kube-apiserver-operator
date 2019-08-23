@@ -25,6 +25,17 @@ import (
 
 const stateWorkKey = "key"
 
+// encryptionStateController is responsible for creating a single secret in
+// openshift-config-managed with the name destName.  This single secret
+// contains the complete EncryptionConfiguration that is consumed by the API
+// server that is performing the encryption.  Thus this secret represents
+// the current state of all resources in encryptedGRs.  Every encryption key
+// that matches encryptionSecretSelector is included in this final secret.
+// This secret is synced into targetNamespace at a static location.  This
+// indirection allows the cluster to recover from the deletion of targetNamespace.
+// See getResourceConfigs for details on how the raw state of all keys
+// is converted into a single encryption config.  The logic for determining
+// the current write key is of special interest.
 type encryptionStateController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 
