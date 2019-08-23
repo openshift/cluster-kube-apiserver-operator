@@ -29,6 +29,15 @@ import (
 
 const migrationWorkKey = "key"
 
+// encryptionMigrationController determines if the current write key for a given
+// resource needs migration.  It waits until all API servers have converged onto
+// a stable revision before making any checks.  It traces each write key back to
+// the containing secret.  If that secret is not marked as migrated, a storage
+// migration is run for the targeted resource.  A storage migration is simply a
+// set of no-op writes for all instances of the resource.  These writes cause the
+// API server to rewrite data using the latest encryption key.  If the migration
+// is successful, the secret is marked as migrated with an accompanying timestamp.
+// This controller effectively observes transitions from "write" to "migrated."
 type encryptionMigrationController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 
