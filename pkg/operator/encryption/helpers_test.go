@@ -100,20 +100,25 @@ func validateActionsVerbs(actualActions []clientgotesting.Action, expectedAction
 	for index, actualAction := range actualActions {
 		actualActionVerb := actualAction.GetVerb()
 		actualActionRes := actualAction.GetResource().Resource
+		actualActionNs := actualAction.GetNamespace()
 
 		expectedAction := expectedActions[index]
 		expectedActionVerRes := strings.Split(expectedAction, ":")
-		if len(expectedActionVerRes) != 2 {
-			return fmt.Errorf("cannot verify the action %q at position %d because it has an incorrect format, must be a tuple \"verb:resource\"", expectedAction, index)
+		if len(expectedActionVerRes) != 3 {
+			return fmt.Errorf("cannot verify the action %q at position %d because it has an incorrect format, must be a tuple \"verb:resource:namespace\"", expectedAction, index)
 		}
 		expectedActionVerb := expectedActionVerRes[0]
 		expectedActionRes := expectedActionVerRes[1]
+		expectedActionNs := expectedActionVerRes[2]
 
 		if actualActionVerb != expectedActionVerb {
 			return fmt.Errorf("expected %q verb at position %d but got %q, for %q action", expectedActionVerb, index, actualActionVerb, expectedAction)
 		}
 		if actualActionRes != expectedActionRes {
 			return fmt.Errorf("expected %q resource at position %d but got %q, for %q action", expectedActionRes, index, actualActionRes, expectedAction)
+		}
+		if actualActionNs != expectedActionNs {
+			return fmt.Errorf("expected %q namespace at position %d but got %q, for %q action", expectedActionNs, index, actualActionNs, expectedAction)
 		}
 	}
 	return nil

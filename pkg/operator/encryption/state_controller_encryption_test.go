@@ -26,7 +26,7 @@ func TestEncryptionStateController(t *testing.T) {
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
-		// expectedActions holds actions to be verified in the form of "verb:resource"
+		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions []string
 		// destName denotes the name of the secret that contains EncryptionConfiguration
 		// this field is required to create the controller
@@ -46,7 +46,7 @@ func TestEncryptionStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
-			expectedActions: []string{"list:pods", "list:secrets"},
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed"},
 		},
 
 		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
@@ -63,7 +63,7 @@ func TestEncryptionStateController(t *testing.T) {
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
-			expectedActions:       []string{"list:pods", "list:secrets", "get:secrets", "create:secrets", "create:events"},
+			expectedActions:       []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 			expectedEncryptionCfg: createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
@@ -111,7 +111,7 @@ func TestEncryptionStateController(t *testing.T) {
 				nil,
 			)
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialResources...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)

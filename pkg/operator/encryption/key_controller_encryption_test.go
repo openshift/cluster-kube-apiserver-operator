@@ -26,7 +26,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
-		// expectedActions holds actions to be verified in the form of "verb:resource"
+		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions []string
 		validateFunc    func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
 	}{
@@ -38,7 +38,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			targetNamespace: "kms",
-			expectedActions: []string{"list:secrets", "create:secrets"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
 				var targetGR schema.GroupResource
 				for targetGR = range targetGRs {
@@ -92,7 +92,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				nil,
 			)
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialSecrets...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("test"), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// we pass "openshift-config-managed" ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed")
