@@ -84,6 +84,7 @@ func NewEncryptionControllers(
 				encryptedGRs,
 				podClient,
 				dynamicClient,
+				kubeClient.Discovery(),
 			),
 			newEncryptionPodStateController(
 				targetNamespace,

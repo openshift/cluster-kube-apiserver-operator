@@ -14,6 +14,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -55,7 +56,8 @@ type encryptionMigrationController struct {
 
 	podClient corev1client.PodInterface
 
-	dynamicClient dynamic.Interface
+	dynamicClient   dynamic.Interface
+	discoveryClient discovery.ServerResourcesInterface
 }
 
 func newEncryptionMigrationController(
@@ -68,6 +70,7 @@ func newEncryptionMigrationController(
 	encryptedGRs map[schema.GroupResource]bool,
 	podClient corev1client.PodInterface,
 	dynamicClient dynamic.Interface, // temporary hack
+	discoveryClient discovery.ServerResourcesInterface,
 ) *encryptionMigrationController {
 	c := &encryptionMigrationController{
 		operatorClient: operatorClient,
@@ -82,6 +85,7 @@ func newEncryptionMigrationController(
 		secretClient:             secretClient,
 		podClient:                podClient,
 		dynamicClient:            dynamicClient,
+		discoveryClient:          discoveryClient,
 	}
 
 	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
@@ -179,8 +183,11 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {
-	// TODO version hack
-	d := c.dynamicClient.Resource(gr.WithVersion("v1"))
+	version, err := c.getVersion(gr)
+	if err != nil {
+		return err
+	}
+	d := c.dynamicClient.Resource(gr.WithVersion(version))
 
 	var errs []error
 
@@ -201,6 +208,24 @@ func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResou
 	errs = append(errs, listErr)
 
 	return utilerrors.FilterOut(utilerrors.NewAggregate(errs), errors.IsNotFound, errors.IsConflict)
+}
+
+func (c *encryptionMigrationController) getVersion(gr schema.GroupResource) (string, error) {
+	resourceLists, discoveryErr := c.discoveryClient.ServerPreferredResources() // safe to ignore error
+	for _, resourceList := range resourceLists {
+		for _, resource := range resourceList.APIResources {
+			if resource.Group == gr.Group && resource.Name == gr.Resource {
+				if len(resource.Version) > 0 {
+					return resource.Version, nil
+				}
+				groupVersion, err := schema.ParseGroupVersion(resourceList.GroupVersion)
+				if err == nil {
+					return groupVersion.Version, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to find version for %s, discoveryErr=%v", gr, discoveryErr)
 }
 
 func (c *encryptionMigrationController) run(stopCh <-chan struct{}) {
