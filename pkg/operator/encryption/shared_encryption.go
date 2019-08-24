@@ -85,6 +85,9 @@ type keysState struct {
 
 	secretsMigratedYes []*corev1.Secret
 	secretsMigratedNo  []*corev1.Secret
+
+	lastMigrated      *corev1.Secret
+	lastMigratedKeyID uint64
 }
 
 type desiredKeys struct {
@@ -114,7 +117,7 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		secret := secret
 		encryptionSecret := &secret
 
-		gr, key, _, ok := secretToKey(encryptionSecret, encryptedGRs)
+		gr, key, keyID, ok := secretToKey(encryptionSecret, encryptedGRs)
 		if !ok {
 			klog.Infof("skipping encryption secret %s as it has invalid data", encryptionSecret.Name)
 			continue
@@ -140,6 +143,11 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		appendSecretPerAnnotationState(&grState.secretsReadYes, &grState.secretsReadNo, encryptionSecret, encryptionSecretReadTimestamp)
 		appendSecretPerAnnotationState(&grState.secretsWriteYes, &grState.secretsWriteNo, encryptionSecret, encryptionSecretWriteTimestamp)
 		appendSecretPerAnnotationState(&grState.secretsMigratedYes, &grState.secretsMigratedNo, encryptionSecret, encryptionSecretMigratedTimestamp)
+
+		if len(encryptionSecret.Annotations[encryptionSecretMigratedTimestamp]) > 0 {
+			grState.lastMigrated = encryptionSecret
+			grState.lastMigratedKeyID = keyID
+		}
 
 		encryptionState[gr] = grState
 	}

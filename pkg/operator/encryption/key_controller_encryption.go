@@ -181,25 +181,28 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 }
 
 func needsNewKey(grKeys keysState) (uint64, bool) {
+	// unmigrated secrets create back pressure against new key generation
 	if len(grKeys.secretsMigratedNo) > 0 {
 		return 0, false
 	}
 
+	// we always need to have some encryption keys
 	if len(grKeys.secrets) == 0 {
 		return 0, true
 	}
 
-	// TODO clean up logic to get this
-	lastMigrated := grKeys.secretsMigratedYes[len(grKeys.secretsMigratedYes)-1]
-	keyID, _ := secretToKeyID(lastMigrated) // TODO maybe store this
-
-	migrationTimestampStr := lastMigrated.Annotations[encryptionSecretMigratedTimestamp]
-	migrationTimestamp, err := time.Parse(time.RFC3339, migrationTimestampStr)
+	// if there no unmigrated secrets but there are some secrets, then we must have migrated secrets
+	// thus this field will always be set at this point
+	migrationTimestamp, err := time.Parse(time.RFC3339, grKeys.lastMigrated.Annotations[encryptionSecretMigratedTimestamp])
 	if err != nil {
-		return keyID, true // eh?
+		klog.Infof("failed to parse migration timestamp for %s, forcing new key: %v", grKeys.lastMigrated.Name, err)
+		return grKeys.lastMigratedKeyID, true
 	}
 
-	return keyID, time.Now().After(migrationTimestamp.Add(encryptionSecretMigrationInterval))
+	// TODO add a check against grKeys.lastMigrated.Annotations[encryptionSecretMode]
+	// if the last migrated secret was encrypted in a mode different than the current default, we need to generate a new key
+
+	return grKeys.lastMigratedKeyID, time.Now().After(migrationTimestamp.Add(encryptionSecretMigrationInterval))
 }
 
 func newAES256Key() []byte {
