@@ -110,7 +110,7 @@ func (c *encryptionStateController) sync() error {
 func (c *encryptionStateController) handleEncryptionStateConfig() error {
 	// do not cause new revisions while old ones are rolling out
 	// TODO but does this even matter?
-	revision, err := getAPIServerRevision(c.podClient)
+	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
 	if err != nil || len(revision) == 0 {
 		return err
 	}
