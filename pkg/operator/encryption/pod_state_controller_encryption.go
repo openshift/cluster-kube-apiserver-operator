@@ -111,6 +111,10 @@ func (c *encryptionPodStateController) sync() error {
 		return updateError
 	}
 
+	if isProgressing && configError == nil {
+		c.queue.AddAfter(podStateKey, 2*time.Minute)
+	}
+
 	return configError
 }
 

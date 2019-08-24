@@ -111,7 +111,11 @@ func (c *encryptionStateController) handleEncryptionStateConfig() error {
 	// do not cause new revisions while old ones are rolling out
 	// TODO but does this even matter?
 	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
-	if err != nil || len(revision) == 0 {
+	if len(revision) == 0 && err == nil {
+		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 

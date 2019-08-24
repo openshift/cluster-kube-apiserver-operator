@@ -125,6 +125,10 @@ func (c *encryptionMigrationController) sync() error {
 		return updateError
 	}
 
+	if isProgressing && configError == nil {
+		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
+	}
+
 	return configError
 }
 
