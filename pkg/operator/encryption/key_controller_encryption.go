@@ -134,22 +134,27 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 		keySecret := c.generateKeySecret(gr, nextKeyID)
 		_, createErr := c.secretClient.Create(keySecret)
 		if errors.IsAlreadyExists(createErr) {
-			// TODO maybe drop all of this Get logic
-			actualKeySecret, getErr := c.secretClient.Get(keySecret.Name, metav1.GetOptions{})
-			errs = append(errs, getErr)
-			if getErr == nil {
-				keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.encryptedGRs)
-				if valid := keyGR == gr && actualKeyID == nextKeyID && validKey; valid {
-					continue // we made this key earlier
-				}
-				// TODO we can just get stuck in degraded here ...
-				errs = append(errs, fmt.Errorf("%s secret %s is in invalid state, new keys cannot be created", gr, keySecret.Name))
-			}
+			errs = append(errs, c.validateExistingKey(keySecret, gr, nextKeyID))
+			continue
 		}
 		errs = append(errs, createErr)
 	}
-	// we do not filter using IsAlreadyExists as the remaining ones are actual errors
-	return utilerrors.FilterOut(utilerrors.NewAggregate(errs), errors.IsNotFound)
+	return utilerrors.NewAggregate(errs)
+}
+
+func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, gr schema.GroupResource, keyID uint64) error {
+	actualKeySecret, err := c.secretClient.Get(keySecret.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.encryptedGRs)
+	if valid := keyGR == gr && actualKeyID == keyID && validKey; !valid {
+		// TODO we can just get stuck in degraded here ...
+		return fmt.Errorf("%s secret %s is in invalid state, new keys cannot be created", gr, keySecret.Name)
+	}
+
+	return nil // we made this key earlier
 }
 
 func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64) *corev1.Secret {
