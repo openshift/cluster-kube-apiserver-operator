@@ -164,7 +164,7 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			// this ends up looking like kube-apiserver-core-secrets-encryption-3
+			// this ends up looking like openshift-kube-apiserver-core-secrets-encryption-3
 			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", c.targetNamespace, group, gr.Resource, keyID),
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Labels: map[string]string{
