@@ -381,12 +381,12 @@ func getEncryptionConfig(secrets corev1client.SecretInterface, revision string) 
 
 	encryptionConfigObj, err := runtime.Decode(decoder, encryptionConfigSecret.Data[encryptionConfSecret])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode encryption config at revision %s: %v", revision, err)
 	}
 
 	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
 	if !ok {
-		return nil, fmt.Errorf("encryption config has wrong type %T", encryptionConfigObj)
+		return nil, fmt.Errorf("encryption config for revision %s has wrong type %T", revision, encryptionConfigObj)
 	}
 	return encryptionConfig, nil
 }
