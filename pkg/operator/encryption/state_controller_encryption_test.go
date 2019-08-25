@@ -44,7 +44,7 @@ func TestEncryptionStateController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createDummyKubeAPIPod("kube-apiserver-1", "kms", "1"),
 			},
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -60,7 +60,7 @@ func TestEncryptionStateController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createDummyKubeAPIPod("kube-apiserver-1", "kms", "1"),
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			expectedActions:       []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
