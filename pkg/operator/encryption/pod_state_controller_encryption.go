@@ -150,7 +150,7 @@ func (c *encryptionPodStateController) handleEncryptionPodState() (error, bool) 
 			errs = append(errs, setSecretAnnotation(c.secretClient, c.eventRecorder, readSecret, encryptionSecretReadTimestamp))
 		}
 
-		if !grActualKeys.hasWriteKey {
+		if !grActualKeys.hasWriteKey() {
 			continue
 		}
 

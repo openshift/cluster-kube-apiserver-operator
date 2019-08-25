@@ -162,7 +162,7 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 	// now we can attempt migration
 	var errs []error
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
-		if !grActualKeys.hasWriteKey {
+		if !grActualKeys.hasWriteKey() {
 			continue // no write key to migrate to
 		}
 

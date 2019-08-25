@@ -90,10 +90,13 @@ type keysState struct {
 	lastMigratedKeyID uint64
 }
 
-type desiredKeys struct {
-	hasWriteKey bool
-	writeKey    apiserverconfigv1.Key
-	readKeys    []apiserverconfigv1.Key
+type groupResourceKeys struct {
+	writeKey apiserverconfigv1.Key
+	readKeys []apiserverconfigv1.Key
+}
+
+func (k groupResourceKeys) hasWriteKey() bool {
+	return len(k.writeKey.Name) > 0 && len(k.writeKey.Secret) > 0
 }
 
 func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
@@ -210,10 +213,10 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 	return resourceConfigs
 }
 
-func grKeysToDesiredKeys(grKeys keysState) desiredKeys {
-	desired := desiredKeys{}
+func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
+	desired := groupResourceKeys{}
 
-	desired.writeKey, desired.hasWriteKey = determineWriteKey(grKeys)
+	desired.writeKey = determineWriteKey(grKeys)
 
 	// keys have a duplicate of the write key
 	// or there is no write key
@@ -221,7 +224,7 @@ func grKeysToDesiredKeys(grKeys keysState) desiredKeys {
 	// iterate in reverse to order the read keys in optimal order
 	for i := len(grKeys.keys) - 1; i >= 0; i-- {
 		readKey := grKeys.keys[i]
-		if desired.hasWriteKey && readKey == desired.writeKey {
+		if desired.hasWriteKey() && readKey == desired.writeKey {
 			continue // if present, drop the duplicate write key from the list
 		}
 		desired.readKeys = append(desired.readKeys, readKey)
@@ -230,29 +233,29 @@ func grKeysToDesiredKeys(grKeys keysState) desiredKeys {
 	return desired
 }
 
-func determineWriteKey(grKeys keysState) (apiserverconfigv1.Key, bool) {
+func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 	// first write that is not migrated
 	for _, writeYes := range grKeys.secretsWriteYes {
 		if len(writeYes.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
-			return grKeys.secretToKey[writeYes.Name], true
+			return grKeys.secretToKey[writeYes.Name]
 		}
 	}
 
 	// first read that is not write
 	for _, readYes := range grKeys.secretsReadYes {
 		if len(readYes.Annotations[encryptionSecretWriteTimestamp]) == 0 {
-			return grKeys.secretToKey[readYes.Name], true
+			return grKeys.secretToKey[readYes.Name]
 		}
 	}
 
 	// no key is transitioning so just use last migrated
 	if len(grKeys.secretsMigratedYes) > 0 {
 		lastMigrated := grKeys.secretsMigratedYes[len(grKeys.secretsMigratedYes)-1]
-		return grKeys.secretToKey[lastMigrated.Name], true
+		return grKeys.secretToKey[lastMigrated.Name]
 	}
 
 	// no write key
-	return apiserverconfigv1.Key{}, false
+	return apiserverconfigv1.Key{}
 }
 
 func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration {
@@ -261,7 +264,7 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 	allKeys := desired.readKeys
 
 	// write key comes first
-	if desired.hasWriteKey {
+	if desired.hasWriteKey() {
 		allKeys = append([]apiserverconfigv1.Key{desired.writeKey}, allKeys...)
 	}
 
@@ -277,7 +280,7 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 	// assume the common case of having a write key so identity comes last
 	providers := []apiserverconfigv1.ProviderConfiguration{aescbc, identity}
 	// if we have no write key, identity comes first
-	if !desired.hasWriteKey {
+	if !desired.hasWriteKey() {
 		providers = []apiserverconfigv1.ProviderConfiguration{identity, aescbc}
 	}
 
@@ -389,14 +392,8 @@ func getEncryptionConfig(secrets corev1client.SecretInterface, revision string) 
 	return encryptionConfig, nil
 }
 
-type actualKeys struct {
-	hasWriteKey bool
-	writeKey    apiserverconfigv1.Key
-	readKeys    []apiserverconfigv1.Key
-}
-
-func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]actualKeys {
-	out := map[schema.GroupResource]actualKeys{}
+func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
+	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {
 		if len(resourceConfig.Resources) == 0 || len(resourceConfig.Providers) < 2 {
 			continue // should never happen
@@ -408,13 +405,12 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 
 		switch {
 		case provider1.AESCBC != nil && len(provider1.AESCBC.Keys) != 0:
-			out[gr] = actualKeys{
-				hasWriteKey: true,
-				writeKey:    provider1.AESCBC.Keys[0],
-				readKeys:    provider1.AESCBC.Keys[1:],
+			out[gr] = groupResourceKeys{
+				writeKey: provider1.AESCBC.Keys[0],
+				readKeys: provider1.AESCBC.Keys[1:],
 			}
 		case provider1.Identity != nil && provider2.AESCBC != nil && len(provider2.AESCBC.Keys) != 0:
-			out[gr] = actualKeys{
+			out[gr] = groupResourceKeys{
 				readKeys: provider2.AESCBC.Keys,
 			}
 		}
