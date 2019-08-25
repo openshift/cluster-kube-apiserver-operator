@@ -250,8 +250,7 @@ func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 
 	// no key is transitioning so just use last migrated
 	if len(grKeys.secretsMigratedYes) > 0 {
-		lastMigrated := grKeys.secretsMigratedYes[len(grKeys.secretsMigratedYes)-1]
-		return grKeys.secretToKey[lastMigrated.Name]
+		return grKeys.secretToKey[grKeys.lastMigrated.Name]
 	}
 
 	// no write key
