@@ -177,7 +177,7 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 			continue
 		}
 
-		errs = append(errs, setSecretAnnotation(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
+		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
 	}
 	return utilerrors.NewAggregate(errs), false
 }

@@ -417,7 +417,10 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 	return out
 }
 
-func setSecretAnnotation(secretClient corev1client.SecretsGetter, recorder events.Recorder, secret *corev1.Secret, annotation string) error {
+// setTimestampAnnotationIfNotSet will set the value of the given annotation annotation
+// to the current time if it is not already set.  This serves to mark the given secret
+// as having transitioned into a certain state at a specific time.
+func setTimestampAnnotationIfNotSet(secretClient corev1client.SecretsGetter, recorder events.Recorder, secret *corev1.Secret, annotation string) error {
 	if len(secret.Annotations[annotation]) != 0 {
 		return nil
 	}

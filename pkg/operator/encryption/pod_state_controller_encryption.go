@@ -147,7 +147,7 @@ func (c *encryptionPodStateController) handleEncryptionPodState() (error, bool) 
 				errs = append(errs, fmt.Errorf("failed to find read secret for key %s in %s", readKey.Name, gr))
 				continue
 			}
-			errs = append(errs, setSecretAnnotation(c.secretClient, c.eventRecorder, readSecret, encryptionSecretReadTimestamp))
+			errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, readSecret, encryptionSecretReadTimestamp))
 		}
 
 		if !grActualKeys.hasWriteKey() {
@@ -160,7 +160,7 @@ func (c *encryptionPodStateController) handleEncryptionPodState() (error, bool) 
 			errs = append(errs, fmt.Errorf("failed to find write secret for key %s in %s", grActualKeys.writeKey.Name, gr))
 			continue
 		}
-		errs = append(errs, setSecretAnnotation(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretWriteTimestamp))
+		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretWriteTimestamp))
 	}
 	return utilerrors.NewAggregate(errs), false
 }
