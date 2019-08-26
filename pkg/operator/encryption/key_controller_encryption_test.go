@@ -65,6 +65,123 @@ func TestEncryptionKeyController(t *testing.T) {
 				}
 			},
 		},
+
+		// scenario 2: verifies if a new key is not created when there is a valid write key in the system.
+		{
+			name: "no-op when a valid write key exists",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed"},
+		},
+
+		// scenario 3: checks if a new key is not created when there is a valid write (migrated/used) key in the system.
+		{
+			name: "no-op when a valid migrated key exists",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 3, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed"},
+		},
+
+		// scenario 4: checks if a new write key is created because the previous one was migrated.
+		{
+			name: "creates a new write key because the previous one expired",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+				var targetGR schema.GroupResource
+				for targetGR = range targetGRs {
+					break
+				}
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, targetGR, 6, actualSecret)
+						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
+						}
+						if err := validateEncryptionKey(actualSecret); err != nil {
+							ts.Error(err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 5: checks if a new write key is not created given that the previous one was migrated and the new write key already exists.
+		{
+			name: "no-op when the previous key was migrated and the current one is valid but hasn't been observed (no read/write annotations)",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed"},
+		},
+
+		// scenario 6: checks if a new secret write key with ID equal to "101" is created because the previous (with ID equal to "100") one was migrated.
+		//             note that IDs of keys (not secrets) cannot exceed 100
+		{
+			name: "creates a new write key because the previous one expired - overflow",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+				var targetGR schema.GroupResource
+				for targetGR = range targetGRs {
+					break
+				}
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, targetGR, 101, actualSecret)
+						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
+						}
+						if err := validateEncryptionKey(actualSecret); err != nil {
+							ts.Error(err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

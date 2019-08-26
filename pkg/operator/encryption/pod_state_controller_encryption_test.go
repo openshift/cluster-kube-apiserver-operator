@@ -78,6 +78,91 @@ func TestEncryptionPodStateController(t *testing.T) {
 				}
 			},
 		},
+
+		// scenario 2
+		{
+			name:            "verifies if a read key in the EncryptionConfig is marked as a write key",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+			},
+			initialSecrets: []*corev1.Secret{
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+				func() *corev1.Secret {
+					keys := []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "1",
+							Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
+						},
+					}
+					ec := createEncryptionCfgSecretWithWriteKeys(t, keys, "kms", "1", "secrets")
+					return ec
+				}(),
+			},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("update", "secrets") {
+						updateAction := action.(clientgotesting.UpdateAction)
+						actualSecret := updateAction.GetObject().(*corev1.Secret)
+
+						// this test assumes that the encryption key secret is annotated
+						// thus for simplicity, we rewrite the annotation and compare the rest
+						expectedSecret := initialSecrets[0]
+						if expectedSecret.Annotations == nil {
+							expectedSecret.Annotations = map[string]string{}
+						}
+						expectedSecret.Annotations[encryptionSecretWriteTimestampForTest] = actualSecret.Annotations[encryptionSecretWriteTimestampForTest]
+
+						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't updated and validated")
+				}
+			},
+		},
+
+		// scenario 3
+		{
+			name:            "no-op when the EncryptionConfig contains the keys that have already been observed",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+			},
+			initialSecrets: []*corev1.Secret{
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 0, []byte("237a8a4846c6b1890b12abf78e0db5a3")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+				func() *corev1.Secret {
+					keys := []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "1",
+							Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "0",
+							Secret: "MjM3YThhNDg0NmM2YjE4OTBiMTJhYmY3OGUwZGI1YTM=",
+						},
+					}
+					ec := createEncryptionCfgSecretWithWriteKeys(t, keys, "kms", "1", "secrets")
+					return ec
+				}(),
+			},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -151,6 +236,26 @@ func createNoWriteKeyEncryptionCfgSecret(t *testing.T, targetNs, revision, keyID
 	t.Helper()
 
 	encryptionCfg := createEncryptionCfgNoWriteKey(keyID, keyBase64, keyResources)
+	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
+	if err != nil {
+		t.Fatalf("unable to encode the encryption config, err = %v", err)
+	}
+
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
+			Namespace: targetNs,
+		},
+		Data: map[string][]byte{
+			encryptionConfSecretForTest: rawEncryptionCfg,
+		},
+	}
+}
+
+func createEncryptionCfgSecretWithWriteKeys(t *testing.T, keys []apiserverconfigv1.Key, targetNs, revision, keyResources string) *corev1.Secret {
+	t.Helper()
+
+	encryptionCfg := createEncryptionCfgWithWriteKey(keys, keyResources)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
 		t.Fatalf("unable to encode the encryption config, err = %v", err)

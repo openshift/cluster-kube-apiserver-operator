@@ -52,7 +52,7 @@ func TestEncryptionStateController(t *testing.T) {
 		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
 		// it also checks the content and the order of encryption providers, this test expects identity first and aescbc second
 		{
-			name:                     "secret with EncryptionConfig is created and it contains a read only key",
+			name:                     "secret with EncryptionConfig is created without a write key",
 			targetNamespace:          "kms",
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.operator.openshift.io/component=kms"},
 			destName:                 "encryption-config-kube-apiserver-test",
@@ -65,6 +65,304 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			expectedActions:       []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 			expectedEncryptionCfg: createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 3
+		{
+			name:            "creates an EncryptionConfig with keys whose IDs are overflown",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 101, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "1",
+						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "0",
+						Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 4
+		{
+			name:            "secret with EncryptionConfig is created and it contains a single write key",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "34",
+						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 5
+		{
+			name:            "no key is transitioning so the last migrated key is used as a write key in the EncryptionConfig",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "34",
+						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 6
+		{
+			name:            "the key with ID=33 is transitioning (observed as a read key) so it is used as a write key in the EncryptionConfig",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "34",
+						Secret: "ZGRhMDkwYzE4NzcwMTYzZDU3ZDZhYWNhODVmN2IzYTU=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "33",
+						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 7
+		{
+			name:            "checks if the order of the keys is preserved - all migrated",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "34",
+						Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "33",
+						Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "32",
+						Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "31",
+						Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
+				wasSecretValidated := false
+				for _, action := range actions {
+					if action.Matches("create", "secrets") {
+						createAction := action.(clientgotesting.CreateAction)
+						actualSecret := createAction.GetObject().(*corev1.Secret)
+						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
+						if err != nil {
+							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
+						}
+						wasSecretValidated = true
+						break
+					}
+				}
+				if !wasSecretValidated {
+					ts.Errorf("the secret wasn't created and validated")
+				}
+			},
+		},
+
+		// scenario 8
+		{
+			name:            "checks if the order of the keys is preserved - with a key that is transitioning",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
+			},
+			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
+				keys := []apiserverconfigv1.Key{
+					apiserverconfigv1.Key{
+						Name:   "34",
+						Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "33",
+						Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "32",
+						Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
+					},
+					apiserverconfigv1.Key{
+						Name:   "31",
+						Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+					},
+				}
+				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				return ec
+			}(),
+			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
 				wasSecretValidated := false
 				for _, action := range actions {
