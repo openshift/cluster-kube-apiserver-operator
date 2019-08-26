@@ -122,9 +122,9 @@ func (c *encryptionMigrationController) sync() error {
 		progressing.Message = "" // TODO maybe put job information
 	}
 
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient,
-		operatorv1helpers.UpdateConditionFn(degraded),
-		operatorv1helpers.UpdateConditionFn(progressing),
+	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient,
+		operatorv1helpers.UpdateStaticPodConditionFn(degraded),
+		operatorv1helpers.UpdateStaticPodConditionFn(progressing),
 	); updateError != nil {
 		return updateError
 	}

@@ -100,7 +100,7 @@ func (c *encryptionStateController) sync() error {
 		cond.Reason = "Error"
 		cond.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 
