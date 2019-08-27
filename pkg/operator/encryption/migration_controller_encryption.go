@@ -156,8 +156,10 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 	// TODO we need this check?  Could it dead lock?
 	// no storage migration until all masters catch up with revision
 	if !reflect.DeepEqual(encryptionConfig.Resources, getResourceConfigs(encryptionState)) {
-		return fmt.Errorf("resource config not in sync"), false // TODO maybe synthetic retry
+		return nil, true // retry in a little while but do not go degraded
 	}
+
+	var isProgressing bool
 
 	// now we can attempt migration
 	var errs []error
@@ -167,8 +169,13 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 		}
 
 		writeSecret, ok := encryptionState[gr].keyToSecret[grActualKeys.writeKey]
-		if !ok || len(writeSecret.Annotations[encryptionSecretMigratedTimestamp]) != 0 {
-			continue // no migration needed
+		if !ok || len(writeSecret.Annotations[encryptionSecretWriteTimestamp]) == 0 { // make sure this is a fully observed write key
+			isProgressing = true // since we are waiting for an observation, we are progressing
+			continue
+		}
+
+		if len(writeSecret.Annotations[encryptionSecretMigratedTimestamp]) != 0 { // make sure we actually need migration
+			continue // migration already done for this resource
 		}
 
 		migrationErr := c.runStorageMigration(gr)
@@ -179,7 +186,7 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 
 		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
 	}
-	return utilerrors.NewAggregate(errs), false
+	return utilerrors.NewAggregate(errs), isProgressing
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {
