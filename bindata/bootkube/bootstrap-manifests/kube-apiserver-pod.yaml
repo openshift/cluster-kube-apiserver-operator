@@ -18,6 +18,9 @@ spec:
     command: ["hyperkube", "kube-apiserver"]
     args:
     - --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
+    - --logtostderr=false
+    - --alsologtostderr
+    - --log-file=/var/log/bootstrap-control-plane/kube-apiserver.log
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
@@ -31,6 +34,8 @@ spec:
     - mountPath: /etc/kubernetes/config
       name: config
       readOnly: true
+    - mountPath: /var/log/bootstrap-control-plane
+      name: logs
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -71,3 +76,6 @@ spec:
   - hostPath:
       path: /etc/ssl/certs
     name: ssl-certs-host
+  - hostPath:
+      path: /var/log/bootstrap-control-plane
+    name: logs
