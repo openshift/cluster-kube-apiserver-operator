@@ -57,13 +57,13 @@ func TestEncryptionMigrationController(t *testing.T) {
 			},
 			initialSecrets: []*corev1.Secret{
 				func() *corev1.Secret {
-					s := createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e"))
+					s := createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e"))
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
 				}(),
 				func() *corev1.Secret {
-					s := createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "configmaps"}, 1, []byte("7d00bfbed09a2f4113e61413511a2af3"))
+					s := createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "configmaps"}, 1, []byte("7d00bfbed09a2f4113e61413511a2af3"))
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
