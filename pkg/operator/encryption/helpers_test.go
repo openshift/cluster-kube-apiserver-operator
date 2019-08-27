@@ -53,14 +53,14 @@ func createEncryptionKeySecretWithKeyFromExistingSecret(targetNS string, gr sche
 	return secret
 }
 
-func createDummyKubeAPIPod(name, namespace, revision string) *corev1.Pod {
+func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
 				"apiserver": "true",
-				"revision":  revision,
+				"revision":  "1",
 			},
 		},
 		Status: corev1.PodStatus{

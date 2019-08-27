@@ -44,7 +44,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms", "1"),
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
 			initialSecrets: []*corev1.Secret{
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -76,20 +76,6 @@ func TestEncryptionPodStateController(t *testing.T) {
 				if !wasSecretValidated {
 					ts.Errorf("the secret wasn't updated and validated")
 				}
-			},
-		},
-
-		// scenario 2: imitates API servers being converging onto a single revision
-		{
-			name:            "checks if PodStateNotConverged condition is set - atm it panics",
-			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
-			},
-			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms", "1"),
-				createDummyKubeAPIPod("kube-apiserver-2", "kms", "2"),
 			},
 		},
 	}
