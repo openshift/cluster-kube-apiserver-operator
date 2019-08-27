@@ -99,17 +99,20 @@ func TestEncryptionStateController(t *testing.T) {
 				createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 101, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "1",
-						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "0",
-						Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "1",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "0",
+							Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
@@ -146,13 +149,16 @@ func TestEncryptionStateController(t *testing.T) {
 				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "34",
-						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "34",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
@@ -189,13 +195,16 @@ func TestEncryptionStateController(t *testing.T) {
 				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "34",
-						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "34",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
@@ -233,17 +242,20 @@ func TestEncryptionStateController(t *testing.T) {
 				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "34",
-						Secret: "ZGRhMDkwYzE4NzcwMTYzZDU3ZDZhYWNhODVmN2IzYTU=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "33",
-						Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "34",
+							Secret: "ZGRhMDkwYzE4NzcwMTYzZDU3ZDZhYWNhODVmN2IzYTU=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "33",
+							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
@@ -283,25 +295,28 @@ func TestEncryptionStateController(t *testing.T) {
 				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "34",
-						Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "33",
-						Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "32",
-						Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "31",
-						Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "34",
+							Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "33",
+							Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "32",
+							Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "31",
+							Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
@@ -341,25 +356,28 @@ func TestEncryptionStateController(t *testing.T) {
 				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keys := []apiserverconfigv1.Key{
-					apiserverconfigv1.Key{
-						Name:   "34",
-						Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "33",
-						Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "32",
-						Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
-					},
-					apiserverconfigv1.Key{
-						Name:   "31",
-						Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+				keysRes := encryptionKeysResourceTuple{
+					resource: "secrets",
+					keys: []apiserverconfigv1.Key{
+						apiserverconfigv1.Key{
+							Name:   "34",
+							Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "33",
+							Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "32",
+							Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
+						},
+						apiserverconfigv1.Key{
+							Name:   "31",
+							Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
+						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey(keys, "secrets")
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
 				return ec
 			}(),
 			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},

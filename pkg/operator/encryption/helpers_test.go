@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -194,26 +195,56 @@ func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 	}
 }
 
-func createEncryptionCfgWithWriteKey(keys []apiserverconfigv1.Key, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
+func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+
+	configurations := []apiserverconfigv1.ResourceConfiguration{}
+	for _, keysResource := range keysResources {
+		configurations = append(configurations, apiserverconfigv1.ResourceConfiguration{
+			Resources: []string{keysResource.resource},
+			Providers: []apiserverconfigv1.ProviderConfiguration{
+				apiserverconfigv1.ProviderConfiguration{
+					AESCBC: &apiserverconfigv1.AESConfiguration{
+						Keys: keysResource.keys,
+					},
+				},
+				apiserverconfigv1.ProviderConfiguration{
+					Identity: &apiserverconfigv1.IdentityConfiguration{},
+				},
+			},
+		})
+
+	}
+
 	return &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
 			APIVersion: "apiserver.config.k8s.io/v1",
 		},
-		Resources: []apiserverconfigv1.ResourceConfiguration{
-			apiserverconfigv1.ResourceConfiguration{
-				Resources: resources,
-				Providers: []apiserverconfigv1.ProviderConfiguration{
-					apiserverconfigv1.ProviderConfiguration{
-						AESCBC: &apiserverconfigv1.AESConfiguration{
-							Keys: keys,
-						},
-					},
-					apiserverconfigv1.ProviderConfiguration{
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
-					},
-				},
-			},
+		Resources: configurations,
+	}
+}
+
+func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revision string, keysResources []encryptionKeysResourceTuple) *corev1.Secret {
+	t.Helper()
+
+	encryptionCfg := createEncryptionCfgWithWriteKey(keysResources)
+	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
+	if err != nil {
+		t.Fatalf("unable to encode the encryption config, err = %v", err)
+	}
+
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
+			Namespace: targetNs,
+		},
+		Data: map[string][]byte{
+			encryptionConfSecretForTest: rawEncryptionCfg,
 		},
 	}
+}
+
+type encryptionKeysResourceTuple struct {
+	resource string
+	keys     []apiserverconfigv1.Key
 }

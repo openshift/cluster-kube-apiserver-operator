@@ -93,13 +93,16 @@ func TestEncryptionPodStateController(t *testing.T) {
 			initialSecrets: []*corev1.Secret{
 				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				func() *corev1.Secret {
-					keys := []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
-							Name:   "1",
-							Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
+					keysRes := encryptionKeysResourceTuple{
+						resource: "secrets",
+						keys: []apiserverconfigv1.Key{
+							apiserverconfigv1.Key{
+								Name:   "1",
+								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
+							},
 						},
 					}
-					ec := createEncryptionCfgSecretWithWriteKeys(t, keys, "kms", "1", "secrets")
+					ec := createEncryptionCfgSecretWithWriteKeys(t, "kms", "1", []encryptionKeysResourceTuple{keysRes})
 					return ec
 				}(),
 			},
@@ -147,17 +150,20 @@ func TestEncryptionPodStateController(t *testing.T) {
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 0, []byte("237a8a4846c6b1890b12abf78e0db5a3")),
 				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				func() *corev1.Secret {
-					keys := []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
-							Name:   "1",
-							Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
-						},
-						apiserverconfigv1.Key{
-							Name:   "0",
-							Secret: "MjM3YThhNDg0NmM2YjE4OTBiMTJhYmY3OGUwZGI1YTM=",
+					keysRes := encryptionKeysResourceTuple{
+						resource: "secrets",
+						keys: []apiserverconfigv1.Key{
+							apiserverconfigv1.Key{
+								Name:   "1",
+								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
+							},
+							apiserverconfigv1.Key{
+								Name:   "0",
+								Secret: "MjM3YThhNDg0NmM2YjE4OTBiMTJhYmY3OGUwZGI1YTM=",
+							},
 						},
 					}
-					ec := createEncryptionCfgSecretWithWriteKeys(t, keys, "kms", "1", "secrets")
+					ec := createEncryptionCfgSecretWithWriteKeys(t, "kms", "1", []encryptionKeysResourceTuple{keysRes})
 					return ec
 				}(),
 			},
@@ -236,26 +242,6 @@ func createNoWriteKeyEncryptionCfgSecret(t *testing.T, targetNs, revision, keyID
 	t.Helper()
 
 	encryptionCfg := createEncryptionCfgNoWriteKey(keyID, keyBase64, keyResources)
-	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
-	if err != nil {
-		t.Fatalf("unable to encode the encryption config, err = %v", err)
-	}
-
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
-			Namespace: targetNs,
-		},
-		Data: map[string][]byte{
-			encryptionConfSecretForTest: rawEncryptionCfg,
-		},
-	}
-}
-
-func createEncryptionCfgSecretWithWriteKeys(t *testing.T, keys []apiserverconfigv1.Key, targetNs, revision, keyResources string) *corev1.Secret {
-	t.Helper()
-
-	encryptionCfg := createEncryptionCfgWithWriteKey(keys, keyResources)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
 		t.Fatalf("unable to encode the encryption config, err = %v", err)
