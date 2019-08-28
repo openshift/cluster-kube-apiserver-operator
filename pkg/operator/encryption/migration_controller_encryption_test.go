@@ -174,7 +174,6 @@ func TestEncryptionMigrationController(t *testing.T) {
 				return false
 			}
 			scheme := runtime.NewScheme()
-			fake.AddToScheme(scheme)
 			unstructuredObjs := []runtime.Object{}
 			for _, rawObject := range allResources {
 				rawUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(rawObject.DeepCopyObject())

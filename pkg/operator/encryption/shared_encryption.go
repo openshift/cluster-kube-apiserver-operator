@@ -175,10 +175,8 @@ func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResou
 
 	gr := schema.GroupResource{Group: group, Resource: resource}
 	key := apiserverconfigv1.Key{
-		// limit the length of the name as it is used as a prefix for every value in etcd
-		// this means that each resource can have 100 active keys (0 - 99 so two ASCII letters max)
-		// thus to avoid collisions something must prune the old ones (that is fine since we need pruning anyway)
-		Name:   strconv.FormatUint(keyID%100, 10),
+		// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
+		Name:   strconv.FormatUint(keyID, 10),
 		Secret: base64.StdEncoding.EncodeToString(keyData),
 	}
 	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr]

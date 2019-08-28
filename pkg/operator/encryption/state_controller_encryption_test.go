@@ -87,57 +87,6 @@ func TestEncryptionStateController(t *testing.T) {
 
 		// scenario 3
 		{
-			name:            "creates an EncryptionConfig with keys whose IDs are overflown",
-			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
-			},
-			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
-				createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 101, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
-			},
-			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := encryptionKeysResourceTuple{
-					resource: "secrets",
-					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
-							Name:   "1",
-							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
-						},
-						apiserverconfigv1.Key{
-							Name:   "0",
-							Secret: "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=",
-						},
-					},
-				}
-				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
-				return ec
-			}(),
-			expectedActions: []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration) {
-				wasSecretValidated := false
-				for _, action := range actions {
-					if action.Matches("create", "secrets") {
-						createAction := action.(clientgotesting.CreateAction)
-						actualSecret := createAction.GetObject().(*corev1.Secret)
-						err := validateSecretWithEncryptionConfig(actualSecret, expectedEncryptionCfg, destName)
-						if err != nil {
-							ts.Fatalf("failed to verfy the encryption config, due to %v", err)
-						}
-						wasSecretValidated = true
-						break
-					}
-				}
-				if !wasSecretValidated {
-					ts.Errorf("the secret wasn't created and validated")
-				}
-			},
-		},
-
-		// scenario 4
-		{
 			name:            "secret with EncryptionConfig is created and it contains a single write key",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
@@ -182,7 +131,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 5
+		// scenario 4
 		{
 			name:            "no key is transitioning so the last migrated key is used as a write key in the EncryptionConfig",
 			targetNamespace: "kms",
@@ -228,7 +177,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 6
+		// scenario 5
 		{
 			name:            "the key with ID=33 is transitioning (observed as a read key) so it is used as a write key in the EncryptionConfig",
 			targetNamespace: "kms",
@@ -279,7 +228,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 7
+		// scenario 6
 		{
 			name:            "checks if the order of the keys is preserved - all migrated",
 			targetNamespace: "kms",
@@ -340,7 +289,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 		},
 
-		// scenario 8
+		// scenario 7
 		{
 			name:            "checks if the order of the keys is preserved - with a key that is transitioning",
 			targetNamespace: "kms",
