@@ -10,11 +10,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
+	"k8s.io/client-go/discovery"
 	dynamicfakeclient "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	openapi_v2 "github.com/googleapis/gnostic/OpenAPIv2"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -28,6 +31,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
+		targetAPIResources       []metav1.APIResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions []string
 		validateFunc    func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs map[schema.GroupResource]bool, unstructuredObjs []runtime.Object)
@@ -39,6 +43,20 @@ func TestEncryptionMigrationController(t *testing.T) {
 			targetGRs: map[schema.GroupResource]bool{
 				schema.GroupResource{Group: "", Resource: "secrets"}:    true,
 				schema.GroupResource{Group: "", Resource: "configmaps"}: true,
+			},
+			targetAPIResources: []metav1.APIResource{
+				metav1.APIResource{
+					Name:       "secrets",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+				metav1.APIResource{
+					Name:       "configmaps",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -169,6 +187,12 @@ func TestEncryptionMigrationController(t *testing.T) {
 				}
 			}
 			fakeDynamicClient := dynamicfakeclient.NewSimpleDynamicClient(scheme, unstructuredObjs...)
+			fakeDiscoveryClient := &fakeDisco{fakeKubeClient.Discovery(), []*metav1.APIResourceList{
+				&metav1.APIResourceList{
+					TypeMeta:     metav1.TypeMeta{},
+					APIResources: scenario.targetAPIResources,
+				},
+			}}
 
 			// act
 			target := newEncryptionMigrationController(
@@ -181,6 +205,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 				scenario.targetGRs,
 				fakePodClient,
 				fakeDynamicClient,
+				fakeDiscoveryClient,
 			)
 			err := target.sync()
 
@@ -281,4 +306,45 @@ func createConfigMap(name, namespace string) *corev1.ConfigMap {
 			Namespace: namespace,
 		},
 	}
+}
+
+type fakeDisco struct {
+	delegate           discovery.DiscoveryInterface
+	serverPreferredRes []*metav1.APIResourceList
+}
+
+func (f *fakeDisco) RESTClient() interface{} {
+	return f.delegate
+}
+
+func (f *fakeDisco) ServerGroups() (*metav1.APIGroupList, error) {
+	return f.delegate.ServerGroups()
+}
+
+func (f *fakeDisco) ServerResourcesForGroupVersion(groupVersion string) (*metav1.APIResourceList, error) {
+	return f.delegate.ServerResourcesForGroupVersion(groupVersion)
+}
+
+func (f *fakeDisco) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return f.delegate.ServerGroupsAndResources()
+}
+
+func (f *fakeDisco) ServerResources() ([]*metav1.APIResourceList, error) {
+	return f.delegate.ServerResources()
+}
+
+func (f *fakeDisco) ServerPreferredResources() ([]*metav1.APIResourceList, error) {
+	return f.serverPreferredRes, nil
+}
+
+func (f *fakeDisco) ServerPreferredNamespacedResources() ([]*metav1.APIResourceList, error) {
+	return f.delegate.ServerPreferredNamespacedResources()
+}
+
+func (f *fakeDisco) ServerVersion() (*version.Info, error) {
+	return f.delegate.ServerVersion()
+}
+
+func (f *fakeDisco) OpenAPISchema() (*openapi_v2.Document, error) {
+	return f.delegate.OpenAPISchema()
 }
