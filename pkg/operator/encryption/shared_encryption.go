@@ -28,6 +28,46 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+// To understand the state machine used by the encryption controllers, we have to consider
+// the states that each secret can be in.  The states are read, write, and migrated.
+// Note that this refers to observed state, meaning that all API servers have observed the given
+// secret at that level.  Consider when a new key is created.  Conceptually any new key can be
+// used as a read key.  However, a new key is not created with the read annotation set because
+// it is not officially a read key until all API servers have seen it as such.  See
+// encryptionSecretReadTimestamp and related constants below.
+//
+// The top states refer to the observed states, i.e. states that have matching annotations.
+// The other states in the diagram are conceptual states.
+//
+//            read     ------->     write     ------->     migrated
+//             /\                     /\                      /\
+//            /  \                   /  \                    /  \
+//           /    \                 /    \                  /    \
+//          /      \               /      \                /      \
+//         /        \             /        \              /        \
+//        /          \           /          \            /          \
+//    created      set as write key        can be migrated        set as read key     ------->     deleted
+//                 in encryption                                  in encryption
+//                 config                                         config
+//
+// Let us consider the life of an encryption key:
+//   1. A new key A is created.
+//   2. Key A gets included in the encryption config secret as a read key.
+//   3. That level of encryption config is seen by all API servers.
+//   4. The key A is annotated as a read key.
+//   5. A new encryption config secret is created with key A as a write key.
+//   6. That level of encryption config is seen by all API servers.
+//   7. The key A is annotated as a write key.
+//   8. Now key A can be migrated to.
+//   9. Storage migration is run for the resource associated with key A.
+//  10. The key A is annotated as a migrated key.
+//  11. A different key B is created and starts going through the same process.
+//  12. Key B is observed as a read key and then as a write key.
+//  13. The original key A gets included in the encryption config secret as a read key.
+//  14. Key A must stay in the encryption config secret until the new key B has been migrated to.
+//  15. Key B is migrated to (it follows the same path as key A).
+//  16. Key A is deleted and removed from the encryption config secret.
+
 // labels used to find secrets that build up the final encryption config
 // the names of the secrets are in format <shared prefix>-<unique monotonically increasing uint>
 // they are listed in ascending order
