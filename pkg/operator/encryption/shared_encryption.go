@@ -8,9 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +21,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -68,34 +68,50 @@ import (
 //  15. Key B is migrated to (it follows the same path as key A).
 //  16. Key A is deleted and removed from the encryption config secret.
 
-// labels used to find secrets that build up the final encryption config
-// the names of the secrets are in format <shared prefix>-<unique monotonically increasing uint>
-// they are listed in ascending order
-// the latest secret is the current desired write key
+// These labels are used to find secrets that build up the final encryption config.  The names of the
+// secrets are in format <shared prefix>-<unique monotonically increasing uint> (the uint is the keyID).
+// For example, openshift-kube-apiserver-core-secrets-encryption-3.  Note that other than the -3 postfix,
+// the name of the secret is irrelevant since the labels are used to find the secrets.  Of course the key
+// minting controller cares about the entire name since it needs to be able to create secrets for different
+// resources that do not conflict.  It also needs to know when it has already created a secret for a given
+// keyID meaning it cannot just use a random prefix.  As such the name must include the data that is contained
+// within the labels.  Thus the format used is <component>-<group>-<resource>-encryption-<keyID>.  This keeps
+// everything distinct and fully deterministic.  The keys are ordered by keyID where a smaller ID means an
+// earlier key.  Thus they are listed in ascending order.  This means that the latest secret (the one with
+// the largest keyID) is the current desired write key (whether it is or is not the write key depends on
+// what part of that state diagram it is currently in).  Note that different resources can have overlapping
+// keyIDs since they are individually tracked.  This per resource design allows us to easily add new resources
+// as encryption targets (imagine if a new resource that should be encrypted is later added to the API).
 const (
 	encryptionSecretComponent = "encryption.operator.openshift.io/component"
-
-	encryptionSecretGroup    = "encryption.operator.openshift.io/group"
-	encryptionSecretResource = "encryption.operator.openshift.io/resource"
+	encryptionSecretGroup     = "encryption.operator.openshift.io/group"
+	encryptionSecretResource  = "encryption.operator.openshift.io/resource"
 )
 
-// annotations used to mark the current state of the secret
+// These annotations are used to mark the current observed state of a secret.  They correspond to the states
+// described in the state machine at the top of this file.  The value associated with these keys is the
+// time (in RFC3339 format) at which the state observation occurred.  Note that most sections of the code
+// only check if the value is set to a non-empty value.  The exception to this is key minting controller
+// which parses the migrated timestamp to determine if enough time has passed and a new key should be created.
 const (
+	encryptionSecretReadTimestamp     = "encryption.operator.openshift.io/read-timestamp"
+	encryptionSecretWriteTimestamp    = "encryption.operator.openshift.io/write-timestamp"
 	encryptionSecretMigratedTimestamp = "encryption.operator.openshift.io/migrated-timestamp"
-	encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?
-	// encryptionSecretMigrationJob       = "encryption.operator.openshift.io/migration-job"
-
-	encryptionSecretReadTimestamp  = "encryption.operator.openshift.io/read-timestamp"
-	encryptionSecretWriteTimestamp = "encryption.operator.openshift.io/write-timestamp"
 )
 
-// keys used to find specific values in the secret
-const (
-	encryptionSecretKeyData = "encryption.operator.openshift.io-key"
-)
+// encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
+// migrated before a new key is created by the key minting controller.  The new key's ID will be one
+// greater than the last key's ID (the first key has a key ID of 1).
+const encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?  -->  probably one month
 
+// In the data field of the secret API object, this (map) key is used to hold the actual encryption key
+// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
+const encryptionSecretKeyData = "encryption.operator.openshift.io-key"
+
+// revisionLabel is used to find the current revision for a given API server.
 const revisionLabel = "revision"
 
+// these can only be used to encode and decode EncryptionConfiguration objects
 var (
 	encoder runtime.Encoder
 	decoder runtime.Decoder
@@ -227,7 +243,7 @@ func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResou
 func secretToKeyID(encryptionSecret *corev1.Secret) (uint64, bool) {
 	// see format and ordering comment at top
 	lastIdx := strings.LastIndex(encryptionSecret.Name, "-")
-	keyIDStr := encryptionSecret.Name[lastIdx+1:]
+	keyIDStr := encryptionSecret.Name[lastIdx+1:] // this can never overflow since str[-1+1:] is always valid
 	keyID, keyIDErr := strconv.ParseUint(keyIDStr, 10, 0)
 	invalidKeyID := lastIdx == -1 || keyIDErr != nil
 	return keyID, !invalidKeyID
