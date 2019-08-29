@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -30,9 +31,11 @@ func TestEncryptionStateController(t *testing.T) {
 		expectedActions []string
 		// destName denotes the name of the secret that contains EncryptionConfiguration
 		// this field is required to create the controller
-		destName              string
-		expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration
-		validateFunc          func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
+		destName                   string
+		expectedEncryptionCfg      *apiserverconfigv1.EncryptionConfiguration
+		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		expectedError              error
 	}{
 		// scenario 1: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace
 		// was not created when no secrets with encryption keys are present in that namespace.
@@ -349,6 +352,51 @@ func TestEncryptionStateController(t *testing.T) {
 				}
 			},
 		},
+
+		// scenario 8
+		{
+			name:            "degraded a pod with invalid condition",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPodInUnknownPhase("kube-apiserver-1", "kms"),
+			},
+			expectedActions: []string{"list:pods:kms"},
+			expectedError:   errors.New("api server pod kube-apiserver-1 in unknown phase"),
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionStateControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: "api server pod kube-apiserver-1 in unknown phase",
+				}
+				validateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+		},
+
+		// scenario 9
+		{
+			name:            "no-op as an invalid secret is not considered",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("")),
+			},
+			expectedActions: []string{"list:pods:kms"},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:   "EncryptionStateControllerDegraded",
+					Status: "False",
+				}
+				validateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -398,14 +446,26 @@ func TestEncryptionStateController(t *testing.T) {
 			err := target.sync()
 
 			// validate
-			if err != nil {
+			if err == nil && scenario.expectedError != nil {
+				t.Fatal("expected to get an error from sync() method")
+			}
+			if err != nil && scenario.expectedError == nil {
 				t.Fatal(err)
+			}
+			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
+				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
+			}
+			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
 				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.destName, scenario.expectedEncryptionCfg)
+			}
+			if scenario.validateOperatorClientFunc != nil {
+				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
 			}
 		})
 	}

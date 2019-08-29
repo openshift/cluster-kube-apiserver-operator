@@ -27,8 +27,10 @@ func TestEncryptionKeyController(t *testing.T) {
 		targetNamespace          string
 		targetGRs                map[schema.GroupResource]bool
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
-		expectedActions []string
-		validateFunc    func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
+		expectedActions            []string
+		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		expectedError              error
 	}{
 		// scenario 1: assumes a clean slate, that is, there are no previous resources in the system.
 		// It expects that a secret resource with an appropriate key, name and labels will be created.
@@ -182,6 +184,29 @@ func TestEncryptionKeyController(t *testing.T) {
 				}
 			},
 		},
+
+		// scenario 7
+		{
+			name: "degraded a secret with invalid key exists",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialSecrets: []runtime.Object{
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("")),
+			},
+			targetNamespace: "kms",
+			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedCondition := operatorv1.OperatorCondition{
+					Type:    "EncryptionKeyControllerDegraded",
+					Status:  "True",
+					Reason:  "Error",
+					Message: "secrets secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created",
+				}
+				validateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+			},
+			expectedError: errors.New("secrets secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created"),
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -220,14 +245,23 @@ func TestEncryptionKeyController(t *testing.T) {
 			err := target.sync()
 
 			// validate
-			if err != nil {
+			if err == nil && scenario.expectedError != nil {
+				t.Fatal("expected to get an error from sync() method")
+			}
+			if err != nil && scenario.expectedError == nil {
 				t.Fatal(err)
+			}
+			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
+				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
 			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
 				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.targetNamespace, scenario.targetGRs)
+			}
+			if scenario.validateOperatorClientFunc != nil {
+				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
 			}
 		})
 	}

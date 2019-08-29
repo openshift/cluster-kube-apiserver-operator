@@ -8,11 +8,15 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	clientgotesting "k8s.io/client-go/testing"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -118,6 +122,12 @@ func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 			},
 		},
 	}
+}
+
+func createDummyKubeAPIPodInUnknownPhase(name, namespace string) *corev1.Pod {
+	p := createDummyKubeAPIPod(name, namespace)
+	p.Status.Phase = corev1.PodUnknown
+	return p
 }
 
 func secretDataToEncryptionConfig(secret *corev1.Secret) (*apiserverconfigv1.EncryptionConfiguration, error) {
@@ -247,4 +257,31 @@ func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revis
 type encryptionKeysResourceTuple struct {
 	resource string
 	keys     []apiserverconfigv1.Key
+}
+
+func validateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient, expectedConditions []operatorv1.OperatorCondition) {
+	ts.Helper()
+	_, status, _, err := operatorClient.GetStaticPodOperatorState()
+	if err != nil {
+		ts.Fatal(err)
+	}
+
+	if len(status.Conditions) != len(expectedConditions) {
+		ts.Fatalf("expected to get %d conditions from operator client but got %d", len(expectedConditions), len(status.Conditions))
+	}
+
+	for _, actualCondition := range status.Conditions {
+		actualConditionValidated := false
+		for _, expectedCondition := range expectedConditions {
+			expectedCondition.LastTransitionTime = actualCondition.LastTransitionTime
+			if equality.Semantic.DeepEqual(expectedCondition, actualCondition) {
+				actualConditionValidated = true
+				break
+			}
+		}
+		if !actualConditionValidated {
+			ts.Fatalf("unexpected condition found %v", actualCondition)
+		}
+
+	}
 }

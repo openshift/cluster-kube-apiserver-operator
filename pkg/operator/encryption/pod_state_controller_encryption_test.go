@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -31,9 +32,11 @@ func TestEncryptionPodStateController(t *testing.T) {
 		expectedActions []string
 		// destName denotes the name of the secret that contains EncryptionConfiguration
 		// this field is required to create the controller
-		destName              string
-		expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration
-		validateFunc          func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret)
+		destName                   string
+		expectedEncryptionCfg      *apiserverconfigv1.EncryptionConfiguration
+		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		expectedError              error
 	}{
 		// scenario 1: checks if the controller reads encryption-config secret with an EncryptionConfiguration and if it finds and marks containing secret key as a read only key
 		{
@@ -133,6 +136,20 @@ func TestEncryptionPodStateController(t *testing.T) {
 					ts.Errorf("the secret wasn't updated and validated")
 				}
 			},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedConditions := []operatorv1.OperatorCondition{
+					operatorv1.OperatorCondition{
+						Type:   "EncryptionPodStateControllerDegraded",
+						Status: "False",
+					},
+					operatorv1.OperatorCondition{
+						Type: "EncryptionPodStateControllerProgressing",
+						// TODO: PodState controller never flips this to true
+						Status: "False",
+					},
+				}
+				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
+			},
 		},
 
 		// scenario 3
@@ -168,6 +185,36 @@ func TestEncryptionPodStateController(t *testing.T) {
 				}(),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
+		},
+
+		// scenario 4
+		{
+			name:            "degraded no encryption config ",
+			targetNamespace: "kms",
+			destName:        "encryption-config-kube-apiserver-test",
+			targetGRs: map[schema.GroupResource]bool{
+				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+			},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms"},
+			expectedError:   errors.New("secrets \"encryption-config-1\" not found"),
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedConditions := []operatorv1.OperatorCondition{
+					operatorv1.OperatorCondition{
+						Type:    "EncryptionPodStateControllerDegraded",
+						Status:  "True",
+						Reason:  "Error",
+						Message: "secrets \"encryption-config-1\" not found",
+					},
+					operatorv1.OperatorCondition{
+						Type:   "EncryptionPodStateControllerProgressing",
+						Status: "False",
+					},
+				}
+				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
+			},
 		},
 	}
 
@@ -225,14 +272,23 @@ func TestEncryptionPodStateController(t *testing.T) {
 			err := target.sync()
 
 			// validate
-			if err != nil {
+			if err == nil && scenario.expectedError != nil {
+				t.Fatal("expected to get an error from sync() method")
+			}
+			if err != nil && scenario.expectedError == nil {
 				t.Fatal(err)
+			}
+			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
+				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
 			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
 				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.initialSecrets)
+			}
+			if scenario.validateOperatorClientFunc != nil {
+				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
 			}
 		})
 	}

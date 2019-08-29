@@ -33,8 +33,10 @@ func TestEncryptionMigrationController(t *testing.T) {
 		targetGRs                map[schema.GroupResource]bool
 		targetAPIResources       []metav1.APIResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
-		expectedActions []string
-		validateFunc    func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs map[schema.GroupResource]bool, unstructuredObjs []runtime.Object)
+		expectedActions            []string
+		validateFunc               func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs map[schema.GroupResource]bool, unstructuredObjs []runtime.Object)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		expectedError              error
 	}{
 		// scenario 1
 		{
@@ -117,6 +119,19 @@ func TestEncryptionMigrationController(t *testing.T) {
 				validateSecretsWereAnnotated(ts, actionsKube, []*corev1.Secret{initialSecrets[0], initialSecrets[1]})
 				// validate if the resources were "encrypted"
 				validateMigratedResources(ts, actionsDynamic, unstructuredObjs, targetGRs)
+			},
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+				expectedConditions := []operatorv1.OperatorCondition{
+					operatorv1.OperatorCondition{
+						Type:   "EncryptionMigrationControllerDegraded",
+						Status: "False",
+					},
+					operatorv1.OperatorCondition{
+						Type:   "EncryptionMigrationControllerProgressing",
+						Status: "False",
+					},
+				}
+				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
 			},
 		},
 	}
@@ -209,8 +224,17 @@ func TestEncryptionMigrationController(t *testing.T) {
 			err := target.sync()
 
 			// validate
-			if err != nil {
+			if err == nil && scenario.expectedError != nil {
+				t.Fatal("expected to get an error from sync() method")
+			}
+			if err != nil && scenario.expectedError == nil {
 				t.Fatal(err)
+			}
+			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
+				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
+			}
+			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 
 			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
@@ -218,6 +242,9 @@ func TestEncryptionMigrationController(t *testing.T) {
 			}
 			if scenario.validateFunc != nil {
 				scenario.validateFunc(t, fakeKubeClient.Actions(), fakeDynamicClient.Actions(), scenario.initialSecrets, scenario.targetGRs, unstructuredObjs)
+			}
+			if scenario.validateOperatorClientFunc != nil {
+				scenario.validateOperatorClientFunc(t, fakeOperatorClient)
 			}
 		})
 	}
