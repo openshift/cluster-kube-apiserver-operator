@@ -249,6 +249,10 @@ func (o *Options) Run() error {
 	}
 	kubeControllerManagerResourceDir, err := recovery.GetVolumeHostPathPath("resource-dir", kubeControllerManagerPod.Spec.Volumes)
 	if err != nil {
+		return fmt.Errorf("failed to find kube-controller-manager resource dir: %v", err)
+	}
+	kubeControllerManagerCertDir, err := recovery.GetVolumeHostPathPath("cert-dir", kubeControllerManagerPod.Spec.Volumes)
+	if err != nil {
 		return fmt.Errorf("failed to find kube-controller-manager certs dir: %v", err)
 	}
 
@@ -304,7 +308,7 @@ func (o *Options) Run() error {
 			objectType:  secretsType,
 			name:        "csr-signer",
 			namespace:   kubecontrollermanageroperatorclient.TargetNamespace,
-			toplevelDir: kubeControllerManagerResourceDir,
+			toplevelDir: kubeControllerManagerCertDir,
 		},
 
 		// Fix scheduler certs
