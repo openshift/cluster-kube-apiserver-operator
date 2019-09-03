@@ -88,7 +88,7 @@ func (c *encryptionStateController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.handleEncryptionStateConfig()
+	configError := c.generateAndApplyCurrentEncryptionConfigSecret()
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -107,7 +107,7 @@ func (c *encryptionStateController) sync() error {
 	return configError
 }
 
-func (c *encryptionStateController) handleEncryptionStateConfig() error {
+func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
 	// do not cause new revisions while old ones are rolling out
 	// TODO but does this even matter?
 	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)

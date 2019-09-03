@@ -188,8 +188,10 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 		return 0, true
 	}
 
-	// if there no unmigrated secrets but there are some secrets, then we must have migrated secrets
-	// thus this field will always be set at this point
+	// if there are no unmigrated secrets but there are some secrets, then we must have migrated secrets
+	// thus this field will always be set at this point (and the secret will always have the annotation set)
+	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
+	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	migrationTimestamp, err := time.Parse(time.RFC3339, grKeys.lastMigrated.Annotations[encryptionSecretMigratedTimestamp])
 	if err != nil {
 		klog.Infof("failed to parse migration timestamp for %s, forcing new key: %v", grKeys.lastMigrated.Name, err)

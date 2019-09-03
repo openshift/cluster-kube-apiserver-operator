@@ -98,7 +98,7 @@ func (c *encryptionMigrationController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError, isProgressing := c.handleEncryptionMigration()
+	configError, isProgressing := c.migrateKeysIfNeededAndRevisionStable()
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -136,7 +136,7 @@ func (c *encryptionMigrationController) sync() error {
 	return configError
 }
 
-func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool) {
+func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (error, bool) {
 	// no storage migration during revision changes
 	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
 	if err != nil || len(revision) == 0 {
@@ -161,7 +161,11 @@ func (c *encryptionMigrationController) handleEncryptionMigration() (error, bool
 
 	var isProgressing bool
 
-	// now we can attempt migration
+	// all API servers have converged onto a single revision that matches our desired overall encryption state
+	// now we know that it is safe to attempt key migrations
+	// we never want to migrate during an intermediate state because that could lead to one API server
+	// using a write key that another API server has not observed
+	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
