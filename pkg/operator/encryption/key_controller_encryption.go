@@ -151,17 +151,14 @@ func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, 
 	keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.encryptedGRs)
 	if valid := keyGR == gr && actualKeyID == keyID && validKey; !valid {
 		// TODO we can just get stuck in degraded here ...
-		return fmt.Errorf("%s secret %s is in invalid state, new keys cannot be created", gr, keySecret.Name)
+		return fmt.Errorf("secret %s is in invalid state, new keys cannot be created for encryption target group=%s resource=%s", keySecret.Name, groupToHumanReadable(gr), gr.Resource)
 	}
 
 	return nil // we made this key earlier
 }
 
 func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64) *corev1.Secret {
-	group := gr.Group
-	if len(group) == 0 {
-		group = "core" // TODO may make more sense to do gr.String()
-	}
+	group := groupToHumanReadable(gr)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			// this ends up looking like openshift-kube-apiserver-core-secrets-encryption-3

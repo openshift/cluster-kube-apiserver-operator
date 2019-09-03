@@ -201,11 +201,11 @@ func TestEncryptionKeyController(t *testing.T) {
 					Type:    "EncryptionKeyControllerDegraded",
 					Status:  "True",
 					Reason:  "Error",
-					Message: "secrets secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created",
+					Message: "secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created for encryption target group=core resource=secrets",
 				}
 				validateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
-			expectedError: errors.New("secrets secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created"),
+			expectedError: errors.New("secret kms-core-secrets-encryption-1 is in invalid state, new keys cannot be created for encryption target group=core resource=secrets"),
 		},
 	}
 

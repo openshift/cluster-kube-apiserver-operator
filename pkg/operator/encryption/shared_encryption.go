@@ -523,4 +523,15 @@ func setUpAllEncryptionInformers(
 		secretsInformer.HasSynced,
 	},
 		setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, eventHandler)...)
+
+}
+
+// groupToHumanReadable extracts a group from gr and makes it more readable, for example it converts an empty group to "core"
+// Note: do not use it to get resources from the server only when printing to a log file
+func groupToHumanReadable(gr schema.GroupResource) string {
+	group := gr.Group
+	if len(group) == 0 {
+		group = "core"
+	}
+	return group
 }
