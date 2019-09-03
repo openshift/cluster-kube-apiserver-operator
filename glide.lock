@@ -1,5 +1,5 @@
-hash: 764ddc49fa900769ec8ad5e7da6528d6b25d670400d7d313e7ac8bd4e1d2a010
-updated: 2019-06-04T10:03:55.608161341-04:00
+hash: 679acd7e6f0e53027b700022320c0d8998cb7d8fa8cdb91b441d77e2caba08ed
+updated: 2019-09-02T15:12:16.780917403+02:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -169,7 +169,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 81d064c11ff2d62705dbb09ed9ac200ef9557716
+  version: 9ea19f9dd57858bb3fd8ec7051a99ca5e1ae88d6
   subpackages:
   - apps
   - apps/v1
@@ -234,7 +234,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 2467051efd29fec85731629f925b82f3c477db30
+  version: 7e7e7455fe760f855b2f960923381ebc2f9a1ed1
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -472,7 +472,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 3c74db8dd172051b029f91536c681a1b43694809
+  version: f221ef6dc2779b4f80d2821997dfacaf927b73ee
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
