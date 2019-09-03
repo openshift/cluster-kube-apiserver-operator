@@ -201,7 +201,7 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 	// TODO add a check against grKeys.lastMigrated.Annotations[encryptionSecretMode]
 	// if the last migrated secret was encrypted in a mode different than the current default, we need to generate a new key
 
-	return grKeys.lastMigratedKeyID, time.Now().After(migrationTimestamp.Add(encryptionSecretMigrationInterval))
+	return grKeys.lastMigratedKeyID, time.Since(migrationTimestamp) > encryptionSecretMigrationInterval
 }
 
 func newAES256Key() []byte {
