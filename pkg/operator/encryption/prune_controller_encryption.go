@@ -80,7 +80,7 @@ func (c *encryptionPruneController) sync() error {
 	// TODO do we want to use this to control the number we keep around?
 	// operatorSpec.SucceededRevisionLimit
 
-	configError := c.handleEncryptionPrune()
+	configError := c.deleteOldMigratedSecrets()
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -99,7 +99,7 @@ func (c *encryptionPruneController) sync() error {
 	return configError
 }
 
-func (c *encryptionPruneController) handleEncryptionPrune() error {
+func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 	encryptionState, err := getEncryptionState(c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (c *encryptionPruneController) handleEncryptionPrune() error {
 
 	var deleteErrs []error
 	for _, grKeys := range encryptionState {
-		// TODO see SucceededRevisionLimit comment above, cannot exceed 100, see secretToKey func
+		// TODO see SucceededRevisionLimit comment above, determine if we want this hard coded at 10 or not
 		deleteCount := len(grKeys.secretsMigratedYes) - 10
 		if deleteCount <= 0 {
 			continue

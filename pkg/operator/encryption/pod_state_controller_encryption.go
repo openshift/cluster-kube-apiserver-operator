@@ -80,7 +80,7 @@ func (c *encryptionPodStateController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError, isProgressing := c.handleEncryptionPodState()
+	configError, isProgressing := c.observeReadAndWriteKeysFromPodState()
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -118,7 +118,7 @@ func (c *encryptionPodStateController) sync() error {
 	return configError
 }
 
-func (c *encryptionPodStateController) handleEncryptionPodState() (error, bool) {
+func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (error, bool) {
 	// we need a stable view of the world
 	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
 	if err != nil || len(revision) == 0 {

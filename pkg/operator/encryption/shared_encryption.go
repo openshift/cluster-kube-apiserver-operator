@@ -162,19 +162,24 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 	}
 	encryptionSecrets := encryptionSecretList.Items
 
-	// make sure we order to get the correct desired write key, see comment at top
+	// make sure encryptionSecrets is sorted in ascending order by keyID
+	// this allows us to calculate the per resource write key for the encryption config secret
+	// see comment above encryptionSecretComponent near the top of this file
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
-		a, _ := secretToKeyID(&encryptionSecrets[i])
-		b, _ := secretToKeyID(&encryptionSecrets[j])
-		return a < b
+		// it is fine to ignore the validKeyID bool here because we filter out invalid secrets in the next loop
+		// thus it does not matter where the invalid secrets get sorted to
+		// conflicting keyIDs between different resources are not an issue because we track each resource separately
+		iKeyID, _ := secretToKeyID(&encryptionSecrets[i])
+		jKeyID, _ := secretToKeyID(&encryptionSecrets[j])
+		return iKeyID < jKeyID
 	})
 
 	encryptionState := groupResourcesState{}
 
-	for _, secret := range encryptionSecrets {
-		// TODO clean this up
-		secret := secret
-		encryptionSecret := &secret
+	for _, es := range encryptionSecrets {
+		// make sure we capture the range variable since we take the address and append it to other lists
+		rangeES := es
+		encryptionSecret := &rangeES
 
 		gr, key, keyID, ok := secretToKey(encryptionSecret, encryptedGRs)
 		if !ok {
@@ -203,6 +208,7 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		appendSecretPerAnnotationState(&grState.secretsWriteYes, &grState.secretsWriteNo, encryptionSecret, encryptionSecretWriteTimestamp)
 		appendSecretPerAnnotationState(&grState.secretsMigratedYes, &grState.secretsMigratedNo, encryptionSecret, encryptionSecretMigratedTimestamp)
 
+		// keep overwriting the lastMigrated fields since we know that the iteration order is sorted by keyID
 		if len(encryptionSecret.Annotations[encryptionSecretMigratedTimestamp]) > 0 {
 			grState.lastMigrated = encryptionSecret
 			grState.lastMigratedKeyID = keyID
@@ -241,7 +247,7 @@ func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResou
 }
 
 func secretToKeyID(encryptionSecret *corev1.Secret) (uint64, bool) {
-	// see format and ordering comment at top
+	// see format and ordering comment above encryptionSecretComponent near the top of this file
 	lastIdx := strings.LastIndex(encryptionSecret.Name, "-")
 	keyIDStr := encryptionSecret.Name[lastIdx+1:] // this can never overflow since str[-1+1:] is always valid
 	keyID, keyIDErr := strconv.ParseUint(keyIDStr, 10, 0)
