@@ -143,6 +143,7 @@ type keysState struct {
 	secretsMigratedNo  []*corev1.Secret
 
 	lastMigrated      *corev1.Secret
+	lastMigratedKey   apiserverconfigv1.Key
 	lastMigratedKeyID uint64
 }
 
@@ -211,6 +212,7 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		// keep overwriting the lastMigrated fields since we know that the iteration order is sorted by keyID
 		if len(encryptionSecret.Annotations[encryptionSecretMigratedTimestamp]) > 0 {
 			grState.lastMigrated = encryptionSecret
+			grState.lastMigratedKey = key
 			grState.lastMigratedKeyID = keyID
 		}
 
@@ -281,13 +283,21 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	// keys have a duplicate of the write key
 	// or there is no write key
 
-	// iterate in reverse to order the read keys in optimal order
+	// iterate in reverse to order the read keys with highest keyID first
 	for i := len(grKeys.keys) - 1; i >= 0; i-- {
 		readKey := grKeys.keys[i]
 		if desired.hasWriteKey() && readKey == desired.writeKey {
 			continue // if present, drop the duplicate write key from the list
 		}
+
 		desired.readKeys = append(desired.readKeys, readKey)
+
+		if len(grKeys.secretsMigratedYes) > 0 && readKey == grKeys.lastMigratedKey {
+			// we only need the read keys that have equal or higher keyID than the last migrated key
+			// note that readKeys should only have one item unless there is a bug in the key minting controller
+			// this also serves to limit the size of the final encryption secret (even if pruning fails)
+			break
+		}
 	}
 
 	return desired
@@ -310,7 +320,7 @@ func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 
 	// no key is transitioning so just use last migrated
 	if len(grKeys.secretsMigratedYes) > 0 {
-		return grKeys.secretToKey[grKeys.lastMigrated.Name]
+		return grKeys.lastMigratedKey
 	}
 
 	// no write key
