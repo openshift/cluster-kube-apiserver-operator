@@ -220,6 +220,7 @@ var RevisionSecrets = []revision.RevisionResource{
 	{Name: "kube-apiserver-cert-syncer-client-cert-key"},
 	{Name: "kubelet-client"},
 
+	// TODO is Optional safe?
 	// etcd encryption
 	{Name: "encryption-config", Optional: true},
 }
