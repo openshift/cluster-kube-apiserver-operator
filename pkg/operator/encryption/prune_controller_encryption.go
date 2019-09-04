@@ -113,6 +113,7 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 			continue
 		}
 		for _, secret := range grKeys.secretsMigratedYes[:deleteCount] {
+			// TODO add a finalizer to these secrets to require a two phase delete
 			deleteErrs = append(deleteErrs, c.secretClient.Delete(secret.Name, nil))
 		}
 	}
