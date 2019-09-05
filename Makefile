@@ -42,19 +42,22 @@ test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
 test-e2e: GO_TEST_FLAGS += -v
 test-e2e: test-unit
 
-CRD_SCHEMA_GEN_VERSION := v1.0.0
+CRD_SCHEMA_GEN_APIS := ./vendor/github.com/openshift/api/operator/v1
+CRD_SCHEMA_GEN_VERSION := v0.2.1
+
 crd-schema-gen:
-	git clone -b $(CRD_SCHEMA_GEN_VERSION) --single-branch --depth 1 https://github.com/openshift/crd-schema-gen.git $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen
-	GOPATH=$(CRD_SCHEMA_GEN_GOPATH) GOBIN=$(CRD_SCHEMA_GEN_GOPATH)/bin go install $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen/cmd/crd-schema-gen
-
-update-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
+	mkdir -p $(CRD_SCHEMA_GEN_TEMP)/bin
+	git clone -b $(CRD_SCHEMA_GEN_VERSION) --single-branch --depth 1 https://github.com/kubernetes-sigs/controller-tools.git $(CRD_SCHEMA_GEN_TEMP)/gen
+	cd $(CRD_SCHEMA_GEN_TEMP)/gen; GO111MODULE=on go build ./cmd/controller-gen; mv controller-gen ../bin
+	curl -f -L -o $(CRD_SCHEMA_GEN_TEMP)/bin/yq https://github.com/mikefarah/yq/releases/download/2.4.0/yq_$(shell uname -s | tr A-Z a-z)_amd64 && chmod +x $(CRD_SCHEMA_GEN_TEMP)/bin/yq
+update-codegen-crds: CRD_SCHEMA_GEN_TEMP :=$(shell mktemp -d)
 update-codegen-crds: crd-schema-gen
-	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1
-update-codegen: update-codegen-crds
+	$(CRD_SCHEMA_GEN_TEMP)/bin/controller-gen schemapatch:manifests=./manifests output:dir=./manifests paths="$(subst $() $(),;,$(CRD_SCHEMA_GEN_APIS))"
+	for p in manifests/*.crd.yaml-merge-patch; do $(CRD_SCHEMA_GEN_TEMP)/bin/yq m -i "$${p%%.crd.yaml-merge-patch}.crd.yaml" "$$p"; done
+verify-codegen-crds: update-codegen-crds
+	git diff -q manifests/ || { echo "Changed manifests: "; echo; git diff; false; }
 
-verify-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
-verify-codegen-crds: crd-schema-gen
-	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1 --verify-only
+update-codegen: update-codegen-crds
 verify-codegen: verify-codegen-crds
 verify: verify-codegen
 .PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify crd-schema-gen
