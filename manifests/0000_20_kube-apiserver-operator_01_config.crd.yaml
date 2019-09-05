@@ -3,22 +3,18 @@ kind: CustomResourceDefinition
 metadata:
   name: kubeapiservers.operator.openshift.io
 spec:
-  scope: Cluster
   group: operator.openshift.io
-  version: v1
   names:
     kind: KubeAPIServer
     plural: kubeapiservers
     singular: kubeapiserver
+  scope: Cluster
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
       description: KubeAPIServer provides information to configure an operator to
         manage kube-apiserver.
-      type: object
-      required:
-      - spec
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -33,14 +29,13 @@ spec:
         metadata:
           type: object
         spec:
-          type: object
           properties:
             failedRevisionLimit:
               description: failedRevisionLimit is the number of failed static pod
                 installer revisions to keep on disk and in the api -1 = unlimited,
                 0 or unset = 5 (default)
-              type: integer
               format: int32
+              type: integer
             forceRedeploymentReason:
               description: forceRedeploymentReason can be used to force the redeployment
                 of the operand by providing a unique string. This provides a mechanism
@@ -57,14 +52,14 @@ spec:
             managementState:
               description: managementState indicates whether and how the operator
                 should manage the component
-              type: string
               pattern: ^(Managed|Unmanaged|Force|Removed)$
+              type: string
             observedConfig:
               description: observedConfig holds a sparse config that controller has
                 observed from the cluster state.  It exists in spec because it is
                 an input to the level for the operator
-              type: object
               nullable: true
+              type: object
             operatorLogLevel:
               description: operatorLogLevel is an intent based logging for the operator
                 itself.  It does not give fine grained control, but it is a simple
@@ -75,28 +70,26 @@ spec:
               description: succeededRevisionLimit is the number of successful static
                 pod installer revisions to keep on disk and in the api -1 = unlimited,
                 0 or unset = 5 (default)
-              type: integer
               format: int32
+              type: integer
             unsupportedConfigOverrides:
               description: 'unsupportedConfigOverrides holds a sparse config that
                 will override any previously set options.  It only needs to be the
                 fields to override it will end up overlaying in the following order:
                 1. hardcoded defaults 2. observedConfig 3. unsupportedConfigOverrides'
-              type: object
               nullable: true
-        status:
+              type: object
           type: object
+        status:
           properties:
             conditions:
               description: conditions is a list of conditions and their status
-              type: array
               items:
                 description: OperatorCondition is just the standard condition fields.
-                type: object
                 properties:
                   lastTransitionTime:
-                    type: string
                     format: date-time
+                    type: string
                   message:
                     type: string
                   reason:
@@ -105,14 +98,14 @@ spec:
                     type: string
                   type:
                     type: string
+                type: object
+              type: array
             generations:
               description: generations are used to determine when an item needs to
                 be reconciled or has changed in a way that needs a reaction.
-              type: array
               items:
                 description: GenerationStatus keeps track of the generation for a
                   given resource so that decisions about forced updates can be made.
-                type: object
                 properties:
                   group:
                     description: group is the group of the thing you're tracking
@@ -124,8 +117,8 @@ spec:
                   lastGeneration:
                     description: lastGeneration is the last generation of the workload
                       controller involved
-                    type: integer
                     format: int64
+                    type: integer
                   name:
                     description: name is the name of the thing you're tracking
                     type: string
@@ -136,11 +129,13 @@ spec:
                     description: resource is the resource type of the thing you're
                       tracking
                     type: string
+                type: object
+              type: array
             latestAvailableRevision:
               description: latestAvailableRevision is the deploymentID of the most
                 recent deployment
-              type: integer
               format: int32
+              type: integer
             latestAvailableRevisionReason:
               description: latestAvailableRevisionReason describe the detailed reason
                 for the most recent deployment
@@ -148,46 +143,51 @@ spec:
             nodeStatuses:
               description: nodeStatuses track the deployment values and errors across
                 individual nodes
-              type: array
               items:
                 description: NodeStatus provides information about the current state
                   of a particular node managed by this operator.
-                type: object
                 properties:
                   currentRevision:
                     description: currentRevision is the generation of the most recently
                       successful deployment
-                    type: integer
                     format: int32
+                    type: integer
                   lastFailedRevision:
                     description: lastFailedRevision is the generation of the deployment
                       we tried and failed to deploy.
-                    type: integer
                     format: int32
+                    type: integer
                   lastFailedRevisionErrors:
                     description: lastFailedRevisionErrors is a list of the errors
                       during the failed deployment referenced in lastFailedRevision
-                    type: array
                     items:
                       type: string
+                    type: array
                   nodeName:
                     description: nodeName is the name of the node
                     type: string
                   targetRevision:
                     description: targetRevision is the generation of the deployment
                       we're trying to apply
-                    type: integer
                     format: int32
+                    type: integer
+                type: object
+              type: array
             observedGeneration:
               description: observedGeneration is the last generation change you've
                 dealt with
-              type: integer
               format: int64
+              type: integer
             readyReplicas:
               description: readyReplicas indicates how many replicas are ready and
                 at the desired state
-              type: integer
               format: int32
+              type: integer
             version:
               description: version is the level this availability applies to
               type: string
+          type: object
+      required:
+      - spec
+      type: object
+  version: v1
