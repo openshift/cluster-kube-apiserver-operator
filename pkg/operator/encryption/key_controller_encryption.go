@@ -177,6 +177,7 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 	}
 }
 
+// TODO unit tests
 func needsNewKey(grKeys keysState) (uint64, bool) {
 	// unmigrated secrets create back pressure against new key generation
 	if len(grKeys.secretsMigratedNo) > 0 {

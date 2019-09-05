@@ -136,6 +136,7 @@ func (c *encryptionMigrationController) sync() error {
 	return configError
 }
 
+// TODO doc
 func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
 	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(

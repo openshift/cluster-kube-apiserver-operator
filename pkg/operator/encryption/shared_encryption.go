@@ -126,6 +126,7 @@ func init() {
 	decoder = codecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
 }
 
+// TODO docs
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
 	keys        []apiserverconfigv1.Key
@@ -147,6 +148,7 @@ type keysState struct {
 	lastMigratedKeyID uint64
 }
 
+// TODO docs
 type groupResourceKeys struct {
 	writeKey apiserverconfigv1.Key
 	readKeys []apiserverconfigv1.Key
@@ -156,6 +158,7 @@ func (k groupResourceKeys) hasWriteKey() bool {
 	return len(k.writeKey.Name) > 0 && len(k.writeKey.Secret) > 0
 }
 
+// TODO docs, unit tests
 func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
 	if err != nil {
@@ -275,6 +278,7 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 	return resourceConfigs
 }
 
+// TODO docs
 func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	desired := groupResourceKeys{}
 
@@ -303,6 +307,7 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	return desired
 }
 
+// TODO docs, better name, unit test
 func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 	// first write that is not migrated
 	for _, writeYes := range grKeys.secretsWriteYes {
@@ -327,6 +332,7 @@ func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 	return apiserverconfigv1.Key{}
 }
 
+// TODO docs
 func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration {
 	desired := grKeysToDesiredKeys(grKeys)
 
@@ -461,6 +467,7 @@ func getEncryptionConfig(secrets corev1client.SecretInterface, revision string) 
 	return encryptionConfig, nil
 }
 
+// TODO docs
 func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
 	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {

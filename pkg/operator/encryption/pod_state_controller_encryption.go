@@ -118,6 +118,7 @@ func (c *encryptionPodStateController) sync() error {
 	return configError
 }
 
+// TODO doc
 func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (string, error) {
 	// we need a stable view of the world
 	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(
