@@ -15,7 +15,6 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -80,7 +79,8 @@ func (c *encryptionPodStateController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError, isProgressing := c.observeReadAndWriteKeysFromPodState()
+	isProgressingReason, configError := c.observeReadAndWriteKeysFromPodState()
+	isProgressing := len(isProgressingReason) > 0
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -98,10 +98,10 @@ func (c *encryptionPodStateController) sync() error {
 		Type:   "EncryptionPodStateControllerProgressing",
 		Status: operatorv1.ConditionFalse,
 	}
-	if configError == nil && isProgressing { // TODO need to think this logic through
+	if isProgressing {
 		progressing.Status = operatorv1.ConditionTrue
-		progressing.Reason = "PodStateNotConverged"
-		progressing.Message = "" // TODO
+		progressing.Reason = isProgressingReason
+		progressing.Message = "" // TODO do we need something here?
 	}
 
 	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient,
@@ -118,33 +118,25 @@ func (c *encryptionPodStateController) sync() error {
 	return configError
 }
 
-func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (error, bool) {
+func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (string, error) {
 	// we need a stable view of the world
-	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
-	if err != nil || len(revision) == 0 {
-		return err, err == nil
-	}
-
-	encryptionConfig, err := getEncryptionConfig(c.secretClient.Secrets(c.targetNamespace), revision)
-	if err != nil {
-		return err, false
-	}
-
-	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.encryptionSecretSelector, c.encryptedGRs)
-	if err != nil {
-		return err, false
+	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(
+		c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	if len(isProgressingReason) > 0 || err != nil {
+		return isProgressingReason, err
 	}
 
 	// now we can attempt to annotate based on current pod state
 	var errs []error
+	var missingRead, missingWrite bool
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
 		keyToSecret := encryptionState[gr].keyToSecret
 
 		for _, readKey := range grActualKeys.readKeys {
 			readSecret, ok := keyToSecret[readKey]
 			if !ok {
-				// TODO may do not error and just set progressing ?
-				errs = append(errs, fmt.Errorf("failed to find read secret for key %s in %s", readKey.Name, gr))
+				klog.V(4).Infof("failed to find read secret for key %s in group=%s resource=%s", readKey.Name, groupToHumanReadable(gr), gr.Resource)
+				missingRead = true
 				continue
 			}
 			errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, readSecret, encryptionSecretReadTimestamp))
@@ -156,13 +148,23 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (er
 
 		writeSecret, ok := keyToSecret[grActualKeys.writeKey]
 		if !ok {
-			// TODO may do not error and just set progressing ?
-			errs = append(errs, fmt.Errorf("failed to find write secret for key %s in %s", grActualKeys.writeKey.Name, gr))
+			klog.V(4).Infof("failed to find write secret for key %s in group=%s resource=%s", grActualKeys.writeKey.Name, groupToHumanReadable(gr), gr.Resource)
+			missingWrite = true
 			continue
 		}
 		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretWriteTimestamp))
 	}
-	return utilerrors.NewAggregate(errs), false
+
+	switch {
+	case missingRead && missingWrite:
+		isProgressingReason = "IncompleteReadAndWriteKeyToSecretMapping"
+	case missingRead:
+		isProgressingReason = "IncompleteReadKeyToSecretMapping"
+	case missingWrite:
+		isProgressingReason = "IncompleteWriteKeyToSecretMapping"
+	}
+
+	return isProgressingReason, utilerrors.NewAggregate(errs)
 }
 
 func (c *encryptionPodStateController) run(stopCh <-chan struct{}) {

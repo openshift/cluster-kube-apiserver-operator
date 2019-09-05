@@ -23,7 +23,6 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -98,7 +97,8 @@ func (c *encryptionMigrationController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError, isProgressing := c.migrateKeysIfNeededAndRevisionStable()
+	isProgressingReason, configError := c.migrateKeysIfNeededAndRevisionStable()
+	isProgressing := len(isProgressingReason) > 0
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -116,9 +116,9 @@ func (c *encryptionMigrationController) sync() error {
 		Type:   "EncryptionMigrationControllerProgressing",
 		Status: operatorv1.ConditionFalse,
 	}
-	if configError == nil && isProgressing { // TODO need to think this logic through
+	if isProgressing {
 		progressing.Status = operatorv1.ConditionTrue
-		progressing.Reason = "StorageMigration"
+		progressing.Reason = isProgressingReason
 		progressing.Message = "" // TODO maybe put job information
 	}
 
@@ -136,30 +136,19 @@ func (c *encryptionMigrationController) sync() error {
 	return configError
 }
 
-func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (error, bool) {
+func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
-	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
-	if err != nil || len(revision) == 0 {
-		return err, err == nil
-	}
-
-	encryptionConfig, err := getEncryptionConfig(c.secretClient.Secrets(c.targetNamespace), revision)
-	if err != nil {
-		return err, false
-	}
-
-	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.encryptionSecretSelector, c.encryptedGRs)
-	if err != nil {
-		return err, false
+	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(
+		c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	if len(isProgressingReason) > 0 || err != nil {
+		return isProgressingReason, err
 	}
 
 	// TODO we need this check?  Could it dead lock?
 	// no storage migration until all masters catch up with revision
 	if !reflect.DeepEqual(encryptionConfig.Resources, getResourceConfigs(encryptionState)) {
-		return nil, true // retry in a little while but do not go degraded
+		return "PodAndAPIStateNotConverged", nil // retry in a little while but do not go degraded
 	}
-
-	var isProgressing bool
 
 	// all API servers have converged onto a single revision that matches our desired overall encryption state
 	// now we know that it is safe to attempt key migrations
@@ -174,7 +163,8 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 
 		writeSecret, ok := encryptionState[gr].keyToSecret[grActualKeys.writeKey]
 		if !ok || len(writeSecret.Annotations[encryptionSecretWriteTimestamp]) == 0 { // make sure this is a fully observed write key
-			isProgressing = true // since we are waiting for an observation, we are progressing
+			isProgressingReason = "WriteKeyNotObserved" // since we are waiting for an observation, we are progressing
+			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 
@@ -190,7 +180,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 
 		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
 	}
-	return utilerrors.NewAggregate(errs), isProgressing
+	return isProgressingReason, utilerrors.NewAggregate(errs)
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {

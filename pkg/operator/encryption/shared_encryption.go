@@ -551,3 +551,31 @@ func groupToHumanReadable(gr schema.GroupResource) string {
 	}
 	return group
 }
+
+func getEncryptionConfigAndState(
+	podClient corev1client.PodInterface,
+	secretClient corev1client.SecretsGetter,
+	targetNamespace string,
+	encryptionSecretSelector metav1.ListOptions,
+	encryptedGRs map[schema.GroupResource]bool,
+) (*apiserverconfigv1.EncryptionConfiguration, groupResourcesState, string, error) {
+	revision, err := getAPIServerRevisionOfAllInstances(podClient)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	if len(revision) == 0 {
+		return nil, nil, "APIServerRevisionNotConverged", nil
+	}
+
+	encryptionConfig, err := getEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	encryptionState, err := getEncryptionState(secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	return encryptionConfig, encryptionState, "", nil
+}
