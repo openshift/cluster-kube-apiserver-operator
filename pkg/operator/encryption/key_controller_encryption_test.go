@@ -75,7 +75,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed"},
@@ -88,7 +88,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 3, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 3, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed"},
@@ -101,7 +101,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
@@ -139,8 +139,8 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed"},
@@ -154,7 +154,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
@@ -192,7 +192,7 @@ func TestEncryptionKeyController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("")),
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},

@@ -64,7 +64,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			expectedActions:       []string{"list:pods:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
 			expectedEncryptionCfg: createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
@@ -98,7 +98,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
 				keysRes := encryptionKeysResourceTuple{
@@ -144,7 +144,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
 				keysRes := encryptionKeysResourceTuple{
@@ -190,8 +190,8 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
-				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 33, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
 				keysRes := encryptionKeysResourceTuple{
@@ -241,10 +241,10 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
-				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
 				keysRes := encryptionKeysResourceTuple{
@@ -302,10 +302,10 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
-				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 			},
 			expectedEncryptionCfg: func() *apiserverconfigv1.EncryptionConfiguration {
 				keysRes := encryptionKeysResourceTuple{
@@ -386,7 +386,7 @@ func TestEncryptionStateController(t *testing.T) {
 				schema.GroupResource{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("")),
 			},
 			expectedActions: []string{"list:pods:kms"},
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {

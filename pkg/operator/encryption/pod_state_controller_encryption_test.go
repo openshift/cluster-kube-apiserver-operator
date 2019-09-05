@@ -50,7 +50,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
 			initialSecrets: []*corev1.Secret{
-				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("61def964fb967f5d7c44a2af8dab6865")),
 				createNoWriteKeyEncryptionCfgSecret(t, "kms", "1", "1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets"),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms"},
@@ -94,7 +94,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
 			initialSecrets: []*corev1.Secret{
-				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+				createReadEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				func() *corev1.Secret {
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
@@ -164,8 +164,8 @@ func TestEncryptionPodStateController(t *testing.T) {
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
 			initialSecrets: []*corev1.Secret{
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 0, []byte("237a8a4846c6b1890b12abf78e0db5a3")),
-				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{"", "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 0, []byte("237a8a4846c6b1890b12abf78e0db5a3")),
+				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				func() *corev1.Secret {
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
