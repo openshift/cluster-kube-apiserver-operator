@@ -127,6 +127,7 @@ func init() {
 }
 
 // TODO docs
+// TODO expand fields to include key mode
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
 	keys        []apiserverconfigv1.Key
@@ -149,6 +150,7 @@ type keysState struct {
 }
 
 // TODO docs
+// TODO expand fields to include key mode
 type groupResourceKeys struct {
 	writeKey apiserverconfigv1.Key
 	readKeys []apiserverconfigv1.Key
