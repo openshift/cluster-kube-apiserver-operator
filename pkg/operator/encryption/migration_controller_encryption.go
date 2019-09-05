@@ -165,7 +165,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 		writeSecret, ok := encryptionState[gr].keyToSecret[grActualKeys.writeKey]
 		if !ok || len(writeSecret.Annotations[encryptionSecretWriteTimestamp]) == 0 { // make sure this is a fully observed write key
 			isProgressingReason = "WriteKeyNotObserved" // since we are waiting for an observation, we are progressing
-			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.Name, groupToHumanReadable(gr), gr.Resource)
+			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 

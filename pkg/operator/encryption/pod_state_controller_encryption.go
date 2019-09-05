@@ -136,7 +136,7 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (st
 		for _, readKey := range grActualKeys.readKeys {
 			readSecret, ok := keyToSecret[readKey]
 			if !ok {
-				klog.V(4).Infof("failed to find read secret for key %s in group=%s resource=%s", readKey.Name, groupToHumanReadable(gr), gr.Resource)
+				klog.V(4).Infof("failed to find read secret for key %s in group=%s resource=%s", readKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 				missingRead = true
 				continue
 			}
@@ -149,7 +149,7 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (st
 
 		writeSecret, ok := keyToSecret[grActualKeys.writeKey]
 		if !ok {
-			klog.V(4).Infof("failed to find write secret for key %s in group=%s resource=%s", grActualKeys.writeKey.Name, groupToHumanReadable(gr), gr.Resource)
+			klog.V(4).Infof("failed to find write secret for key %s in group=%s resource=%s", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			missingWrite = true
 			continue
 		}

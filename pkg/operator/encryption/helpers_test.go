@@ -35,9 +35,11 @@ func createEncryptionKeySecretNoData(targetNS string, gr schema.GroupResource, k
 
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
-			Namespace:   "openshift-config-managed",
-			Annotations: map[string]string{},
+			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
+			Namespace: "openshift-config-managed",
+			Annotations: map[string]string{
+				"encryption.operator.openshift.io/mode": "aescbc",
+			},
 			Labels: map[string]string{
 				"encryption.operator.openshift.io/component": targetNS,
 				"encryption.operator.openshift.io/group":     gr.Group,
@@ -206,23 +208,25 @@ func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 }
 
 func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
-
 	configurations := []apiserverconfigv1.ResourceConfiguration{}
 	for _, keysResource := range keysResources {
-		configurations = append(configurations, apiserverconfigv1.ResourceConfiguration{
-			Resources: []string{keysResource.resource},
-			Providers: []apiserverconfigv1.ProviderConfiguration{
-				apiserverconfigv1.ProviderConfiguration{
-					AESCBC: &apiserverconfigv1.AESConfiguration{
-						Keys: keysResource.keys,
-					},
+		// TODO allow secretbox -> not sure if encryptionKeysResourceTuple makes sense
+		providers := []apiserverconfigv1.ProviderConfiguration{}
+		for _, key := range keysResource.keys {
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				AESCBC: &apiserverconfigv1.AESConfiguration{
+					Keys: []apiserverconfigv1.Key{key},
 				},
-				apiserverconfigv1.ProviderConfiguration{
-					Identity: &apiserverconfigv1.IdentityConfiguration{},
-				},
-			},
+			})
+		}
+		providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+			Identity: &apiserverconfigv1.IdentityConfiguration{},
 		})
 
+		configurations = append(configurations, apiserverconfigv1.ResourceConfiguration{
+			Resources: []string{keysResource.resource},
+			Providers: providers,
+		})
 	}
 
 	return &apiserverconfigv1.EncryptionConfiguration{

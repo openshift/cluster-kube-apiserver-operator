@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"sort"
@@ -99,6 +100,12 @@ const (
 	encryptionSecretMigratedTimestamp = "encryption.operator.openshift.io/migrated-timestamp"
 )
 
+// encryptionSecretMode is the annotation that determines how the provider associated with a given key is
+// configured.  For example, a key could be used with AES-CBC or Secretbox.  This allows for algorithm
+// agility.  When the default mode used by the key minting controller changes, it will force the creation
+// of a new key under the new mode even if encryptionSecretMigrationInterval has not been reached.
+const encryptionSecretMode = "encryption.operator.openshift.io/mode"
+
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).
@@ -127,13 +134,12 @@ func init() {
 }
 
 // TODO docs
-// TODO expand fields to include key mode
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
-	keys        []apiserverconfigv1.Key
+	keys        []keyAndMode
 	secrets     []*corev1.Secret
-	keyToSecret map[apiserverconfigv1.Key]*corev1.Secret
-	secretToKey map[string]apiserverconfigv1.Key
+	keyToSecret map[keyAndMode]*corev1.Secret
+	secretToKey map[string]keyAndMode
 
 	secretsReadYes []*corev1.Secret
 	secretsReadNo  []*corev1.Secret
@@ -145,19 +151,54 @@ type keysState struct {
 	secretsMigratedNo  []*corev1.Secret
 
 	lastMigrated      *corev1.Secret
-	lastMigratedKey   apiserverconfigv1.Key
+	lastMigratedKey   keyAndMode
 	lastMigratedKeyID uint64
 }
 
 // TODO docs
-// TODO expand fields to include key mode
 type groupResourceKeys struct {
-	writeKey apiserverconfigv1.Key
-	readKeys []apiserverconfigv1.Key
+	writeKey keyAndMode
+	readKeys []keyAndMode
 }
 
 func (k groupResourceKeys) hasWriteKey() bool {
-	return len(k.writeKey.Name) > 0 && len(k.writeKey.Secret) > 0
+	return len(k.writeKey.key.Name) > 0 && len(k.writeKey.key.Secret) > 0
+}
+
+type keyAndMode struct {
+	key  apiserverconfigv1.Key
+	mode mode
+}
+
+// mode is the value associated with the encryptionSecretMode annotation
+type mode string
+
+// The current set of modes that are supported along with the default mode that is used.
+// These values are encoded into the secret and thus must not be changed.
+// Strings are used over iota because they are easier for a human to understand.
+const (
+	aescbc    mode = "aescbc"    // available from the first release, see defaultMode below
+	secretbox mode = "secretbox" // available from the first release, see defaultMode below
+
+	// Changing this value requires caution to not break downgrades.
+	// Specifically, if some new mode is released in version X, that new mode cannot
+	// be used as the defaultMode until version X+1.  Thus on a downgrade the operator
+	// from version X will still be able to honor the observed encryption state
+	// (and it will do a key rotation to force the use of the old defaultMode).
+	defaultMode = aescbc
+)
+
+var modeToNewKeyFunc = map[mode]func() []byte{
+	aescbc:    newAES256Key,
+	secretbox: newAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
+}
+
+func newAES256Key() []byte {
+	b := make([]byte, 32) // AES-256 == 32 byte key
+	if _, err := rand.Read(b); err != nil {
+		panic(err) // rand should never fail
+	}
+	return b
 }
 
 // TODO docs, unit tests
@@ -201,12 +242,12 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		grState.secrets = append(grState.secrets, encryptionSecret)
 
 		if grState.keyToSecret == nil {
-			grState.keyToSecret = map[apiserverconfigv1.Key]*corev1.Secret{}
+			grState.keyToSecret = map[keyAndMode]*corev1.Secret{}
 		}
 		grState.keyToSecret[key] = encryptionSecret
 
 		if grState.secretToKey == nil {
-			grState.secretToKey = map[string]apiserverconfigv1.Key{}
+			grState.secretToKey = map[string]keyAndMode{}
 		}
 		grState.secretToKey[encryptionSecret.Name] = key
 
@@ -235,20 +276,29 @@ func appendSecretPerAnnotationState(in, out *[]*corev1.Secret, secret *corev1.Se
 	}
 }
 
-func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResource]bool) (schema.GroupResource, apiserverconfigv1.Key, uint64, bool) {
+func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResource]bool) (schema.GroupResource, keyAndMode, uint64, bool) {
 	group := encryptionSecret.Labels[encryptionSecretGroup]
 	resource := encryptionSecret.Labels[encryptionSecretResource]
 	keyData := encryptionSecret.Data[encryptionSecretKeyData]
+	keyMode := mode(encryptionSecret.Annotations[encryptionSecretMode])
 
 	keyID, validKeyID := secretToKeyID(encryptionSecret)
 
 	gr := schema.GroupResource{Group: group, Resource: resource}
-	key := apiserverconfigv1.Key{
-		// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
-		Name:   strconv.FormatUint(keyID, 10),
-		Secret: base64.StdEncoding.EncodeToString(keyData),
+	key := keyAndMode{
+		key: apiserverconfigv1.Key{
+			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
+			Name:   strconv.FormatUint(keyID, 10),
+			Secret: base64.StdEncoding.EncodeToString(keyData),
+		},
+		mode: keyMode,
 	}
 	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr]
+	switch keyMode {
+	case aescbc, secretbox:
+	default:
+		invalidKey = true
+	}
 
 	return gr, key, keyID, !invalidKey
 }
@@ -310,7 +360,7 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 }
 
 // TODO docs, better name, unit test
-func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
+func determineWriteKey(grKeys keysState) keyAndMode {
 	// first write that is not migrated
 	for _, writeYes := range grKeys.secretsWriteYes {
 		if len(writeYes.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
@@ -331,7 +381,7 @@ func determineWriteKey(grKeys keysState) apiserverconfigv1.Key {
 	}
 
 	// no write key
-	return apiserverconfigv1.Key{}
+	return keyAndMode{}
 }
 
 // TODO docs
@@ -342,23 +392,41 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 
 	// write key comes first
 	if desired.hasWriteKey() {
-		allKeys = append([]apiserverconfigv1.Key{desired.writeKey}, allKeys...)
+		allKeys = append([]keyAndMode{desired.writeKey}, allKeys...)
 	}
 
-	aescbc := apiserverconfigv1.ProviderConfiguration{
-		AESCBC: &apiserverconfigv1.AESConfiguration{
-			Keys: allKeys,
-		},
+	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
+
+	for _, key := range allKeys {
+		switch key.mode {
+		case aescbc:
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				AESCBC: &apiserverconfigv1.AESConfiguration{
+					Keys: []apiserverconfigv1.Key{key.key},
+				},
+			})
+		case secretbox:
+			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
+				Secretbox: &apiserverconfigv1.SecretboxConfiguration{
+					Keys: []apiserverconfigv1.Key{key.key},
+				},
+			})
+		default:
+			// this should never happen because our input should always be valid
+			klog.Infof("skipping key %s as it has invalid mode %s", key.key.Name, key.mode)
+		}
 	}
+
 	identity := apiserverconfigv1.ProviderConfiguration{
 		Identity: &apiserverconfigv1.IdentityConfiguration{},
 	}
 
-	// assume the common case of having a write key so identity comes last
-	providers := []apiserverconfigv1.ProviderConfiguration{aescbc, identity}
-	// if we have no write key, identity comes first
-	if !desired.hasWriteKey() {
-		providers = []apiserverconfigv1.ProviderConfiguration{identity, aescbc}
+	if desired.hasWriteKey() {
+		// the common case is that we have a write key, identity comes last
+		providers = append(providers, identity)
+	} else {
+		// if we have no write key, identity comes first
+		providers = append([]apiserverconfigv1.ProviderConfiguration{identity}, providers...)
 	}
 
 	return providers
@@ -473,25 +541,47 @@ func getEncryptionConfig(secrets corev1client.SecretInterface, revision string) 
 func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
 	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {
-		if len(resourceConfig.Resources) == 0 || len(resourceConfig.Providers) < 2 {
+		// resources should be a single group resource and
+		// providers should be have at least one "key" provider and the identity provider
+		if len(resourceConfig.Resources) != 1 || len(resourceConfig.Providers) < 2 {
+			klog.Infof("skipping invalid encryption config for resource %s", resourceConfig.Resources)
 			continue // should never happen
 		}
 
-		gr := schema.ParseGroupResource(resourceConfig.Resources[0])
-		provider1 := resourceConfig.Providers[0]
-		provider2 := resourceConfig.Providers[1]
+		grk := groupResourceKeys{}
 
-		switch {
-		case provider1.AESCBC != nil && len(provider1.AESCBC.Keys) != 0:
-			out[gr] = groupResourceKeys{
-				writeKey: provider1.AESCBC.Keys[0],
-				readKeys: provider1.AESCBC.Keys[1:],
+		for i, provider := range resourceConfig.Providers {
+			var key keyAndMode
+
+			switch {
+			case provider.AESCBC != nil && len(provider.AESCBC.Keys) == 1:
+				key = keyAndMode{
+					key:  provider.AESCBC.Keys[0],
+					mode: aescbc,
+				}
+
+			case provider.Secretbox != nil && len(provider.Secretbox.Keys) == 1:
+				key = keyAndMode{
+					key:  provider.Secretbox.Keys[0],
+					mode: secretbox,
+				}
+
+			case provider.Identity != nil:
+				continue // identity is not represented in groupResourceKeys directly (it can be inferred though)
+
+			default:
+				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
+				continue // should never happen
 			}
-		case provider1.Identity != nil && provider2.AESCBC != nil && len(provider2.AESCBC.Keys) != 0:
-			out[gr] = groupResourceKeys{
-				readKeys: provider2.AESCBC.Keys,
+
+			if i == 0 {
+				grk.writeKey = key
+			} else {
+				grk.readKeys = append(grk.readKeys, key)
 			}
 		}
+
+		out[schema.ParseGroupResource(resourceConfig.Resources[0])] = grk
 	}
 	return out
 }

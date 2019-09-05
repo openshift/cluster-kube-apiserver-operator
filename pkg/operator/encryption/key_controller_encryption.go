@@ -1,7 +1,6 @@
 package encryption
 
 import (
-	"crypto/rand"
 	"fmt"
 	"time"
 
@@ -170,9 +169,12 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 				encryptionSecretGroup:    gr.Group,
 				encryptionSecretResource: gr.Resource,
 			},
+			Annotations: map[string]string{
+				encryptionSecretMode: string(defaultMode),
+			},
 		},
 		Data: map[string][]byte{
-			encryptionSecretKeyData: newAES256Key(),
+			encryptionSecretKeyData: modeToNewKeyFunc[defaultMode](),
 		},
 	}
 }
@@ -190,7 +192,13 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 	}
 
 	// if there are no unmigrated secrets but there are some secrets, then we must have migrated secrets
-	// thus this field will always be set at this point (and the secret will always have the annotation set)
+	// thus the lastMigrated field will always be set (and the secret will always have the annotations set)
+
+	// if the last migrated secret was encrypted in a mode different than the current default, we need to generate a new key
+	if grKeys.lastMigrated.Annotations[encryptionSecretMode] != string(defaultMode) {
+		return grKeys.lastMigratedKeyID, true
+	}
+
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	migrationTimestamp, err := time.Parse(time.RFC3339, grKeys.lastMigrated.Annotations[encryptionSecretMigratedTimestamp])
@@ -199,18 +207,7 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 		return grKeys.lastMigratedKeyID, true
 	}
 
-	// TODO add a check against grKeys.lastMigrated.Annotations[encryptionSecretMode]
-	// if the last migrated secret was encrypted in a mode different than the current default, we need to generate a new key
-
 	return grKeys.lastMigratedKeyID, time.Since(migrationTimestamp) > encryptionSecretMigrationInterval
-}
-
-func newAES256Key() []byte {
-	b := make([]byte, 32) // AES-256 == 32 byte key
-	if _, err := rand.Read(b); err != nil {
-		panic(err) // rand should never fail
-	}
-	return b
 }
 
 func (c *encryptionKeyController) run(stopCh <-chan struct{}) {
