@@ -172,6 +172,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 			continue // migration already done for this resource
 		}
 
+		// TODO go progressing while storage migration is running
 		migrationErr := c.runStorageMigration(gr)
 		errs = append(errs, migrationErr)
 		if migrationErr != nil {
