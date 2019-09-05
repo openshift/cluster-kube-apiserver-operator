@@ -319,14 +319,6 @@ func TestEncryptionStateController(t *testing.T) {
 							Name:   "33",
 							Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
 						},
-						apiserverconfigv1.Key{
-							Name:   "32",
-							Secret: "NDJiMDdiMzg1YTBlZGVlMjY4ZjFhYzQxY2ZjNTM4NTc=",
-						},
-						apiserverconfigv1.Key{
-							Name:   "31",
-							Secret: "YTFmMWIzZTM2YzQ3N2Q5MWVhODVhZjBmMzIzNThmNzA=",
-						},
 					},
 				}
 				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
