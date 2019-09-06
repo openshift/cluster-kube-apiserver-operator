@@ -179,18 +179,20 @@ type mode string
 const (
 	aescbc    mode = "aescbc"    // available from the first release, see defaultMode below
 	secretbox mode = "secretbox" // available from the first release, see defaultMode below
+	identity  mode = "identity"  // available from the first release, see defaultMode below
 
 	// Changing this value requires caution to not break downgrades.
 	// Specifically, if some new mode is released in version X, that new mode cannot
 	// be used as the defaultMode until version X+1.  Thus on a downgrade the operator
 	// from version X will still be able to honor the observed encryption state
 	// (and it will do a key rotation to force the use of the old defaultMode).
-	defaultMode = aescbc
+	defaultMode = aescbc // TODO maybe we make this a var instead of a const and use it as the on/off switch (i.e. identity->aescbc)
 )
 
 var modeToNewKeyFunc = map[mode]func() []byte{
 	aescbc:    newAES256Key,
 	secretbox: newAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
+	identity:  newIdentityKey,
 }
 
 func newAES256Key() []byte {
@@ -200,6 +202,12 @@ func newAES256Key() []byte {
 	}
 	return b
 }
+
+func newIdentityKey() []byte {
+	return make([]byte, 16) // the key is not used to perform encryption but must be a valid AES key
+}
+
+var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 
 // TODO docs, unit tests
 func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
@@ -295,7 +303,7 @@ func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResou
 	}
 	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr]
 	switch keyMode {
-	case aescbc, secretbox:
+	case aescbc, secretbox, identity:
 	default:
 		invalidKey = true
 	}
@@ -397,7 +405,15 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
 
-	for _, key := range allKeys {
+	// having identity as a key is problematic because IdentityConfiguration cannot store any data.
+	// we need to be able to trace back to the secret so that it can move through the key state machine.
+	// thus in this case we create a fake AES-GCM config and include that at the very end of our providers.
+	// its null key will never be used to encrypt data but it will be able to move through the observed states.
+	// we guarantee it is never used by making sure that the IdentityConfiguration is always ahead of it.
+	var hasIdentityAsWriteKey, needsFakeIdentityProvider bool
+	var fakeIdentityProvider apiserverconfigv1.ProviderConfiguration
+
+	for i, key := range allKeys {
 		switch key.mode {
 		case aescbc:
 			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
@@ -411,22 +427,40 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 					Keys: []apiserverconfigv1.Key{key.key},
 				},
 			})
+		case identity:
+			// we can only track one fake identity provider
+			// this is not an issue because all identity providers are conceptually equivalent
+			// because they all lead to same outcome (read and write unencrypted data)
+			if needsFakeIdentityProvider {
+				continue
+			}
+			needsFakeIdentityProvider = true
+			hasIdentityAsWriteKey = i == 0
+			fakeIdentityProvider = apiserverconfigv1.ProviderConfiguration{
+				AESGCM: &apiserverconfigv1.AESConfiguration{
+					Keys: []apiserverconfigv1.Key{key.key},
+				},
+			}
 		default:
 			// this should never happen because our input should always be valid
 			klog.Infof("skipping key %s as it has invalid mode %s", key.key.Name, key.mode)
 		}
 	}
 
-	identity := apiserverconfigv1.ProviderConfiguration{
+	identityProvider := apiserverconfigv1.ProviderConfiguration{
 		Identity: &apiserverconfigv1.IdentityConfiguration{},
 	}
 
-	if desired.hasWriteKey() {
+	if desired.hasWriteKey() && !hasIdentityAsWriteKey {
 		// the common case is that we have a write key, identity comes last
-		providers = append(providers, identity)
+		providers = append(providers, identityProvider)
 	} else {
 		// if we have no write key, identity comes first
-		providers = append([]apiserverconfigv1.ProviderConfiguration{identity}, providers...)
+		providers = append([]apiserverconfigv1.ProviderConfiguration{identityProvider}, providers...)
+	}
+
+	if needsFakeIdentityProvider {
+		providers = append(providers, fakeIdentityProvider)
 	}
 
 	return providers
@@ -550,6 +584,12 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 
 		grk := groupResourceKeys{}
 
+		// we know that this is safe because providers is non-empty
+		// we need to track the last provider as it may be a fake provider that is holding the identity key info
+		lastIndex := len(resourceConfig.Providers) - 1
+		lastProvider := resourceConfig.Providers[lastIndex]
+		var hasFakeIdentityProvider bool
+
 		for i, provider := range resourceConfig.Providers {
 			var key keyAndMode
 
@@ -567,7 +607,16 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 				}
 
 			case provider.Identity != nil:
-				continue // identity is not represented in groupResourceKeys directly (it can be inferred though)
+				if i != 0 {
+					continue // we do not want to add a key for this unless it is a write key
+				}
+				key = keyAndMode{
+					mode: identity,
+				}
+
+			case i == lastIndex && provider.AESGCM != nil && len(provider.AESGCM.Keys) == 1 && provider.AESGCM.Keys[0].Secret == emptyStaticIdentityKey:
+				hasFakeIdentityProvider = true
+				continue // we handle the fake identity provider at the end based on if it is read or write key
 
 			default:
 				klog.Infof("skipping invalid provider index %d for resource %s", i, resourceConfig.Resources[0])
@@ -579,6 +628,18 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 			} else {
 				grk.readKeys = append(grk.readKeys, key)
 			}
+		}
+
+		// now we can explicitly handle the fake identity provider based on the key state
+		switch {
+		case grk.writeKey.mode == identity && hasFakeIdentityProvider:
+			grk.writeKey.key = lastProvider.AESGCM.Keys[0]
+		case hasFakeIdentityProvider:
+			grk.readKeys = append(grk.readKeys,
+				keyAndMode{
+					key:  lastProvider.AESGCM.Keys[0],
+					mode: identity,
+				})
 		}
 
 		out[schema.ParseGroupResource(resourceConfig.Resources[0])] = grk
