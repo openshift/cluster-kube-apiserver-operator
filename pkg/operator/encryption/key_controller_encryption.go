@@ -191,9 +191,9 @@ func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
 		return 0, false
 	}
 
-	// we always need to have some encryption keys
+	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.secrets) == 0 {
-		return 0, true
+		return 0, currentMode != identity
 	}
 
 	// if there are no unmigrated secrets but there are some secrets, then we must have migrated secrets
@@ -202,6 +202,11 @@ func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
 	// if the last migrated secret was encrypted in a mode different than the current mode, we need to generate a new key
 	if grKeys.lastMigrated.Annotations[encryptionSecretMode] != string(currentMode) {
 		return grKeys.lastMigratedKeyID, true
+	}
+
+	// if the last migrated secret turned off encryption and we want to keep it that way, do nothing
+	if grKeys.lastMigrated.Annotations[encryptionSecretMode] == string(identity) && currentMode == identity {
+		return 0, false
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
