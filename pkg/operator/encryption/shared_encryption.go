@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -186,13 +187,25 @@ const (
 	// be used as the defaultMode until version X+1.  Thus on a downgrade the operator
 	// from version X will still be able to honor the observed encryption state
 	// (and it will do a key rotation to force the use of the old defaultMode).
-	defaultMode = aescbc // TODO maybe we make this a var instead of a const and use it as the on/off switch (i.e. identity->aescbc)
+	defaultMode = aescbc // TODO change to identity (to default to off) on first release
 )
 
 var modeToNewKeyFunc = map[mode]func() []byte{
 	aescbc:    newAES256Key,
 	secretbox: newAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
 	identity:  newIdentityKey,
+}
+
+func getCurrentMode() (mode, error) {
+	// TODO replace this env var hack with a check against some cluster config
+	switch currentMode := mode(os.Getenv("ENCRYPTION_MODE")); currentMode {
+	case aescbc, secretbox, identity:
+		return currentMode, nil
+	case "": // unspecified means use the default (which can change over time)
+		return defaultMode, nil
+	default:
+		return "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+	}
 }
 
 func newAES256Key() []byte {

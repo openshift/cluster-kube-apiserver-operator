@@ -110,6 +110,11 @@ func (c *encryptionKeyController) sync() error {
 }
 
 func (c *encryptionKeyController) checkAndCreateKeys() error {
+	currentMode, err := getCurrentMode()
+	if err != nil {
+		return err
+	}
+
 	encryptionState, err := getEncryptionState(c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
@@ -124,13 +129,13 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 
 	var errs []error
 	for gr, grKeys := range encryptionState {
-		keyID, ok := needsNewKey(grKeys)
+		keyID, ok := needsNewKey(grKeys, currentMode)
 		if !ok {
 			continue
 		}
 
 		nextKeyID := keyID + 1
-		keySecret := c.generateKeySecret(gr, nextKeyID)
+		keySecret := c.generateKeySecret(gr, nextKeyID, currentMode)
 		_, createErr := c.secretClient.Create(keySecret)
 		if errors.IsAlreadyExists(createErr) {
 			errs = append(errs, c.validateExistingKey(keySecret, gr, nextKeyID))
@@ -156,7 +161,7 @@ func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, 
 	return nil // we made this key earlier
 }
 
-func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64) *corev1.Secret {
+func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64, currentMode mode) *corev1.Secret {
 	group := groupToHumanReadable(gr)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -170,17 +175,17 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 				encryptionSecretResource: gr.Resource,
 			},
 			Annotations: map[string]string{
-				encryptionSecretMode: string(defaultMode),
+				encryptionSecretMode: string(currentMode),
 			},
 		},
 		Data: map[string][]byte{
-			encryptionSecretKeyData: modeToNewKeyFunc[defaultMode](),
+			encryptionSecretKeyData: modeToNewKeyFunc[currentMode](),
 		},
 	}
 }
 
 // TODO unit tests
-func needsNewKey(grKeys keysState) (uint64, bool) {
+func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
 	// unmigrated secrets create back pressure against new key generation
 	if len(grKeys.secretsMigratedNo) > 0 {
 		return 0, false
@@ -194,8 +199,8 @@ func needsNewKey(grKeys keysState) (uint64, bool) {
 	// if there are no unmigrated secrets but there are some secrets, then we must have migrated secrets
 	// thus the lastMigrated field will always be set (and the secret will always have the annotations set)
 
-	// if the last migrated secret was encrypted in a mode different than the current default, we need to generate a new key
-	if grKeys.lastMigrated.Annotations[encryptionSecretMode] != string(defaultMode) {
+	// if the last migrated secret was encrypted in a mode different than the current mode, we need to generate a new key
+	if grKeys.lastMigrated.Annotations[encryptionSecretMode] != string(currentMode) {
 		return grKeys.lastMigratedKeyID, true
 	}
 
