@@ -363,11 +363,13 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	// iterate in reverse to order the read keys with highest keyID first
 	for i := len(grKeys.keys) - 1; i >= 0; i-- {
 		readKey := grKeys.keys[i]
-		if desired.hasWriteKey() && readKey == desired.writeKey {
-			continue // if present, drop the duplicate write key from the list
-		}
 
-		desired.readKeys = append(desired.readKeys, readKey)
+		readKeyIsWriteKey := desired.hasWriteKey() && readKey == desired.writeKey
+
+		// if present, do not include a duplicate write key in the read key list
+		if !readKeyIsWriteKey {
+			desired.readKeys = append(desired.readKeys, readKey)
+		}
 
 		if len(grKeys.secretsMigratedYes) > 0 && readKey == grKeys.lastMigratedKey {
 			// we only need the read keys that have equal or higher keyID than the last migrated key
