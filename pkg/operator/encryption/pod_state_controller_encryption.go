@@ -121,8 +121,7 @@ func (c *encryptionPodStateController) sync() error {
 // TODO doc
 func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (string, error) {
 	// we need a stable view of the world
-	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(
-		c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}

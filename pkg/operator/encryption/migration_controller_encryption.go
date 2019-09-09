@@ -139,8 +139,7 @@ func (c *encryptionMigrationController) sync() error {
 // TODO doc
 func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
-	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(
-		c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
