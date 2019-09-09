@@ -466,6 +466,9 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      expectedSecretName,
 			Namespace: "openshift-config-managed",
+			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+			},
 		},
 		Data: actualSecret.Data,
 	}

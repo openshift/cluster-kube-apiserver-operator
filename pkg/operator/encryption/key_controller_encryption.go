@@ -175,6 +175,8 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 				encryptionSecretResource: gr.Resource,
 			},
 			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+
 				encryptionSecretMode:           string(currentMode),
 				encryptionSecretInternalReason: internalReason,
 				encryptionSecretExternalReason: externalReason,

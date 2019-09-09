@@ -145,6 +145,9 @@ func (c *encryptionStateController) applyEncryptionConfigSecret(resourceConfigs 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.destName,
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+			},
 		},
 		Data: map[string][]byte{encryptionConfSecret: encryptionConfigBytes},
 	})

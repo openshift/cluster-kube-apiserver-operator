@@ -307,6 +307,9 @@ func createNoWriteKeyEncryptionCfgSecret(t *testing.T, targetNs, revision, keyID
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
 			Namespace: targetNs,
+			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+			},
 		},
 		Data: map[string][]byte{
 			encryptionConfSecretForTest: rawEncryptionCfg,

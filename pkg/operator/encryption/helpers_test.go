@@ -38,6 +38,8 @@ func createEncryptionKeySecretNoData(targetNS string, gr schema.GroupResource, k
 			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
 			Namespace: "openshift-config-managed",
 			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+
 				"encryption.operator.openshift.io/mode":            "aescbc",
 				"encryption.operator.openshift.io/internal-reason": "no-secrets",
 				"encryption.operator.openshift.io/external-reason": "",
@@ -253,6 +255,9 @@ func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revis
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
 			Namespace: targetNs,
+			Annotations: map[string]string{
+				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+			},
 		},
 		Data: map[string][]byte{
 			encryptionConfSecretForTest: rawEncryptionCfg,

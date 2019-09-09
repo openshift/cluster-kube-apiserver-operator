@@ -126,6 +126,15 @@ const encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?  -
 // (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
 const encryptionSecretKeyData = "encryption.operator.openshift.io-key"
 
+// These annotations try to scare anyone away from editing the encryption secrets.  It is trivial for
+// an external actor to break the invariants of the state machine and render the cluster unrecoverable.
+const (
+	kubernetesDescriptionKey        = "kubernetes.io/description"
+	kubernetesDescriptionScaryValue = `WARNING: DO NOT EDIT.
+Altering of the encryption secrets will render you cluster inaccessible.
+Catastrophic data loss can occur from the most minor changes.`
+)
+
 // revisionLabel is used to find the current revision for a given API server.
 const revisionLabel = "revision"
 
