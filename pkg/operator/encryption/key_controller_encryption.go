@@ -110,7 +110,7 @@ func (c *encryptionKeyController) sync() error {
 }
 
 func (c *encryptionKeyController) checkAndCreateKeys() error {
-	currentMode, err := getCurrentMode()
+	currentMode, externalReason, err := getCurrentModeAndExternalReason()
 	if err != nil {
 		return err
 	}
@@ -129,13 +129,13 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 
 	var errs []error
 	for gr, grKeys := range encryptionState {
-		keyID, ok := needsNewKey(grKeys, currentMode)
+		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
 		if !ok {
 			continue
 		}
 
 		nextKeyID := keyID + 1
-		keySecret := c.generateKeySecret(gr, nextKeyID, currentMode)
+		keySecret := c.generateKeySecret(gr, nextKeyID, currentMode, internalReason, externalReason)
 		_, createErr := c.secretClient.Create(keySecret)
 		if errors.IsAlreadyExists(createErr) {
 			errs = append(errs, c.validateExistingKey(keySecret, gr, nextKeyID))
@@ -161,7 +161,7 @@ func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, 
 	return nil // we made this key earlier
 }
 
-func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64, currentMode mode) *corev1.Secret {
+func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, keyID uint64, currentMode mode, internalReason, externalReason string) *corev1.Secret {
 	group := groupToHumanReadable(gr)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -175,7 +175,9 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 				encryptionSecretResource: gr.Resource,
 			},
 			Annotations: map[string]string{
-				encryptionSecretMode: string(currentMode),
+				encryptionSecretMode:           string(currentMode),
+				encryptionSecretInternalReason: internalReason,
+				encryptionSecretExternalReason: externalReason,
 			},
 		},
 		Data: map[string][]byte{
@@ -185,15 +187,15 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 }
 
 // TODO unit tests
-func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
+func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uint64, string, bool) {
 	// unmigrated secrets create back pressure against new key generation
 	if len(grKeys.secretsMigratedNo) > 0 {
-		return 0, false
+		return 0, "", false
 	}
 
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.secrets) == 0 {
-		return 0, currentMode != identity
+		return 0, "no-secrets", currentMode != identity
 	}
 
 	// if there are no unmigrated secrets but there are some secrets, then we must have migrated secrets
@@ -201,12 +203,17 @@ func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
 
 	// if the last migrated secret was encrypted in a mode different than the current mode, we need to generate a new key
 	if grKeys.lastMigrated.Annotations[encryptionSecretMode] != string(currentMode) {
-		return grKeys.lastMigratedKeyID, true
+		return grKeys.lastMigratedKeyID, "new-mode", true
 	}
 
 	// if the last migrated secret turned off encryption and we want to keep it that way, do nothing
 	if grKeys.lastMigrated.Annotations[encryptionSecretMode] == string(identity) && currentMode == identity {
-		return 0, false
+		return 0, "", false
+	}
+
+	// if the last migrated secret has a different external reason than the current reason, we need to generate a new key
+	if grKeys.lastMigrated.Annotations[encryptionSecretExternalReason] != externalReason && len(externalReason) != 0 {
+		return grKeys.lastMigratedKeyID, "new-external-reason", true
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
@@ -214,10 +221,10 @@ func needsNewKey(grKeys keysState, currentMode mode) (uint64, bool) {
 	migrationTimestamp, err := time.Parse(time.RFC3339, grKeys.lastMigrated.Annotations[encryptionSecretMigratedTimestamp])
 	if err != nil {
 		klog.Infof("failed to parse migration timestamp for %s, forcing new key: %v", grKeys.lastMigrated.Name, err)
-		return grKeys.lastMigratedKeyID, true
+		return grKeys.lastMigratedKeyID, "timestamp-error", true
 	}
 
-	return grKeys.lastMigratedKeyID, time.Since(migrationTimestamp) > encryptionSecretMigrationInterval
+	return grKeys.lastMigratedKeyID, "timestamp-too-old", time.Since(migrationTimestamp) > encryptionSecretMigrationInterval
 }
 
 func (c *encryptionKeyController) run(stopCh <-chan struct{}) {

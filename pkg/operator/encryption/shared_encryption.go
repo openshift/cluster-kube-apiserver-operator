@@ -107,6 +107,16 @@ const (
 // of a new key under the new mode even if encryptionSecretMigrationInterval has not been reached.
 const encryptionSecretMode = "encryption.operator.openshift.io/mode"
 
+// encryptionSecretInternalReason is the annotation that denotes why a particular key
+// was created based on "internal" reasons (i.e. key minting controller decided a new
+// key was needed for some reason X).  It is tracked solely for the purposes of debugging.
+const encryptionSecretInternalReason = "encryption.operator.openshift.io/internal-reason"
+
+// encryptionSecretExternalReason is the annotation that denotes why a particular key was created based on
+// "external" reasons (i.e. force key rotation for some reason Y).  It allows the key minting controller to
+// determine if a new key should be created even if encryptionSecretMigrationInterval has not been reached.
+const encryptionSecretExternalReason = "encryption.operator.openshift.io/external-reason"
+
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).
@@ -196,15 +206,16 @@ var modeToNewKeyFunc = map[mode]func() []byte{
 	identity:  newIdentityKey,
 }
 
-func getCurrentMode() (mode, error) {
+func getCurrentModeAndExternalReason() (mode, string, error) {
 	// TODO replace this env var hack with a check against some cluster config
+	reason := os.Getenv("ENCRYPTION_EXTERNAL_REASON")
 	switch currentMode := mode(os.Getenv("ENCRYPTION_MODE")); currentMode {
 	case aescbc, secretbox, identity:
-		return currentMode, nil
+		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
-		return defaultMode, nil
+		return defaultMode, reason, nil
 	default:
-		return "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 

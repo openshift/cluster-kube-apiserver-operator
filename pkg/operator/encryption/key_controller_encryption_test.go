@@ -116,6 +116,7 @@ func TestEncryptionKeyController(t *testing.T) {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
 						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, targetGR, 6, actualSecret)
+						expectedSecret.Annotations["encryption.operator.openshift.io/internal-reason"] = "timestamp-too-old"
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}
@@ -169,6 +170,7 @@ func TestEncryptionKeyController(t *testing.T) {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
 						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, targetGR, 101, actualSecret)
+						expectedSecret.Annotations["encryption.operator.openshift.io/internal-reason"] = "timestamp-too-old"
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}

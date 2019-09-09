@@ -38,7 +38,9 @@ func createEncryptionKeySecretNoData(targetNS string, gr schema.GroupResource, k
 			Name:      fmt.Sprintf("%s-%s-%s-encryption-%d", targetNS, group, gr.Resource, keyID),
 			Namespace: "openshift-config-managed",
 			Annotations: map[string]string{
-				"encryption.operator.openshift.io/mode": "aescbc",
+				"encryption.operator.openshift.io/mode":            "aescbc",
+				"encryption.operator.openshift.io/internal-reason": "no-secrets",
+				"encryption.operator.openshift.io/external-reason": "",
 			},
 			Labels: map[string]string{
 				"encryption.operator.openshift.io/component": targetNS,
