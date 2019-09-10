@@ -8,7 +8,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -202,7 +201,8 @@ func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResou
 			_, updateErr := d.Namespace(obj.GetNamespace()).Update(&obj, metav1.UpdateOptions{})
 			errs = append(errs, updateErr)
 		}
-		return &unstructured.UnstructuredList{}, nil // do not accumulate list, this fakes the visitor pattern
+		allResource.Items = nil // do not accumulate items, this fakes the visitor pattern
+		return allResource, nil // leave the rest of the list intact to preserve continue token
 	}))
 
 	listPager.FullListIfExpired = false // prevent memory explosion from full list
