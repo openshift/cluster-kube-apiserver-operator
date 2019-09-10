@@ -274,20 +274,28 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 		}
 	}
 
-	var v int
+	containerArgsWithLoglevel := required.Spec.Containers[0].Args
+	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
+		return nil, false, fmt.Errorf("expected only one container argument, got %d", argsCount)
+	}
+	if !strings.Contains(containerArgsWithLoglevel[0], "exec hyperkube kube-apiserver") {
+		return nil, false, fmt.Errorf("exec hyperkube kube-apiserver not found in first argument %q", containerArgsWithLoglevel[0])
+	}
+
+	containerArgsWithLoglevel[0] = strings.TrimSpace(containerArgsWithLoglevel[0])
 	switch operatorSpec.LogLevel {
 	case operatorv1.Normal:
-		v = 2
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
 	case operatorv1.Debug:
-		v = 4
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 4)
 	case operatorv1.Trace:
-		v = 6
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 6)
 	case operatorv1.TraceAll:
-		v = 8
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 8)
 	default:
-		v = 2
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
 	}
-	required.Spec.Containers[0].Args = append(required.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", v))
+	required.Spec.Containers[0].Args = containerArgsWithLoglevel
 
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorSpec.ObservedConfig.Raw, &observedConfig); err != nil {
