@@ -49,6 +49,7 @@ func createEncryptionKeySecretNoData(targetNS string, gr schema.GroupResource, k
 				"encryption.operator.openshift.io/group":     gr.Group,
 				"encryption.operator.openshift.io/resource":  gr.Resource,
 			},
+			Finalizers: []string{"encryption.operator.openshift.io/deletion-protection"},
 		},
 		Data: map[string][]byte{},
 	}
@@ -258,6 +259,7 @@ func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revis
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
 			},
+			Finalizers: []string{"encryption.operator.openshift.io/deletion-protection"},
 		},
 		Data: map[string][]byte{
 			encryptionConfSecretForTest: rawEncryptionCfg,

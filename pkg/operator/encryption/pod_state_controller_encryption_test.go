@@ -310,6 +310,7 @@ func createNoWriteKeyEncryptionCfgSecret(t *testing.T, targetNs, revision, keyID
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
 			},
+			Finalizers: []string{"encryption.operator.openshift.io/deletion-protection"},
 		},
 		Data: map[string][]byte{
 			encryptionConfSecretForTest: rawEncryptionCfg,

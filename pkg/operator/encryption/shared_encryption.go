@@ -117,6 +117,11 @@ const encryptionSecretInternalReason = "encryption.operator.openshift.io/interna
 // determine if a new key should be created even if encryptionSecretMigrationInterval has not been reached.
 const encryptionSecretExternalReason = "encryption.operator.openshift.io/external-reason"
 
+// encryptionSecretFinalizer is a finalizer attached to all secrets generated
+// by the encryption controllers.  Its sole purpose is to prevent the accidental
+// deletion of secrets by enforcing a two phase delete.
+const encryptionSecretFinalizer = "encryption.operator.openshift.io/deletion-protection"
+
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).

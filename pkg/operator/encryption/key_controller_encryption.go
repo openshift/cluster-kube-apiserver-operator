@@ -181,6 +181,7 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 				encryptionSecretInternalReason: internalReason,
 				encryptionSecretExternalReason: externalReason,
 			},
+			Finalizers: []string{encryptionSecretFinalizer},
 		},
 		Data: map[string][]byte{
 			encryptionSecretKeyData: modeToNewKeyFunc[currentMode](),

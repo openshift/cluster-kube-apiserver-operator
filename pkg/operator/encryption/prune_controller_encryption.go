@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -113,7 +114,22 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 			continue
 		}
 		for _, secret := range grKeys.secretsMigratedYes[:deleteCount] {
-			// TODO add a finalizer to these secrets to require a two phase delete
+			// two phase delete
+
+			// remove our finalizer if it is present
+			if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(encryptionSecretFinalizer) {
+				delete(finalizers, encryptionSecretFinalizer)
+				secret = secret.DeepCopy()
+				secret.Finalizers = finalizers.List()
+				var updateErr error
+				secret, updateErr = c.secretClient.Update(secret)
+				deleteErrs = append(deleteErrs, updateErr)
+				if updateErr != nil {
+					continue
+				}
+			}
+
+			// remove the actual secret
 			deleteErrs = append(deleteErrs, c.secretClient.Delete(secret.Name, nil))
 		}
 	}

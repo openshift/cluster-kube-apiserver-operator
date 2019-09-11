@@ -469,6 +469,7 @@ func validateSecretWithEncryptionConfig(actualSecret *corev1.Secret, expectedEnc
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
 			},
+			Finalizers: []string{"encryption.operator.openshift.io/deletion-protection"},
 		},
 		Data: actualSecret.Data,
 	}

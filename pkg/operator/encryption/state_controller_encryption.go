@@ -148,6 +148,7 @@ func (c *encryptionStateController) applyEncryptionConfigSecret(resourceConfigs 
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
 			},
+			Finalizers: []string{encryptionSecretFinalizer},
 		},
 		Data: map[string][]byte{encryptionConfSecret: encryptionConfigBytes},
 	})
