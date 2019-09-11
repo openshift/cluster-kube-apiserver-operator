@@ -122,12 +122,16 @@ func TestEncryptionMigrationController(t *testing.T) {
 			},
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
 				expectedConditions := []operatorv1.OperatorCondition{
-					operatorv1.OperatorCondition{
+					{
 						Type:   "EncryptionMigrationControllerDegraded",
 						Status: "False",
 					},
-					operatorv1.OperatorCondition{
+					{
 						Type:   "EncryptionMigrationControllerProgressing",
+						Status: "False",
+					},
+					{
+						Type:   "EncryptionStorageMigrationProgressing",
 						Status: "False",
 					},
 				}

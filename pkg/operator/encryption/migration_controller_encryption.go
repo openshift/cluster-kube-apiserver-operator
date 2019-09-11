@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -155,6 +156,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
+	var ranStorageMigration bool
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
 			continue // no write key to migrate to
@@ -171,7 +173,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 			continue // migration already done for this resource
 		}
 
-		// TODO go progressing while storage migration is running
+		ranStorageMigration = true
 		migrationErr := c.runStorageMigration(gr)
 		errs = append(errs, migrationErr)
 		if migrationErr != nil {
@@ -180,10 +182,32 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 
 		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
 	}
+
+	// regardless of if the storage migrations we ran were successful, we are no longer running them
+	if ranStorageMigration {
+		notProgressing := operatorv1.OperatorCondition{
+			Type:   "EncryptionStorageMigrationProgressing",
+			Status: operatorv1.ConditionFalse,
+		}
+		_, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(notProgressing))
+		errs = append(errs, updateError)
+	}
+
 	return isProgressingReason, utilerrors.NewAggregate(errs)
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {
+	// storage migration takes a long time so we expose that via a distinct status change
+	progressing := operatorv1.OperatorCondition{
+		Type:    "EncryptionStorageMigrationProgressing",
+		Status:  operatorv1.ConditionTrue,
+		Reason:  strings.Title(groupToHumanReadable(gr)) + strings.Title(gr.Resource),
+		Message: fmt.Sprintf("Storage migration is in progress for group=%s resource=%s", groupToHumanReadable(gr), gr.Resource),
+	}
+	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(progressing)); updateError != nil {
+		return updateError
+	}
+
 	version, err := c.getVersion(gr)
 	if err != nil {
 		return err
