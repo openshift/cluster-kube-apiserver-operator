@@ -121,6 +121,10 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 	}
 
 	// make sure we look for all resources that we are managing
+	// this assumes that our API server operand controls these group resources
+	// TODO maybe use the api service resource to filter down a complete list
+	// TODO this would allow an end user to configure extra resources to encrypt
+	// TODO alternatively we could just encrypt all resources per operand ...
 	for gr := range c.encryptedGRs {
 		if _, ok := encryptionState[gr]; !ok {
 			encryptionState[gr] = keysState{}
