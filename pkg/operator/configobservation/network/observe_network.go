@@ -120,8 +120,8 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 
 	// Need to handle 3 cases:
 	// 1. retrieval error: pass through existing, if it exists
-	// 2. Null externalip policy: disable the admission controller by returning no config
-	// 3. non-null policy: enable the ingressip controller, pass through configuration.
+	// 2. Null externalip policy: enable the externalip admission controller with deny-all
+	// 3. Non-null policy: enable the externalip admission controller, pass through configuration.
 
 	errs := []error{}
 	externalIPPolicy, err := network.GetExternalIPPolicy(listers.NetworkLister, recorder)
@@ -149,25 +149,23 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 		return previouslyObservedConfig, errs
 	}
 
-	// Case 2: no policy: return nil, go away
-	observedConfig := map[string]interface{}{}
-	if externalIPPolicy == nil {
-		return observedConfig, nil
-	}
-
-	// Case 3: Policy, synthesize config
+	// Case 2, 3: Policy, synthesize config
 	// Simply by creating this configuration, the admission controller will
 	// be enabled and block all IPs by default.
+
 	admissionControllerConfig := unstructured.Unstructured{}
 	admissionControllerConfig.SetAPIVersion("network.openshift.io/v1")
 	admissionControllerConfig.SetKind("ExternalIPRangerAdmissionConfig")
 
 	conf := []string{}
-	for _, cidr := range externalIPPolicy.RejectedCIDRs {
-		conf = append(conf, "!"+cidr)
-	}
-	for _, cidr := range externalIPPolicy.AllowedCIDRs {
-		conf = append(conf, cidr)
+
+	if externalIPPolicy != nil {
+		for _, cidr := range externalIPPolicy.RejectedCIDRs {
+			conf = append(conf, "!"+cidr)
+		}
+		for _, cidr := range externalIPPolicy.AllowedCIDRs {
+			conf = append(conf, cidr)
+		}
 	}
 
 	// Logic carried forward from 3.X. The "autoExternalIPs" is internally
@@ -179,6 +177,7 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 		unstructured.SetNestedStringSlice(admissionControllerConfig.Object, conf, "externalIPNetworkCIDRs")
 	}
 	unstructured.SetNestedField(admissionControllerConfig.Object, allowIngressIP, "allowIngressIP")
+	observedConfig := map[string]interface{}{}
 	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
 
 	return observedConfig, errs

@@ -188,12 +188,20 @@ func TestObserveExternalIPPolicy(t *testing.T) {
 		NetworkLister: configlistersv1.NewNetworkLister(indexer),
 	}
 
-	// With no external IPs, check that no configuration is returned
+	// No configuration -> default deny
 	result, errors := ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
 	assert.Empty(t, errors)
-	assert.Empty(t, result)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/ExternalIPRanger:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: ExternalIPRangerAdmissionConfig
+        allowIngressIP: false
+        apiVersion: network.openshift.io/v1`)
 
-	// Add a configuration with no policy
+	// configuration with no policy -> default deny
 	err := indexer.Add(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec:       configv1.NetworkSpec{},
@@ -202,10 +210,17 @@ func TestObserveExternalIPPolicy(t *testing.T) {
 
 	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
 	assert.Empty(t, errors)
-	assert.Empty(t, result)
+	shouldMatchYaml(t, result, `
+admission:
+  pluginConfig:
+    network.openshift.io/ExternalIPRanger:
+      configuration:
+        apiVersion: network.openshift.io/v1
+        kind: ExternalIPRangerAdmissionConfig
+        allowIngressIP: false
+        apiVersion: network.openshift.io/v1`)
 
-	// Add an empty configuration,
-	// check that the policy is created
+	// configuration with empty policy -> deny
 	err = indexer.Update(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.NetworkSpec{
@@ -218,7 +233,6 @@ func TestObserveExternalIPPolicy(t *testing.T) {
 
 	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
 	assert.Empty(t, errors)
-
 	shouldMatchYaml(t, result, `
 admission:
   pluginConfig:
@@ -229,7 +243,7 @@ admission:
         allowIngressIP: false
         apiVersion: network.openshift.io/v1`)
 
-	// Set non-empty policy
+	// non-empty policy -> generated correctly
 	err = indexer.Update(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.NetworkSpec{
@@ -246,7 +260,6 @@ admission:
 
 	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
 	assert.Empty(t, errors)
-
 	shouldMatchYaml(t, result, `
 admission:
   pluginConfig:
