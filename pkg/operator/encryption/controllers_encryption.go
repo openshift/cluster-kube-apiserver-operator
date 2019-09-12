@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -27,7 +26,11 @@ func NewEncryptionControllers(
 	dynamicClient dynamic.Interface, // temporary hack for in-process storage migration
 	groupResources ...schema.GroupResource,
 ) (*EncryptionControllers, error) {
-	secretClient := v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces)
+	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
+	// otherwise we could see secrets from a different component (which will break our keyID invariants)
+	// this is fine in terms of performance since these controllers will be idle most of the time
+	// TODO update the eventHandlers used by the controllers to ignore components that do not match their own
+	secretClient := kubeClient.CoreV1() // v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces)
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionSecretComponent + "=" + targetNamespace}
 	podClient := kubeClient.CoreV1().Pods(targetNamespace)
 
