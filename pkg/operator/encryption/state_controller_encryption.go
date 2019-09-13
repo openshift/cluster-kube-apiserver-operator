@@ -47,6 +47,7 @@ type encryptionStateController struct {
 	encryptedGRs map[schema.GroupResource]bool
 
 	destName                 string
+	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
 	secretClient corev1client.SecretsGetter
@@ -70,8 +71,9 @@ func newEncryptionStateController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		encryptedGRs: encryptedGRs,
-		destName:     destName,
+		encryptedGRs:    encryptedGRs,
+		destName:        destName,
+		targetNamespace: targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -119,7 +121,7 @@ func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecre
 		return err
 	}
 
-	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}

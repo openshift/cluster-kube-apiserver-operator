@@ -115,7 +115,7 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	encryptionState, err := getEncryptionState(c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionState, err := getEncryptionState(c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, 
 		return err
 	}
 
-	keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.encryptedGRs)
+	keyGR, _, actualKeyID, validKey := secretToKey(actualKeySecret, c.targetNamespace, c.encryptedGRs)
 	if valid := keyGR == gr && actualKeyID == keyID && validKey; !valid {
 		// TODO we can just get stuck in degraded here ...
 		return fmt.Errorf("secret %s is in invalid state, new keys cannot be created for encryption target group=%s resource=%s", keySecret.Name, groupToHumanReadable(gr), gr.Resource)

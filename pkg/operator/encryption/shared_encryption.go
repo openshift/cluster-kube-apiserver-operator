@@ -248,7 +248,7 @@ func newIdentityKey() []byte {
 var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 
 // TODO docs, unit tests
-func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
+func getEncryptionState(secretClient corev1client.SecretInterface, targetNamespace string, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
 	if err != nil {
 		return nil, err
@@ -274,7 +274,7 @@ func getEncryptionState(secretClient corev1client.SecretInterface, encryptionSec
 		rangeES := es
 		encryptionSecret := &rangeES
 
-		gr, key, keyID, ok := secretToKey(encryptionSecret, encryptedGRs)
+		gr, key, keyID, ok := secretToKey(encryptionSecret, targetNamespace, encryptedGRs)
 		if !ok {
 			klog.Infof("skipping encryption secret %s as it has invalid data", encryptionSecret.Name)
 			continue
@@ -322,7 +322,8 @@ func appendSecretPerAnnotationState(in, out *[]*corev1.Secret, secret *corev1.Se
 	}
 }
 
-func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResource]bool) (schema.GroupResource, keyAndMode, uint64, bool) {
+func secretToKey(encryptionSecret *corev1.Secret, targetNamespace string, validGRs map[schema.GroupResource]bool) (schema.GroupResource, keyAndMode, uint64, bool) {
+	component := encryptionSecret.Labels[encryptionSecretComponent]
 	group := encryptionSecret.Labels[encryptionSecretGroup]
 	resource := encryptionSecret.Labels[encryptionSecretResource]
 	keyData := encryptionSecret.Data[encryptionSecretKeyData]
@@ -339,7 +340,7 @@ func secretToKey(encryptionSecret *corev1.Secret, validGRs map[schema.GroupResou
 		},
 		mode: keyMode,
 	}
-	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr]
+	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr] || component != targetNamespace
 	switch keyMode {
 	case aescbc, secretbox, identity:
 	default:
@@ -772,7 +773,7 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 
-	encryptionState, err := getEncryptionState(secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
+	encryptionState, err := getEncryptionState(secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), targetNamespace, encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return nil, nil, "", err
 	}
