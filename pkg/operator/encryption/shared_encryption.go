@@ -471,7 +471,7 @@ func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration
 		case identity:
 			// we can only track one fake identity provider
 			// this is not an issue because all identity providers are conceptually equivalent
-			// because they all lead to same outcome (read and write unencrypted data)
+			// because they all lead to the same outcome (read and write unencrypted data)
 			if needsFakeIdentityProvider {
 				continue
 			}
