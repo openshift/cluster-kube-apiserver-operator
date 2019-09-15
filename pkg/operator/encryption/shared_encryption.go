@@ -125,7 +125,7 @@ const encryptionSecretFinalizer = "encryption.operator.openshift.io/deletion-pro
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).
-const encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?  -->  probably one month
+const encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?  -->  probably one week
 
 // In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 // (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
