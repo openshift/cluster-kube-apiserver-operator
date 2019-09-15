@@ -119,7 +119,7 @@ func (c *encryptionMigrationController) sync() error {
 	if isProgressing {
 		progressing.Status = operatorv1.ConditionTrue
 		progressing.Reason = isProgressingReason
-		progressing.Message = "" // TODO maybe put job information
+		progressing.Message = isProgressingReason // TODO maybe put job information
 	}
 
 	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient,
