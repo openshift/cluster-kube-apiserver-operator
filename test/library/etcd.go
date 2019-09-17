@@ -25,6 +25,7 @@ import (
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
 
 const (
+	jsonEncodingPrefix           = "{"
 	protoEncryptedDataPrefix     = "k8s:enc:"
 	aesCBCTransformerPrefixV1    = "k8s:enc:aescbc:v1:"
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
@@ -117,12 +118,27 @@ func AssertEtcdSecretNotEncrypted(t *testing.T, kv clientv3.KV, namespace, name 
 	require.NotEmpty(t, secret)
 	require.NotEqual(t, protoEncodingPrefix, secret)
 
-	switch {
-	case bytes.HasPrefix(secret, []byte(protoEncryptedDataPrefix)):
-		t.Fatalf("encrypted secret %s/%s\n%s", namespace, name, hex.Dump(secret))
-	case !bytes.HasPrefix(secret, protoEncodingPrefix):
-		t.Fatalf("not protobuf secret %s/%s\n%s", namespace, name, hex.Dump(secret))
-	}
+	mode, isEncrypted := determineEncryptionMode(secret)
+	require.Falsef(t, isEncrypted, "encrypted secret %s/%s\n%s", namespace, name, hex.Dump(secret))
+	require.Equalf(t, "identity-proto", mode, "not protobuf secret %s/%s\n%s", namespace, name, hex.Dump(secret))
+}
+
+func determineEncryptionMode(data []byte) (string, bool) {
+	isEncrypted := bytes.HasPrefix(data, []byte(protoEncryptedDataPrefix)) // all encrypted data has this prefix
+	return func() string {
+		switch {
+		case bytes.HasPrefix(data, []byte(aesCBCTransformerPrefixV1)): // AES-CBC has this prefix
+			return "aescbc"
+		case bytes.HasPrefix(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
+			return "secretbox"
+		case bytes.HasPrefix(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
+			return "identity-json"
+		case bytes.HasPrefix(data, protoEncodingPrefix): // unencrypted protobuf data has this prefix
+			return "identity-proto"
+		default:
+			return "unknown" // this should never happen
+		}
+	}(), isEncrypted
 }
 
 func GetEtcdSecretMust(t *testing.T, kv clientv3.KV, namespace, name string) []byte {

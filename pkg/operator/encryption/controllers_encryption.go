@@ -30,7 +30,7 @@ func NewEncryptionControllers(
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
 	// this is fine in terms of performance since these controllers will be idle most of the time
 	// TODO update the eventHandlers used by the controllers to ignore components that do not match their own
-	secretClient := kubeClient.CoreV1() // v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces)
+	secretClient := kubeClient.CoreV1()
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionSecretComponent + "=" + targetNamespace}
 	podClient := kubeClient.CoreV1().Pods(targetNamespace)
 
