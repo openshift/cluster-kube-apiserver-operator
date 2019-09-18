@@ -43,17 +43,17 @@ func TestEncryptionMigrationController(t *testing.T) {
 			name:            "a happy path scenario that tests resources encryption and secrets annotation",
 			targetNamespace: "kms",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}:    true,
-				schema.GroupResource{Group: "", Resource: "configmaps"}: true,
+				{Group: "", Resource: "secrets"}:    true,
+				{Group: "", Resource: "configmaps"}: true,
 			},
 			targetAPIResources: []metav1.APIResource{
-				metav1.APIResource{
+				{
 					Name:       "secrets",
 					Namespaced: true,
 					Group:      "",
 					Version:    "v1",
 				},
-				metav1.APIResource{
+				{
 					Name:       "configmaps",
 					Namespaced: true,
 					Group:      "",
@@ -92,7 +92,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 					keysResForSecrets := encryptionKeysResourceTuple{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
-							apiserverconfigv1.Key{
+							{
 								Name:   "1",
 								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
 							},
@@ -101,7 +101,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 					keysResForConfigMaps := encryptionKeysResourceTuple{
 						resource: "configmaps",
 						keys: []apiserverconfigv1.Key{
-							apiserverconfigv1.Key{
+							{
 								Name:   "1",
 								Secret: "N2QwMGJmYmVkMDlhMmY0MTEzZTYxNDEzNTExYTJhZjM=",
 							},
@@ -152,11 +152,11 @@ func TestEncryptionMigrationController(t *testing.T) {
 				&operatorv1.StaticPodOperatorStatus{
 					OperatorStatus: operatorv1.OperatorStatus{
 						Conditions: []operatorv1.OperatorCondition{
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionMigrationControllerDegraded",
 								Status: "False",
 							},
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionMigrationControllerProgressing",
 								Status: operatorv1.ConditionFalse,
 							},
@@ -185,7 +185,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 				if len(kind) == 0 {
 					return false
 				}
-				for gr, _ := range scenario.targetGRs {
+				for gr := range scenario.targetGRs {
 					if strings.HasPrefix(gr.Resource, strings.ToLower(kind)) {
 						return true
 					}
@@ -206,7 +206,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 			}
 			fakeDynamicClient := dynamicfakeclient.NewSimpleDynamicClient(scheme, unstructuredObjs...)
 			fakeDiscoveryClient := &fakeDisco{fakeKubeClient.Discovery(), []*metav1.APIResourceList{
-				&metav1.APIResourceList{
+				{
 					TypeMeta:     metav1.TypeMeta{},
 					APIResources: scenario.targetAPIResources,
 				},
@@ -265,7 +265,7 @@ func validateMigratedResources(ts *testing.T, actions []clientgotesting.Action, 
 	// validate LIST requests
 	{
 		validatedListRequests := 0
-		for gr, _ := range targetGRs {
+		for gr := range targetGRs {
 			for _, action := range actions {
 				if action.Matches("list", gr.Resource) {
 					validatedListRequests++

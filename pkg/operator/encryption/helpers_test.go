@@ -122,7 +122,7 @@ func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 			Conditions: []corev1.PodCondition{
-				corev1.PodCondition{
+				{
 					Type:   corev1.PodReady,
 					Status: corev1.ConditionTrue,
 				},
@@ -193,16 +193,16 @@ func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 			APIVersion: "apiserver.config.k8s.io/v1",
 		},
 		Resources: []apiserverconfigv1.ResourceConfiguration{
-			apiserverconfigv1.ResourceConfiguration{
+			{
 				Resources: resources,
 				Providers: []apiserverconfigv1.ProviderConfiguration{
-					apiserverconfigv1.ProviderConfiguration{
+					{
 						Identity: &apiserverconfigv1.IdentityConfiguration{},
 					},
-					apiserverconfigv1.ProviderConfiguration{
+					{
 						AESCBC: &apiserverconfigv1.AESConfiguration{
 							Keys: []apiserverconfigv1.Key{
-								apiserverconfigv1.Key{Name: keyID, Secret: keyBase64},
+								{Name: keyID, Secret: keyBase64},
 							},
 						},
 					},

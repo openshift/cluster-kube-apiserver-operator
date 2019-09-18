@@ -44,7 +44,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -88,7 +88,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -99,7 +99,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
-							apiserverconfigv1.Key{
+							{
 								Name:   "1",
 								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
 							},
@@ -138,11 +138,11 @@ func TestEncryptionPodStateController(t *testing.T) {
 			},
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
 				expectedConditions := []operatorv1.OperatorCondition{
-					operatorv1.OperatorCondition{
+					{
 						Type:   "EncryptionPodStateControllerDegraded",
 						Status: "False",
 					},
-					operatorv1.OperatorCondition{
+					{
 						Type: "EncryptionPodStateControllerProgressing",
 						// TODO: PodState controller never flips this to true
 						Status: "False",
@@ -158,7 +158,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -170,11 +170,11 @@ func TestEncryptionPodStateController(t *testing.T) {
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
-							apiserverconfigv1.Key{
+							{
 								Name:   "1",
 								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
 							},
-							apiserverconfigv1.Key{
+							{
 								Name:   "0",
 								Secret: "MjM3YThhNDg0NmM2YjE4OTBiMTJhYmY3OGUwZGI1YTM=",
 							},
@@ -193,7 +193,7 @@ func TestEncryptionPodStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -202,13 +202,13 @@ func TestEncryptionPodStateController(t *testing.T) {
 			expectedError:   errors.New("secrets \"encryption-config-1\" not found"),
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
 				expectedConditions := []operatorv1.OperatorCondition{
-					operatorv1.OperatorCondition{
+					{
 						Type:    "EncryptionPodStateControllerDegraded",
 						Status:  "True",
 						Reason:  "Error",
 						Message: "secrets \"encryption-config-1\" not found",
 					},
-					operatorv1.OperatorCondition{
+					{
 						Type:   "EncryptionPodStateControllerProgressing",
 						Status: "False",
 					},
@@ -232,11 +232,11 @@ func TestEncryptionPodStateController(t *testing.T) {
 						// we need to set up proper conditions before the test starts because
 						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
 						Conditions: []operatorv1.OperatorCondition{
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionPodStateControllerDegraded",
 								Status: "False",
 							},
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionPodStateControllerProgressing",
 								Status: operatorv1.ConditionFalse,
 							},
