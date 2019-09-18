@@ -37,7 +37,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "checks if a secret with AES256 key for core/secret is created",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
@@ -72,7 +72,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "no-op when a valid write key exists",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -85,7 +85,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "no-op when a valid migrated key exists",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 3, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -98,7 +98,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "creates a new write key because the previous one expired",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -137,7 +137,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "no-op when the previous key was migrated and the current one is valid but hasn't been observed (no read/write annotations)",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -152,7 +152,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "creates a new write key because the previous one expired - overflow",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
@@ -191,7 +191,7 @@ func TestEncryptionKeyController(t *testing.T) {
 		{
 			name: "degraded a secret with invalid key exists",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialSecrets: []runtime.Object{
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("")),
@@ -225,7 +225,7 @@ func TestEncryptionKeyController(t *testing.T) {
 						// we need to set up proper conditions before the test starts because
 						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
 						Conditions: []operatorv1.OperatorCondition{
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionKeyControllerDegraded",
 								Status: "False",
 							},

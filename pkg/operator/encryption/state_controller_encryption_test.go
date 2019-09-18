@@ -44,7 +44,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -60,7 +60,7 @@ func TestEncryptionStateController(t *testing.T) {
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.operator.openshift.io/component=kms"},
 			destName:                 "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -94,7 +94,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -104,7 +104,7 @@ func TestEncryptionStateController(t *testing.T) {
 				keysRes := encryptionKeysResourceTuple{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
+						{
 							Name:   "34",
 							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
 						},
@@ -140,7 +140,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -150,7 +150,7 @@ func TestEncryptionStateController(t *testing.T) {
 				keysRes := encryptionKeysResourceTuple{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
+						{
 							Name:   "34",
 							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
 						},
@@ -186,7 +186,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -197,11 +197,11 @@ func TestEncryptionStateController(t *testing.T) {
 				keysRes := encryptionKeysResourceTuple{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
+						{
 							Name:   "34",
 							Secret: "ZGRhMDkwYzE4NzcwMTYzZDU3ZDZhYWNhODVmN2IzYTU=",
 						},
-						apiserverconfigv1.Key{
+						{
 							Name:   "33",
 							Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
 						},
@@ -237,7 +237,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -250,7 +250,7 @@ func TestEncryptionStateController(t *testing.T) {
 				keysRes := encryptionKeysResourceTuple{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
+						{
 							Name:   "34",
 							Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
 						},
@@ -286,7 +286,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -299,11 +299,11 @@ func TestEncryptionStateController(t *testing.T) {
 				keysRes := encryptionKeysResourceTuple{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
-						apiserverconfigv1.Key{
+						{
 							Name:   "34",
 							Secret: "MWMwNmU4NTE3ODkwYzhkYzQ0ZjYyNzkwNWVmYzg2Yjg=",
 						},
-						apiserverconfigv1.Key{
+						{
 							Name:   "33",
 							Secret: "YjBhZjgyMjQwZTEwYzAzMmZkOWJiYmVkZDNiNTk1NWE=",
 						},
@@ -339,7 +339,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPodInUnknownPhase("kube-apiserver-1", "kms"),
@@ -363,7 +363,7 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: map[schema.GroupResource]bool{
-				schema.GroupResource{Group: "", Resource: "secrets"}: true,
+				{Group: "", Resource: "secrets"}: true,
 			},
 			initialResources: []runtime.Object{
 				createEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "secrets"}, 1, []byte("")),
@@ -393,7 +393,7 @@ func TestEncryptionStateController(t *testing.T) {
 						// we need to set up proper conditions before the test starts because
 						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
 						Conditions: []operatorv1.OperatorCondition{
-							operatorv1.OperatorCondition{
+							{
 								Type:   "EncryptionStateControllerDegraded",
 								Status: "False",
 							},
