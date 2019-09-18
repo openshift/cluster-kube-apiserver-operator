@@ -84,6 +84,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.TargetNamespace,
 		"encryption-config-kube-apiserver",
 		operatorClient,
+		configClient.ConfigV1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient,
 		ctx.EventRecorder,

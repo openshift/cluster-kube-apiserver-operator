@@ -14,7 +14,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1clientfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -241,7 +243,8 @@ func TestEncryptionKeyController(t *testing.T) {
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed")
 			fakeSecretClient := fakeKubeClient.CoreV1()
-			target := newEncryptionKeyController(scenario.targetNamespace, fakeOperatorClient, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
+			fakeApiServerClient := configv1clientfake.NewSimpleClientset(&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}).ConfigV1().APIServers()
+			target := newEncryptionKeyController(scenario.targetNamespace, fakeOperatorClient, fakeApiServerClient, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
 
 			// act
 			err := target.sync()
