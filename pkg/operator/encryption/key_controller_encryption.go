@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,12 +12,14 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -43,7 +46,8 @@ const encWorkKey = "key"
 // Note that keys live in openshift-config-managed because deleting them is
 // catastrophic to the cluster - this namespace is immortal and cannot be deleted.
 type encryptionKeyController struct {
-	operatorClient operatorv1helpers.StaticPodOperatorClient
+	operatorClient  operatorv1helpers.StaticPodOperatorClient
+	apiServerClient configv1client.APIServerInterface
 
 	queue         workqueue.RateLimitingInterface
 	eventRecorder events.Recorder
@@ -61,6 +65,7 @@ type encryptionKeyController struct {
 func newEncryptionKeyController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	apiServerClient configv1client.APIServerInterface,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -68,7 +73,8 @@ func newEncryptionKeyController(
 	encryptedGRs map[schema.GroupResource]bool,
 ) *encryptionKeyController {
 	c := &encryptionKeyController{
-		operatorClient: operatorClient,
+		operatorClient:  operatorClient,
+		apiServerClient: apiServerClient,
 
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
@@ -110,7 +116,7 @@ func (c *encryptionKeyController) sync() error {
 }
 
 func (c *encryptionKeyController) checkAndCreateKeys() error {
-	currentMode, externalReason, err := getCurrentModeAndExternalReason()
+	currentMode, externalReason, err := c.getCurrentModeAndExternalReason()
 	if err != nil {
 		return err
 	}
@@ -190,6 +196,46 @@ func (c *encryptionKeyController) generateKeySecret(gr schema.GroupResource, key
 		Data: map[string][]byte{
 			encryptionSecretKeyData: modeToNewKeyFunc[currentMode](),
 		},
+	}
+}
+
+func (c *encryptionKeyController) getCurrentModeAndExternalReason() (mode, string, error) {
+	apiServer, err := c.apiServerClient.Get("cluster", metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
+	if err != nil {
+		return "", "", err
+	}
+
+	type unsupportedEncryptionConfig struct {
+		Encryption struct {
+			Reason string `json:"reason"`
+		} `json:"_encryption"`
+	}
+	encryptionConfig := &unsupportedEncryptionConfig{}
+	if raw := operatorSpec.UnsupportedConfigOverrides.Raw; len(raw) > 0 {
+		jsonRaw, err := kyaml.ToJSON(raw)
+		if err != nil {
+			klog.Warning(err)
+			// maybe it's just json
+			jsonRaw = raw
+		}
+		if err := json.Unmarshal(jsonRaw, encryptionConfig); err != nil {
+			return "", "", err
+		}
+	}
+
+	reason := encryptionConfig.Encryption.Reason
+	switch currentMode := mode(apiServer.Spec.Encryption.Type); currentMode {
+	case aescbc, identity: // secretbox is disabled for now
+		return currentMode, reason, nil
+	case "": // unspecified means use the default (which can change over time)
+		return defaultMode, reason, nil
+	default:
+		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 

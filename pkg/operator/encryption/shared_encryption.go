@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -218,19 +217,6 @@ var modeToNewKeyFunc = map[mode]func() []byte{
 	aescbc:    newAES256Key,
 	secretbox: newAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
 	identity:  newIdentityKey,
-}
-
-func getCurrentModeAndExternalReason() (mode, string, error) {
-	// TODO replace this env var hack with a check against some cluster config
-	reason := os.Getenv("ENCRYPTION_EXTERNAL_REASON")
-	switch currentMode := mode(os.Getenv("ENCRYPTION_MODE")); currentMode {
-	case aescbc, secretbox, identity:
-		return currentMode, reason, nil
-	case "": // unspecified means use the default (which can change over time)
-		return defaultMode, reason, nil
-	default:
-		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
-	}
 }
 
 func newAES256Key() []byte {

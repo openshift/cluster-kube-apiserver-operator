@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -19,6 +20,7 @@ type runner interface {
 func NewEncryptionControllers(
 	targetNamespace, destName string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	apiServerClient configv1client.APIServerInterface,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
@@ -51,6 +53,7 @@ func NewEncryptionControllers(
 			newEncryptionKeyController(
 				targetNamespace,
 				operatorClient,
+				apiServerClient,
 				kubeInformersForNamespaces,
 				secretClient,
 				encryptionSecretSelector,
