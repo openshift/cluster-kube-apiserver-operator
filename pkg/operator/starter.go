@@ -85,6 +85,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		"encryption-config-kube-apiserver",
 		operatorClient,
 		configClient.ConfigV1().APIServers(),
+		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient,
 		ctx.EventRecorder,
