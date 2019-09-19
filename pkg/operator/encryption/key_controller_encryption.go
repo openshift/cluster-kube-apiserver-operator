@@ -20,6 +20,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -66,6 +67,7 @@ func newEncryptionKeyController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
+	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -87,6 +89,9 @@ func newEncryptionKeyController(
 	}
 
 	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
+
+	apiServerInformer.Informer().AddEventHandler(c.eventHandler())
+	c.preRunCachesSynced = append(c.preRunCachesSynced, apiServerInformer.Informer().HasSynced)
 
 	return c
 }
@@ -213,7 +218,7 @@ func (c *encryptionKeyController) getCurrentModeAndExternalReason() (mode, strin
 	type unsupportedEncryptionConfig struct {
 		Encryption struct {
 			Reason string `json:"reason"`
-		} `json:"_encryption"`
+		} `json:"encryption"`
 	}
 	encryptionConfig := &unsupportedEncryptionConfig{}
 	if raw := operatorSpec.UnsupportedConfigOverrides.Raw; len(raw) > 0 {
