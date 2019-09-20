@@ -15,7 +15,7 @@ import (
 
 var (
 	WaitPollInterval = time.Second
-	WaitPollTimeout  = 10 * time.Minute
+	WaitPollTimeout  = 30 * time.Minute
 )
 
 // GenerateNameForTest generates a name of the form `prefix + test name + random string` that
