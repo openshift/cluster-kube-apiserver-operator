@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -20,6 +21,8 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
@@ -111,6 +114,18 @@ func NewEtcdKV(kubeClient kubernetes.Interface) (clientv3.KV, func(), error) {
 	return etcdClient3.KV, done, nil
 }
 
+func AssertEtcdSecretEncrypted(t *testing.T, kv clientv3.KV, namespace, name, expectedMode string) {
+	t.Helper()
+	secret := GetEtcdSecretMust(t, kv, namespace, name)
+
+	require.NotEmpty(t, secret)
+	require.NotEqual(t, []byte(aesCBCTransformerPrefixV1), secret)
+
+	actualMode, isEncrypted := determineEncryptionMode(secret)
+	require.Truef(t, isEncrypted, "not encrypted secret %s/%s\n%s", namespace, name, hex.Dump(secret))
+	require.Equalf(t, expectedMode, actualMode, "unexpected mode %s for secret %s/%s\n%s", actualMode, namespace, name, hex.Dump(secret))
+}
+
 func AssertEtcdSecretNotEncrypted(t *testing.T, kv clientv3.KV, namespace, name string) {
 	t.Helper()
 	secret := GetEtcdSecretMust(t, kv, namespace, name)
@@ -162,4 +177,27 @@ func GetEtcdSecret(kv clientv3.KV, namespace, name string) ([]byte, error) {
 	}
 
 	return resp.Kvs[0].Value, nil
+}
+
+func ForceKeyRotation(operatorClient v1helpers.StaticPodOperatorClient, reason string) error {
+	operatorSpec, _, resourceVersion, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
+	if err != nil {
+		return err
+	}
+
+	data := map[string]map[string]string{
+		"encryption": {
+			"reason": reason,
+		},
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	operatorSpec = operatorSpec.DeepCopy()
+	operatorSpec.UnsupportedConfigOverrides.Raw = raw
+
+	_, _, err = operatorClient.UpdateStaticPodOperatorSpec(resourceVersion, operatorSpec)
+	return err
 }
