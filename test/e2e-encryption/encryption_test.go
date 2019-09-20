@@ -2,7 +2,6 @@ package e2e_encryption
 
 import (
 	"testing"
-	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
@@ -43,10 +42,6 @@ func testEncryptionType(t *testing.T, encryptionType configv1.EncryptionType) (c
 	apiServer.Spec.Encryption.Type = encryptionType
 	_, err = apiServerClient.Update(apiServer)
 	require.NoError(t, err)
-
-	// wait for the encryption controllers to notice the change
-	// TODO this is probably not sophisticated enough for multi-stage rollouts
-	time.Sleep(time.Minute)
 
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
