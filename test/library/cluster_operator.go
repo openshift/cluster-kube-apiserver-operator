@@ -1,8 +1,8 @@
 package library
 
 import (
-	"fmt"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,25 +16,31 @@ import (
 // WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded waits for ClusterOperator/kube-apiserver to report
 // status as active, not progressing, and not failing.
 func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *testing.T, client configclient.ConfigV1Interface) {
-	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
+	t.Helper()
+	time.Sleep(time.Minute) // make sure we are not racing against an initial observation of change
+
+	if err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
 		clusterOperator, err := client.ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			fmt.Println("ClusterOperator/kube-apiserver does not yet exist.")
+			t.Log("ClusterOperator/kube-apiserver does not yet exist.")
 			return false, nil
 		}
 		if err != nil {
-			fmt.Println("Unable to retrieve ClusterOperator/kube-apiserver:", err)
+			t.Log("Unable to retrieve ClusterOperator/kube-apiserver:", err)
 			return false, err
 		}
+
 		conditions := clusterOperator.Status.Conditions
-		available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
-		notProgressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionFalse)
-		notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
-		done := available && notProgressing && notDegraded
-		fmt.Printf("ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v\n", available, !notProgressing, !notDegraded)
+		available := clusteroperatorhelpers.IsStatusConditionTrue(conditions, configv1.OperatorAvailable)
+		notProgressing := clusteroperatorhelpers.IsStatusConditionFalse(conditions, configv1.OperatorProgressing)
+		notDegraded := clusteroperatorhelpers.IsStatusConditionFalse(conditions, configv1.OperatorDegraded)
+		done := available && notProgressing && notDegraded &&
+			// make sure that we have not been progressing for a while so that multi-stage rollouts are correctly accounted for
+			time.Since(clusteroperatorhelpers.FindStatusCondition(conditions, configv1.OperatorProgressing).LastTransitionTime.Time) > time.Minute
+		t.Logf("ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v  Done: %v\n", available, !notProgressing, !notDegraded, done)
+
 		return done, nil
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
 }
