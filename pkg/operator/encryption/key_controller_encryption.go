@@ -215,6 +215,8 @@ func (c *encryptionKeyController) getCurrentModeAndExternalReason() (mode, strin
 		return "", "", err
 	}
 
+	// TODO make this un-settable once set
+	// ex: we could require the tech preview no upgrade flag to be set before we will honor this field
 	type unsupportedEncryptionConfig struct {
 		Encryption struct {
 			Reason string `json:"reason"`
