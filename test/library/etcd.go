@@ -18,7 +18,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 
@@ -114,41 +113,55 @@ func NewEtcdKV(kubeClient kubernetes.Interface) (clientv3.KV, func(), error) {
 	return etcdClient3.KV, done, nil
 }
 
-func AssertEtcdSecretEncrypted(t *testing.T, kv clientv3.KV, namespace, name, expectedMode string) {
-	t.Helper()
-	secret := GetEtcdSecretMust(t, kv, namespace, name)
+func CheckEncryptionState(expectedMode string) func([]byte) error {
+	return func(data []byte) error {
+		if len(data) == 0 {
+			return fmt.Errorf("empty data")
+		}
 
-	require.NotEmpty(t, secret)
-	require.NotEqual(t, []byte(aesCBCTransformerPrefixV1), secret)
+		expectedEncrypted := true
+		switch expectedMode {
+		case "identity-json", "identity-proto":
+			expectedEncrypted = false
+		}
 
-	actualMode, isEncrypted := determineEncryptionMode(secret)
-	require.Truef(t, isEncrypted, "not encrypted secret %s/%s\n%s", namespace, name, hex.Dump(secret))
-	require.Equalf(t, expectedMode, actualMode, "unexpected mode %s for secret %s/%s\n%s", actualMode, namespace, name, hex.Dump(secret))
+		actualMode, isEncrypted := determineEncryptionMode(data)
+		if expectedEncrypted != isEncrypted {
+			return fmt.Errorf("unexpected encrypted state=%v, mode=%s", isEncrypted, actualMode)
+		}
+		if actualMode != expectedMode {
+			return fmt.Errorf("unexpected mode %s", actualMode)
+		}
+
+		return nil
+	}
 }
 
-func AssertEtcdSecretNotEncrypted(t *testing.T, kv clientv3.KV, namespace, name string) {
-	t.Helper()
-	secret := GetEtcdSecretMust(t, kv, namespace, name)
+func CheckEncryptionPrefix(expectedPrefix []byte) func([]byte) error {
+	return func(data []byte) error {
+		if len(data) == 0 {
+			return fmt.Errorf("empty data")
+		}
 
-	require.NotEmpty(t, secret)
-	require.NotEqual(t, protoEncodingPrefix, secret)
+		if !hasPrefixAndTrailingData(data, expectedPrefix) {
+			return fmt.Errorf("invalid prefix seen")
+		}
 
-	mode, isEncrypted := determineEncryptionMode(secret)
-	require.Falsef(t, isEncrypted, "encrypted secret %s/%s\n%s", namespace, name, hex.Dump(secret))
-	require.Equalf(t, "identity-proto", mode, "not protobuf secret %s/%s\n%s", namespace, name, hex.Dump(secret))
+		return nil
+	}
 }
 
 func determineEncryptionMode(data []byte) (string, bool) {
 	isEncrypted := bytes.HasPrefix(data, []byte(protoEncryptedDataPrefix)) // all encrypted data has this prefix
 	return func() string {
 		switch {
-		case bytes.HasPrefix(data, []byte(aesCBCTransformerPrefixV1)): // AES-CBC has this prefix
+		case hasPrefixAndTrailingData(data, []byte(aesCBCTransformerPrefixV1)): // AES-CBC has this prefix
 			return "aescbc"
-		case bytes.HasPrefix(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
+		case hasPrefixAndTrailingData(data, []byte(secretboxTransformerPrefixV1)): // Secretbox has this prefix
 			return "secretbox"
-		case bytes.HasPrefix(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
+		case hasPrefixAndTrailingData(data, []byte(jsonEncodingPrefix)): // unencrypted json data has this prefix
 			return "identity-json"
-		case bytes.HasPrefix(data, protoEncodingPrefix): // unencrypted protobuf data has this prefix
+		case hasPrefixAndTrailingData(data, protoEncodingPrefix): // unencrypted protobuf data has this prefix
 			return "identity-proto"
 		default:
 			return "unknown" // this should never happen
@@ -156,27 +169,52 @@ func determineEncryptionMode(data []byte) (string, bool) {
 	}(), isEncrypted
 }
 
-func GetEtcdSecretMust(t *testing.T, kv clientv3.KV, namespace, name string) []byte {
-	t.Helper()
-	secret, err := GetEtcdSecret(kv, namespace, name)
-	require.NoError(t, err)
-	return secret
+func hasPrefixAndTrailingData(data, prefix []byte) bool {
+	return bytes.HasPrefix(data, prefix) && len(data) > len(prefix)
 }
 
-func GetEtcdSecret(kv clientv3.KV, namespace, name string) ([]byte, error) {
-	key := fmt.Sprintf("/kubernetes.io/secrets/%s/%s", namespace, name)
+func CheckEtcdSecretsAndConfigMapsMust(t *testing.T, kv clientv3.KV, f func([]byte) error) {
+	t.Helper()
+	err := CheckEtcdSecrets(kv, f)
+	require.NoError(t, err)
+	err = CheckEtcdConfigMaps(kv, f)
+	require.NoError(t, err)
+}
 
-	resp, err := kv.Get(context.Background(), key)
+func CheckEtcdSecrets(kv clientv3.KV, f func([]byte) error) error {
+	return CheckEtcdList(kv, "/kubernetes.io/secrets/", f)
+}
+
+func CheckEtcdConfigMaps(kv clientv3.KV, f func([]byte) error) error {
+	return CheckEtcdList(kv, "/kubernetes.io/configmaps/", f)
+}
+
+func CheckEtcdList(kv clientv3.KV, keyPrefix string, f func([]byte) error) error {
+	timeout, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	resp, err := kv.Get(timeout, keyPrefix, clientv3.WithPrefix())
 	switch {
 	case err != nil:
-		return nil, err
+		return err
 	case resp.Count == 0 || len(resp.Kvs) == 0:
-		return nil, storage.NewKeyNotFoundError(key, 0)
-	case resp.More || len(resp.Kvs) != 1 || resp.Count != 1:
-		return nil, fmt.Errorf("invalid get response: %+v", resp)
+		return fmt.Errorf("empty list response: %+v", resp)
+	case resp.More:
+		return fmt.Errorf("incomplete list response: %+v", resp)
 	}
 
-	return resp.Kvs[0].Value, nil
+	for _, keyValue := range resp.Kvs {
+		if err := f(keyValue.Value); err != nil {
+			return fmt.Errorf("key %s failed check: %v\n%s", keyValue.Key, err, hex.Dump(keyValue.Value))
+		}
+	}
+
+	return nil
+}
+
+func ForceKeyRotationMust(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient, reason string) {
+	t.Helper()
+	require.NoError(t, ForceKeyRotation(operatorClient, reason))
 }
 
 func ForceKeyRotation(operatorClient v1helpers.StaticPodOperatorClient, reason string) error {
