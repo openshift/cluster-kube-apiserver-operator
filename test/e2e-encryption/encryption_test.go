@@ -41,6 +41,13 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 	test.CheckEtcdSecretsAndConfigMapsMust(t, kv, test.CheckEncryptionState("aescbc"))
 }
 
+func TestEncryptionTypeUnset(t *testing.T) {
+	kv, done := testEncryptionType(t, "")
+	defer done()
+
+	test.CheckEtcdSecretsAndConfigMapsMust(t, kv, test.CheckEncryptionState("identity-proto"))
+}
+
 func TestEncryptionTurnOnAndOff(t *testing.T) {
 	for i, f := range []func(*testing.T){
 		TestEncryptionTypeAESCBC,
