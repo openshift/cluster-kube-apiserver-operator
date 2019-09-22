@@ -33,14 +33,29 @@ const (
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
 )
 
-func NewEtcdKVMust(t *testing.T, kubeClient kubernetes.Interface) (clientv3.KV, func()) {
-	t.Helper()
-	kv, done, err := NewEtcdKV(kubeClient)
-	require.NoError(t, err)
-	return kv, done
+type EtcdGetter interface {
+	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
 }
 
-func NewEtcdKV(kubeClient kubernetes.Interface) (clientv3.KV, func(), error) {
+func NewEtcdGetter(kubeClient kubernetes.Interface) EtcdGetter {
+	return &etcdGetter{kubeClient: kubeClient}
+}
+
+type etcdGetter struct {
+	kubeClient kubernetes.Interface
+}
+
+func (e *etcdGetter) Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
+	// we need to rebuild this port-forward based client every time so we can tolerate API server rollouts
+	kv, done, err := e.newEtcdKV()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build port-forward based etcd client: %v", err)
+	}
+	defer done()
+	return kv.Get(ctx, key, opts...)
+}
+
+func (e *etcdGetter) newEtcdKV() (EtcdGetter, func(), error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, "oc", "port-forward", "service/etcd", ":2379", "-n", "openshift-etcd")
 
@@ -80,7 +95,7 @@ func NewEtcdKV(kubeClient kubernetes.Interface) (clientv3.KV, func(), error) {
 		return nil, nil, fmt.Errorf("port forward output not in expected format: %s", output)
 	}
 
-	coreV1 := kubeClient.CoreV1()
+	coreV1 := e.kubeClient.CoreV1()
 	etcdConfigMap, err := coreV1.ConfigMaps("openshift-config").Get("etcd-ca-bundle", metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
@@ -173,7 +188,7 @@ func hasPrefixAndTrailingData(data, prefix []byte) bool {
 	return bytes.HasPrefix(data, prefix) && len(data) > len(prefix)
 }
 
-func CheckEtcdSecretsAndConfigMapsMust(t *testing.T, kv clientv3.KV, f func([]byte) error) {
+func CheckEtcdSecretsAndConfigMapsMust(t *testing.T, kv EtcdGetter, f func([]byte) error) {
 	t.Helper()
 	err := CheckEtcdSecrets(kv, f)
 	require.NoError(t, err)
@@ -181,15 +196,15 @@ func CheckEtcdSecretsAndConfigMapsMust(t *testing.T, kv clientv3.KV, f func([]by
 	require.NoError(t, err)
 }
 
-func CheckEtcdSecrets(kv clientv3.KV, f func([]byte) error) error {
+func CheckEtcdSecrets(kv EtcdGetter, f func([]byte) error) error {
 	return CheckEtcdList(kv, "/kubernetes.io/secrets/", f)
 }
 
-func CheckEtcdConfigMaps(kv clientv3.KV, f func([]byte) error) error {
+func CheckEtcdConfigMaps(kv EtcdGetter, f func([]byte) error) error {
 	return CheckEtcdList(kv, "/kubernetes.io/configmaps/", f)
 }
 
-func CheckEtcdList(kv clientv3.KV, keyPrefix string, f func([]byte) error) error {
+func CheckEtcdList(kv EtcdGetter, keyPrefix string, f func([]byte) error) error {
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 

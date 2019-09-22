@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +61,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 	}
 }
 
-func testEncryptionType(t *testing.T, encryptionType configv1.EncryptionType) (clientv3.KV, func()) {
+func testEncryptionType(t *testing.T, encryptionType configv1.EncryptionType) (test.EtcdGetter, func()) {
 	t.Helper()
 
 	kv, done, configClient, apiServerClient, _, _ := getEncryptionClients(t)
@@ -78,7 +77,7 @@ func testEncryptionType(t *testing.T, encryptionType configv1.EncryptionType) (c
 	return kv, done
 }
 
-func getEncryptionClients(t *testing.T) (clientv3.KV, func(), configv1client.ConfigV1Interface, configv1client.APIServerInterface, kubernetes.Interface, v1helpers.StaticPodOperatorClient) {
+func getEncryptionClients(t *testing.T) (test.EtcdGetter, func(), configv1client.ConfigV1Interface, configv1client.APIServerInterface, kubernetes.Interface, v1helpers.StaticPodOperatorClient) {
 	t.Helper()
 
 	kubeConfig, err := test.NewClientConfigForTest()
@@ -89,7 +88,7 @@ func getEncryptionClients(t *testing.T) (clientv3.KV, func(), configv1client.Con
 
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 
-	kv, doneEtcd := test.NewEtcdKVMust(t, kubeClient)
+	kv := test.NewEtcdGetter(kubeClient)
 
 	gvr := operatorv1.GroupVersion.WithResource("kubeapiservers")
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(kubeConfig, gvr)
@@ -103,7 +102,6 @@ func getEncryptionClients(t *testing.T) (clientv3.KV, func(), configv1client.Con
 
 	done := func() {
 		close(stopCh)
-		doneEtcd()
 	}
 
 	return kv, done, configClient, apiServerClient, kubeClient, operatorClient
@@ -134,7 +132,7 @@ func TestEncryptionRotation(t *testing.T) {
 	require.Truef(t, sort.IsSorted(sort.StringSlice(cmPrefixes)), "config map key IDs not in ascending order: %v", cmPrefixes)
 }
 
-func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient, secretsClient corev1.SecretInterface, configClient configv1client.ConfigV1Interface, kv clientv3.KV) (string, string) {
+func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient, secretsClient corev1.SecretInterface, configClient configv1client.ConfigV1Interface, kv test.EtcdGetter) (string, string) {
 	reason := "force-rotation-" + rand.String(8)
 	test.ForceKeyRotationMust(t, operatorClient, reason)
 	var resourceToName map[string]string
