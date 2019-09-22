@@ -40,6 +40,7 @@ GO_TEST_PACKAGES :=./pkg/... ./cmd/...
 .PHONY: test-e2e
 test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
 test-e2e: GO_TEST_FLAGS += -v
+test-e2e: GO_TEST_FLAGS += -timeout 1h
 test-e2e: test-unit
 
 # these are extremely slow serial e2e encryption tests that modify the cluster's global state
