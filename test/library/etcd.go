@@ -190,17 +190,17 @@ func CheckEtcdConfigMaps(kv clientv3.KV, f func([]byte) error) error {
 }
 
 func CheckEtcdList(kv clientv3.KV, keyPrefix string, f func([]byte) error) error {
-	timeout, cancel := context.WithTimeout(context.Background(), time.Minute)
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	resp, err := kv.Get(timeout, keyPrefix, clientv3.WithPrefix())
 	switch {
 	case err != nil:
-		return err
+		return fmt.Errorf("failed to list prefix %s: %v", keyPrefix, err)
 	case resp.Count == 0 || len(resp.Kvs) == 0:
-		return fmt.Errorf("empty list response: %+v", resp)
+		return fmt.Errorf("empty list response for prefix %s: %+v", keyPrefix, resp)
 	case resp.More:
-		return fmt.Errorf("incomplete list response: %+v", resp)
+		return fmt.Errorf("incomplete list response for prefix %s: %+v", keyPrefix, resp)
 	}
 
 	for _, keyValue := range resp.Kvs {

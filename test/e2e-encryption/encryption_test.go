@@ -97,7 +97,7 @@ func getEncryptionClients(t *testing.T) (clientv3.KV, func(), configv1client.Con
 	stopCh := make(chan struct{})
 	dynamicInformers.Start(stopCh)
 
-	timeout, cancel := context.WithTimeout(context.Background(), time.Minute)
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	require.True(t, dynamicInformers.WaitForCacheSync(timeout.Done())[gvr])
 
