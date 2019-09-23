@@ -234,7 +234,7 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		".oauthConfig": RemoveConfig,
 	}
 
-	legacyFileConfigBytes, err := getBytesForField(operatorSpec.UnsupportedConfigOverrides.Raw, "legacyFileConfig")
+	legacyFileConfigBytes, err := getJSONBytesForField(operatorSpec.UnsupportedConfigOverrides.Raw, "legacyFileConfig")
 	if err != nil {
 		return nil, false, err
 	}
@@ -254,7 +254,7 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func getBytesForField(raw []byte, field string) ([]byte, error) {
+func getJSONBytesForField(raw []byte, field string) ([]byte, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
