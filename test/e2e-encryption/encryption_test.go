@@ -56,7 +56,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 	} {
 		t.Run(strconv.Itoa(i), f)
 		if t.Failed() {
-			break
+			return
 		}
 	}
 }
@@ -123,9 +123,14 @@ func TestEncryptionRotation(t *testing.T) {
 
 	// run a few rotations and assert that migrations occur as expected and keyIDs increase
 	for i := range secretsPrefixes {
-		secretsKeyPrefix, cmKeyPrefix := testRotation(t, operatorClient, secretsClient, configClient, kv)
-		secretsPrefixes[i] = secretsKeyPrefix
-		cmPrefixes[i] = cmKeyPrefix
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			secretsKeyPrefix, cmKeyPrefix := testRotation(t, operatorClient, secretsClient, configClient, kv)
+			secretsPrefixes[i] = secretsKeyPrefix
+			cmPrefixes[i] = cmKeyPrefix
+		})
+		if t.Failed() {
+			return
+		}
 	}
 
 	require.Truef(t, sort.IsSorted(sort.StringSlice(secretsPrefixes)), "secret key IDs not in ascending order: %v", secretsPrefixes)
