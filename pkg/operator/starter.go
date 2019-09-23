@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/errorreportcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -156,6 +157,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	podErrorReportController := errorreportcontroller.NewErrorReportController(
+		operatorClient,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Events(),
+		ctx.EventRecorder,
+	)
+
 	configmetrics.Register(configInformers)
 
 	kubeInformersForNamespaces.Start(ctx.Done())
@@ -170,6 +177,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go certRotationController.Run(1, ctx.Done())
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
+	go podErrorReportController.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
