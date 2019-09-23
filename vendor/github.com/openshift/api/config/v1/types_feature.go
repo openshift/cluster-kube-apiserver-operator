@@ -100,9 +100,12 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 			"ExperimentalCriticalPodAnnotation", // sig-pod, sjenning
 			"RotateKubeletServerCertificate",    // sig-pod, sjenning
 			"SupportPodPidsLimit",               // sig-pod, sjenning
+			"NodeDisruptionExclusion",           // sig-workloads, ccoleman
+			"ServiceNodeExclusion",              // sig-workloads, ccoleman
 		},
 		Disabled: []string{
 			"LocalStorageCapacityIsolation", // sig-pod, sjenning
+			"LegacyNodeRoleBehavior",        // sig-workloads, ccoleman
 		},
 	},
 	TechPreviewNoUpgrade: {
