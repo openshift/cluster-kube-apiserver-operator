@@ -152,6 +152,9 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 		resourceToName = map[string]string{}
 		count := 0
 		for _, secret := range secrets.Items {
+			if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
+				continue
+			}
 			if secret.Annotations["encryption.operator.openshift.io/external-reason"] == reason {
 				count++
 				resourceToName[secret.Labels["encryption.operator.openshift.io/resource"]] = secret.Name
