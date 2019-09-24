@@ -186,7 +186,7 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 	test.CheckEtcdSecretsAndConfigMapsMust(t, kv, test.CheckEncryptionState("aescbc"))
 
 	secretsKeyPrefix := getKeyPrefix(t, resourceToName["secrets"])
-	err = test.CheckEtcdSecrets(kv, test.CheckEncryptionPrefix(secretsKeyPrefix))
+	err = test.CheckEtcdSecrets(kv, test.CheckEncryptionPrefix(secretsKeyPrefix)) // TODO check actual contents to match against encryption key
 	require.NoError(t, err)
 
 	cmKeyPrefix := getKeyPrefix(t, resourceToName["configmaps"])
