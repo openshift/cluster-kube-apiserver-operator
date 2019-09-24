@@ -10,6 +10,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// TODO run some workloads or whatever to put some stress on the cluster
 	randomizeTestOrder(m)
 	os.Exit(m.Run())
 }
