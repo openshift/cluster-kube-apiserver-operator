@@ -52,7 +52,7 @@ type encryptionStateController struct {
 
 	secretClient corev1client.SecretsGetter
 
-	podClient corev1client.PodInterface
+	podClient corev1client.PodsGetter
 }
 
 func newEncryptionStateController(
@@ -63,7 +63,7 @@ func newEncryptionStateController(
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs map[schema.GroupResource]bool,
-	podClient corev1client.PodInterface,
+	podClient corev1client.PodsGetter,
 ) *encryptionStateController {
 	c := &encryptionStateController{
 		operatorClient: operatorClient,
@@ -112,7 +112,7 @@ func (c *encryptionStateController) sync() error {
 func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
 	// do not cause new revisions while old ones are rolling out
 	// TODO but does this even matter?
-	revision, err := getAPIServerRevisionOfAllInstances(c.podClient)
+	revision, err := getAPIServerRevisionOfAllInstances(c.podClient.Pods(c.targetNamespace))
 	if len(revision) == 0 && err == nil {
 		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil
@@ -121,7 +121,7 @@ func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecre
 		return err
 	}
 
-	encryptionState, err := getEncryptionState(c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}

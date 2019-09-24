@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,13 +44,15 @@ type encryptionPruneController struct {
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
-	secretClient corev1client.SecretInterface
+	podClient    corev1client.PodsGetter
+	secretClient corev1client.SecretsGetter
 }
 
 func newEncryptionPruneController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
+	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
@@ -65,7 +68,8 @@ func newEncryptionPruneController(
 		targetNamespace: targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
-		secretClient:             secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+		podClient:                podClient,
+		secretClient:             secretClient,
 	}
 
 	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
@@ -101,37 +105,52 @@ func (c *encryptionPruneController) sync() error {
 }
 
 func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
-	encryptionState, err := getEncryptionState(c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	if err != nil {
+		return err
+	}
+
+	usedSecrets := []*corev1.Secret{}
+	for _, grKeys := range encryptionState {
+		usedSecrets = append(usedSecrets, grKeys.readSecrets...)
+	}
+
+	allkeys, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.encryptionSecretSelector)
 	if err != nil {
 		return err
 	}
 
 	var deleteErrs []error
-	for _, grKeys := range encryptionState {
-		// TODO see SucceededRevisionLimit comment above, determine if we want this hard coded at 10 or not
-		deleteCount := len(grKeys.secretsMigratedYes) - 10
-		if deleteCount <= 0 {
+	for _, key := range allkeys.Items {
+		found := false
+		for _, used := range usedSecrets {
+			if used.Name == key.Name {
+				found = true
+				break
+			}
+		}
+		if found {
 			continue
 		}
-		for _, secret := range grKeys.secretsMigratedYes[:deleteCount] {
-			// two phase delete
 
-			// remove our finalizer if it is present
-			if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(encryptionSecretFinalizer) {
-				delete(finalizers, encryptionSecretFinalizer)
-				secret = secret.DeepCopy()
-				secret.Finalizers = finalizers.List()
-				var updateErr error
-				secret, updateErr = c.secretClient.Update(secret)
-				deleteErrs = append(deleteErrs, updateErr)
-				if updateErr != nil {
-					continue
-				}
+		// any secret that isn't a read key isn't used.  just delete them.
+		// two phase delete: finalizer, then delete
+
+		// remove our finalizer if it is present
+		secret := key.DeepCopy()
+		if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(encryptionSecretFinalizer) {
+			delete(finalizers, encryptionSecretFinalizer)
+			secret.Finalizers = finalizers.List()
+			var updateErr error
+			secret, updateErr = c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Update(secret)
+			deleteErrs = append(deleteErrs, updateErr)
+			if updateErr != nil {
+				continue
 			}
-
-			// remove the actual secret
-			deleteErrs = append(deleteErrs, c.secretClient.Delete(secret.Name, nil))
 		}
+
+		// remove the actual secret
+		deleteErrs = append(deleteErrs, c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(secret.Name, nil))
 	}
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
 }
