@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -233,11 +234,6 @@ func ForceKeyRotationMust(t *testing.T, operatorClient v1helpers.StaticPodOperat
 }
 
 func ForceKeyRotation(operatorClient v1helpers.StaticPodOperatorClient, reason string) error {
-	operatorSpec, _, resourceVersion, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
-	if err != nil {
-		return err
-	}
-
 	data := map[string]map[string]string{
 		"encryption": {
 			"reason": reason,
@@ -248,9 +244,16 @@ func ForceKeyRotation(operatorClient v1helpers.StaticPodOperatorClient, reason s
 		return err
 	}
 
-	operatorSpec = operatorSpec.DeepCopy()
-	operatorSpec.UnsupportedConfigOverrides.Raw = raw
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		operatorSpec, _, resourceVersion, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
+		if err != nil {
+			return err
+		}
 
-	_, _, err = operatorClient.UpdateStaticPodOperatorSpec(resourceVersion, operatorSpec)
-	return err
+		operatorSpec = operatorSpec.DeepCopy()
+		operatorSpec.UnsupportedConfigOverrides.Raw = raw
+
+		_, _, err = operatorClient.UpdateStaticPodOperatorSpec(resourceVersion, operatorSpec)
+		return err
+	})
 }
