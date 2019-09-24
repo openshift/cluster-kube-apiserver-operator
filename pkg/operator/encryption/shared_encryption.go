@@ -372,6 +372,8 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	// keys have a duplicate of the write key
 	// or there is no write key
 
+	var lastMigratedKeySeen bool
+
 	// iterate in reverse to order the read keys with highest keyID first
 	for i := len(grKeys.keys) - 1; i >= 0; i-- {
 		readKey := grKeys.keys[i]
@@ -383,11 +385,23 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 			desired.readKeys = append(desired.readKeys, readKey)
 		}
 
+		// we have completed one extra iteration after observing the last migrated key
+		if lastMigratedKeySeen {
+			break
+		}
+
 		if len(grKeys.secretsMigratedYes) > 0 && readKey == grKeys.lastMigratedKey {
 			// we only need the read keys that have equal or higher keyID than the last migrated key
 			// note that readKeys should only have one item unless there is a bug in the key minting controller
 			// this also serves to limit the size of the final encryption secret (even if pruning fails)
-			break
+
+			// we already have some read keys, meaning breaking now will not cause extra rollouts
+			if len(desired.readKeys) > 0 {
+				break
+			}
+
+			// to avoid extra rollouts, we keep one "unnecessary" read key by not breaking until the next iteration
+			lastMigratedKeySeen = true
 		}
 	}
 
