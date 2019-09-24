@@ -90,40 +90,47 @@ func waitForEncryptionTypeLastSecretMigrated(t *testing.T, encryptionType config
 
 	// make sure any changes we made have been observed
 	time.Sleep(time.Minute)
-	currentSecrets, err := secretsClient.List(metav1.ListOptions{})
-	require.NoError(t, err)
-
-	sort.Slice(currentSecrets.Items, func(i, j int) bool {
-		// reverse sort by creation time
-		return currentSecrets.Items[i].CreationTimestamp.Unix() > currentSecrets.Items[j].CreationTimestamp.Unix()
-	})
 
 	var keyForSecrets, keyForConfigMaps string
 
-	for _, secret := range currentSecrets.Items {
-		if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
-			continue
-		}
-		if secret.Labels["encryption.operator.openshift.io/mode"] != string(encryptionType) {
-			continue
-		}
-		switch secret.Labels["encryption.operator.openshift.io/resource"] {
-		case "secrets":
-			if len(keyForSecrets) == 0 {
-				keyForSecrets = secret.Name
-			}
-		case "configmaps":
-			if len(keyForConfigMaps) == 0 {
-				keyForConfigMaps = secret.Name
-			}
-		}
-		if len(keyForSecrets) > 0 && len(keyForConfigMaps) > 0 {
-			break
-		}
-	}
+	err := wait.Poll(test.WaitPollInterval, test.WaitPollTimeout, func() (done bool, err error) {
+		keyForSecrets, keyForConfigMaps = "", ""
 
-	require.NotEmpty(t, keyForSecrets)
-	require.NotEmpty(t, keyForConfigMaps)
+		currentSecrets, err := secretsClient.List(metav1.ListOptions{})
+		if err != nil {
+			fmt.Printf("failed to list secrets: %v\n", err)
+			return false, nil
+		}
+
+		sort.Slice(currentSecrets.Items, func(i, j int) bool {
+			// reverse sort by creation time
+			return currentSecrets.Items[i].CreationTimestamp.Unix() > currentSecrets.Items[j].CreationTimestamp.Unix()
+		})
+
+		for _, secret := range currentSecrets.Items {
+			if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
+				continue
+			}
+			if secret.Labels["encryption.operator.openshift.io/mode"] != string(encryptionType) {
+				continue
+			}
+			switch secret.Labels["encryption.operator.openshift.io/resource"] {
+			case "secrets":
+				if len(keyForSecrets) == 0 {
+					keyForSecrets = secret.Name
+				}
+			case "configmaps":
+				if len(keyForConfigMaps) == 0 {
+					keyForConfigMaps = secret.Name
+				}
+			}
+			if len(keyForSecrets) > 0 && len(keyForConfigMaps) > 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
 
 	secretNames := []string{keyForSecrets, keyForConfigMaps}
 
