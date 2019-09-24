@@ -156,6 +156,11 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 				continue
 			}
 			if secret.Annotations["encryption.operator.openshift.io/external-reason"] == reason {
+				if len(secret.Annotations["encryption.operator.openshift.io/migrated-timestamp"]) == 0 {
+					fmt.Printf("secret %s with reason %s not yet migrated\n", secret.Name, reason)
+					continue
+				}
+
 				count++
 				resourceToName[secret.Labels["encryption.operator.openshift.io/resource"]] = secret.Name
 			}
@@ -164,7 +169,7 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 		if count > 2 {
 			t.Fatalf("too many secrets (%d) with force rotation reason seen", count)
 		}
-		fmt.Printf("Saw %d secrets with reason %s, mapping=%v\n", count, reason, resourceToName)
+		fmt.Printf("Saw %d migrated secrets with reason %s, mapping=%v\n", count, reason, resourceToName)
 		if count == 2 {
 			_, ok1 := resourceToName["secrets"]
 			_, ok2 := resourceToName["configmaps"]
@@ -177,8 +182,6 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 		return count == 2, nil
 	})
 	require.NoError(t, err)
-
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 	test.CheckEtcdSecretsAndConfigMapsMust(t, kv, test.CheckEncryptionState("aescbc"))
 
