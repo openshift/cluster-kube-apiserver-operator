@@ -111,7 +111,7 @@ func waitForEncryptionTypeLastSecretMigrated(t *testing.T, encryptionType config
 			if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
 				continue
 			}
-			if secret.Labels["encryption.operator.openshift.io/mode"] != string(encryptionType) {
+			if secret.Annotations["encryption.operator.openshift.io/mode"] != string(encryptionType) {
 				continue
 			}
 			switch secret.Labels["encryption.operator.openshift.io/resource"] {
