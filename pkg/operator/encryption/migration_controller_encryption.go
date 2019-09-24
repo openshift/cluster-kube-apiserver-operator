@@ -2,11 +2,15 @@ package encryption
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -139,14 +143,14 @@ func (c *encryptionMigrationController) sync() error {
 // TODO doc
 func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
-	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
 
 	// TODO we need this check?  Could it dead lock?
 	// no storage migration until all masters catch up with revision
-	if !reflect.DeepEqual(encryptionConfig.Resources, getResourceConfigs(encryptionState)) {
+	if !reflect.DeepEqual(currentEncryptionConfig.Resources, getResourceConfigs(desiredEncryptionState)) {
 		return "PodAndAPIStateNotConverged", nil // retry in a little while but do not go degraded
 	}
 
@@ -157,18 +161,26 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
 	var ranStorageMigration bool
-	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
+	var migratedSecret *corev1.Secret
+	resources := GroupResources{Resources: []schema.GroupResource{}}
+	for gr, grActualKeys := range getGRsActualKeys(currentEncryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		writeSecret, ok := encryptionState[gr].keyToSecret[grActualKeys.writeKey]
-		if !ok || len(writeSecret.Annotations[encryptionSecretWriteTimestamp]) == 0 { // make sure this is a fully observed write key
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+		if err != nil {
+			return "unable to find secret", err
+		}
+		ok := writeSecret != nil
+		if !ok { // make sure this is a fully observed write key
 			isProgressingReason = "WriteKeyNotObserved" // since we are waiting for an observation, we are progressing
 			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 
+		// TODO expand this check to see if encryption had happened for all groupresources
+		// TODO this is now wrong.  Migration is a wholelistic check.  This does work for our simple case now.
 		if len(writeSecret.Annotations[encryptionSecretMigratedTimestamp]) != 0 { // make sure we actually need migration
 			continue // migration already done for this resource
 		}
@@ -179,8 +191,21 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 		if migrationErr != nil {
 			continue
 		}
+		migratedSecret = writeSecret
 
-		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretMigratedTimestamp))
+		resources.Resources = append(resources.Resources, gr)
+	}
+
+	migratedSecret = migratedSecret.DeepCopy()
+	if migratedSecret.Annotations == nil {
+		migratedSecret.Annotations = map[string]string{}
+	}
+	migratedSecret.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
+	migratedResourceBytes, _ := json.Marshal(resources)
+	migratedSecret.Annotations[encryptionSecretMigratedResources] = string(migratedResourceBytes)
+	migratedSecret, _, updateErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, migratedSecret)
+	if updateErr != nil {
+		errs = append(errs, updateErr)
 	}
 
 	// regardless of if the storage migrations we ran were successful, we are no longer running them

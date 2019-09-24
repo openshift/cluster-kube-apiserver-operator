@@ -121,7 +121,7 @@ func (c *encryptionPodStateController) sync() error {
 // TODO doc
 func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (string, error) {
 	// we need a stable view of the world
-	encryptionConfig, encryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	encryptionConfig, _, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
@@ -130,29 +130,38 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (st
 	var errs []error
 	var missingRead, missingWrite bool
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
-		keyToSecret := encryptionState[gr].keyToSecret
-
 		for _, readKey := range grActualKeys.readKeys {
-			readSecret, ok := keyToSecret[readKey]
+			readSecret, err := findSecretForKeyWithClient(readKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+			if err != nil {
+				klog.Warningf("failed to find read secret for key %s in group=%s resource=%s: %v", readKey.key.Name, groupToHumanReadable(gr), gr.Resource, err)
+				missingRead = true
+				continue
+			}
+			ok := readSecret != nil
+
 			if !ok {
 				klog.V(4).Infof("failed to find read secret for key %s in group=%s resource=%s", readKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 				missingRead = true
 				continue
 			}
-			errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, readSecret, encryptionSecretReadTimestamp))
 		}
 
 		if !grActualKeys.hasWriteKey() {
 			continue
 		}
 
-		writeSecret, ok := keyToSecret[grActualKeys.writeKey]
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+		if err != nil {
+			klog.Warningf("failed to find write secret for key %s in group=%s resource=%s: %v", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource, err)
+			missingWrite = true
+			continue
+		}
+		ok := writeSecret != nil
 		if !ok {
 			klog.V(4).Infof("failed to find write secret for key %s in group=%s resource=%s", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			missingWrite = true
 			continue
 		}
-		errs = append(errs, setTimestampAnnotationIfNotSet(c.secretClient, c.eventRecorder, writeSecret, encryptionSecretWriteTimestamp))
 	}
 
 	switch {

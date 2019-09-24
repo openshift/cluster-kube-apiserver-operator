@@ -3,6 +3,7 @@ package encryption
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -85,8 +86,6 @@ import (
 // as encryption targets (imagine if a new resource that should be encrypted is later added to the API).
 const (
 	encryptionSecretComponent = "encryption.operator.openshift.io/component"
-	encryptionSecretGroup     = "encryption.operator.openshift.io/group"
-	encryptionSecretResource  = "encryption.operator.openshift.io/resource"
 )
 
 // These annotations are used to mark the current observed state of a secret.  They correspond to the states
@@ -95,9 +94,8 @@ const (
 // only check if the value is set to a non-empty value.  The exception to this is key minting controller
 // which parses the migrated timestamp to determine if enough time has passed and a new key should be created.
 const (
-	encryptionSecretReadTimestamp     = "encryption.operator.openshift.io/read-timestamp"
-	encryptionSecretWriteTimestamp    = "encryption.operator.openshift.io/write-timestamp"
 	encryptionSecretMigratedTimestamp = "encryption.operator.openshift.io/migrated-timestamp"
+	encryptionSecretMigratedResources = "encryption.operator.openshift.io/migrated-resources"
 )
 
 // encryptionSecretMode is the annotation that determines how the provider associated with a given key is
@@ -160,23 +158,41 @@ func init() {
 // TODO docs
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
-	keys        []keyAndMode
-	secrets     []*corev1.Secret
-	keyToSecret map[keyAndMode]*corev1.Secret
-	secretToKey map[string]keyAndMode
+	targetNamespace string
 
-	secretsReadYes []*corev1.Secret
-	secretsReadNo  []*corev1.Secret
+	readSecrets []*corev1.Secret
+	writeSecret *corev1.Secret
+}
 
-	secretsWriteYes []*corev1.Secret
-	secretsWriteNo  []*corev1.Secret
+func (k keysState) ReadKeys() []keyAndMode {
+	ret := []keyAndMode{}
+	for _, readKey := range k.readSecrets {
+		keyAndMode, _, ok := secretToKey(readKey, k.targetNamespace)
+		if !ok {
+			continue
+			// TODO question life choices
+		}
+		ret = append(ret, keyAndMode)
+	}
+	return ret
+}
 
-	secretsMigratedYes []*corev1.Secret
-	secretsMigratedNo  []*corev1.Secret
+func (k keysState) WriteKey() keyAndMode {
+	if k.writeSecret == nil {
+		return keyAndMode{mode: identity}
+	}
 
-	lastMigrated      *corev1.Secret
-	lastMigratedKey   keyAndMode
-	lastMigratedKeyID uint64
+	writeKeyAndMode, _, ok := secretToKey(k.writeSecret, k.targetNamespace)
+	if !ok {
+		// TODO question life choices
+		return keyAndMode{mode: identity}
+	}
+
+	return writeKeyAndMode
+}
+
+func (k keysState) LatestKeyID() (uint64, bool) {
+	return secretToKeyID(k.readSecrets[0])
 }
 
 // TODO docs
@@ -233,91 +249,205 @@ func newIdentityKey() []byte {
 
 var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 
-// TODO docs, unit tests
-func getEncryptionState(secretClient corev1client.SecretInterface, targetNamespace string, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
+func getDesiredEncryptionStateFromClients(targetNamespace string, podClient corev1client.PodsGetter, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
+	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
+	if err != nil {
+		return groupResourcesState{}, err
+	}
+	if len(revision) == 0 {
+		return groupResourcesState{}, err
+	}
+
+	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
+	if err != nil {
+		return groupResourcesState{}, err
+	}
+
+	return getDesiredEncryptionState(encryptionConfig, targetNamespace, secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
+}
+
+// getDesiredEncryptionState returns the desired state of encryption for all resources.  To do this it compares the current state
+// against the available secrets.
+// the encryptionConfig describes the actual state of every GroupResource.  We compare this against requested group resources because
+// we may be missing one.
+// the basic rules are:
+// 1. every requested groupresource must honor every available key before any write key is changed.
+// 2. Once every resources honors every key, the write key should be the latest key available
+// 3. Once every resources honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
+func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
-	encryptionSecrets := encryptionSecretList.Items
+	encryptionSecrets := []*corev1.Secret{}
+	for _, item := range encryptionSecretList.Items {
+		encryptionSecrets = append(encryptionSecrets, item.DeepCopy())
+	}
 
-	// make sure encryptionSecrets is sorted in ascending order by keyID
-	// this allows us to calculate the per resource write key for the encryption config secret
-	// see comment above encryptionSecretComponent near the top of this file
+	// make sure encryptionSecrets is sorted in DESCENDING order by keyID
+	// this allows us to calculate the per resource write key as the first item and recent keys are first
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
 		// it is fine to ignore the validKeyID bool here because we filter out invalid secrets in the next loop
 		// thus it does not matter where the invalid secrets get sorted to
 		// conflicting keyIDs between different resources are not an issue because we track each resource separately
-		iKeyID, _ := secretToKeyID(&encryptionSecrets[i])
-		jKeyID, _ := secretToKeyID(&encryptionSecrets[j])
-		return iKeyID < jKeyID
+		iKeyID, _ := secretToKeyID(encryptionSecrets[i])
+		jKeyID, _ := secretToKeyID(encryptionSecrets[j])
+		return iKeyID > jKeyID
 	})
 
+	// this is our output from the for loop below
 	encryptionState := groupResourcesState{}
 
-	for _, es := range encryptionSecrets {
-		// make sure we capture the range variable since we take the address and append it to other lists
-		rangeES := es
-		encryptionSecret := &rangeES
-
-		gr, key, keyID, ok := secretToKey(encryptionSecret, targetNamespace, encryptedGRs)
-		if !ok {
-			klog.Infof("skipping encryption secret %s as it has invalid data", encryptionSecret.Name)
-			continue
+	resourcesToEncryptionKeys := getGRsActualKeys(encryptionConfig)
+	for gr, keys := range resourcesToEncryptionKeys {
+		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets)
+		readSecrets := []*corev1.Secret{}
+		for _, readKey := range keys.readKeys {
+			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets)
+			readSecrets = append(readSecrets, readSecret)
 		}
 
-		grState := encryptionState[gr]
-
-		// TODO figure out which lists can be dropped, maps may be better in some places
-
-		grState.keys = append(grState.keys, key)
-		grState.secrets = append(grState.secrets, encryptionSecret)
-
-		if grState.keyToSecret == nil {
-			grState.keyToSecret = map[keyAndMode]*corev1.Secret{}
+		encryptionState[gr] = keysState{
+			targetNamespace: targetNamespace,
+			writeSecret:     writeSecret,
+			readSecrets:     readSecrets,
 		}
-		grState.keyToSecret[key] = encryptionSecret
-
-		if grState.secretToKey == nil {
-			grState.secretToKey = map[string]keyAndMode{}
-		}
-		grState.secretToKey[encryptionSecret.Name] = key
-
-		appendSecretPerAnnotationState(&grState.secretsReadYes, &grState.secretsReadNo, encryptionSecret, encryptionSecretReadTimestamp)
-		appendSecretPerAnnotationState(&grState.secretsWriteYes, &grState.secretsWriteNo, encryptionSecret, encryptionSecretWriteTimestamp)
-		appendSecretPerAnnotationState(&grState.secretsMigratedYes, &grState.secretsMigratedNo, encryptionSecret, encryptionSecretMigratedTimestamp)
-
-		// keep overwriting the lastMigrated fields since we know that the iteration order is sorted by keyID
-		if len(encryptionSecret.Annotations[encryptionSecretMigratedTimestamp]) > 0 {
-			grState.lastMigrated = encryptionSecret
-			grState.lastMigratedKey = key
-			grState.lastMigratedKeyID = keyID
-		}
-
-		encryptionState[gr] = grState
 	}
 
+	// see if any resource is missing and properly reflect that state so that we will add the read keys and take it through the
+	// transition correctly.
+	for gr := range encryptedGRs {
+		if _, ok := encryptionState[gr]; !ok {
+			encryptionState[gr] = keysState{
+				targetNamespace: targetNamespace,
+			}
+		}
+	}
+
+	// TODO allow removing resources. This would require transitioning back to identity.  For now, because we work against a single
+	// key, we can simply keep moving that additional resource even in the face of downgrades.
+
+	allReadSecretsAsExpected := true
+	for _, grState := range encryptionState {
+		match := true
+		if len(grState.readSecrets) != len(encryptionSecrets) {
+			allReadSecretsAsExpected = false
+			break
+		}
+		for i := range encryptionSecrets {
+			if grState.readSecrets[i].Name != encryptionSecrets[i].Name {
+				match = false
+				break
+			}
+		}
+		if match == false {
+			allReadSecretsAsExpected = false
+			break
+		}
+	}
+	// if our read secrets aren't all the same, the first thing to do is to force all the read secrets and wait for stability
+	if !allReadSecretsAsExpected {
+		for _, grState := range encryptionState {
+			grState.readSecrets = encryptionSecrets
+		}
+		return encryptionState, nil
+	}
+
+	// we have consistent and completely current read secrets, the next step is determining a consistent write key.
+	// To do this, we will choose the most current write key and use that to write the data
+	allWriteSecretsAsExpected := true
+	for _, grState := range encryptionState {
+		if grState.writeSecret.Name != encryptionSecrets[0].Name {
+			allWriteSecretsAsExpected = false
+			break
+		}
+	}
+	// if our write secrets aren't all the same, update all the write secrets and wait for stability.  We can move write keys
+	// before all the data has been migrated
+	if !allWriteSecretsAsExpected {
+		for _, grState := range encryptionState {
+			grState.writeSecret = encryptionSecrets[0]
+		}
+		return encryptionState, nil
+	}
+
+	// at this point all of our read and write secrets are the same.  We need to inspect the write secret to ensure that it has
+	// all the expect resources listed as having been migrated.  If this is true, then we can prune the read secrets down
+	// to a single entry.
+
+	// get a list of all the resources we have, so that we can compare against the migrated keys annotation.
+	allResources := []schema.GroupResource{}
+	for gr := range encryptionState {
+		allResources = append(allResources, gr)
+	}
+
+	migratedResourceString := encryptionSecrets[0].Annotations[encryptionSecretMigratedResources]
+	// if no migration has happened, we need to wait until it has
+	if len(migratedResourceString) == 0 {
+		return encryptionState, nil
+	}
+	migratedResources := &GroupResources{}
+	// if we cannot read the data, wait until we can
+	if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
+		return encryptionState, nil
+	}
+
+	foundCount := 0
+	for _, expected := range allResources {
+		for _, actual := range migratedResources.Resources {
+			if expected == actual {
+				foundCount++
+				break
+			}
+		}
+	}
+	// if we did not find migration indications for all resources, then just wait until we do
+	if foundCount != len(allResources) {
+		return encryptionState, nil
+	}
+
+	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.  We only need the write
+	// key now
+	for _, grState := range encryptionState {
+		grState.readSecrets = []*corev1.Secret{encryptionSecrets[0]}
+	}
 	return encryptionState, nil
 }
 
-func appendSecretPerAnnotationState(in, out *[]*corev1.Secret, secret *corev1.Secret, annotation string) {
-	if len(secret.Annotations[annotation]) != 0 {
-		*in = append(*in, secret)
-	} else {
-		*out = append(*out, secret)
-	}
+type GroupResources struct {
+	Resources []schema.GroupResource `json:"resources"`
 }
 
-func secretToKey(encryptionSecret *corev1.Secret, targetNamespace string, validGRs map[schema.GroupResource]bool) (schema.GroupResource, keyAndMode, uint64, bool) {
+func findSecretForKey(key string, secrets []*corev1.Secret) *corev1.Secret {
+	for _, secret := range secrets {
+		if string(secret.Data[encryptionSecretKeyData]) == key {
+			return secret.DeepCopy()
+		}
+	}
+	return nil
+}
+
+func findSecretForKeyWithClient(key string, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
+	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, secret := range encryptionSecretList.Items {
+		if string(secret.Data[encryptionSecretKeyData]) == key {
+			return secret.DeepCopy(), nil
+		}
+	}
+	return nil, nil
+}
+
+func secretToKey(encryptionSecret *corev1.Secret, targetNamespace string) (keyAndMode, uint64, bool) {
 	component := encryptionSecret.Labels[encryptionSecretComponent]
-	group := encryptionSecret.Labels[encryptionSecretGroup]
-	resource := encryptionSecret.Labels[encryptionSecretResource]
 	keyData := encryptionSecret.Data[encryptionSecretKeyData]
 	keyMode := mode(encryptionSecret.Annotations[encryptionSecretMode])
 
 	keyID, validKeyID := secretToKeyID(encryptionSecret)
 
-	gr := schema.GroupResource{Group: group, Resource: resource}
 	key := keyAndMode{
 		key: apiserverconfigv1.Key{
 			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
@@ -326,14 +456,14 @@ func secretToKey(encryptionSecret *corev1.Secret, targetNamespace string, validG
 		},
 		mode: keyMode,
 	}
-	invalidKey := len(resource) == 0 || len(keyData) == 0 || !validKeyID || !validGRs[gr] || component != targetNamespace
+	invalidKey := len(keyData) == 0 || !validKeyID || component != targetNamespace
 	switch keyMode {
 	case aescbc, secretbox, identity:
 	default:
 		invalidKey = true
 	}
 
-	return gr, key, keyID, !invalidKey
+	return key, keyID, !invalidKey
 }
 
 func secretToKeyID(encryptionSecret *corev1.Secret) (uint64, bool) {
@@ -367,70 +497,23 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	desired := groupResourceKeys{}
 
-	desired.writeKey = determineWriteKey(grKeys)
+	desired.writeKey = grKeys.WriteKey()
 
 	// keys have a duplicate of the write key
 	// or there is no write key
 
-	var lastMigratedKeySeen bool
-
-	// iterate in reverse to order the read keys with highest keyID first
-	for i := len(grKeys.keys) - 1; i >= 0; i-- {
-		readKey := grKeys.keys[i]
+	readKeys := grKeys.ReadKeys()
+	for i := range readKeys {
+		readKey := readKeys[i]
 
 		readKeyIsWriteKey := desired.hasWriteKey() && readKey == desired.writeKey
-
 		// if present, do not include a duplicate write key in the read key list
 		if !readKeyIsWriteKey {
 			desired.readKeys = append(desired.readKeys, readKey)
 		}
-
-		// we have completed one extra iteration after observing the last migrated key
-		if lastMigratedKeySeen {
-			break
-		}
-
-		if len(grKeys.secretsMigratedYes) > 0 && readKey == grKeys.lastMigratedKey {
-			// we only need the read keys that have equal or higher keyID than the last migrated key
-			// note that readKeys should only have one item unless there is a bug in the key minting controller
-			// this also serves to limit the size of the final encryption secret (even if pruning fails)
-
-			// we already have some read keys, meaning breaking now will not cause extra rollouts
-			if len(desired.readKeys) > 0 {
-				break
-			}
-
-			// to avoid extra rollouts, we keep one "unnecessary" read key by not breaking until the next iteration
-			lastMigratedKeySeen = true
-		}
 	}
 
 	return desired
-}
-
-// TODO docs, better name, unit test
-func determineWriteKey(grKeys keysState) keyAndMode {
-	// first write that is not migrated
-	for _, writeYes := range grKeys.secretsWriteYes {
-		if len(writeYes.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
-			return grKeys.secretToKey[writeYes.Name]
-		}
-	}
-
-	// first read that is not write
-	for _, readYes := range grKeys.secretsReadYes {
-		if len(readYes.Annotations[encryptionSecretWriteTimestamp]) == 0 {
-			return grKeys.secretToKey[readYes.Name]
-		}
-	}
-
-	// no key is transitioning so just use last migrated
-	if len(grKeys.secretsMigratedYes) > 0 {
-		return grKeys.lastMigratedKey
-	}
-
-	// no write key
-	return keyAndMode{}
 }
 
 // TODO docs
@@ -594,7 +677,7 @@ func podReady(pod corev1.Pod) bool {
 	return false
 }
 
-func getEncryptionConfig(secrets corev1client.SecretInterface, revision string) (*apiserverconfigv1.EncryptionConfiguration, error) {
+func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision string) (*apiserverconfigv1.EncryptionConfiguration, error) {
 	encryptionConfigSecret, err := secrets.Get(encryptionConfSecret+"-"+revision, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -768,15 +851,15 @@ func getEncryptionConfigAndState(
 		return nil, nil, "APIServerRevisionNotConverged", nil
 	}
 
-	encryptionConfig, err := getEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
+	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	encryptionState, err := getEncryptionState(secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), targetNamespace, encryptionSecretSelector, encryptedGRs)
+	desiredEncryptionState, err := getDesiredEncryptionState(encryptionConfig, targetNamespace, secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
-	return encryptionConfig, encryptionState, "", nil
+	return encryptionConfig, desiredEncryptionState, "", nil
 }
