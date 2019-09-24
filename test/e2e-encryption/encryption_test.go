@@ -98,7 +98,7 @@ func getEncryptionClients(t *testing.T) (test.EtcdGetter, func(), configv1client
 
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	require.True(t, dynamicInformers.WaitForCacheSync(timeout.Done())[gvr])
+	require.Truef(t, dynamicInformers.WaitForCacheSync(timeout.Done())[gvr], "failed to sync cache for %s", gvr)
 
 	done := func() {
 		close(stopCh)
