@@ -118,16 +118,20 @@ func waitForEncryptionTypeLastSecretMigrated(t *testing.T, encryptionType config
 			case "secrets":
 				if len(keyForSecrets) == 0 {
 					keyForSecrets = secret.Name
+					fmt.Printf("found keyForSecrets=%s\n", keyForSecrets)
 				}
 			case "configmaps":
 				if len(keyForConfigMaps) == 0 {
 					keyForConfigMaps = secret.Name
+					fmt.Printf("found keyForConfigMaps=%s\n", keyForConfigMaps)
 				}
 			}
 			if len(keyForSecrets) > 0 && len(keyForConfigMaps) > 0 {
+				fmt.Printf("secrets found, keyForSecrets=%s keyForConfigMaps=%s\n", keyForSecrets, keyForConfigMaps)
 				return true, nil
 			}
 		}
+		fmt.Printf("secrets not found, keyForSecrets=%s keyForConfigMaps=%s\n", keyForSecrets, keyForConfigMaps)
 		return false, nil
 	})
 	require.NoError(t, err)
