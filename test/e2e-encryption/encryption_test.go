@@ -64,17 +64,84 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 func testEncryptionType(t *testing.T, encryptionType configv1.EncryptionType) (test.EtcdGetter, func()) {
 	t.Helper()
 
-	kv, done, configClient, apiServerClient, _, _ := getEncryptionClients(t)
+	kv, done, configClient, apiServerClient, kubeClient, _ := getEncryptionClients(t)
+	secretsClient := kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
 
 	apiServer, err := apiServerClient.Get("cluster", metav1.GetOptions{})
 	require.NoError(t, err)
-	apiServer.Spec.Encryption.Type = encryptionType
-	_, err = apiServerClient.Update(apiServer)
-	require.NoError(t, err)
+	needsUpdate := apiServer.Spec.Encryption.Type != encryptionType
+	if needsUpdate {
+		apiServer.Spec.Encryption.Type = encryptionType
+		_, err = apiServerClient.Update(apiServer)
+		require.NoError(t, err)
+	}
 
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+	if len(encryptionType) == 0 || !needsUpdate {
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+	} else {
+		waitForEncryptionTypeLastSecretMigrated(t, encryptionType, secretsClient)
+	}
 
 	return kv, done
+}
+
+func waitForEncryptionTypeLastSecretMigrated(t *testing.T, encryptionType configv1.EncryptionType, secretsClient corev1.SecretInterface) {
+	t.Helper()
+
+	// make sure any changes we made have been observed
+	time.Sleep(time.Minute)
+	currentSecrets, err := secretsClient.List(metav1.ListOptions{})
+	require.NoError(t, err)
+
+	sort.Slice(currentSecrets.Items, func(i, j int) bool {
+		// reverse sort by creation time
+		return currentSecrets.Items[i].CreationTimestamp.Unix() > currentSecrets.Items[j].CreationTimestamp.Unix()
+	})
+
+	var keyForSecrets, keyForConfigMaps string
+
+	for _, secret := range currentSecrets.Items {
+		if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
+			continue
+		}
+		if secret.Labels["encryption.operator.openshift.io/mode"] != string(encryptionType) {
+			continue
+		}
+		switch secret.Labels["encryption.operator.openshift.io/resource"] {
+		case "secrets":
+			if len(keyForSecrets) == 0 {
+				keyForSecrets = secret.Name
+			}
+		case "configmaps":
+			if len(keyForConfigMaps) == 0 {
+				keyForConfigMaps = secret.Name
+			}
+		}
+		if len(keyForSecrets) > 0 && len(keyForConfigMaps) > 0 {
+			break
+		}
+	}
+
+	require.NotEmpty(t, keyForSecrets)
+	require.NotEmpty(t, keyForConfigMaps)
+
+	secretNames := []string{keyForSecrets, keyForConfigMaps}
+
+	err = wait.Poll(test.WaitPollInterval, test.WaitPollTimeout, func() (done bool, err error) {
+		for _, secretName := range secretNames {
+			secret, err := secretsClient.Get(secretName, metav1.GetOptions{})
+			if err != nil {
+				fmt.Printf("failed to get secret %s: %v\n", secretName, err)
+				return false, nil
+			}
+			if len(secret.Annotations["encryption.operator.openshift.io/migrated-timestamp"]) == 0 {
+				fmt.Printf("secret %s not yet migrated\n", secret.Name)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	require.NoError(t, err)
 }
 
 func getEncryptionClients(t *testing.T) (test.EtcdGetter, func(), configv1client.ConfigV1Interface, configv1client.APIServerInterface, kubernetes.Interface, v1helpers.StaticPodOperatorClient) {
