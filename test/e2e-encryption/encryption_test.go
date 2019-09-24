@@ -54,6 +54,9 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		TestEncryptionTypeAESCBC,
 		TestEncryptionTypeIdentity,
 	} {
+		now := time.Now()
+		fmt.Printf("LCL %s\n", now.Format(time.RFC3339))
+		fmt.Printf("UTC %s\n", now.UTC().Format(time.RFC3339))
 		t.Run(strconv.Itoa(i), f)
 		if t.Failed() {
 			return
