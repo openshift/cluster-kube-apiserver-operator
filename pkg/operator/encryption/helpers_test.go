@@ -3,12 +3,14 @@ package encryption
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -166,12 +168,16 @@ func validateActionsVerbs(actualActions []clientgotesting.Action, expectedAction
 
 		expectedAction := expectedActions[index]
 		expectedActionVerRes := strings.Split(expectedAction, ":")
-		if len(expectedActionVerRes) != 3 {
-			return fmt.Errorf("cannot verify the action %q at position %d because it has an incorrect format, must be a tuple \"verb:resource:namespace\"", expectedAction, index)
+		if len(expectedActionVerRes) < 3 {
+			return fmt.Errorf("cannot verify the action %q at position %d because it has an incorrect format, must be \"verb:resource:namespace\"", expectedAction, index)
 		}
 		expectedActionVerb := expectedActionVerRes[0]
 		expectedActionRes := expectedActionVerRes[1]
 		expectedActionNs := expectedActionVerRes[2]
+		expectedActionNameRegPattern := ""
+		if len(expectedActionVerRes) > 3 {
+			expectedActionNameRegPattern = expectedActionVerRes[3]
+		}
 
 		if actualActionVerb != expectedActionVerb {
 			return fmt.Errorf("expected %q verb at position %d but got %q, for %q action", expectedActionVerb, index, actualActionVerb, expectedAction)
@@ -182,8 +188,27 @@ func validateActionsVerbs(actualActions []clientgotesting.Action, expectedAction
 		if actualActionNs != expectedActionNs {
 			return fmt.Errorf("expected %q namespace at position %d but got %q, for %q action", expectedActionNs, index, actualActionNs, expectedAction)
 		}
+		if len(expectedActionNameRegPattern) > 0 && !regexp.MustCompile(expectedActionNameRegPattern).MatchString(getResourceNameBasedOnActionVerb(actualAction)) {
+			return fmt.Errorf("expected a resource with name %q at position %d but got %s, for %q action", expectedActionNameRegPattern, index, getResourceNameBasedOnActionVerb(actualAction), expectedAction)
+		}
 	}
 	return nil
+}
+
+func getResourceNameBasedOnActionVerb(action clientgotesting.Action) string {
+	switch action.GetVerb() {
+	case "get":
+		return action.(clientgotesting.GetAction).GetName()
+	case "delete":
+		return action.(clientgotesting.DeleteAction).GetName()
+	case "update":
+		actionMeta, err := meta.Accessor(action.(clientgotesting.UpdateAction).GetObject())
+		if err != nil {
+			return err.Error()
+		}
+		return actionMeta.GetName()
+	}
+	return fmt.Sprintf("cannot get a name of the resource from an unsupported action verb %q", action.GetVerb())
 }
 
 func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
@@ -253,6 +278,10 @@ func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revis
 	}
 
 	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: corev1.SchemeGroupVersion.String(),
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
 			Namespace: targetNs,

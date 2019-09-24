@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,7 +58,7 @@ func TestEncryptionPruneController(t *testing.T) {
 			initialSecrets: func() []*corev1.Secret {
 				return createMigratedEncryptionKeySecretsWithRndKey(t, 11, "kms", "secrets")
 			}(),
-			expectedActions: []string{"list:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed"},
+			expectedActions: []string{"list:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret) {
 				validateSecretsWerePruned(ts, actions, []*corev1.Secret{initialSecrets[0]})
 			},
@@ -113,17 +114,40 @@ func TestEncryptionPruneController(t *testing.T) {
 				all = append(all, createMigratedEncryptionKeySecretsWithRndKey(t, 21, ns, "configmaps")...)
 				return all
 			}(),
+			// expectedActions are in the form of "verb:resource:namespace:resourcename" where resourcename is a regular expression
+			// we use a regular expression because the order is important and the underlying client doesn't guarantee stable output
 			expectedActions: []string{
-				"list:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed",
-				"delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed",
-				"delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed",
-				"delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed",
-				"delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed", "delete:secrets:openshift-config-managed",
+				"list:secrets:openshift-config-managed",
+
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-0", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-0",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-1", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-1",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-2", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-2",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-3", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-3",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-4", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-4",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-5", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-5",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-6", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-6",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-7", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-7",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-8", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-8",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-9", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-9",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-10", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-10",
+
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-0", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-0",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-1", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-1",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-2", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-2",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-3", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-3",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-4", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-4",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-5", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-5",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-6", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-6",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-7", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-7",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-8", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-8",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-9", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-9",
+				"update:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-10", "delete:secrets:openshift-config-managed:kms-core-(configmaps|secrets)-encryption-10",
 			},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, initialSecrets []*corev1.Secret) {
 				expectedPrunedKeys := []*corev1.Secret{}
-				expectedPrunedKeys = append(expectedPrunedKeys, initialSecrets[0:11]...)
-				expectedPrunedKeys = append(expectedPrunedKeys, initialSecrets[21:32]...)
+				// initialSecrets holds 21 secrets and configmaps, we are interested only in the first 11 items of each as those will be removed
+				expectedPrunedKeys = append(expectedPrunedKeys, initialSecrets[0:11]...)  // take the first 11 secrets
+				expectedPrunedKeys = append(expectedPrunedKeys, initialSecrets[21:32]...) // take the first 11 configmaps
 				validateSecretsWerePruned(ts, actions, expectedPrunedKeys)
 			},
 		},
@@ -192,13 +216,28 @@ func TestEncryptionPruneController(t *testing.T) {
 func validateSecretsWerePruned(ts *testing.T, actions []clientgotesting.Action, expectedDeletedSecrets []*corev1.Secret) {
 	ts.Helper()
 
-	expectedActionsNoList := len(actions) - 1 // subtract "list" request
+	expectedActionsNoList := len(actions) - 1 - len(expectedDeletedSecrets) // subtract "list" and "update" (removal of finalizer) requests
 	if expectedActionsNoList != len(expectedDeletedSecrets) {
 		ts.Fatalf("incorrect number of resources were pruned, expected %d, got %d", len(expectedDeletedSecrets), expectedActionsNoList)
 	}
 
 	deletedSecretsCount := 0
+	finalizersRemovedCount := 0
 	for _, action := range actions {
+		if action.GetVerb() == "update" {
+			updateAction := action.(clientgotesting.UpdateAction)
+			actualSecret := updateAction.GetObject().(*corev1.Secret)
+			for _, expectedDeletedSecret := range expectedDeletedSecrets {
+				if expectedDeletedSecret.Name == actualSecret.GetName() {
+					expectedDeletedSecretsCpy := expectedDeletedSecret.DeepCopy()
+					expectedDeletedSecretsCpy.Finalizers = []string{}
+					if equality.Semantic.DeepEqual(actualSecret, expectedDeletedSecretsCpy) {
+						finalizersRemovedCount++
+						break
+					}
+				}
+			}
+		}
 		if action.GetVerb() == "delete" {
 			deleteAction := action.(clientgotesting.DeleteAction)
 			for _, expectedDeletedSecret := range expectedDeletedSecrets {
@@ -210,6 +249,9 @@ func validateSecretsWerePruned(ts *testing.T, actions []clientgotesting.Action, 
 	}
 	if deletedSecretsCount != len(expectedDeletedSecrets) {
 		ts.Errorf("%d key(s) were deleted but %d were expected to be deleted", deletedSecretsCount, len(expectedDeletedSecrets))
+	}
+	if finalizersRemovedCount != len(expectedDeletedSecrets) {
+		ts.Errorf("expected to see %d finalizers removed but got %d", len(expectedDeletedSecrets), finalizersRemovedCount)
 	}
 }
 

@@ -84,7 +84,6 @@ func TestEncryptionMigrationController(t *testing.T) {
 				}(),
 				func() *corev1.Secret {
 					s := createWriteEncryptionKeySecretWithRawKey("kms", schema.GroupResource{Group: "", Resource: "configmaps"}, 1, []byte("7d00bfbed09a2f4113e61413511a2af3"))
-					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
 				}(),
@@ -108,9 +107,16 @@ func TestEncryptionMigrationController(t *testing.T) {
 						},
 					}
 					ec := createEncryptionCfgSecretWithWriteKeys(t, "kms", "1", []encryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
-					ec.Kind = "Secret"
 					ec.APIVersion = corev1.SchemeGroupVersion.String()
 					return ec
+				}(),
+				func() *corev1.Secret {
+					s := &corev1.Secret{}
+					s.Name = "s-in-abc"
+					s.Namespace = "abc-ns"
+					s.Kind = "Secret"
+					s.APIVersion = corev1.SchemeGroupVersion.String()
+					return s
 				}(),
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms", "get:secrets:openshift-config-managed", "update:secrets:openshift-config-managed", "create:events:kms"},
@@ -304,6 +310,8 @@ func validateMigratedResources(ts *testing.T, actions []clientgotesting.Action, 
 }
 
 func validateSecretsWereAnnotated(ts *testing.T, actions []clientgotesting.Action, expectedSecrets []*corev1.Secret) {
+	ts.Helper()
+
 	validatedSecrets := 0
 	for _, action := range actions {
 		if action.Matches("update", "secrets") {
@@ -317,7 +325,7 @@ func validateSecretsWereAnnotated(ts *testing.T, actions []clientgotesting.Actio
 				}
 				expectedSecret.Annotations[encryptionSecretMigratedTimestampForTest] = actualSecret.Annotations[encryptionSecretMigratedTimestampForTest]
 
-				if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
+				if equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 					validatedSecrets++
 					break
 				}
