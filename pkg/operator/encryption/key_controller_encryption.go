@@ -92,7 +92,7 @@ func newEncryptionKeyController(
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 
 	apiServerInformer.Informer().AddEventHandler(c.eventHandler())
 	c.preRunCachesSynced = append(c.preRunCachesSynced, apiServerInformer.Informer().HasSynced)

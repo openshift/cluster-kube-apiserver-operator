@@ -72,7 +72,7 @@ func newEncryptionPruneController(
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
