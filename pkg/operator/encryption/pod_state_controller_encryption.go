@@ -79,6 +79,11 @@ func (c *encryptionPodStateController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
+	// TODO delete this controller, it seems to do nothing now
+	if true {
+		return nil
+	}
+
 	isProgressingReason, configError := c.observeReadAndWriteKeysFromPodState()
 	isProgressing := len(isProgressingReason) > 0
 
