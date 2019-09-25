@@ -140,6 +140,11 @@ func (c *encryptionMigrationController) sync() error {
 	return configError
 }
 
+type migrationTracker struct {
+	secret    *corev1.Secret
+	resources []schema.GroupResource
+}
+
 // TODO doc
 func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
@@ -148,7 +153,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 		return isProgressingReason, err
 	}
 
-	// TODO we need this check?  Could it dead lock?
+	// TODO we need this check?  Could it dead lock?  -> seems more possible now
 	// no storage migration until all masters catch up with revision
 	if !reflect.DeepEqual(currentEncryptionConfig.Resources, getResourceConfigs(desiredEncryptionState)) {
 		return "PodAndAPIStateNotConverged", nil // retry in a little while but do not go degraded
@@ -161,8 +166,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
 	var ranStorageMigration bool
-	var migratedSecret *corev1.Secret
-	resources := GroupResources{Resources: []schema.GroupResource{}}
+	trackers := map[string]migrationTracker{}
 	for gr, grActualKeys := range getGRsActualKeys(currentEncryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
 			continue // no write key to migrate to
@@ -170,42 +174,46 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 
 		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
 		if err != nil {
-			return "unable to find secret", err
+			return "WriteKeySecretNotFound", err
 		}
-		ok := writeSecret != nil
-		if !ok { // make sure this is a fully observed write key
+		ok := writeSecret != nil // TODO not sure if this progressing tracking makes any sense now
+		if !ok {                 // make sure this is a fully observed write key
 			isProgressingReason = "WriteKeyNotObserved" // since we are waiting for an observation, we are progressing
 			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 
-		// TODO expand this check to see if encryption had happened for all groupresources
-		// TODO this is now wrong.  Migration is a wholelistic check.  This does work for our simple case now.
-		if len(writeSecret.Annotations[encryptionSecretMigratedTimestamp]) != 0 { // make sure we actually need migration
-			continue // migration already done for this resource
+		if needsMigration(writeSecret, gr) {
+			ranStorageMigration = true
+			migrationErr := c.runStorageMigration(gr)
+			errs = append(errs, migrationErr)
+			if migrationErr != nil {
+				continue
+			}
 		}
 
-		ranStorageMigration = true
-		migrationErr := c.runStorageMigration(gr)
-		errs = append(errs, migrationErr)
-		if migrationErr != nil {
+		tracker := trackers[writeSecret.Name]
+		tracker.secret = writeSecret
+		tracker.resources = append(tracker.resources, gr)
+		trackers[writeSecret.Name] = tracker
+	}
+
+	for _, tracker := range trackers {
+		migratedSecret := tracker.secret.DeepCopy()
+		if migratedSecret.Annotations == nil {
+			migratedSecret.Annotations = map[string]string{}
+		}
+		migratedSecret.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
+		migratedResourceBytes, marshallErr := json.Marshal(GroupResources{Resources: tracker.resources})
+		if marshallErr != nil {
+			errs = append(errs, marshallErr)
 			continue
 		}
-		migratedSecret = writeSecret
-
-		resources.Resources = append(resources.Resources, gr)
-	}
-
-	migratedSecret = migratedSecret.DeepCopy()
-	if migratedSecret.Annotations == nil {
-		migratedSecret.Annotations = map[string]string{}
-	}
-	migratedSecret.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
-	migratedResourceBytes, _ := json.Marshal(resources)
-	migratedSecret.Annotations[encryptionSecretMigratedResources] = string(migratedResourceBytes)
-	migratedSecret, _, updateErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, migratedSecret)
-	if updateErr != nil {
-		errs = append(errs, updateErr)
+		migratedSecret.Annotations[encryptionSecretMigratedResources] = string(migratedResourceBytes)
+		_, _, updateErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, migratedSecret)
+		if updateErr != nil {
+			errs = append(errs, updateErr)
+		}
 	}
 
 	// regardless of if the storage migrations we ran were successful, we are no longer running them
@@ -219,6 +227,30 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 	}
 
 	return isProgressingReason, utilerrors.NewAggregate(errs)
+}
+
+func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
+	if len(secret.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
+		return true
+	}
+
+	jsonMigratedResources := secret.Annotations[encryptionSecretMigratedResources]
+	if len(jsonMigratedResources) == 0 {
+		return true
+	}
+	resources := &GroupResources{}
+	if err := json.Unmarshal([]byte(jsonMigratedResources), resources); err != nil {
+		klog.Infof("failed parse resources for %s: %v", secret.Name, err)
+		return true
+	}
+
+	for _, groupResource := range resources.Resources {
+		if groupResource == resource {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {

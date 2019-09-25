@@ -26,9 +26,7 @@ import (
 	"k8s.io/klog"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -167,7 +165,7 @@ type keysState struct {
 }
 
 func (k keysState) ReadKeys() []keyAndMode {
-	ret := []keyAndMode{}
+	ret := make([]keyAndMode, 0, len(k.readSecrets))
 	for _, readKey := range k.readSecrets {
 		keyAndMode, _, ok := secretToKey(readKey, k.targetNamespace)
 		if !ok {
@@ -770,24 +768,6 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 		out[schema.ParseGroupResource(resourceConfig.Resources[0])] = grk
 	}
 	return out
-}
-
-// setTimestampAnnotationIfNotSet will set the value of the given annotation annotation
-// to the current time if it is not already set.  This serves to mark the given secret
-// as having transitioned into a certain state at a specific time.
-func setTimestampAnnotationIfNotSet(secretClient corev1client.SecretsGetter, recorder events.Recorder, secret *corev1.Secret, annotation string) error {
-	if len(secret.Annotations[annotation]) != 0 {
-		return nil
-	}
-	secret = secret.DeepCopy()
-
-	if secret.Annotations == nil {
-		secret.Annotations = map[string]string{}
-	}
-	secret.Annotations[annotation] = time.Now().Format(time.RFC3339)
-
-	_, _, updateErr := resourceapply.ApplySecret(secretClient, recorder, secret)
-	return updateErr // let conflict errors cause a retry
 }
 
 func setUpGlobalMachineConfigEncryptionInformers(
