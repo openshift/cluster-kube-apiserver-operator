@@ -290,3 +290,5 @@ func getKeyPrefix(t *testing.T, secretName string) []byte {
 
 	return []byte("k8s:enc:aescbc:v1:" + strconv.FormatUint(keyID, 10) + ":")
 }
+
+// TODO add a fake upgrade and downgrade style test that adds and removes resources
