@@ -110,8 +110,9 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 		return err
 	}
 
-	usedSecrets := []*corev1.Secret{}
+	usedSecrets := make([]*corev1.Secret, 0, len(encryptionState))
 	for _, grKeys := range encryptionState {
+		// TODO maybe keep some around for "safety" (think old backups and such)
 		usedSecrets = append(usedSecrets, grKeys.readSecrets...)
 	}
 
@@ -122,14 +123,7 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 
 	var deleteErrs []error
 	for _, key := range allkeys.Items {
-		found := false
-		for _, used := range usedSecrets {
-			if used.Name == key.Name {
-				found = true
-				break
-			}
-		}
-		if found {
+		if has(usedSecrets, key) {
 			continue
 		}
 
@@ -153,6 +147,15 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 		deleteErrs = append(deleteErrs, c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(secret.Name, nil))
 	}
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
+}
+
+func has(usedSecrets []*corev1.Secret, key corev1.Secret) bool {
+	for _, used := range usedSecrets {
+		if used.Name == key.Name {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *encryptionPruneController) run(stopCh <-chan struct{}) {
