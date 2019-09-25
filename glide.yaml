@@ -1,21 +1,23 @@
+# Update deps with `glide update --strip-vendor`
+
 package: github.com/openshift/cluster-kube-apiserver-operator
 import:
 - package: k8s.io/apimachinery
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/api
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/apiserver
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/client-go
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/code-generator
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/component-base
-  version: release-1.14
+  version: release-1.16
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go
@@ -25,7 +27,7 @@ import:
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
-  version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
+  version: 26a664648505d962332bda642b27306bc10d1082
 - package: github.com/apparentlymart/go-cidr
   version: v1.0.0
 - package: github.com/stretchr/testify
@@ -33,4 +35,6 @@ import:
 
   # pinned to a level that kubernetes uses.
 - package: github.com/evanphx/json-patch
-  version: 5858425f75500d40c52783dce87d085a483ce135
+  version: v4.2.0
+- package: k8s.io/klog
+  version: v0.4.0
