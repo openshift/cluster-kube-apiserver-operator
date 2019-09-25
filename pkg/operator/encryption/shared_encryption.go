@@ -11,10 +11,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	apiserverconfig "k8s.io/apiserver/pkg/apis/config"
@@ -191,8 +193,10 @@ func (k keysState) WriteKey() keyAndMode {
 	return writeKeyAndMode
 }
 
-func (k keysState) LatestKeyID() (uint64, bool) {
-	return secretToKeyID(k.readSecrets[0])
+func (k keysState) LatestKey() (*corev1.Secret, uint64) {
+	key := k.readSecrets[0]
+	keyID, _ := secretToKeyID(key)
+	return key, keyID
 }
 
 // TODO docs
@@ -251,16 +255,13 @@ var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 
 func getDesiredEncryptionStateFromClients(targetNamespace string, podClient corev1client.PodsGetter, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
-	if err != nil {
-		return groupResourcesState{}, err
-	}
-	if len(revision) == 0 {
+	if len(revision) == 0 || err != nil {
 		return groupResourcesState{}, err
 	}
 
 	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
 	if err != nil {
-		return groupResourcesState{}, err
+		return groupResourcesState{}, utilerrors.FilterOut(err, errors.IsNotFound)
 	}
 
 	return getDesiredEncryptionState(encryptionConfig, targetNamespace, secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
@@ -279,7 +280,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	if err != nil {
 		return nil, err
 	}
-	encryptionSecrets := []*corev1.Secret{}
+	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
 	for _, item := range encryptionSecretList.Items {
 		encryptionSecrets = append(encryptionSecrets, item.DeepCopy())
 	}

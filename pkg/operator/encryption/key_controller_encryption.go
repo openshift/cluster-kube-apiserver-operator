@@ -3,6 +3,7 @@ package encryption
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -134,16 +135,16 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	newKeyRequired := false
-	newKeyID := uint64(0)
-	reasons := []string{}
+	newKeyRequired := len(encryptionState) == 0
+	newKeyID := uint64(1) // start counting at 1
+	var reasons []string
 	for _, grKeys := range encryptionState {
 		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
 		if !ok {
 			continue
 		}
 
-		newKeyRequired = newKeyRequired || ok
+		newKeyRequired = true
 		nextKeyID := keyID + 1
 		if newKeyID < nextKeyID {
 			newKeyID = nextKeyID
@@ -151,17 +152,22 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 		reasons = append(reasons, internalReason)
 	}
 
-	if newKeyRequired {
-		internalReason := strings.Join(reasons, ", ")
-		keySecret := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
-		_, createErr := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(keySecret)
-		if errors.IsAlreadyExists(createErr) {
-			return c.validateExistingKey(keySecret, newKeyID)
-		}
-		return createErr
+	if !newKeyRequired {
+		return nil
 	}
 
-	return nil
+	if len(reasons) == 0 {
+		reasons = []string{"first-run"}
+	}
+
+	sort.Sort(sort.StringSlice(reasons))
+	internalReason := strings.Join(reasons, ", ")
+	keySecret := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
+	_, createErr := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(keySecret)
+	if errors.IsAlreadyExists(createErr) {
+		return c.validateExistingKey(keySecret, newKeyID)
+	}
+	return createErr
 }
 
 func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, keyID uint64) error {
@@ -183,7 +189,7 @@ func (c *encryptionKeyController) generateKeySecret(keyID uint64, currentMode mo
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			// this ends up looking like openshift-kube-apiserver-encryption-3
-			Name:      fmt.Sprintf("%s-%s-encryption-%d", c.targetNamespace, keyID),
+			Name:      fmt.Sprintf("%s-encryption-%d", c.targetNamespace, keyID),
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Labels: map[string]string{
 				encryptionSecretComponent: c.targetNamespace,
@@ -247,8 +253,8 @@ func (c *encryptionKeyController) getCurrentModeAndExternalReason() (mode, strin
 
 // TODO unit tests
 func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uint64, string, bool) {
-	// if the length of read secrets is more than zero, then we haven't successfully migrated and removed old keys
-	// so you should wait before generating more keys.
+	// if the length of read secrets is more than one (i.e. we have more than just the write key),
+	// then we haven't successfully migrated and removed old keys so you should wait before generating more keys.
 	if len(grKeys.readSecrets) > 1 {
 		return 0, "", false
 	}
@@ -258,8 +264,7 @@ func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uin
 		return 0, "no-secrets", currentMode != identity
 	}
 
-	latestKey := grKeys.readSecrets[0]
-	latestKeyID, _ := grKeys.LatestKeyID()
+	latestKey, latestKeyID := grKeys.LatestKey()
 
 	// if the most recent secret was encrypted in a mode different than the current mode, we need to generate a new key
 	if latestKey.Annotations[encryptionSecretMode] != string(currentMode) {
