@@ -110,18 +110,11 @@ func (c *encryptionStateController) sync() error {
 }
 
 func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	// do not cause new revisions while old ones are rolling out
-	// TODO but does this even matter?
-	revision, err := getAPIServerRevisionOfAllInstances(c.podClient.Pods(c.targetNamespace))
-	if len(revision) == 0 && err == nil {
+	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	if len(encryptionState) == 0 && err == nil {
 		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil
 	}
-	if err != nil {
-		return err
-	}
-
-	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
