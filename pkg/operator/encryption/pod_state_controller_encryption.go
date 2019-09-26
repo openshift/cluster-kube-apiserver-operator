@@ -136,7 +136,7 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (st
 	var missingRead, missingWrite bool
 	for gr, grActualKeys := range getGRsActualKeys(encryptionConfig) {
 		for _, readKey := range grActualKeys.readKeys {
-			readSecret, err := findSecretForKeyWithClient(readKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+			readSecret, err := findSecretForKeyWithClient(readKey, c.secretClient, c.encryptionSecretSelector, c.targetNamespace)
 			if err != nil {
 				klog.Warningf("failed to find read secret for key %s in group=%s resource=%s: %v", readKey.key.Name, groupToHumanReadable(gr), gr.Resource, err)
 				missingRead = true
@@ -155,7 +155,7 @@ func (c *encryptionPodStateController) observeReadAndWriteKeysFromPodState() (st
 			continue
 		}
 
-		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector, c.targetNamespace)
 		if err != nil {
 			klog.Warningf("failed to find write secret for key %s in group=%s resource=%s: %v", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource, err)
 			missingWrite = true

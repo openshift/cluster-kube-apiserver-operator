@@ -166,12 +166,12 @@ type keysState struct {
 func (k keysState) ReadKeys() []keyAndMode {
 	ret := make([]keyAndMode, 0, len(k.readSecrets))
 	for _, readKey := range k.readSecrets {
-		keyAndMode, _, ok := secretToKey(readKey, k.targetNamespace)
+		readKeyAndMode, _, ok := secretToKey(readKey, k.targetNamespace)
 		if !ok {
 			continue
 			// TODO question life choices
 		}
-		ret = append(ret, keyAndMode)
+		ret = append(ret, readKeyAndMode)
 	}
 	return ret
 }
@@ -280,13 +280,13 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	encryptionState := groupResourcesState{}
 
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
-		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets) // TODO handle nil as error when hasWriteKey == true?
+		writeSecret := findSecretForKey(keys.writeKey, encryptionSecrets, targetNamespace) // TODO handle nil as error when hasWriteKey == true?
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
 		if keys.hasWriteKey() {
 			readSecrets = append(readSecrets, writeSecret)
 		}
 		for _, readKey := range keys.readKeys {
-			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets) // TODO handle nil as error?
+			readSecret := findSecretForKey(readKey, encryptionSecrets, targetNamespace) // TODO handle nil as error?
 			readSecrets = append(readSecrets, readSecret)
 		}
 
@@ -407,29 +407,44 @@ type GroupResources struct {
 	Resources []schema.GroupResource `json:"resources"`
 }
 
-func findSecretForKey(key string, secrets []*corev1.Secret) *corev1.Secret {
-	if len(key) == 0 {
+func findSecretForKey(key keyAndMode, secrets []*corev1.Secret, targetNamespace string) *corev1.Secret {
+	if key == (keyAndMode{}) {
 		return nil
 	}
+
 	for _, secret := range secrets {
-		if string(secret.Data[encryptionSecretKeyData]) == key {
+		sKeyAndMode, _, ok := secretToKey(secret, targetNamespace)
+		if !ok {
+			continue
+		}
+		if sKeyAndMode == key {
 			return secret.DeepCopy()
 		}
 	}
+
 	return nil
 }
 
-func findSecretForKeyWithClient(key string, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
+func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, targetNamespace string) (*corev1.Secret, error) {
+	if key == (keyAndMode{}) {
+		return nil, nil
+	}
+
 	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, secret := range encryptionSecretList.Items {
-		if string(secret.Data[encryptionSecretKeyData]) == key {
+		sKeyAndMode, _, ok := secretToKey(&secret, targetNamespace)
+		if !ok {
+			continue
+		}
+		if sKeyAndMode == key {
 			return secret.DeepCopy(), nil
 		}
 	}
+
 	return nil, nil
 }
 

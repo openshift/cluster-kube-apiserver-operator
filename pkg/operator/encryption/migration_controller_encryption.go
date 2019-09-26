@@ -172,7 +172,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 			continue // no write key to migrate to
 		}
 
-		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey.key.Secret, c.secretClient, c.encryptionSecretSelector)
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector, c.targetNamespace)
 		if err != nil {
 			return "WriteKeySecretNotFound", err
 		}
