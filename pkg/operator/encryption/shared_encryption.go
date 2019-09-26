@@ -179,13 +179,13 @@ func (k keysState) ReadKeys() []keyAndMode {
 
 func (k keysState) WriteKey() keyAndMode {
 	if k.writeSecret == nil {
-		return keyAndMode{mode: identity}
+		return keyAndMode{}
 	}
 
 	writeKeyAndMode, _, ok := secretToKey(k.writeSecret, k.targetNamespace)
 	if !ok {
 		// TODO question life choices
-		return keyAndMode{mode: identity}
+		return keyAndMode{}
 	}
 
 	return writeKeyAndMode
@@ -510,6 +510,8 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 		if !readKeyIsWriteKey {
 			desired.readKeys = append(desired.readKeys, readKey)
 		}
+
+		// TODO consider being smarter about read keys we prune to avoid some rollouts
 	}
 
 	return desired
