@@ -269,6 +269,11 @@ func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uin
 
 	latestKey, latestKeyID := grKeys.LatestKey()
 
+	// we have not migrated the latest key, do nothing until that is complete
+	if len(latestKey.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
+		return 0, "", false
+	}
+
 	// if the most recent secret was encrypted in a mode different than the current mode, we need to generate a new key
 	if latestKey.Annotations[encryptionSecretMode] != string(currentMode) {
 		return latestKeyID, "new-mode", true

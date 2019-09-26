@@ -280,11 +280,11 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	encryptionState := groupResourcesState{}
 
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
-		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets)
+		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets) // TODO handle nil as error?
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
 		readSecrets = append(readSecrets, writeSecret)
 		for _, readKey := range keys.readKeys {
-			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets)
+			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets) // TODO handle nil as error?
 			readSecrets = append(readSecrets, readSecret)
 		}
 
@@ -331,11 +331,16 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		return encryptionState
 	}
 
+	// we do not have any keys yet, so wait until we do
+	if len(encryptionSecrets) == 0 {
+		return encryptionState
+	}
+
 	// we have consistent and completely current read secrets, the next step is determining a consistent write key.
 	// To do this, we will choose the most current write key and use that to write the data
 	allWriteSecretsAsExpected := true
 	for _, grState := range encryptionState {
-		if grState.writeSecret.Name != encryptionSecrets[0].Name {
+		if grState.writeSecret == nil || grState.writeSecret.Name != encryptionSecrets[0].Name {
 			allWriteSecretsAsExpected = false
 			break
 		}
