@@ -258,11 +258,8 @@ var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 // 1. every requested group resource must honor every available key before any write key is changed.
 // 2. Once every resource honors every key, the write key should be the latest key available
 // 3. Once every resource honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
-func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
-	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
-	if err != nil {
-		return nil, err
-	}
+// TODO unit tests
+func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
 	for _, item := range encryptionSecretList.Items {
 		encryptionSecrets = append(encryptionSecrets, item.DeepCopy())
@@ -282,8 +279,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// this is our output from the for loop below
 	encryptionState := groupResourcesState{}
 
-	resourcesToEncryptionKeys := getGRsActualKeys(encryptionConfig)
-	for gr, keys := range resourcesToEncryptionKeys {
+	for gr, keys := range getGRsActualKeys(encryptionConfig) {
 		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets)
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys))
 		for _, readKey := range keys.readKeys {
@@ -828,7 +824,12 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 
-	desiredEncryptionState, err := getDesiredEncryptionState(encryptionConfig, targetNamespace, secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
+	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	desiredEncryptionState, err := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
 	if err != nil {
 		return nil, nil, "", err
 	}
