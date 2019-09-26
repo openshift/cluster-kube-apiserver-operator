@@ -316,8 +316,9 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 			allReadSecretsAsExpected = false
 			break
 		}
-		for i := range encryptionSecrets {
-			if grState.readSecrets[i].Name != encryptionSecrets[i].Name {
+		// order of read secrets does not matter here
+		for _, encryptionSecret := range encryptionSecrets {
+			if !has(grState.readSecrets, *encryptionSecret) {
 				allReadSecretsAsExpected = false
 				break
 			}
@@ -358,9 +359,9 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		return encryptionState
 	}
 
-	// at this point all of our read and write secrets are the same.  We need to inspect the write secret to ensure that it has
-	// all the expect resources listed as having been migrated.  If this is true, then we can prune the read secrets down
-	// to a single entry.
+	// at this point all of our read and write secrets are the same.  We need to inspect the write secret to
+	// ensure that it has all the expect resources listed as having been migrated.  If this is true, then we
+	// can prune the read secrets down to a single entry.
 
 	// get a list of all the resources we have, so that we can compare against the migrated keys annotation.
 	allResources := make([]schema.GroupResource, 0, len(encryptionState))
@@ -393,8 +394,8 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		return encryptionState
 	}
 
-	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.  We only need the write
-	// key now
+	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.
+	// We only need the write key now
 	for gr := range encryptionState {
 		grState := encryptionState[gr]
 		grState.readSecrets = []*corev1.Secret{encryptionSecrets[0]}
