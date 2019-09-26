@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -666,6 +667,9 @@ func podReady(pod corev1.Pod) bool {
 func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision string) (*apiserverconfigv1.EncryptionConfiguration, error) {
 	encryptionConfigSecret, err := secrets.Get(encryptionConfSecret+"-"+revision, metav1.GetOptions{})
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return &apiserverconfigv1.EncryptionConfiguration{}, nil
+		}
 		return nil, err
 	}
 
@@ -816,7 +820,7 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 	if len(revision) == 0 {
-		return nil, nil, "APIServerRevisionNotConverged", nil
+		return &apiserverconfigv1.EncryptionConfiguration{}, groupResourcesState{}, "APIServerRevisionNotConverged", nil
 	}
 
 	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
