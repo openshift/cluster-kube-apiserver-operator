@@ -135,9 +135,16 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	newKeyRequired := len(encryptionState) == 0
-	newKeyID := uint64(1) // start counting at 1
-	var reasons []string
+	// prime the state to make sure we create initial keys if needed
+	if len(encryptionState) == 0 {
+		encryptionState[schema.GroupResource{Group: "+ignored_group+", Resource: "+ignored_resource+"}] = keysState{}
+	}
+
+	var (
+		newKeyRequired bool
+		newKeyID       uint64
+		reasons        []string
+	)
 	for _, grKeys := range encryptionState {
 		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
 		if !ok {
@@ -154,10 +161,6 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 
 	if !newKeyRequired {
 		return nil
-	}
-
-	if len(reasons) == 0 {
-		reasons = []string{"first-run"}
 	}
 
 	sort.Sort(sort.StringSlice(reasons))
