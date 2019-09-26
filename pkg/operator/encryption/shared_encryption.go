@@ -11,12 +11,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	apiserverconfig "k8s.io/apiserver/pkg/apis/config"
@@ -250,20 +248,6 @@ func newIdentityKey() []byte {
 }
 
 var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
-
-func getDesiredEncryptionStateFromClients(targetNamespace string, podClient corev1client.PodsGetter, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
-	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
-	if len(revision) == 0 || err != nil {
-		return groupResourcesState{}, err
-	}
-
-	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
-	if err != nil {
-		return groupResourcesState{}, utilerrors.FilterOut(err, errors.IsNotFound)
-	}
-
-	return getDesiredEncryptionState(encryptionConfig, targetNamespace, secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), encryptionSecretSelector, encryptedGRs)
-}
 
 // getDesiredEncryptionState returns the desired state of encryption for all resources.  To do this it compares the current state
 // against the available secrets.
@@ -821,13 +805,13 @@ func groupToHumanReadable(gr schema.GroupResource) string {
 }
 
 func getEncryptionConfigAndState(
-	podClient corev1client.PodInterface,
+	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	targetNamespace string,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs map[schema.GroupResource]bool,
 ) (*apiserverconfigv1.EncryptionConfiguration, groupResourcesState, string, error) {
-	revision, err := getAPIServerRevisionOfAllInstances(podClient)
+	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
 	if err != nil {
 		return nil, nil, "", err
 	}

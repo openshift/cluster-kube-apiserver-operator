@@ -42,7 +42,7 @@ type encryptionPodStateController struct {
 
 	secretClient corev1client.SecretsGetter
 
-	podClient corev1client.PodInterface
+	podClient corev1client.PodsGetter
 }
 
 func newEncryptionPodStateController(
@@ -53,7 +53,7 @@ func newEncryptionPodStateController(
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs map[schema.GroupResource]bool,
-	podClient corev1client.PodInterface,
+	podClient corev1client.PodsGetter,
 ) *encryptionPodStateController {
 	c := &encryptionPodStateController{
 		operatorClient: operatorClient,

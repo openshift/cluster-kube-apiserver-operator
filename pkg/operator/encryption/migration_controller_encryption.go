@@ -57,7 +57,7 @@ type encryptionMigrationController struct {
 
 	secretClient corev1client.SecretsGetter
 
-	podClient corev1client.PodInterface
+	podClient corev1client.PodsGetter
 
 	dynamicClient   dynamic.Interface
 	discoveryClient discovery.ServerResourcesInterface
@@ -71,7 +71,7 @@ func newEncryptionMigrationController(
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs map[schema.GroupResource]bool,
-	podClient corev1client.PodInterface,
+	podClient corev1client.PodsGetter,
 	dynamicClient dynamic.Interface, // temporary hack
 	discoveryClient discovery.ServerResourcesInterface,
 ) *encryptionMigrationController {

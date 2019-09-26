@@ -110,7 +110,7 @@ func (c *encryptionStateController) sync() error {
 }
 
 func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(encryptionState) == 0 && err == nil {
 		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil

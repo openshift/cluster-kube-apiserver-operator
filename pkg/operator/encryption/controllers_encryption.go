@@ -36,7 +36,6 @@ func NewEncryptionControllers(
 	// TODO update the eventHandlers used by the controllers to ignore components that do not match their own
 	secretClient := kubeClient.CoreV1()
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionSecretComponent + "=" + targetNamespace}
-	podClient := kubeClient.CoreV1().Pods(targetNamespace)
 
 	if err := resourceSyncer.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionConfSecret},
@@ -93,7 +92,7 @@ func NewEncryptionControllers(
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
-				podClient,
+				kubeClient.CoreV1(),
 				dynamicClient,
 				kubeClient.Discovery(),
 			),
@@ -105,7 +104,7 @@ func NewEncryptionControllers(
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
-				podClient,
+				kubeClient.CoreV1(),
 			),
 		},
 	}, nil

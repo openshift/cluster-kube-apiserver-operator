@@ -105,7 +105,7 @@ func (c *encryptionPruneController) sync() error {
 }
 
 func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
-	encryptionState, err := getDesiredEncryptionStateFromClients(c.targetNamespace, c.podClient, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
+	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
