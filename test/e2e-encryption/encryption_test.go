@@ -190,7 +190,7 @@ func getEncryptionClients(t *testing.T) (test.EtcdGetter, func(), configv1client
 }
 
 func TestEncryptionRotation(t *testing.T) {
-	kv, done, configClient, apiServerClient, kubeClient, operatorClient := getEncryptionClients(t)
+	kv, done, _, apiServerClient, kubeClient, operatorClient := getEncryptionClients(t)
 	defer done()
 	secretsClient := kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
 
@@ -200,29 +200,28 @@ func TestEncryptionRotation(t *testing.T) {
 	_, err = apiServerClient.Update(apiServer)
 	require.NoError(t, err)
 
-	secretsPrefixes := make([]string, 3)
-	cmPrefixes := make([]string, 3)
+	// make sure any changes we made have been observed
+	time.Sleep(time.Minute)
+
+	keyPrefixes := make([]string, 3)
 
 	// run a few rotations and assert that migrations occur as expected and keyIDs increase
-	for i := range secretsPrefixes {
+	for i := range keyPrefixes {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			secretsKeyPrefix, cmKeyPrefix := testRotation(t, operatorClient, secretsClient, configClient, kv)
-			secretsPrefixes[i] = secretsKeyPrefix
-			cmPrefixes[i] = cmKeyPrefix
+			keyPrefixes[i] = testRotation(t, operatorClient, secretsClient, kv)
 		})
 		if t.Failed() {
 			return
 		}
 	}
 
-	require.Truef(t, sort.IsSorted(sort.StringSlice(secretsPrefixes)), "secret key IDs not in ascending order: %v", secretsPrefixes)
-	require.Truef(t, sort.IsSorted(sort.StringSlice(cmPrefixes)), "config map key IDs not in ascending order: %v", cmPrefixes)
+	require.Truef(t, sort.IsSorted(sort.StringSlice(keyPrefixes)), "key IDs not in ascending order: %v", keyPrefixes)
 }
 
-func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient, secretsClient corev1.SecretInterface, configClient configv1client.ConfigV1Interface, kv test.EtcdGetter) (string, string) {
+func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient, secretsClient corev1.SecretInterface, kv test.EtcdGetter) string {
 	reason := "force-rotation-" + rand.String(8)
 	test.ForceKeyRotationMust(t, operatorClient, reason)
-	var resourceToName map[string]string
+	var secretName string
 
 	err := wait.Poll(test.WaitPollInterval, test.WaitPollTimeout, func() (done bool, err error) {
 		secrets, err := secretsClient.List(metav1.ListOptions{})
@@ -231,7 +230,7 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 			return false, nil
 		}
 
-		resourceToName = map[string]string{}
+		secretName = ""
 		count := 0
 		for _, secret := range secrets.Items {
 			if secret.Labels["encryption.operator.openshift.io/component"] != "openshift-kube-apiserver" {
@@ -244,38 +243,30 @@ func testRotation(t *testing.T, operatorClient v1helpers.StaticPodOperatorClient
 				}
 
 				count++
-				resourceToName[secret.Labels["encryption.operator.openshift.io/resource"]] = secret.Name
+				secretName = secret.Name
 			}
 		}
 
-		if count > 2 {
+		if count > 1 {
 			t.Fatalf("too many secrets (%d) with force rotation reason seen", count)
 		}
-		fmt.Printf("Saw %d migrated secrets with reason %s, mapping=%v\n", count, reason, resourceToName)
-		if count == 2 {
-			_, ok1 := resourceToName["secrets"]
-			_, ok2 := resourceToName["configmaps"]
-			valid := ok1 && ok2
-			if !valid {
-				t.Fatalf("invalid secrets seen %v", resourceToName)
-			}
-		}
+		fmt.Printf("Saw %d migrated secrets with reason %s, name=%s\n", count, reason, secretName)
 
-		return count == 2, nil
+		return count == 1, nil
 	})
 	require.NoError(t, err)
 
 	test.CheckEtcdSecretsAndConfigMapsMust(t, kv, test.CheckEncryptionState("aescbc"))
 
-	secretsKeyPrefix := getKeyPrefix(t, resourceToName["secrets"])
-	err = test.CheckEtcdSecrets(kv, test.CheckEncryptionPrefix(secretsKeyPrefix)) // TODO check actual contents to match against encryption key
+	keyPrefix := getKeyPrefix(t, secretName)
+
+	err = test.CheckEtcdSecrets(kv, test.CheckEncryptionPrefix(keyPrefix)) // TODO check actual contents to match against encryption key
 	require.NoError(t, err)
 
-	cmKeyPrefix := getKeyPrefix(t, resourceToName["configmaps"])
-	err = test.CheckEtcdConfigMaps(kv, test.CheckEncryptionPrefix(cmKeyPrefix))
+	err = test.CheckEtcdConfigMaps(kv, test.CheckEncryptionPrefix(keyPrefix))
 	require.NoError(t, err)
 
-	return string(secretsKeyPrefix), string(cmKeyPrefix)
+	return string(keyPrefix)
 }
 
 func getKeyPrefix(t *testing.T, secretName string) []byte {
