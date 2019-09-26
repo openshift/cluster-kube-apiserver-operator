@@ -10,7 +10,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.availableReplicas,selectorpath=.status.labelSelector
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.availableReplicas,selectorpath=.status.selector
 
 // IngressController describes a managed ingress controller for the cluster. The
 // controller can service OpenShift Route and Kubernetes Ingress resources.
@@ -249,19 +249,16 @@ type EndpointPublishingStrategy struct {
 	// loadBalancer holds parameters for the load balancer. Present only if
 	// type is LoadBalancerService.
 	// +optional
-	// +nullable
 	LoadBalancer *LoadBalancerStrategy `json:"loadBalancer,omitempty"`
 
 	// hostNetwork holds parameters for the HostNetwork endpoint publishing
 	// strategy. Present only if type is HostNetwork.
 	// +optional
-	// +nullable
 	HostNetwork *HostNetworkStrategy `json:"hostNetwork,omitempty"`
 
 	// private holds parameters for the Private endpoint publishing
 	// strategy. Present only if type is Private.
 	// +optional
-	// +nullable
 	Private *PrivateStrategy `json:"private,omitempty"`
 }
 
