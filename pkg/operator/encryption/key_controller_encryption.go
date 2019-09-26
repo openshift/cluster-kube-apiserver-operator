@@ -134,10 +134,10 @@ func (c *encryptionKeyController) checkAndCreateKeys() error {
 	if err != nil {
 		return err
 	}
-
-	// prime the state to make sure we create initial keys if needed
+	// we cannot make new keys during transition states because we do not know the correct desired state
 	if len(encryptionState) == 0 {
-		encryptionState[schema.GroupResource{Group: "+ignored_group+", Resource: "+ignored_resource+"}] = keysState{}
+		c.queue.AddAfter(encWorkKey, 2*time.Minute)
+		return nil
 	}
 
 	var (

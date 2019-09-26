@@ -259,7 +259,7 @@ var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 // 2. Once every resource honors every key, the write key should be the latest key available
 // 3. Once every resource honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
 // TODO unit tests
-func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
+func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) groupResourcesState {
 	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
 	for _, item := range encryptionSecretList.Items {
 		encryptionSecrets = append(encryptionSecrets, item.DeepCopy())
@@ -281,7 +281,8 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
 		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets)
-		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys))
+		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
+		readSecrets = append(readSecrets, writeSecret)
 		for _, readKey := range keys.readKeys {
 			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets)
 			readSecrets = append(readSecrets, readSecret)
@@ -327,7 +328,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 			grState.readSecrets = encryptionSecrets
 			encryptionState[gr] = grState
 		}
-		return encryptionState, nil
+		return encryptionState
 	}
 
 	// we have consistent and completely current read secrets, the next step is determining a consistent write key.
@@ -347,7 +348,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 			grState.writeSecret = encryptionSecrets[0]
 			encryptionState[gr] = grState
 		}
-		return encryptionState, nil
+		return encryptionState
 	}
 
 	// at this point all of our read and write secrets are the same.  We need to inspect the write secret to ensure that it has
@@ -363,12 +364,12 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	migratedResourceString := encryptionSecrets[0].Annotations[encryptionSecretMigratedResources]
 	// if no migration has happened, we need to wait until it has
 	if len(migratedResourceString) == 0 {
-		return encryptionState, nil
+		return encryptionState
 	}
 	migratedResources := &GroupResources{}
 	// if we cannot read the data, wait until we can
 	if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
-		return encryptionState, nil
+		return encryptionState
 	}
 
 	foundCount := 0
@@ -382,7 +383,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	}
 	// if we did not find migration indications for all resources, then just wait until we do
 	if foundCount != len(allResources) {
-		return encryptionState, nil
+		return encryptionState
 	}
 
 	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.  We only need the write
@@ -392,7 +393,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		grState.readSecrets = []*corev1.Secret{encryptionSecrets[0]}
 		encryptionState[gr] = grState
 	}
-	return encryptionState, nil
+	return encryptionState
 }
 
 type GroupResources struct {
@@ -816,7 +817,7 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 	if len(revision) == 0 {
-		return &apiserverconfigv1.EncryptionConfiguration{}, groupResourcesState{}, "APIServerRevisionNotConverged", nil
+		return nil, nil, "APIServerRevisionNotConverged", nil
 	}
 
 	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
@@ -829,10 +830,7 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 
-	desiredEncryptionState, err := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
-	if err != nil {
-		return nil, nil, "", err
-	}
+	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
 
 	return encryptionConfig, desiredEncryptionState, "", nil
 }

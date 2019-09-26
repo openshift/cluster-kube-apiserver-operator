@@ -109,6 +109,11 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 	if err != nil {
 		return err
 	}
+	// do not try to delete anything during a transition state
+	if len(encryptionState) == 0 {
+		c.queue.AddAfter(pruneWorkKey, 2*time.Minute)
+		return nil
+	}
 
 	usedSecrets := make([]*corev1.Secret, 0, len(encryptionState))
 	for _, grKeys := range encryptionState {

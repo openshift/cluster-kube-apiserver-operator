@@ -111,12 +111,12 @@ func (c *encryptionStateController) sync() error {
 
 func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
 	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
-	if len(encryptionState) == 0 && err == nil {
-		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
-		return nil
-	}
 	if err != nil {
 		return err
+	}
+	if len(encryptionState) == 0 {
+		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
+		return nil
 	}
 
 	resourceConfigs := getResourceConfigs(encryptionState)
