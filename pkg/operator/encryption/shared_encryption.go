@@ -280,9 +280,11 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	encryptionState := groupResourcesState{}
 
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
-		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets) // TODO handle nil as error?
+		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets) // TODO handle nil as error when hasWriteKey == true?
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
-		readSecrets = append(readSecrets, writeSecret)
+		if keys.hasWriteKey() {
+			readSecrets = append(readSecrets, writeSecret)
+		}
 		for _, readKey := range keys.readKeys {
 			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets) // TODO handle nil as error?
 			readSecrets = append(readSecrets, readSecret)
@@ -345,8 +347,8 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 			break
 		}
 	}
-	// if our write secrets aren't all the same, update all the write secrets and wait for stability.  We can move write keys
-	// before all the data has been migrated
+	// if our write secrets aren't all the same, update all the write secrets and wait for stability.
+	// We can move write keys before all the data has been migrated
 	if !allWriteSecretsAsExpected {
 		for gr := range encryptionState {
 			grState := encryptionState[gr]
@@ -406,6 +408,9 @@ type GroupResources struct {
 }
 
 func findSecretForKey(key string, secrets []*corev1.Secret) *corev1.Secret {
+	if len(key) == 0 {
+		return nil
+	}
 	for _, secret := range secrets {
 		if string(secret.Data[encryptionSecretKeyData]) == key {
 			return secret.DeepCopy()
