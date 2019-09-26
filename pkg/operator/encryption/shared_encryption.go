@@ -270,9 +270,9 @@ func getDesiredEncryptionStateFromClients(targetNamespace string, podClient core
 // the encryptionConfig describes the actual state of every GroupResource.  We compare this against requested group resources because
 // we may be missing one.
 // the basic rules are:
-// 1. every requested groupresource must honor every available key before any write key is changed.
-// 2. Once every resources honors every key, the write key should be the latest key available
-// 3. Once every resources honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
+// 1. every requested group resource must honor every available key before any write key is changed.
+// 2. Once every resource honors every key, the write key should be the latest key available
+// 3. Once every resource honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
 func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, secretClient corev1client.SecretInterface, encryptionSecretSelector metav1.ListOptions, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecretList, err := secretClient.List(encryptionSecretSelector)
 	if err != nil {
@@ -300,7 +300,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	resourcesToEncryptionKeys := getGRsActualKeys(encryptionConfig)
 	for gr, keys := range resourcesToEncryptionKeys {
 		writeSecret := findSecretForKey(keys.writeKey.key.Secret, encryptionSecrets)
-		readSecrets := []*corev1.Secret{}
+		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys))
 		for _, readKey := range keys.readKeys {
 			readSecret := findSecretForKey(readKey.key.Secret, encryptionSecrets)
 			readSecrets = append(readSecrets, readSecret)
@@ -328,26 +328,23 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 
 	allReadSecretsAsExpected := true
 	for _, grState := range encryptionState {
-		match := true
 		if len(grState.readSecrets) != len(encryptionSecrets) {
 			allReadSecretsAsExpected = false
 			break
 		}
 		for i := range encryptionSecrets {
 			if grState.readSecrets[i].Name != encryptionSecrets[i].Name {
-				match = false
+				allReadSecretsAsExpected = false
 				break
 			}
-		}
-		if match == false {
-			allReadSecretsAsExpected = false
-			break
 		}
 	}
 	// if our read secrets aren't all the same, the first thing to do is to force all the read secrets and wait for stability
 	if !allReadSecretsAsExpected {
-		for _, grState := range encryptionState {
+		for gr := range encryptionState {
+			grState := encryptionState[gr]
 			grState.readSecrets = encryptionSecrets
+			encryptionState[gr] = grState
 		}
 		return encryptionState, nil
 	}
@@ -364,8 +361,10 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// if our write secrets aren't all the same, update all the write secrets and wait for stability.  We can move write keys
 	// before all the data has been migrated
 	if !allWriteSecretsAsExpected {
-		for _, grState := range encryptionState {
+		for gr := range encryptionState {
+			grState := encryptionState[gr]
 			grState.writeSecret = encryptionSecrets[0]
+			encryptionState[gr] = grState
 		}
 		return encryptionState, nil
 	}
@@ -375,7 +374,7 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// to a single entry.
 
 	// get a list of all the resources we have, so that we can compare against the migrated keys annotation.
-	allResources := []schema.GroupResource{}
+	allResources := make([]schema.GroupResource, 0, len(encryptionState))
 	for gr := range encryptionState {
 		allResources = append(allResources, gr)
 	}
@@ -407,8 +406,10 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 
 	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.  We only need the write
 	// key now
-	for _, grState := range encryptionState {
+	for gr := range encryptionState {
+		grState := encryptionState[gr]
 		grState.readSecrets = []*corev1.Secret{encryptionSecrets[0]}
+		encryptionState[gr] = grState
 	}
 	return encryptionState, nil
 }
