@@ -128,7 +128,7 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 
 	var deleteErrs []error
 	for _, key := range allkeys.Items {
-		if has(usedSecrets, key) {
+		if hasSecret(usedSecrets, key) {
 			continue
 		}
 
@@ -152,15 +152,6 @@ func (c *encryptionPruneController) deleteOldMigratedSecrets() error {
 		deleteErrs = append(deleteErrs, c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(secret.Name, nil))
 	}
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
-}
-
-func has(usedSecrets []*corev1.Secret, key corev1.Secret) bool {
-	for _, used := range usedSecrets {
-		if used.Name == key.Name {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *encryptionPruneController) run(stopCh <-chan struct{}) {

@@ -179,7 +179,7 @@ func (c *encryptionKeyController) validateExistingKey(keySecret *corev1.Secret, 
 		return err
 	}
 
-	_, actualKeyID, validKey := secretToKey(actualKeySecret, c.targetNamespace)
+	_, actualKeyID, validKey := secretToKeyAndMode(actualKeySecret, c.targetNamespace)
 	if valid := actualKeyID == keyID && validKey; !valid {
 		// TODO we can just get stuck in degraded here ...
 		return fmt.Errorf("secret %s is in invalid state, new keys cannot be created for encryption target", keySecret.Name)
@@ -267,7 +267,7 @@ func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uin
 		return 0, "no-secrets", currentMode != identity
 	}
 
-	latestKey, latestKeyID := grKeys.LatestKey()
+	latestKey, latestKeyID := grKeys.latestKey()
 
 	// we have not migrated the latest key, do nothing until that is complete
 	if len(latestKey.Annotations[encryptionSecretMigratedTimestamp]) == 0 {

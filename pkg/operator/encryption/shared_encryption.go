@@ -29,103 +29,56 @@ import (
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// To understand the state machine used by the encryption controllers, we have to consider
-// the states that each secret can be in.  The states are read, write, and migrated.
-// Note that this refers to observed state, meaning that all API servers have observed the given
-// secret at that level.  Consider when a new key is created.  Conceptually any new key can be
-// used as a read key.  However, a new key is not created with the read annotation set because
-// it is not officially a read key until all API servers have seen it as such.  See
-// encryptionSecretReadTimestamp and related constants below.
-//
-// The top states refer to the observed states, i.e. states that have matching annotations.
-// The other states in the diagram are conceptual states.
-//
-//            read     ------->     write     ------->     migrated
-//             /\                     /\                      /\
-//            /  \                   /  \                    /  \
-//           /    \                 /    \                  /    \
-//          /      \               /      \                /      \
-//         /        \             /        \              /        \
-//        /          \           /          \            /          \
-//    created      set as write key        can be migrated        set as read key     ------->     deleted
-//                 in encryption                                  in encryption
-//                 config                                         config
-//
-// Let us consider the life of an encryption key:
-//   1. A new key A is created.
-//   2. Key A gets included in the encryption config secret as a read key.
-//   3. That level of encryption config is seen by all API servers.
-//   4. The key A is annotated as a read key.
-//   5. A new encryption config secret is created with key A as a write key.
-//   6. That level of encryption config is seen by all API servers.
-//   7. The key A is annotated as a write key.
-//   8. Now key A can be migrated to.
-//   9. Storage migration is run for the resource associated with key A.
-//  10. The key A is annotated as a migrated key.
-//  11. A different key B is created and starts going through the same process.
-//  12. Key B is observed as a read key and then as a write key.
-//  13. The original key A gets included in the encryption config secret as a read key.
-//  14. Key A must stay in the encryption config secret until the new key B has been migrated to.
-//  15. Key B is migrated to (it follows the same path as key A).
-//  16. Key A is deleted and removed from the encryption config secret.
-
-// These labels are used to find secrets that build up the final encryption config.  The names of the
+// This label is used to find secrets that build up the final encryption config.  The names of the
 // secrets are in format <shared prefix>-<unique monotonically increasing uint> (the uint is the keyID).
-// For example, openshift-kube-apiserver-core-secrets-encryption-3.  Note that other than the -3 postfix,
-// the name of the secret is irrelevant since the labels are used to find the secrets.  Of course the key
-// minting controller cares about the entire name since it needs to be able to create secrets for different
-// resources that do not conflict.  It also needs to know when it has already created a secret for a given
+// For example, openshift-kube-apiserver-encryption-3.  Note that other than the -3 postfix, the name of
+// the secret is irrelevant since the label is used to find the secrets.  Of course the key minting
+// controller cares about the entire name since it needs to know when it has already created a secret for a given
 // keyID meaning it cannot just use a random prefix.  As such the name must include the data that is contained
-// within the labels.  Thus the format used is <component>-<group>-<resource>-encryption-<keyID>.  This keeps
-// everything distinct and fully deterministic.  The keys are ordered by keyID where a smaller ID means an
-// earlier key.  Thus they are listed in ascending order.  This means that the latest secret (the one with
-// the largest keyID) is the current desired write key (whether it is or is not the write key depends on
-// what part of that state diagram it is currently in).  Note that different resources can have overlapping
-// keyIDs since they are individually tracked.  This per resource design allows us to easily add new resources
-// as encryption targets (imagine if a new resource that should be encrypted is later added to the API).
-const (
-	encryptionSecretComponent = "encryption.operator.openshift.io/component"
-)
+// within the label.  Thus the format used is <component>-encryption-<keyID>.  This keeps everything distinct
+// and fully deterministic.  The keys are ordered by keyID where a smaller ID means an earlier key.
+// This means that the latest secret (the one with the largest keyID) is the current desired write key.
+const encryptionSecretComponent = "encryption.apiserver.operator.openshift.io/component"
 
-// These annotations are used to mark the current observed state of a secret.  They correspond to the states
-// described in the state machine at the top of this file.  The value associated with these keys is the
-// time (in RFC3339 format) at which the state observation occurred.  Note that most sections of the code
-// only check if the value is set to a non-empty value.  The exception to this is key minting controller
-// which parses the migrated timestamp to determine if enough time has passed and a new key should be created.
+// These annotations are used to mark the current observed state of a secret.
 const (
-	encryptionSecretMigratedTimestamp = "encryption.operator.openshift.io/migrated-timestamp"
-	encryptionSecretMigratedResources = "encryption.operator.openshift.io/migrated-resources"
+	// The time (in RFC3339 format) at which the migrated state observation occurred.  The key minting
+	// controller parses this field to determine if enough time has passed and a new key should be created.
+	encryptionSecretMigratedTimestamp = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
+	// The list of resources that were migrated when encryptionSecretMigratedTimestamp was set.
+	// See the migratedGroupResources struct below to understand the JSON encoding used.
+	encryptionSecretMigratedResources = "encryption.apiserver.operator.openshift.io/migrated-resources"
 )
 
 // encryptionSecretMode is the annotation that determines how the provider associated with a given key is
 // configured.  For example, a key could be used with AES-CBC or Secretbox.  This allows for algorithm
 // agility.  When the default mode used by the key minting controller changes, it will force the creation
 // of a new key under the new mode even if encryptionSecretMigrationInterval has not been reached.
-const encryptionSecretMode = "encryption.operator.openshift.io/mode"
+const encryptionSecretMode = "encryption.apiserver.operator.openshift.io/mode"
 
 // encryptionSecretInternalReason is the annotation that denotes why a particular key
 // was created based on "internal" reasons (i.e. key minting controller decided a new
 // key was needed for some reason X).  It is tracked solely for the purposes of debugging.
-const encryptionSecretInternalReason = "encryption.operator.openshift.io/internal-reason"
+const encryptionSecretInternalReason = "encryption.apiserver.operator.openshift.io/internal-reason"
 
 // encryptionSecretExternalReason is the annotation that denotes why a particular key was created based on
 // "external" reasons (i.e. force key rotation for some reason Y).  It allows the key minting controller to
 // determine if a new key should be created even if encryptionSecretMigrationInterval has not been reached.
-const encryptionSecretExternalReason = "encryption.operator.openshift.io/external-reason"
+const encryptionSecretExternalReason = "encryption.apiserver.operator.openshift.io/external-reason"
 
 // encryptionSecretFinalizer is a finalizer attached to all secrets generated
 // by the encryption controllers.  Its sole purpose is to prevent the accidental
 // deletion of secrets by enforcing a two phase delete.
-const encryptionSecretFinalizer = "encryption.operator.openshift.io/deletion-protection"
+const encryptionSecretFinalizer = "encryption.apiserver.operator.openshift.io/deletion-protection"
 
 // encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
 // migrated before a new key is created by the key minting controller.  The new key's ID will be one
 // greater than the last key's ID (the first key has a key ID of 1).
-const encryptionSecretMigrationInterval = 30 * time.Minute // TODO how often?  -->  probably one week
+const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 
 // In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 // (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
-const encryptionSecretKeyData = "encryption.operator.openshift.io-key"
+const encryptionSecretKeyData = "encryption.apiserver.operator.openshift.io-key"
 
 // These annotations try to scare anyone away from editing the encryption secrets.  It is trivial for
 // an external actor to break the invariants of the state machine and render the cluster unrecoverable.
@@ -154,7 +107,10 @@ func init() {
 	decoder = codecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
 }
 
-// TODO docs
+// groupResourcesState represents the secrets (i.e. encryption keys) associated with each group resource.
+// see getDesiredEncryptionState for how this map is built.  it is first fed the current state based on the on
+// disk configuration.  the actual state of the secrets in the kube API is then layered on top to determine the
+// overall desired configuration (which is the same as the current state when the system is at steady state).
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
 	targetNamespace string
@@ -163,40 +119,41 @@ type keysState struct {
 	writeSecret *corev1.Secret
 }
 
-func (k keysState) ReadKeys() []keyAndMode {
+func (k keysState) readKeys() []keyAndMode {
 	ret := make([]keyAndMode, 0, len(k.readSecrets))
 	for _, readKey := range k.readSecrets {
-		readKeyAndMode, _, ok := secretToKey(readKey, k.targetNamespace)
+		readKeyAndMode, _, ok := secretToKeyAndMode(readKey, k.targetNamespace)
 		if !ok {
+			klog.Infof("failed to convert read secret %s to key", readKey.Name)
 			continue
-			// TODO question life choices
 		}
 		ret = append(ret, readKeyAndMode)
 	}
 	return ret
 }
 
-func (k keysState) WriteKey() keyAndMode {
+func (k keysState) writeKey() keyAndMode {
 	if k.writeSecret == nil {
 		return keyAndMode{}
 	}
 
-	writeKeyAndMode, _, ok := secretToKey(k.writeSecret, k.targetNamespace)
+	writeKeyAndMode, _, ok := secretToKeyAndMode(k.writeSecret, k.targetNamespace)
 	if !ok {
-		// TODO question life choices
+		klog.Infof("failed to convert write secret %s to key", k.writeSecret.Name)
 		return keyAndMode{}
 	}
 
 	return writeKeyAndMode
 }
 
-func (k keysState) LatestKey() (*corev1.Secret, uint64) {
+func (k keysState) latestKey() (*corev1.Secret, uint64) {
 	key := k.readSecrets[0]
 	keyID, _ := secretToKeyID(key)
 	return key, keyID
 }
 
-// TODO docs
+// groupResourceKeys represents, for a single group resource, the write and read keys in a
+// format that can be directly translated to and from the on disk EncryptionConfiguration object.
 type groupResourceKeys struct {
 	writeKey keyAndMode
 	readKeys []keyAndMode
@@ -227,7 +184,7 @@ const (
 	// be used as the defaultMode until version X+1.  Thus on a downgrade the operator
 	// from version X will still be able to honor the observed encryption state
 	// (and it will do a key rotation to force the use of the old defaultMode).
-	defaultMode = aescbc // TODO change to identity (to default to off) on first release
+	defaultMode = identity // we default to encryption being disabled for now
 )
 
 var modeToNewKeyFunc = map[mode]func() []byte{
@@ -250,27 +207,30 @@ func newIdentityKey() []byte {
 
 var emptyStaticIdentityKey = base64.StdEncoding.EncodeToString(newIdentityKey())
 
-// getDesiredEncryptionState returns the desired state of encryption for all resources.  To do this it compares the current state
-// against the available secrets.
-// the encryptionConfig describes the actual state of every GroupResource.  We compare this against requested group resources because
-// we may be missing one.
-// the basic rules are:
-// 1. every requested group resource must honor every available key before any write key is changed.
-// 2. Once every resource honors every key, the write key should be the latest key available
-// 3. Once every resource honors the same write key AND that write key has migrated every request resource, all non-write keys should be removed.
+// getDesiredEncryptionState returns the desired state of encryption for all resources.
+// To do this it compares the current state against the available secrets.
+// The encryptionConfig describes the actual state of every GroupResource.
+// We compare this against requested group resources because we may be missing one.
+// The basic rules are:
+//   1. every requested group resource must honor every available key before any write key is changed.
+//   2. Once every resource honors every key, the write key should be the latest key available
+//   3. Once every resource honors the same write key AND that write key has migrated every requested resource,
+//      all non-write keys should be removed.
 // TODO unit tests
 func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) groupResourcesState {
 	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
-	for _, item := range encryptionSecretList.Items {
-		encryptionSecrets = append(encryptionSecrets, item.DeepCopy())
+	for _, secret := range encryptionSecretList.Items {
+		if _, _, ok := secretToKeyAndMode(&secret, targetNamespace); !ok {
+			klog.Infof("skipping invalid encryption secret %s", secret.Name)
+			continue
+		}
+		encryptionSecrets = append(encryptionSecrets, secret.DeepCopy())
 	}
 
 	// make sure encryptionSecrets is sorted in DESCENDING order by keyID
 	// this allows us to calculate the per resource write key as the first item and recent keys are first
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
-		// it is fine to ignore the validKeyID bool here because we filter out invalid secrets in the next loop
-		// thus it does not matter where the invalid secrets get sorted to
-		// conflicting keyIDs between different resources are not an issue because we track each resource separately
+		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
 		iKeyID, _ := secretToKeyID(encryptionSecrets[i])
 		jKeyID, _ := secretToKeyID(encryptionSecrets[j])
 		return iKeyID > jKeyID
@@ -279,6 +239,8 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// this is our output from the for loop below
 	encryptionState := groupResourcesState{}
 
+	// TODO if we cannot find the secrets associated with the keys, they may have been deleted
+	// we could try to use the key data in the revision to recover or just go degraded permanently
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
 		writeSecret := findSecretForKey(keys.writeKey, encryptionSecrets, targetNamespace) // TODO handle nil as error when hasWriteKey == true?
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
@@ -297,8 +259,8 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		}
 	}
 
-	// see if any resource is missing and properly reflect that state so that we will add the read keys and take it through the
-	// transition correctly.
+	// see if any resource is missing and properly reflect that state so that
+	// we will add the read keys and take it through the transition correctly.
 	for gr := range encryptedGRs {
 		if _, ok := encryptionState[gr]; !ok {
 			encryptionState[gr] = keysState{
@@ -307,25 +269,30 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 		}
 	}
 
-	// TODO allow removing resources. This would require transitioning back to identity.  For now, because we work against a single
-	// key, we can simply keep moving that additional resource even in the face of downgrades.
+	// TODO allow removing resources. This would require transitioning back to identity.  For now, because we work
+	// against a single key, we can simply keep moving that additional resource even in the face of downgrades.
 
 	allReadSecretsAsExpected := true
-	for _, grState := range encryptionState {
+outer:
+	for gr, grState := range encryptionState {
 		if len(grState.readSecrets) != len(encryptionSecrets) {
 			allReadSecretsAsExpected = false
+			klog.V(4).Infof("%s has mismatching read secrets", gr)
 			break
 		}
 		// order of read secrets does not matter here
 		for _, encryptionSecret := range encryptionSecrets {
-			if !has(grState.readSecrets, *encryptionSecret) {
+			if !hasSecret(grState.readSecrets, *encryptionSecret) {
 				allReadSecretsAsExpected = false
-				break
+				klog.V(4).Infof("%s missing read secret %s", gr, encryptionSecret.Name)
+				break outer
 			}
 		}
 	}
 	// if our read secrets aren't all the same, the first thing to do is to force all the read secrets and wait for stability
+	// TODO if the operand namespace gets deleted, this code causes us to go through a cycle of identity as the write key
 	if !allReadSecretsAsExpected {
+		klog.V(4).Infof("not all read secrets in sync")
 		for gr := range encryptionState {
 			grState := encryptionState[gr]
 			grState.readSecrets = encryptionSecrets
@@ -335,25 +302,32 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	}
 
 	// we do not have any keys yet, so wait until we do
+	// the code after this point assumes at least one secret
 	if len(encryptionSecrets) == 0 {
+		klog.V(4).Infof("no encryption secrets found")
 		return encryptionState
 	}
+
+	// the first secret holds the write key
+	writeSecret := encryptionSecrets[0]
 
 	// we have consistent and completely current read secrets, the next step is determining a consistent write key.
 	// To do this, we will choose the most current write key and use that to write the data
 	allWriteSecretsAsExpected := true
-	for _, grState := range encryptionState {
-		if grState.writeSecret == nil || grState.writeSecret.Name != encryptionSecrets[0].Name {
+	for gr, grState := range encryptionState {
+		if grState.writeSecret == nil || grState.writeSecret.Name != writeSecret.Name {
 			allWriteSecretsAsExpected = false
+			klog.V(4).Infof("%s does not have write secret %s", gr, writeSecret.Name)
 			break
 		}
 	}
 	// if our write secrets aren't all the same, update all the write secrets and wait for stability.
 	// We can move write keys before all the data has been migrated
 	if !allWriteSecretsAsExpected {
+		klog.V(4).Infof("not all write secrets in sync")
 		for gr := range encryptionState {
 			grState := encryptionState[gr]
-			grState.writeSecret = encryptionSecrets[0]
+			grState.writeSecret = writeSecret
 			encryptionState[gr] = grState
 		}
 		return encryptionState
@@ -363,34 +337,34 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// ensure that it has all the expect resources listed as having been migrated.  If this is true, then we
 	// can prune the read secrets down to a single entry.
 
+	migratedResourceString := writeSecret.Annotations[encryptionSecretMigratedResources]
+	// if no migration has happened, we need to wait until it has
+	if len(migratedResourceString) == 0 {
+		klog.V(4).Infof("write secret %s has not been migrated", writeSecret.Name)
+		return encryptionState
+	}
+	migratedResources := &migratedGroupResources{}
+	// if we cannot read the data, wait until we can
+	if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
+		klog.V(4).Infof("write secret %s has invalid migrated resource string: %v", writeSecret.Name, err)
+		return encryptionState
+	}
+
 	// get a list of all the resources we have, so that we can compare against the migrated keys annotation.
 	allResources := make([]schema.GroupResource, 0, len(encryptionState))
 	for gr := range encryptionState {
 		allResources = append(allResources, gr)
 	}
 
-	migratedResourceString := encryptionSecrets[0].Annotations[encryptionSecretMigratedResources]
-	// if no migration has happened, we need to wait until it has
-	if len(migratedResourceString) == 0 {
-		return encryptionState
-	}
-	migratedResources := &GroupResources{}
-	// if we cannot read the data, wait until we can
-	if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
-		return encryptionState
-	}
-
 	foundCount := 0
 	for _, expected := range allResources {
-		for _, actual := range migratedResources.Resources {
-			if expected == actual {
-				foundCount++
-				break
-			}
+		if migratedResources.hasResource(expected) {
+			foundCount++
 		}
 	}
 	// if we did not find migration indications for all resources, then just wait until we do
 	if foundCount != len(allResources) {
+		klog.V(4).Infof("write secret %s is missing migrated resources expected=%s, actual=%s", writeSecret.Name, allResources, migratedResources.Resources)
 		return encryptionState
 	}
 
@@ -398,14 +372,24 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// We only need the write key now
 	for gr := range encryptionState {
 		grState := encryptionState[gr]
-		grState.readSecrets = []*corev1.Secret{encryptionSecrets[0]}
+		grState.readSecrets = []*corev1.Secret{writeSecret}
 		encryptionState[gr] = grState
 	}
+	klog.V(4).Infof("write secret %s set as sole write key", writeSecret.Name)
 	return encryptionState
 }
 
-type GroupResources struct {
+type migratedGroupResources struct {
 	Resources []schema.GroupResource `json:"resources"`
+}
+
+func (m *migratedGroupResources) hasResource(resource schema.GroupResource) bool {
+	for _, gr := range m.Resources {
+		if gr == resource {
+			return true
+		}
+	}
+	return false
 }
 
 func findSecretForKey(key keyAndMode, secrets []*corev1.Secret, targetNamespace string) *corev1.Secret {
@@ -414,7 +398,7 @@ func findSecretForKey(key keyAndMode, secrets []*corev1.Secret, targetNamespace 
 	}
 
 	for _, secret := range secrets {
-		sKeyAndMode, _, ok := secretToKey(secret, targetNamespace)
+		sKeyAndMode, _, ok := secretToKeyAndMode(secret, targetNamespace)
 		if !ok {
 			continue
 		}
@@ -437,7 +421,7 @@ func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.Secret
 	}
 
 	for _, secret := range encryptionSecretList.Items {
-		sKeyAndMode, _, ok := secretToKey(&secret, targetNamespace)
+		sKeyAndMode, _, ok := secretToKeyAndMode(&secret, targetNamespace)
 		if !ok {
 			continue
 		}
@@ -449,7 +433,7 @@ func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.Secret
 	return nil, nil
 }
 
-func secretToKey(encryptionSecret *corev1.Secret, targetNamespace string) (keyAndMode, uint64, bool) {
+func secretToKeyAndMode(encryptionSecret *corev1.Secret, targetNamespace string) (keyAndMode, uint64, bool) {
 	component := encryptionSecret.Labels[encryptionSecretComponent]
 	keyData := encryptionSecret.Data[encryptionSecretKeyData]
 	keyMode := mode(encryptionSecret.Annotations[encryptionSecretMode])
@@ -489,7 +473,7 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: keysToProviders(grKeys),
+			Providers: secretsToProviders(grKeys),
 		})
 	}
 
@@ -501,16 +485,16 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 	return resourceConfigs
 }
 
-// TODO docs
-func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
+func secretsToKeyAndModes(grKeys keysState) groupResourceKeys {
 	desired := groupResourceKeys{}
 
-	desired.writeKey = grKeys.WriteKey()
+	desired.writeKey = grKeys.writeKey()
 
 	// keys have a duplicate of the write key
 	// or there is no write key
 
-	readKeys := grKeys.ReadKeys()
+	// we know these are sorted with highest key ID first
+	readKeys := grKeys.readKeys()
 	for i := range readKeys {
 		readKey := readKeys[i]
 
@@ -526,9 +510,12 @@ func grKeysToDesiredKeys(grKeys keysState) groupResourceKeys {
 	return desired
 }
 
-// TODO docs
-func keysToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration {
-	desired := grKeysToDesiredKeys(grKeys)
+// secretsToProviders maps the write and read secrets to the equivalent read and write keys.
+// it primarily handles the conversion of keyAndMode to the appropriate provider config.
+// the identity mode is transformed into a custom aesgcm provider that simply exists to
+// curry the associated null key secret through the encryption state machine.
+func secretsToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration {
+	desired := secretsToKeyAndModes(grKeys)
 
 	allKeys := desired.readKeys
 
@@ -619,7 +606,6 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOpe
 // Once a converged revision has been determined, it can be used to determine
 // what encryption config state has been successfully observed by the API servers.
 // It assumes that podClient is doing live lookups against the cluster state.
-// TODO what if someone deletes pods?  We could see an invalid intermediate state.
 func getAPIServerRevisionOfAllInstances(podClient corev1client.PodInterface) (string, error) {
 	// do a live list so we never get confused about what revision we are on
 	apiServerPods, err := podClient.List(metav1.ListOptions{LabelSelector: "apiserver=true"})
@@ -690,6 +676,7 @@ func podReady(pod corev1.Pod) bool {
 func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision string) (*apiserverconfigv1.EncryptionConfiguration, error) {
 	encryptionConfigSecret, err := secrets.Get(encryptionConfSecret+"-"+revision, metav1.GetOptions{})
 	if err != nil {
+		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {
 			return &apiserverconfigv1.EncryptionConfiguration{}, nil
 		}
@@ -708,7 +695,12 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 	return encryptionConfig, nil
 }
 
-// TODO docs
+// getGRsActualKeys parses the given encryptionConfig to determine the write and read keys per group resource.
+// it assumes that the structure of the encryptionConfig matches the output generated by getResourceConfigs.
+// each resource has a distinct configuration with zero or more key based providers and the identity provider.
+// a special variant of the aesgcm provider is used to track the identity provider (since we need to keep the
+// name of the key somewhere).  this is not an issue because aesgcm is not supported as a key provider since it
+// is unsafe to use when you cannot control the number of writes (and we have no way to control apiserver writes).
 func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
 	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {
@@ -859,4 +851,13 @@ func getEncryptionConfigAndState(
 	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
 
 	return encryptionConfig, desiredEncryptionState, "", nil
+}
+
+func hasSecret(secrets []*corev1.Secret, secret corev1.Secret) bool {
+	for _, s := range secrets {
+		if s.Name == secret.Name {
+			return true
+		}
+	}
+	return false
 }

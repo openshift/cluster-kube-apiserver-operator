@@ -204,7 +204,7 @@ func (c *encryptionMigrationController) migrateKeysIfNeededAndRevisionStable() (
 			migratedSecret.Annotations = map[string]string{}
 		}
 		migratedSecret.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
-		migratedResourceBytes, marshallErr := json.Marshal(GroupResources{Resources: tracker.resources})
+		migratedResourceBytes, marshallErr := json.Marshal(migratedGroupResources{Resources: tracker.resources})
 		if marshallErr != nil {
 			errs = append(errs, marshallErr)
 			continue
@@ -238,19 +238,13 @@ func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
 	if len(jsonMigratedResources) == 0 {
 		return true
 	}
-	resources := &GroupResources{}
+	resources := &migratedGroupResources{}
 	if err := json.Unmarshal([]byte(jsonMigratedResources), resources); err != nil {
 		klog.Infof("failed parse resources for %s: %v", secret.Name, err)
 		return true
 	}
 
-	for _, groupResource := range resources.Resources {
-		if groupResource == resource {
-			return false
-		}
-	}
-
-	return true
+	return !resources.hasResource(resource)
 }
 
 func (c *encryptionMigrationController) runStorageMigration(gr schema.GroupResource) error {
