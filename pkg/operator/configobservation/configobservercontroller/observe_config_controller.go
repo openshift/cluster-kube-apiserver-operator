@@ -20,7 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
-
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
@@ -42,9 +42,12 @@ func NewConfigObserver(
 		operatorclient.OperatorNamespace,
 	}
 
-	configMapPreRunCacheSynced := []cache.InformerSynced{}
+	corePreRunCacheSynced := []cache.InformerSynced{}
 	for _, ns := range interestingNamespaces {
-		configMapPreRunCacheSynced = append(configMapPreRunCacheSynced, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced)
+		corePreRunCacheSynced = append(corePreRunCacheSynced,
+			kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced,
+			kubeInformersForNamespaces.InformersFor(ns).Core().V1().Secrets().Informer().HasSynced,
+		)
 	}
 
 	c := &ConfigObserver{
@@ -62,10 +65,11 @@ func NewConfigObserver(
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
+				SecretLister_:                kubeInformersForNamespaces.SecretLister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
 
 				ResourceSync: resourceSyncer,
-				PreRunCachesSynced: append(configMapPreRunCacheSynced,
+				PreRunCachesSynced: append(corePreRunCacheSynced,
 					operatorClient.Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
@@ -87,6 +91,10 @@ func NewConfigObserver(
 			apiserver.ObserveUserClientCABundle,
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			auth.ObserveAuthMetadata,
+			encryption.NewEncryptionObserver(
+				operatorclient.TargetNamespace,
+				[]string{"apiServerArguments", "encryption-provider-config"},
+			),
 			etcd.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
 				"openshift-kube-apiserver",
@@ -108,6 +116,7 @@ func NewConfigObserver(
 
 	for _, ns := range interestingNamespaces {
 		kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
+		kubeInformersForNamespaces.InformersFor(ns).Core().V1().Secrets().Informer().AddEventHandler(c.EventHandler())
 	}
 	kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 

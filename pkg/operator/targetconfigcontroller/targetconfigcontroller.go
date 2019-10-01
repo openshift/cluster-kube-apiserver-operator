@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -233,6 +234,11 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		".oauthConfig": RemoveConfig,
 	}
 
+	legacyFileConfigBytes, err := getJSONBytesForField(operatorSpec.UnsupportedConfigOverrides.Raw, "legacyFileConfig")
+	if err != nil {
+		return nil, false, err
+	}
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&kubecontrolplanev1.KubeAPIServerConfig{},
 		configMap,
@@ -240,12 +246,36 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		specialMergeRules,
 		defaultConfig,
 		operatorSpec.ObservedConfig.Raw,
-		operatorSpec.UnsupportedConfigOverrides.Raw,
+		legacyFileConfigBytes,
 	)
 	if err != nil {
 		return nil, false, err
 	}
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+}
+
+func getJSONBytesForField(raw []byte, field string) ([]byte, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	keysOnly := map[string]*json.RawMessage{}
+
+	jsonRaw, err := kyaml.ToJSON(raw)
+	if err != nil {
+		klog.Warning(err)
+		// maybe it's just json
+		jsonRaw = raw
+	}
+	if err := json.Unmarshal(jsonRaw, &keysOnly); err != nil {
+		return nil, err
+	}
+
+	if fieldBytes, ok := keysOnly[field]; ok && fieldBytes != nil {
+		return *fieldBytes, nil
+	}
+
+	return nil, nil
 }
 
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
