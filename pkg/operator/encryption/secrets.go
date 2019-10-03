@@ -2,6 +2,7 @@ package encryption
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,6 +32,22 @@ func findSecretForKey(key keyAndMode, secrets []*corev1.Secret, targetNamespace 
 	}
 
 	return nil
+}
+
+// secrets must be sorted by keyID
+func findLastMigratedWriteSecret(secrets []*corev1.Secret) (*corev1.Secret, *migratedGroupResources) {
+	for _, secret := range secrets {
+		migratedResourceString := secret.Annotations[encryptionSecretMigratedResources]
+		if len(migratedResourceString) == 0 {
+			continue
+		}
+		migratedResources := &migratedGroupResources{}
+		if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
+			continue
+		}
+		return secret.DeepCopy(), migratedResources
+	}
+	return nil, &migratedGroupResources{}
 }
 
 func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, targetNamespace string) (*corev1.Secret, error) {

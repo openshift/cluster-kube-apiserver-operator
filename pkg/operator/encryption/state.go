@@ -52,7 +52,7 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 //   3. Once every resource honors the same write key AND that write key has migrated every requested resource,
 //      all non-write keys should be removed.
 // TODO unit tests
-func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) groupResourcesState {
+func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, encryptedGRs map[schema.GroupResource]bool) (groupResourcesState, error) {
 	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
 	for _, secret := range encryptionSecretList.Items {
 		if _, _, ok := secretToKeyAndMode(&secret, targetNamespace); !ok {
@@ -74,16 +74,22 @@ func getDesiredEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionCon
 	// this is our output from the for loop below
 	encryptionState := groupResourcesState{}
 
-	// TODO if we cannot find the secrets associated with the keys, they may have been deleted
-	// we could try to use the key data in the revision to recover or just go degraded permanently
 	for gr, keys := range getGRsActualKeys(encryptionConfig) {
-		writeSecret := findSecretForKey(keys.writeKey, encryptionSecrets, targetNamespace) // TODO handle nil as error when hasWriteKey == true?
+		writeSecret := findSecretForKey(keys.writeKey, encryptionSecrets, targetNamespace)
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
 		if keys.hasWriteKey() {
+			// go degraded permanently if someone deletes the encryption keys
+			// this gives us one small hope of manual recovery using the revisioned config
+			if writeSecret == nil {
+				return nil, fmt.Errorf("cannot find write secret for %s with key %s", gr, keys.writeKey.key.Name)
+			}
 			readSecrets = append(readSecrets, writeSecret)
 		}
 		for _, readKey := range keys.readKeys {
-			readSecret := findSecretForKey(readKey, encryptionSecrets, targetNamespace) // TODO handle nil as error?
+			readSecret := findSecretForKey(readKey, encryptionSecrets, targetNamespace)
+			if readSecret == nil {
+				return nil, fmt.Errorf("cannot find read secret for %s with key %s", gr, readKey.key.Name)
+			}
 			readSecrets = append(readSecrets, readSecret)
 		}
 
@@ -125,22 +131,26 @@ outer:
 		}
 	}
 	// if our read secrets aren't all the same, the first thing to do is to force all the read secrets and wait for stability
-	// TODO if the operand namespace gets deleted, this code causes us to go through a cycle of identity as the write key
 	if !allReadSecretsAsExpected {
 		klog.V(4).Infof("not all read secrets in sync")
+		lastWriteSecret, lastWriteSecretResources := findLastMigratedWriteSecret(encryptionSecrets)
 		for gr := range encryptionState {
 			grState := encryptionState[gr]
+			// do not "lose" the write key when the operand namespace or revisioned config gets deleted
+			if grState.writeSecret == nil && lastWriteSecretResources.hasResource(gr) {
+				grState.writeSecret = lastWriteSecret
+			}
 			grState.readSecrets = encryptionSecrets
 			encryptionState[gr] = grState
 		}
-		return encryptionState
+		return encryptionState, nil
 	}
 
 	// we do not have any keys yet, so wait until we do
 	// the code after this point assumes at least one secret
 	if len(encryptionSecrets) == 0 {
 		klog.V(4).Infof("no encryption secrets found")
-		return encryptionState
+		return encryptionState, nil
 	}
 
 	// the first secret holds the write key
@@ -165,7 +175,7 @@ outer:
 			grState.writeSecret = writeSecret
 			encryptionState[gr] = grState
 		}
-		return encryptionState
+		return encryptionState, nil
 	}
 
 	// at this point all of our read and write secrets are the same.  We need to inspect the write secret to
@@ -176,13 +186,13 @@ outer:
 	// if no migration has happened, we need to wait until it has
 	if len(migratedResourceString) == 0 {
 		klog.V(4).Infof("write secret %s has not been migrated", writeSecret.Name)
-		return encryptionState
+		return encryptionState, nil
 	}
 	migratedResources := &migratedGroupResources{}
 	// if we cannot read the data, wait until we can
 	if err := json.Unmarshal([]byte(migratedResourceString), migratedResources); err != nil {
 		klog.V(4).Infof("write secret %s has invalid migrated resource string: %v", writeSecret.Name, err)
-		return encryptionState
+		return encryptionState, nil
 	}
 
 	// get a list of all the resources we have, so that we can compare against the migrated keys annotation.
@@ -200,7 +210,7 @@ outer:
 	// if we did not find migration indications for all resources, then just wait until we do
 	if foundCount != len(allResources) {
 		klog.V(4).Infof("write secret %s is missing migrated resources expected=%s, actual=%s", writeSecret.Name, allResources, migratedResources.Resources)
-		return encryptionState
+		return encryptionState, nil
 	}
 
 	// if we have migrated all of our resources, the next step is remove all unnecessary read keys.
@@ -211,7 +221,7 @@ outer:
 		encryptionState[gr] = grState
 	}
 	klog.V(4).Infof("write secret %s set as sole write key", writeSecret.Name)
-	return encryptionState
+	return encryptionState, nil
 }
 
 // getGRsActualKeys parses the given encryptionConfig to determine the write and read keys per group resource.
@@ -320,7 +330,10 @@ func getEncryptionConfigAndState(
 		return nil, nil, "", err
 	}
 
-	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
+	desiredEncryptionState, err := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
+	if err != nil {
+		return nil, nil, "", err
+	}
 
 	return encryptionConfig, desiredEncryptionState, "", nil
 }
