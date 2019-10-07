@@ -59,4 +59,5 @@ apiServerArguments:
     - "ExperimentalCriticalPodAnnotation=true"
     - "RotateKubeletServerCertificate=true"
     - "SupportPodPidsLimit=true"
+    - "TLSSecurityProfile=true"
     - "LocalStorageCapacityIsolation=false"
