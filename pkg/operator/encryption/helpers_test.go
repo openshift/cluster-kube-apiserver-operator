@@ -78,7 +78,7 @@ func createMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.G
 }
 
 func createExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
-	return createMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(time.Minute*35*-1))
+	return createMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
 func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
