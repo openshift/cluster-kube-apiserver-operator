@@ -136,7 +136,7 @@ func TestPruneController(t *testing.T) {
 						Secret: km.key.Secret,
 					})
 				}
-				ec := createEncryptionCfgSecretWithWriteKeys(t, "kms", "1", []encryptionKeysResourceTuple{{
+				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{{
 					resource: "secrets",
 					keys: append([]apiserverconfigv1.Key{
 						{
@@ -146,7 +146,7 @@ func TestPruneController(t *testing.T) {
 					}, additionaReadKeys...),
 				}})
 				ec.APIVersion = corev1.SchemeGroupVersion.String()
-				return ec
+				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
