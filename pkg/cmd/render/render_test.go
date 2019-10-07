@@ -159,7 +159,7 @@ func TestRenderCommand(t *testing.T) {
 					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG))
 				}
 				if len(actualGates) != len(expectedGates) {
-					return fmt.Errorf("expected to get exactly %d feature gates but found %d", len(expectedGates), len(actualGates))
+					return fmt.Errorf("expected to get exactly %d feature gates but found %d: expected=%v got=%v", len(expectedGates), len(actualGates), expectedGates, actualGates)
 				}
 				for _, actualGate := range actualGates {
 					found := false
