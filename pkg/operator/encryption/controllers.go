@@ -18,11 +18,15 @@ import (
 var (
 	apiserverScheme = runtime.NewScheme()
 	apiserverCodecs = serializer.NewCodecFactory(apiserverScheme)
+
+	encoder runtime.Encoder
 )
 
 func init() {
 	utilruntime.Must(apiserverconfigv1.AddToScheme(apiserverScheme))
 	utilruntime.Must(apiserverconfig.AddToScheme(apiserverScheme))
+
+	encoder = apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 }
 
 func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOperatorClient) (bool, error) {

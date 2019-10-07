@@ -24,6 +24,7 @@ const (
 	encryptionConfSecretForTest              = "encryption-config"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
+	encryptionSecretReadTimestampForTest     = "encryption.operator.openshift.io/read-timestamp"
 )
 
 func createEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
@@ -79,6 +80,18 @@ func createMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.G
 
 func createExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
 	return createMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+}
+
+func createReadEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, timestamp ...string) *corev1.Secret {
+	secret := createEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey)
+	formattedTS := ""
+	if len(timestamp) == 0 {
+		formattedTS = time.Now().Format(time.RFC3339)
+	} else {
+		formattedTS = timestamp[0]
+	}
+	secret.Annotations[encryptionSecretReadTimestampForTest] = formattedTS
+	return secret
 }
 
 func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
@@ -209,10 +222,9 @@ func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple
 	}
 }
 
-func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revision string, keysResources []encryptionKeysResourceTuple) *corev1.Secret {
+func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
 	t.Helper()
 
-	encryptionCfg := createEncryptionCfgWithWriteKey(keysResources)
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {
