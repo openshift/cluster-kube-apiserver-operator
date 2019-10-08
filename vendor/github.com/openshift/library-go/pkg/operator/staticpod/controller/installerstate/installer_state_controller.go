@@ -2,6 +2,7 @@ package installerstate
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -28,6 +29,7 @@ var maxToleratedPodPendingDuration = 5 * time.Minute
 
 type InstallerStateController struct {
 	podsGetter      corev1client.PodsGetter
+	eventsGetter    corev1client.EventsGetter
 	queue           workqueue.RateLimitingInterface
 	cachesToSync    []cache.InformerSynced
 	targetNamespace string
@@ -39,12 +41,14 @@ type InstallerStateController struct {
 
 func NewInstallerStateController(kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	podsGetter corev1client.PodsGetter,
+	eventsGetter corev1client.EventsGetter,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	targetNamespace string,
 	recorder events.Recorder,
 ) *InstallerStateController {
 	c := &InstallerStateController{
 		podsGetter:      podsGetter,
+		eventsGetter:    eventsGetter,
 		targetNamespace: targetNamespace,
 		operatorClient:  operatorClient,
 		eventRecorder:   recorder.WithComponentSuffix("installer-state-controller"),
@@ -70,6 +74,7 @@ func (c *InstallerStateController) eventHandler() cache.ResourceEventHandler {
 var degradedConditionNames = []string{
 	"InstallerPodPendingDegraded",
 	"InstallerPodContainerWaitingDegraded",
+	"InstallerPodNetworkingDegraded",
 }
 
 func (c *InstallerStateController) sync() error {
@@ -80,28 +85,28 @@ func (c *InstallerStateController) sync() error {
 		return err
 	}
 
-	// collect all pods that are in pending state for longer than maxToleratedPodPendingDuration
+	// collect all startingObjects that are in pending state for longer than maxToleratedPodPendingDuration
 	pendingPods := []*v1.Pod{}
-	hasPendingPods := false
 	for _, pod := range pods.Items {
-		if pod.Status.Phase != v1.PodPending {
+		if pod.Status.Phase != v1.PodPending || pod.Status.StartTime == nil {
 			continue
 		}
-		// we need to track this so we can requeue faster when there are pending pods
-		hasPendingPods = true
-
-		if pod.Status.StartTime == nil {
-			continue
-		}
-		pendingTime := c.timeNowFn().Sub(pod.Status.StartTime.Time)
-		if pendingTime >= maxToleratedPodPendingDuration {
+		if c.timeNowFn().Sub(pod.Status.StartTime.Time) >= maxToleratedPodPendingDuration {
 			pendingPods = append(pendingPods, pod.DeepCopy())
 		}
 	}
 
-	// in theory, there should never be two installer pods pending as we don't roll new installer pod
+	// in theory, there should never be two installer startingObjects pending as we don't roll new installer pod
 	// until the previous/existing pod has finished its job.
-	foundConditions := c.handlePendingInstallerPods(pendingPods)
+	foundConditions := []operatorv1.OperatorCondition{}
+	foundConditions = append(foundConditions, c.handlePendingInstallerPods(pendingPods)...)
+
+	// handle networking conditions that are based on events
+	networkConditions, err := c.handlePendingInstallerPodsNetworkEvents(pendingPods)
+	if err != nil {
+		return err
+	}
+	foundConditions = append(foundConditions, networkConditions...)
 
 	updateConditionFuncs := []v1helpers.UpdateStaticPodStatusFunc{}
 
@@ -122,19 +127,46 @@ func (c *InstallerStateController) sync() error {
 		return err
 	}
 
-	// if we found pending pods, requeue faster and do not wait for informer as the pod can be stuck in Pending
-	// with no update for long time and we want to track that time.
-	if hasPendingPods {
-		c.queue.AddAfter(installerStateControllerWorkQueueKey, 5*time.Second)
-	}
-
 	return nil
+}
+
+func (c *InstallerStateController) handlePendingInstallerPodsNetworkEvents(pods []*v1.Pod) ([]operatorv1.OperatorCondition, error) {
+	conditions := []operatorv1.OperatorCondition{}
+	if len(pods) == 0 {
+		return conditions, nil
+	}
+	namespaceEvents, err := c.eventsGetter.Events(c.targetNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, event := range namespaceEvents.Items {
+		if event.InvolvedObject.Kind != "Pod" {
+			continue
+		}
+		if !strings.Contains(event.Message, "failed to create pod network") {
+			continue
+		}
+		for _, pod := range pods {
+			if pod.Name != event.InvolvedObject.Name {
+				continue
+			}
+			condition := operatorv1.OperatorCondition{
+				Type:    "InstallerPodNetworkingDegraded",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  event.Reason,
+				Message: fmt.Sprintf("Pod %q on node %q observed degraded networking: %s", pod.Name, pod.Spec.NodeName, event.Message),
+			}
+			conditions = append(conditions, condition)
+			c.eventRecorder.Warningf(condition.Reason, condition.Message)
+		}
+	}
+	return conditions, nil
 }
 
 func (c *InstallerStateController) handlePendingInstallerPods(pods []*v1.Pod) []operatorv1.OperatorCondition {
 	conditions := []operatorv1.OperatorCondition{}
 	for _, pod := range pods {
-		// at this poind we already know the pod is pending for longer than expected
+		// at this point we already know the pod is pending for longer than expected
 		pendingTime := c.timeNowFn().Sub(pod.Status.StartTime.Time)
 
 		// the pod is in the pending state for longer than maxToleratedPodPendingDuration, report the reason and message
@@ -144,7 +176,7 @@ func (c *InstallerStateController) handlePendingInstallerPods(pods []*v1.Pod) []
 				Type:    "InstallerPodPendingDegraded",
 				Reason:  pod.Status.Reason,
 				Status:  operatorv1.ConditionTrue,
-				Message: fmt.Sprintf("Pod %q is Pending for %s because %s", pod.Name, pendingTime, pod.Status.Message),
+				Message: fmt.Sprintf("Pod %q on node %q is Pending for %s because %s", pod.Name, pod.Spec.NodeName, pendingTime, pod.Status.Message),
 			}
 			conditions = append(conditions, condition)
 			c.eventRecorder.Warningf(condition.Reason, condition.Message)
@@ -161,7 +193,7 @@ func (c *InstallerStateController) handlePendingInstallerPods(pods []*v1.Pod) []
 					Type:    "InstallerPodContainerWaitingDegraded",
 					Reason:  state.Reason,
 					Status:  operatorv1.ConditionTrue,
-					Message: fmt.Sprintf("Pod %q container %q is waiting for %s because %s", pod.Name, containerStatus.Name, pendingTime, state.Message),
+					Message: fmt.Sprintf("Pod %q on node %q container %q is waiting for %s because %s", pod.Name, pod.Spec.NodeName, containerStatus.Name, pendingTime, state.Message),
 				}
 				conditions = append(conditions, condition)
 				c.eventRecorder.Warningf(condition.Reason, condition.Message)
@@ -170,10 +202,6 @@ func (c *InstallerStateController) handlePendingInstallerPods(pods []*v1.Pod) []
 	}
 
 	return conditions
-}
-
-func (c *InstallerStateController) checkPendingInstallerPod(pod *v1.Pod) error {
-	return nil
 }
 
 // Run starts the kube-apiserver and blocks until stopCh is closed.
@@ -189,6 +217,9 @@ func (c *InstallerStateController) Run(workers int, stopCh <-chan struct{}) {
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
+
+	// add time based trigger
+	go wait.Until(func() { c.queue.Add(installerStateControllerWorkQueueKey) }, time.Minute, stopCh)
 
 	<-stopCh
 }

@@ -1,5 +1,5 @@
 hash: c3776bebec4edcbea49b4f6d374503fdabec0033d12f16b8d965e423e2265565
-updated: 2019-10-08T12:57:51.01933+02:00
+updated: 2019-10-08T15:58:49.520061+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -233,7 +233,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: 7e1031bb8d2e350bfc008f1f43477ac6ac11d6ce
+  version: 059fec016a411486be33dcbe270aa1f341ec7d6c
   repo: http://github.com/mfojtik/library-go
   subpackages:
   - pkg/assets

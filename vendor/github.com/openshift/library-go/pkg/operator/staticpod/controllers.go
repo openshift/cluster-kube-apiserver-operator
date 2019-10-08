@@ -139,6 +139,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 	configMapClient := v1helpers.CachedConfigMapGetter(b.kubeClient.CoreV1(), b.kubeInformers)
 	secretClient := v1helpers.CachedSecretGetter(b.kubeClient.CoreV1(), b.kubeInformers)
 	podClient := b.kubeClient.CoreV1()
+	eventsClient := b.kubeClient.CoreV1()
 	operandInformers := b.kubeInformers.InformersFor(b.operandNamespace)
 	clusterInformers := b.kubeInformers.InformersFor("")
 
@@ -176,6 +177,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 		controllers.installerStateController = installerstate.NewInstallerStateController(
 			operandInformers,
 			podClient,
+			eventsClient,
 			b.staticPodOperatorClient,
 			b.operandNamespace,
 			eventRecorder,

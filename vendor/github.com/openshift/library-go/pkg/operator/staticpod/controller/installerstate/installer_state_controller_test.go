@@ -30,15 +30,37 @@ func newInstallerPod(name string, mutateStatusFn func(*corev1.PodStatus)) *corev
 	return pod
 }
 
+func newInstallerPodNetworkEvent(mutateFn func(*corev1.Event)) *corev1.Event {
+	event := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind: "Pod",
+			Name: "installer-1",
+		},
+		Reason: "FailedCreatePodSandBox",
+		Message: `'(combined from similar events): Failed create pod sandbox: rpc error:
+    code = Unknown desc = failed to create pod network sandbox k8s_installer-5-control-plane-1_openshift-kube-apiserver_900db7f3-d2ce-11e9-8fc8-005056be0641_0(121698f4862fd67157ca586cab18aefb048fe5d7b3bd87516098ac0e91a90a13):
+    Multus: Err adding pod to network "openshift-sdn": Multus: error in invoke Delegate
+    add - "openshift-sdn": failed to send CNI request: Post http://dummy/: dial unix
+    /var/run/openshift-sdn/cniserver/socket: connect: connection refused'`,
+	}
+	if mutateFn != nil {
+		mutateFn(event)
+	}
+	return event
+}
+
 func TestInstallerStateController(t *testing.T) {
 	tests := []struct {
-		name           string
-		pods           []runtime.Object
-		evalConditions func(t *testing.T, conditions []operatorv1.OperatorCondition)
+		name            string
+		startingObjects []runtime.Object
+		evalConditions  func(t *testing.T, conditions []operatorv1.OperatorCondition)
 	}{
 		{
 			name: "should report pending pod",
-			pods: []runtime.Object{
+			startingObjects: []runtime.Object{
 				newInstallerPod("installer-1", func(status *corev1.PodStatus) {
 					status.Phase = corev1.PodPending
 					status.Reason = "PendingReason"
@@ -58,8 +80,26 @@ func TestInstallerStateController(t *testing.T) {
 			},
 		},
 		{
+			name: "should report pod with failing networking",
+			startingObjects: []runtime.Object{
+				newInstallerPod("installer-1", func(status *corev1.PodStatus) {
+					status.Phase = corev1.PodPending
+					status.Reason = "PendingReason"
+					status.Message = "PendingMessage"
+					status.StartTime = &metav1.Time{Time: time.Now().Add(-(maxToleratedPodPendingDuration + 5*time.Minute))}
+				}),
+				newInstallerPodNetworkEvent(nil),
+			},
+			evalConditions: func(t *testing.T, conditions []operatorv1.OperatorCondition) {
+				podPendingCondition := v1helpers.FindOperatorCondition(conditions, "InstallerPodNetworkingDegraded")
+				if podPendingCondition.Status != operatorv1.ConditionTrue {
+					t.Errorf("expected InstallerPodNetworkingDegraded condition to be True")
+				}
+			},
+		},
+		{
 			name: "should report pending pod with waiting container",
-			pods: []runtime.Object{
+			startingObjects: []runtime.Object{
 				newInstallerPod("installer-1", func(status *corev1.PodStatus) {
 					status.Phase = corev1.PodPending
 					status.Reason = "PendingReason"
@@ -83,8 +123,8 @@ func TestInstallerStateController(t *testing.T) {
 			},
 		},
 		{
-			name: "should report false when no pending pods",
-			pods: []runtime.Object{
+			name: "should report false when no pending startingObjects",
+			startingObjects: []runtime.Object{
 				newInstallerPod("installer-1", func(status *corev1.PodStatus) {
 					status.Phase = corev1.PodRunning
 					status.StartTime = &metav1.Time{Time: time.Now().Add(-(maxToleratedPodPendingDuration + 5*time.Minute))}
@@ -105,7 +145,7 @@ func TestInstallerStateController(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kubeClient := fake.NewSimpleClientset(tt.pods...)
+			kubeClient := fake.NewSimpleClientset(tt.startingObjects...)
 			kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 1*time.Minute, informers.WithNamespace("test"))
 			stopCh := make(chan struct{})
 			go kubeInformers.Start(stopCh)
@@ -113,7 +153,7 @@ func TestInstallerStateController(t *testing.T) {
 
 			fakeStaticPodOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(&operatorv1.StaticPodOperatorSpec{}, &operatorv1.StaticPodOperatorStatus{}, nil, nil)
 			eventRecorder := eventstesting.NewTestingEventRecorder(t)
-			controller := NewInstallerStateController(kubeInformers, kubeClient.CoreV1(), fakeStaticPodOperatorClient, "test", eventRecorder)
+			controller := NewInstallerStateController(kubeInformers, kubeClient.CoreV1(), kubeClient.CoreV1(), fakeStaticPodOperatorClient, "test", eventRecorder)
 			if err := controller.sync(); err != nil {
 				t.Error(err)
 				return
