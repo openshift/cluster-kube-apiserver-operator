@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
 
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 
@@ -172,6 +173,13 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 			b.certConfigMaps,
 			b.certSecrets,
 		)
+		controllers.installerStateController = installerstate.NewInstallerStateController(
+			operandInformers,
+			podClient,
+			b.staticPodOperatorClient,
+			b.operandNamespace,
+			eventRecorder,
+		)
 	}
 
 	if len(b.operandName) > 0 {
@@ -239,6 +247,9 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 	if controllers.installerController == nil {
 		errs = append(errs, fmt.Errorf("missing installerController; cannot proceed"))
 	}
+	if controllers.installerStateController == nil {
+		errs = append(errs, fmt.Errorf("missing installerStateController; cannot proceed"))
+	}
 	if controllers.staticPodStateController == nil {
 		eventRecorder.Warning("StaticPodStateControllerMissing", "not enough information provided, not all functionality is present")
 	}
@@ -255,6 +266,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (*staticPodOperator
 type staticPodOperatorControllers struct {
 	revisionController                   *revision.RevisionController
 	installerController                  *installer.InstallerController
+	installerStateController             *installerstate.InstallerStateController
 	staticPodStateController             *staticpodstate.StaticPodStateController
 	pruneController                      *prune.PruneController
 	nodeController                       *node.NodeController
@@ -272,6 +284,7 @@ func (o *staticPodOperatorControllers) WithInstallerPodMutationFn(installerPodMu
 func (o *staticPodOperatorControllers) Run(stopCh <-chan struct{}) {
 	go o.revisionController.Run(1, stopCh)
 	go o.installerController.Run(1, stopCh)
+	go o.installerStateController.Run(1, stopCh)
 	go o.staticPodStateController.Run(1, stopCh)
 	go o.pruneController.Run(1, stopCh)
 	go o.nodeController.Run(1, stopCh)
