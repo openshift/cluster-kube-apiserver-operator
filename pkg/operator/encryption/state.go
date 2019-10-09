@@ -49,10 +49,12 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 //
 // The basic rules are:
 //
-// 1. every GR must honor read-key with potentially written data.
-// 2. if (1) is the case, the write-key must be the most recent key.
-// 3. if (1) and (2) are the case, all non-write keys should be removed.
-// TODO unit tests
+// 1. don't do anything if there are key secrets.
+// 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
+// 3. if (2) is the case, the write-key must be the most recent key.
+// 4. if (2) and (3) are the case, all non-write keys should be removed.
+//
+// TODO: unit tests
 func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, toBeEncryptedGRs map[schema.GroupResource]bool) groupResourcesState {
 	//
 	// STEP 0: start with old encryption config, and alter is in the rest of the rest of the func towards the desired state.
@@ -90,41 +92,34 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	}
 
 	//
-	// STEP 2: verify to have all necessary read-keys. If not, deploy and wait for stability.
+	// STEP 2: verify to have all necessary read-keys. If not, add them, deploy and wait for stability.
 	//
+	// Note: we never drop keys here. Dropping only happens in STEP 4.
 	// Note: only keysWithPotentiallyPersistedData are considered. There might be more which are not pruned yet by the pruning controller.
 	//
 	// TODO: allow removing resources (e.g. on downgrades) and transition back to identity.
-	// TODO: if the operand namespace gets deleted, this code causes us to go through a cycle of identity as the write key
 	allReadSecretsAsExpected := true
 	currentlyEncryptedGRs := make([]schema.GroupResource, 0, len(desiredEncryptionState))
 	for gr := range getGRsActualKeys(oldEncryptionConfig) {
 		currentlyEncryptedGRs = append(currentlyEncryptedGRs, gr)
 	}
 	expectedReadSecrets := keysWithPotentiallyPersistedData(currentlyEncryptedGRs, encryptionSecrets)
-outer:
 	for gr, grState := range desiredEncryptionState {
-		if len(grState.readSecrets) < len(expectedReadSecrets) {
-			allReadSecretsAsExpected = false
-			klog.V(4).Infof("%s has missing read keys", gr)
-			break
-		}
-		for _, encryptionSecret := range expectedReadSecrets {
-			if !hasSecret(grState.readSecrets, *encryptionSecret) {
+		changed := false
+		for _, expected := range expectedReadSecrets {
+			if !hasSecret(grState.readSecrets, expected) {
+				grState.readSecrets = append(grState.readSecrets, expected)
+				changed = true
 				allReadSecretsAsExpected = false
-				klog.V(4).Infof("%s missing read secret %s", gr, encryptionSecret.Name)
-				break outer
+				klog.V(4).Infof("%s missing read secret %s", gr, expected.Name)
 			}
+		}
+		if changed {
+			desiredEncryptionState[gr] = grState
 		}
 	}
 	if !allReadSecretsAsExpected {
 		klog.V(4).Infof("not all read secrets in sync")
-		for gr := range desiredEncryptionState {
-			grState := desiredEncryptionState[gr]
-			// TODO: here we might lose read key if the "wrong" secrets are deleted
-			grState.readSecrets = expectedReadSecrets
-			desiredEncryptionState[gr] = grState
-		}
 		return desiredEncryptionState
 	}
 
@@ -470,7 +465,7 @@ func podReady(pod corev1.Pod) bool {
 	return false
 }
 
-func hasSecret(secrets []*corev1.Secret, secret corev1.Secret) bool {
+func hasSecret(secrets []*corev1.Secret, secret *corev1.Secret) bool {
 	for _, s := range secrets {
 		if s.Name == secret.Name {
 			return true

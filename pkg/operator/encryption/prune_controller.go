@@ -141,7 +141,7 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 	var deleteErrs []error
 	skippedKeys := 0
 	for _, s := range encryptionSecrets {
-		if hasSecret(usedSecrets, *s) {
+		if hasSecret(usedSecrets, s) {
 			continue
 		}
 
