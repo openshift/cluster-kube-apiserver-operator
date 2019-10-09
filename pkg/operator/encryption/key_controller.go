@@ -145,25 +145,23 @@ func (c *keyController) checkAndCreateKeys() error {
 		newKeyID       uint64
 		reasons        []string
 	)
-	if len(desiredEncryptionState) == 0 {
-		// create initial key
-		newKeyRequired = true
-		newKeyID = 1
-		reasons = append(reasons, "no-secrets")
-	} else {
-		for _, grKeys := range desiredEncryptionState {
-			keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
-			if !ok {
-				continue
-			}
 
-			newKeyRequired = true
-			nextKeyID := keyID + 1
-			if newKeyID < nextKeyID {
-				newKeyID = nextKeyID
-			}
-			reasons = append(reasons, internalReason)
+	// note here that desiredEncryptionState is never empty because getDesiredEncryptionState
+	// fills up the state with all resources and set identity write key if write key secrets
+	// are missing.
+
+	for _, grKeys := range desiredEncryptionState {
+		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
+		if !ok {
+			continue
 		}
+
+		newKeyRequired = true
+		nextKeyID := keyID + 1
+		if newKeyID < nextKeyID {
+			newKeyID = nextKeyID
+		}
+		reasons = append(reasons, internalReason)
 	}
 
 	if !newKeyRequired {

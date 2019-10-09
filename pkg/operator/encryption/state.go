@@ -47,6 +47,7 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 // getDesiredEncryptionState returns the desired state of encryption for all resources.
 // To do this it compares the current state against the available secrets and to-be-encrypted resources.
 // oldEncryptionConfig can be nil if there is no config yet.
+// If there are no secrets, the identity is set for all resources as write key.
 //
 // The basic rules are:
 //
@@ -61,6 +62,9 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// STEP 0: start with old encryption config, and alter is in the rest of the rest of the func towards the desired state.
 	//
 	desiredEncryptionState := encryptionConfigToEncryptionState(targetNamespace, oldEncryptionConfig)
+	if desiredEncryptionState == nil {
+		desiredEncryptionState = groupResourcesState{}
+	}
 
 	//
 	// STEP 1: without secrets, wait for the key controller to create one
@@ -68,10 +72,21 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// the code after this point assumes at least one secret
 	if len(encryptionSecrets) == 0 {
 		klog.V(4).Infof("no encryption secrets found")
+
+		// rotate through identity. This will also trigger a new key being generated
+		for _, gr := range toBeEncryptedGRs {
+			if _, ok := desiredEncryptionState[gr]; !ok {
+				desiredEncryptionState[gr] = keysState{
+					targetNamespace: targetNamespace,
+				}
+			} else {
+				grState := desiredEncryptionState[gr]
+				grState.writeSecret = nil
+				desiredEncryptionState[gr] = grState
+			}
+		}
+
 		return desiredEncryptionState
-	}
-	if desiredEncryptionState == nil {
-		desiredEncryptionState = groupResourcesState{}
 	}
 
 	// add new resources without keys. These resources will trigger STEP 2.

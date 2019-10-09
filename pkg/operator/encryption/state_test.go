@@ -22,12 +22,6 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 	}
 	type ValidateState func(ts *testing.T, args *args, state groupResourcesState)
 
-	nilState := func(ts *testing.T, _ *args, state groupResourcesState) {
-		if state != nil {
-			ts.Errorf("expected nil state, got: %#v", state)
-		}
-	}
-
 	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state groupResourcesState) {
 		return func(ts *testing.T, _ *args, state groupResourcesState) {
 			if expected == nil && state != nil {
@@ -60,17 +54,32 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		validate ValidateState
 	}{
 		{
-			"first run: no config, no secrets => nothing done, nil state returned",
+			"first run: no config, no secrets => nothing done, state with identities for each resource",
 			args{
 				nil,
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
-			nilState,
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{
+					{
+						Resources: []string{"configmaps"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					},
+					{
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					},
+				},
+			}),
 		},
 		{
-			"config exists, no secrets => nothing done, config unchanged",
+			"config exists without write keys, no secrets => nothing done, config unchanged",
 			args{
 				createEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
 				"kms",
@@ -78,6 +87,67 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
 			outputMatchingInputConfig,
+		},
+		{
+			"config exists with write keys, no secrets => nothing done, config unchanged",
+			args{
+				&apiserverconfigv1.EncryptionConfiguration{
+					Resources: []apiserverconfigv1.ResourceConfiguration{{
+						Resources: []string{"configmaps"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}, {
+						Resources: []string{"secrets"},
+						Providers: []apiserverconfigv1.ProviderConfiguration{{
+							AESCBC: &apiserverconfigv1.AESConfiguration{
+								Keys: []apiserverconfigv1.Key{{
+									Name:   "1",
+									Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
+								}},
+							},
+						}, {
+							Identity: &apiserverconfigv1.IdentityConfiguration{},
+						}},
+					}},
+				},
+				"kms",
+				nil,
+				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
+			},
+			equalsConfig(&apiserverconfigv1.EncryptionConfiguration{
+				Resources: []apiserverconfigv1.ResourceConfiguration{{
+					Resources: []string{"configmaps"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}, {
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "1",
+								Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}},
+				}, {
+					Resources: []string{"secrets"},
+					Providers: []apiserverconfigv1.ProviderConfiguration{{
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
+					}, {
+						AESCBC: &apiserverconfigv1.AESConfiguration{
+							Keys: []apiserverconfigv1.Key{{
+								Name:   "1",
+								Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
+							}},
+						},
+					}},
+				}}}),
 		},
 		{
 			"config exists with only one resource => 2nd resource is added",
