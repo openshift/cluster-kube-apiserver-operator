@@ -46,6 +46,7 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 
 // getDesiredEncryptionState returns the desired state of encryption for all resources.
 // To do this it compares the current state against the available secrets and to-be-encrypted resources.
+// oldEncryptionConfig can be nil if there is no config yet.
 //
 // The basic rules are:
 //
@@ -53,34 +54,13 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-//
-// TODO: unit tests
-func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecretList *corev1.SecretList, toBeEncryptedGRs map[schema.GroupResource]bool) groupResourcesState {
+func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) groupResourcesState {
+	encryptionSecrets = sortRecentFirst(encryptionSecrets)
+
 	//
 	// STEP 0: start with old encryption config, and alter is in the rest of the rest of the func towards the desired state.
 	//
 	desiredEncryptionState := encryptionConfigToEncryptionState(targetNamespace, oldEncryptionConfig)
-
-	// Order encryption secrets w/ DESCENDING keyID, i.e. recent first
-	encryptionSecrets := make([]*corev1.Secret, 0, len(encryptionSecretList.Items))
-	for _, s := range encryptionSecretList.Items {
-		if _, _, ok := secretToKeyAndMode(&s, targetNamespace); !ok {
-			klog.Infof("skipping invalid encryption secret %s", s.Name)
-			continue
-		} else {
-			encryptionSecrets = append(encryptionSecrets, s.DeepCopy()) // don't use &s which is constant in the loop
-		}
-	}
-	encryptionSecrets = sortRecentFirst(encryptionSecrets)
-
-	// add new resources without keys. These resources will trigger STEP 2.
-	for gr := range toBeEncryptedGRs {
-		if _, ok := desiredEncryptionState[gr]; !ok {
-			desiredEncryptionState[gr] = keysState{
-				targetNamespace: targetNamespace,
-			}
-		}
-	}
 
 	//
 	// STEP 1: without secrets, wait for the key controller to create one
@@ -89,6 +69,18 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	if len(encryptionSecrets) == 0 {
 		klog.V(4).Infof("no encryption secrets found")
 		return desiredEncryptionState
+	}
+	if desiredEncryptionState == nil {
+		desiredEncryptionState = groupResourcesState{}
+	}
+
+	// add new resources without keys. These resources will trigger STEP 2.
+	for _, gr := range toBeEncryptedGRs {
+		if _, ok := desiredEncryptionState[gr]; !ok {
+			desiredEncryptionState[gr] = keysState{
+				targetNamespace: targetNamespace,
+			}
+		}
 	}
 
 	//
@@ -100,8 +92,14 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// TODO: allow removing resources (e.g. on downgrades) and transition back to identity.
 	allReadSecretsAsExpected := true
 	currentlyEncryptedGRs := make([]schema.GroupResource, 0, len(desiredEncryptionState))
-	for gr := range getGRsActualKeys(oldEncryptionConfig) {
-		currentlyEncryptedGRs = append(currentlyEncryptedGRs, gr)
+	if oldEncryptionConfig != nil {
+		for gr := range getGRsActualKeys(oldEncryptionConfig) {
+			currentlyEncryptedGRs = append(currentlyEncryptedGRs, gr)
+		}
+	} else {
+		// if the config is not there, we assume it was deleted. Assume all toBeEncryptedGRs were
+		// encrypted before and key matching secret keys.
+		currentlyEncryptedGRs = toBeEncryptedGRs
 	}
 	expectedReadSecrets := keysWithPotentiallyPersistedData(currentlyEncryptedGRs, encryptionSecrets)
 	for gr, grState := range desiredEncryptionState {
@@ -205,13 +203,13 @@ func keysWithPotentiallyPersistedData(grs []schema.GroupResource, recentFirstSor
 }
 
 func encryptionConfigToEncryptionState(targetNamespace string, c *apiserverconfigv1.EncryptionConfiguration) groupResourcesState {
-	// convert old config to the base of desired state
-	// TODO: fix case with missing secrets (now panics below in hasSecrets)
-	s := groupResourcesState{}
-	currentlyEncryptedGRs := make([]schema.GroupResource, 0, len(s))
-	for gr, keys := range getGRsActualKeys(c) {
-		currentlyEncryptedGRs = append(currentlyEncryptedGRs, gr)
+	if c == nil {
+		return nil
+	}
 
+	// convert old config to the base of desired state
+	s := groupResourcesState{}
+	for gr, keys := range getGRsActualKeys(c) {
 		readSecrets := make([]*corev1.Secret, 0, len(keys.readKeys)+1)
 
 		var writeSecret *corev1.Secret
@@ -284,6 +282,10 @@ func sortRecentFirst(encryptionSecrets []*corev1.Secret) []*corev1.Secret {
 // name of the key somewhere).  this is not an issue because aesgcm is not supported as a key provider since it
 // is unsafe to use when you cannot control the number of writes (and we have no way to control apiserver writes).
 func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
+	if encryptionConfig == nil {
+		return nil
+	}
+
 	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {
 		// resources should be a single group resource and
@@ -382,8 +384,22 @@ func getEncryptionConfigAndState(
 	if err != nil {
 		return nil, nil, "", err
 	}
+	var encryptionSecrets []*corev1.Secret
+	for i, s := range encryptionSecretList.Items {
+		if _, _, ok := secretToKeyAndMode(&s, targetNamespace); !ok {
+			klog.Infof("skipping invalid encryption secret %s", s.Name)
+			continue
+		} else {
+			encryptionSecrets = append(encryptionSecrets, &encryptionSecretList.Items[i])
+		}
+	}
 
-	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecretList, encryptedGRs)
+	var encryptedGRsList []schema.GroupResource
+	for gr := range encryptedGRs {
+		encryptedGRsList = append(encryptedGRsList, gr)
+	}
+
+	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecrets, encryptedGRsList)
 
 	return encryptionConfig, desiredEncryptionState, "", nil
 }
