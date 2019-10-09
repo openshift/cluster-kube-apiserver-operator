@@ -3,9 +3,9 @@ package encryption
 import (
 	"errors"
 	"fmt"
-	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"testing"
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,8 +15,10 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
-	"testing"
-	"time"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func TestEncryptionStateController(t *testing.T) {
@@ -97,7 +99,7 @@ func TestEncryptionStateController(t *testing.T) {
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
-				createReadEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
+				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 				func() *corev1.Secret {
 					ec := createEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
@@ -193,7 +195,7 @@ func TestEncryptionStateController(t *testing.T) {
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 33, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
-				createReadEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
+				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("dda090c18770163d57d6aaca85f7b3a5")),
 				func() *corev1.Secret { // encryption config in kms namespace
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
@@ -388,7 +390,7 @@ func TestEncryptionStateController(t *testing.T) {
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 31, []byte("a1f1b3e36c477d91ea85af0f32358f70")),
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 32, []byte("42b07b385a0edee268f1ac41cfc53857")),
 				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 33, []byte("b0af82240e10c032fd9bbbedd3b5955a")),
-				createReadEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
+				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("1c06e8517890c8dc44f627905efc86b8")),
 				func() *corev1.Secret { // encryption config in kms namespace
 					keysRes := encryptionKeysResourceTuple{
 						resource: "secrets",
@@ -677,7 +679,7 @@ func TestEncryptionStateController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 
-			target := newEncryptionStateController(
+			target := newStateController(
 				scenario.targetNamespace, scenario.destName,
 				fakeOperatorClient,
 				kubeInformers,

@@ -25,7 +25,7 @@ import (
 
 const stateWorkKey = "key"
 
-// encryptionStateController is responsible for creating a single secret in
+// stateController is responsible for creating a single secret in
 // openshift-config-managed with the name destName.  This single secret
 // contains the complete EncryptionConfiguration that is consumed by the API
 // server that is performing the encryption.  Thus this secret represents
@@ -36,7 +36,7 @@ const stateWorkKey = "key"
 // See getResourceConfigs for details on how the raw state of all keys
 // is converted into a single encryption config.  The logic for determining
 // the current write key is of special interest.
-type encryptionStateController struct {
+type stateController struct {
 	queue              workqueue.RateLimitingInterface
 	eventRecorder      events.Recorder
 	preRunCachesSynced []cache.InformerSynced
@@ -49,9 +49,11 @@ type encryptionStateController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 	secretClient   corev1client.SecretsGetter
 	podClient      corev1client.PodsGetter
+
+	encoder runtime.Encoder
 }
 
-func newEncryptionStateController(
+func newStateController(
 	targetNamespace, destName string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -60,8 +62,8 @@ func newEncryptionStateController(
 	eventRecorder events.Recorder,
 	encryptedGRs map[schema.GroupResource]bool,
 	podClient corev1client.PodsGetter,
-) *encryptionStateController {
-	c := &encryptionStateController{
+) *stateController {
+	c := &stateController{
 		operatorClient: operatorClient,
 
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
@@ -77,11 +79,12 @@ func newEncryptionStateController(
 	}
 
 	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.encoder = apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 
 	return c
 }
 
-func (c *encryptionStateController) sync() error {
+func (c *stateController) sync() error {
 	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
@@ -105,7 +108,7 @@ func (c *encryptionStateController) sync() error {
 	return configError
 }
 
-func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecret() error {
+func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
 	// TODO: fix scenarios 7 and 8
 	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
@@ -126,9 +129,9 @@ func (c *encryptionStateController) generateAndApplyCurrentEncryptionConfigSecre
 	return c.applyEncryptionConfigSecret(resourceConfigs)
 }
 
-func (c *encryptionStateController) applyEncryptionConfigSecret(resourceConfigs []apiserverconfigv1.ResourceConfiguration) error {
+func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserverconfigv1.ResourceConfiguration) error {
 	encryptionConfig := &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}
-	encryptionConfigBytes, err := runtime.Encode(encoder, encryptionConfig)
+	encryptionConfigBytes, err := runtime.Encode(c.encoder, encryptionConfig)
 	if err != nil {
 		return err // indicates static generated code is broken, unrecoverable
 	}
@@ -147,7 +150,7 @@ func (c *encryptionStateController) applyEncryptionConfigSecret(resourceConfigs 
 	return applyErr
 }
 
-func (c *encryptionStateController) run(stopCh <-chan struct{}) {
+func (c *stateController) run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -164,12 +167,12 @@ func (c *encryptionStateController) run(stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-func (c *encryptionStateController) runWorker() {
+func (c *stateController) runWorker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *encryptionStateController) processNextWorkItem() bool {
+func (c *stateController) processNextWorkItem() bool {
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
@@ -188,7 +191,7 @@ func (c *encryptionStateController) processNextWorkItem() bool {
 	return true
 }
 
-func (c *encryptionStateController) eventHandler() cache.ResourceEventHandler {
+func (c *stateController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.queue.Add(stateWorkKey) },
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(stateWorkKey) },
