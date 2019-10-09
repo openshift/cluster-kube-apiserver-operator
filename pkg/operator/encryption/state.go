@@ -289,8 +289,7 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 	out := map[schema.GroupResource]groupResourceKeys{}
 	for _, resourceConfig := range encryptionConfig.Resources {
 		// resources should be a single group resource and
-		// providers should be have at least one "key" provider and the identity provider
-		if len(resourceConfig.Resources) != 1 || len(resourceConfig.Providers) < 2 {
+		if len(resourceConfig.Resources) != 1 {
 			klog.Infof("skipping invalid encryption config for resource %s", resourceConfig.Resources)
 			continue // should never happen
 		}
