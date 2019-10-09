@@ -106,13 +106,12 @@ func (c *pruneController) sync() error {
 }
 
 func (c *pruneController) deleteOldMigratedSecrets() error {
-	_, desiredEncryptionConfig, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	_, desiredEncryptionConfig, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-	// do not try to delete anything during a transition state
-	if len(desiredEncryptionConfig) == 0 {
-		// we are woken up when the pods or secrets change
+	if len(isProgressingReason) > 0 {
+		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
 		return nil
 	}
 

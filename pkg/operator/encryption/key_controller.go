@@ -131,12 +131,11 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	_, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-	// we cannot make new keys during transition states because we do not know the correct desired state
-	if len(encryptionState) == 0 {
+	if len(isProgressingReason) > 0 {
 		c.queue.AddAfter(encWorkKey, 2*time.Minute)
 		return nil
 	}
@@ -146,18 +145,25 @@ func (c *keyController) checkAndCreateKeys() error {
 		newKeyID       uint64
 		reasons        []string
 	)
-	for _, grKeys := range encryptionState {
-		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
-		if !ok {
-			continue
-		}
-
+	if len(desiredEncryptionState) == 0 {
+		// create initial key
 		newKeyRequired = true
-		nextKeyID := keyID + 1
-		if newKeyID < nextKeyID {
-			newKeyID = nextKeyID
+		newKeyID = 1
+		reasons = append(reasons, "no-secrets")
+	} else {
+		for _, grKeys := range desiredEncryptionState {
+			keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
+			if !ok {
+				continue
+			}
+
+			newKeyRequired = true
+			nextKeyID := keyID + 1
+			if newKeyID < nextKeyID {
+				newKeyID = nextKeyID
+			}
+			reasons = append(reasons, internalReason)
 		}
-		reasons = append(reasons, internalReason)
 	}
 
 	if !newKeyRequired {
