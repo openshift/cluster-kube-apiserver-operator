@@ -379,7 +379,7 @@ func getEncryptionConfigAndState(
 	secretClient corev1client.SecretsGetter,
 	targetNamespace string,
 	encryptionSecretSelector metav1.ListOptions,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 ) (*apiserverconfigv1.EncryptionConfiguration, groupResourcesState, string, error) {
 	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
 	if err != nil {
@@ -408,12 +408,7 @@ func getEncryptionConfigAndState(
 		}
 	}
 
-	var encryptedGRsList []schema.GroupResource
-	for gr := range encryptedGRs {
-		encryptedGRsList = append(encryptedGRsList, gr)
-	}
-
-	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecrets, encryptedGRsList)
+	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecrets, encryptedGRs)
 
 	return encryptionConfig, desiredEncryptionState, "", nil
 }

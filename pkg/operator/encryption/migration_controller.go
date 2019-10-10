@@ -58,7 +58,7 @@ type migrationController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs map[schema.GroupResource]bool
+	encryptedGRs []schema.GroupResource
 
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -78,7 +78,7 @@ func newMigrationController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 	podClient corev1client.PodsGetter,
 	dynamicClient dynamic.Interface, // temporary hack
 	discoveryClient discovery.ServerResourcesInterface,

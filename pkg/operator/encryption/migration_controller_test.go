@@ -33,11 +33,11 @@ func TestEncryptionMigrationController(t *testing.T) {
 		initialSecrets           []*corev1.Secret
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
-		targetGRs                map[schema.GroupResource]bool
+		targetGRs                []schema.GroupResource
 		targetAPIResources       []metav1.APIResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions            []string
-		validateFunc               func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs map[schema.GroupResource]bool, unstructuredObjs []runtime.Object)
+		validateFunc               func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object)
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
 		expectedError              error
 	}{
@@ -45,9 +45,9 @@ func TestEncryptionMigrationController(t *testing.T) {
 		{
 			name:            "a happy path scenario that tests resources encryption and secrets annotation",
 			targetNamespace: "kms",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}:    true,
-				{Group: "", Resource: "configmaps"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+				{Group: "", Resource: "configmaps"},
 			},
 			targetAPIResources: []metav1.APIResource{
 				{
@@ -130,7 +130,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 				"update:secrets:openshift-config-managed",
 				"create:events:kms",
 			},
-			validateFunc: func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs map[schema.GroupResource]bool, unstructuredObjs []runtime.Object) {
+			validateFunc: func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object) {
 				// validate if the secrets were properly annotated
 				validateSecretsWereAnnotated(ts, []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, actionsKube, []*corev1.Secret{initialSecrets[0]})
 				// validate if the resources were "encrypted"
@@ -200,7 +200,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 				if len(kind) == 0 {
 					return false
 				}
-				for gr := range scenario.targetGRs {
+				for _, gr := range scenario.targetGRs {
 					if strings.HasPrefix(gr.Resource, strings.ToLower(kind)) {
 						return true
 					}
@@ -269,7 +269,7 @@ func TestEncryptionMigrationController(t *testing.T) {
 	}
 }
 
-func validateMigratedResources(ts *testing.T, actions []clientgotesting.Action, unstructuredObjs []runtime.Object, targetGRs map[schema.GroupResource]bool) {
+func validateMigratedResources(ts *testing.T, actions []clientgotesting.Action, unstructuredObjs []runtime.Object, targetGRs []schema.GroupResource) {
 	ts.Helper()
 
 	expectedActionsNoList := len(actions) - len(targetGRs) // subtract "list" requests
@@ -280,7 +280,7 @@ func validateMigratedResources(ts *testing.T, actions []clientgotesting.Action, 
 	// validate LIST requests
 	{
 		validatedListRequests := 0
-		for gr := range targetGRs {
+		for _, gr := range targetGRs {
 			for _, action := range actions {
 				if action.Matches("list", gr.Resource) {
 					validatedListRequests++

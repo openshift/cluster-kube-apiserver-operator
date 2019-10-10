@@ -39,21 +39,21 @@ func TestKeyController(t *testing.T) {
 		apiServerObjects         []runtime.Object
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
-		targetGRs                map[schema.GroupResource]bool
+		targetGRs                []schema.GroupResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions            []string
-		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool)
+		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource)
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
 		expectedError              error
 	}{
 		{
 			name: "no apiservers config",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
 			initialObjects:  []runtime.Object{},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
 			expectedError:   fmt.Errorf(`apiservers.config.openshift.io "cluster" not found`),
 			expectedActions: []string{},
@@ -61,26 +61,26 @@ func TestKeyController(t *testing.T) {
 
 		{
 			name: "no pod",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace:  "kms",
 			initialObjects:   []runtime.Object{},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
 			expectedActions: []string{"list:pods:kms"},
 		},
 
 		{
 			name: "encryption disabled",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace:  "kms",
 			initialObjects:   []runtime.Object{createDummyKubeAPIPod("kube-apiserver", "kms")},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
@@ -89,8 +89,8 @@ func TestKeyController(t *testing.T) {
 		// It expects that a secret resource with an appropriate key, name and labels will be created.
 		{
 			name: "checks if a secret with AES256 key for core/secret is created",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
@@ -105,7 +105,7 @@ func TestKeyController(t *testing.T) {
 					},
 				},
 			}},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -131,8 +131,8 @@ func TestKeyController(t *testing.T) {
 		// Verifies if a new key is not created when there is a valid write key in the system.
 		{
 			name: "no-op when a valid write key exists",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),
@@ -146,8 +146,8 @@ func TestKeyController(t *testing.T) {
 		// Checks if a new key is not created when there is a valid write (migrated/used) key in the system.
 		{
 			name: "no-op when a valid migrated key exists",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),
@@ -161,8 +161,8 @@ func TestKeyController(t *testing.T) {
 		// Checks if a new write key is created because the previous one was migrated.
 		{
 			name: "creates a new write key because the previous one expired",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),
@@ -171,7 +171,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -198,8 +198,8 @@ func TestKeyController(t *testing.T) {
 		// Checks if a new write key is not created given that the previous one was migrated and the new write key already exists.
 		{
 			name: "no-op when the previous key was migrated and the current one is valid but hasn't been observed (no read/write annotations)",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),
@@ -215,8 +215,8 @@ func TestKeyController(t *testing.T) {
 		// note that IDs of keys (not secrets) cannot exceed 100
 		{
 			name: "creates a new write key because the previous one expired - overflow",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),
@@ -225,7 +225,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs map[schema.GroupResource]bool) {
+			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 				wasSecretValidated := false
 				for _, action := range actions {
 					if action.Matches("create", "secrets") {
@@ -251,8 +251,8 @@ func TestKeyController(t *testing.T) {
 
 		{
 			name: "degraded a secret with invalid key exists",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver", "kms"),

@@ -27,7 +27,7 @@ func TestPruneController(t *testing.T) {
 		initialSecrets           []*corev1.Secret
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
-		targetGRs                map[schema.GroupResource]bool
+		targetGRs                []schema.GroupResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions       []string
 		expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration
@@ -36,8 +36,8 @@ func TestPruneController(t *testing.T) {
 		{
 			name:            "no-op only 10 keys were migrated",
 			targetNamespace: "kms",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialSecrets: func() []*corev1.Secret {
 				ns := "kms"
@@ -52,8 +52,8 @@ func TestPruneController(t *testing.T) {
 		{
 			name:            "14 keys were migrated, 1 of them is used, 10 are kept, the 3 most recent are pruned",
 			targetNamespace: "kms",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialSecrets: createMigratedEncryptionKeySecretsWithRndKey(t, 14, "kms", "secrets"),
 			expectedActions: []string{
@@ -76,8 +76,8 @@ func TestPruneController(t *testing.T) {
 		{
 			name:            "no-op the migrated keys don't match the selector",
 			targetNamespace: "kms",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialSecrets: func() []*corev1.Secret {
 				return createMigratedEncryptionKeySecretsWithRndKey(t, 15, "not-kms", "secrets")
@@ -118,16 +118,12 @@ func TestPruneController(t *testing.T) {
 			for _, initialSecret := range scenario.initialSecrets {
 				rawSecrets = append(rawSecrets, initialSecret)
 			}
-			grs := []schema.GroupResource{}
-			for gr := range scenario.targetGRs {
-				grs = append(grs, gr)
-			}
 			fakePod := createDummyKubeAPIPod("kube-apiserver-1", "kms")
 			writeKeyRaw := []byte("71ea7c91419a68fd1224f88d50316b4e") // NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=
 			writeKeyID := uint64(len(scenario.initialSecrets) + 1)
 			writeKeySecret := createEncryptionKeySecretWithRawKey(scenario.targetNamespace, nil, writeKeyID, writeKeyRaw)
 			encryptionConfig := func() *corev1.Secret {
-				additionalReadSecrets := keysWithPotentiallyPersistedData(grs, sortRecentFirst(scenario.initialSecrets))
+				additionalReadSecrets := keysWithPotentiallyPersistedData(scenario.targetGRs, sortRecentFirst(scenario.initialSecrets))
 				var additionaReadKeys []apiserverconfigv1.Key
 				for _, s := range additionalReadSecrets {
 					km, readKeyID, _ := secretToKeyAndMode(s, scenario.targetNamespace)

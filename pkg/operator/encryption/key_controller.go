@@ -57,7 +57,7 @@ type keyController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs map[schema.GroupResource]bool
+	encryptedGRs []schema.GroupResource
 
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -76,7 +76,7 @@ func newKeyController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 ) *keyController {
 	c := &keyController{
 		operatorClient:  operatorClient,

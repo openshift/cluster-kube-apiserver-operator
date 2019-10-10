@@ -43,7 +43,7 @@ type pruneController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs map[schema.GroupResource]bool
+	encryptedGRs []schema.GroupResource
 
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -60,7 +60,7 @@ func newPruneController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 ) *pruneController {
 	c := &pruneController{
 		operatorClient: operatorClient,

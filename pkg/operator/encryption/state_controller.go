@@ -41,7 +41,7 @@ type stateController struct {
 	eventRecorder      events.Recorder
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs             map[schema.GroupResource]bool
+	encryptedGRs             []schema.GroupResource
 	encryptionConfigName     string
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -58,10 +58,10 @@ func newStateController(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
+	podClient corev1client.PodsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
-	podClient corev1client.PodsGetter,
+	encryptedGRs []schema.GroupResource,
 ) *stateController {
 	c := &stateController{
 		operatorClient: operatorClient,
@@ -69,9 +69,9 @@ func newStateController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs:         encryptedGRs,
 		encryptionConfigName: destName,
+		targetNamespace:      targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
