@@ -47,9 +47,9 @@ const migrationWorkKey = "key"
 //   - a write-key for a resource does not show up in the
 //     encryption.apiserver.operator.openshift.io/migrated-resources And then
 //     starts a migration job (currently in-place synchronously, soon with the upstream migration tool)
-// * updates the encryption.operator.openshift.io/migrated-timestamp and
-//   encryption.operator.openshift.io/migrated-resources annotations on the
-//   write-key secrets used for migration in the previous step.
+// * updates the encryption.apiserver.operator.openshift.io/migrated-timestamp and
+//   encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
+//   current write-key secrets.
 type migrationController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 

@@ -131,12 +131,11 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	_, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-	// we cannot make new keys during transition states because we do not know the correct desired state
-	if len(encryptionState) == 0 {
+	if len(isProgressingReason) > 0 {
 		c.queue.AddAfter(encWorkKey, 2*time.Minute)
 		return nil
 	}
@@ -146,7 +145,12 @@ func (c *keyController) checkAndCreateKeys() error {
 		newKeyID       uint64
 		reasons        []string
 	)
-	for _, grKeys := range encryptionState {
+
+	// note here that desiredEncryptionState is never empty because getDesiredEncryptionState
+	// fills up the state with all resources and set identity write key if write key secrets
+	// are missing.
+
+	for _, grKeys := range desiredEncryptionState {
 		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
 		if !ok {
 			continue

@@ -153,29 +153,32 @@ func actionStrings(actions []clientgotesting.Action) []string {
 }
 
 func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
-	return &apiserverconfigv1.EncryptionConfiguration{
+	ret := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
 			APIVersion: "apiserver.config.k8s.io/v1",
 		},
-		Resources: []apiserverconfigv1.ResourceConfiguration{
-			{
-				Resources: resources,
-				Providers: []apiserverconfigv1.ProviderConfiguration{
-					{
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
-					},
-					{
-						AESCBC: &apiserverconfigv1.AESConfiguration{
-							Keys: []apiserverconfigv1.Key{
-								{Name: keyID, Secret: keyBase64},
-							},
+	}
+
+	for _, r := range resources {
+		ret.Resources = append(ret.Resources, apiserverconfigv1.ResourceConfiguration{
+			Resources: []string{r},
+			Providers: []apiserverconfigv1.ProviderConfiguration{
+				{
+					Identity: &apiserverconfigv1.IdentityConfiguration{},
+				},
+				{
+					AESCBC: &apiserverconfigv1.AESConfiguration{
+						Keys: []apiserverconfigv1.Key{
+							{Name: keyID, Secret: keyBase64},
 						},
 					},
 				},
 			},
-		},
+		})
 	}
+
+	return ret
 }
 
 func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
@@ -209,10 +212,9 @@ func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple
 	}
 }
 
-func createEncryptionCfgSecretWithWriteKeys(t *testing.T, targetNs string, revision string, keysResources []encryptionKeysResourceTuple) *corev1.Secret {
+func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
 	t.Helper()
 
-	encryptionCfg := createEncryptionCfgWithWriteKey(keysResources)
 	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
 	if err != nil {

@@ -23,7 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestEncryptionKeyController(t *testing.T) {
+func TestKeyController(t *testing.T) {
 	apiServerAesCBC := []runtime.Object{&configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Spec: configv1.APIServerSpec{
@@ -94,7 +94,9 @@ func TestEncryptionKeyController(t *testing.T) {
 			},
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
-			initialObjects:  []runtime.Object{createDummyKubeAPIPod("kube-apiserver", "kms")},
+			initialObjects: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver", "kms"),
+			},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec: configv1.APIServerSpec{
