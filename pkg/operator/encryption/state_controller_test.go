@@ -22,7 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestEncryptionStateController(t *testing.T) {
+func TestStateController(t *testing.T) {
 	scenarios := []struct {
 		name                     string
 		initialResources         []runtime.Object

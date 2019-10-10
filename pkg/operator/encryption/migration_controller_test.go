@@ -26,7 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestEncryptionMigrationController(t *testing.T) {
+func TestMigrationController(t *testing.T) {
 	scenarios := []struct {
 		name                     string
 		initialResources         []runtime.Object
