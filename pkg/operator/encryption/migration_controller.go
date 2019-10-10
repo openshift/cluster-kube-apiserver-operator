@@ -160,6 +160,9 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, er
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
+	if currentEncryptionConfig == nil {
+		return "", nil
+	}
 
 	// TODO we need this check?  Could it dead lock?  -> seems more possible now
 	// no storage migration until all masters catch up with revision
