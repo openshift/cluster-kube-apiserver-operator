@@ -110,7 +110,7 @@ func (c *stateController) sync() error {
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
 	// TODO: fix scenarios 7 and 8
-	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}

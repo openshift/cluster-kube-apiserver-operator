@@ -26,13 +26,18 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 	if err != nil {
 		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {
-			return &apiserverconfigv1.EncryptionConfiguration{}, nil
+			return nil, nil
 		}
 		return nil, err
 	}
 
+	data, ok := encryptionConfigSecret.Data[encryptionConfSecret]
+	if !ok {
+		return nil, nil
+	}
+
 	decoder := apiserverCodecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
-	encryptionConfigObj, err := runtime.Decode(decoder, encryptionConfigSecret.Data[encryptionConfSecret])
+	encryptionConfigObj, err := runtime.Decode(decoder, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode encryption config at revision %s: %v", revision, err)
 	}
@@ -380,23 +385,23 @@ func getEncryptionConfigAndState(
 	targetNamespace string,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
-) (*apiserverconfigv1.EncryptionConfiguration, groupResourcesState, string, error) {
+) (current *apiserverconfigv1.EncryptionConfiguration, desired groupResourcesState, secretsFound bool, transitioningReason string, err error) {
 	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, false, "", err
 	}
 	if len(revision) == 0 {
-		return nil, nil, "APIServerRevisionNotConverged", nil
+		return nil, nil, false, "APIServerRevisionNotConverged", nil
 	}
 
 	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, false, "", err
 	}
 
 	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, false, "", err
 	}
 	var encryptionSecrets []*corev1.Secret
 	for i, s := range encryptionSecretList.Items {
@@ -410,7 +415,7 @@ func getEncryptionConfigAndState(
 
 	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecrets, encryptedGRs)
 
-	return encryptionConfig, desiredEncryptionState, "", nil
+	return encryptionConfig, desiredEncryptionState, len(encryptionSecrets) > 0, "", nil
 }
 
 // getAPIServerRevisionOfAllInstances attempts to find the current revision that

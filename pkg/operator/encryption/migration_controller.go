@@ -156,7 +156,7 @@ type migrationTracker struct {
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
