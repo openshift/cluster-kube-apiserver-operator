@@ -140,6 +140,12 @@ func (c *keyController) checkAndCreateKeys() error {
 		return nil
 	}
 
+	// avoid intended start of encryption
+	hasBeenOnBefore := currentConfig != nil || secretsFound
+	if currentMode == identity && !hasBeenOnBefore {
+		return nil
+	}
+
 	var (
 		newKeyRequired bool
 		newKeyID       uint64

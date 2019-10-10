@@ -109,24 +109,23 @@ func (c *stateController) sync() error {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	// TODO: fix scenarios 7 and 8
 	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-	if len(encryptionState) == 0 {
+	if len(transitioningReason) > 0 {
 		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil
 	}
 
-	resourceConfigs := getResourceConfigs(encryptionState)
-
-	// if we have no config, do not create the secret
-	if len(resourceConfigs) == 0 {
+	if currentConfig == nil && !secretsFound {
+		// we depend on the key controller to create the first key to bootstrap encryption.
+		// Later-on either the config exists or there are keys, even in the case of disabled
+		// encryption via the apiserver config.
 		return nil
 	}
 
-	return c.applyEncryptionConfigSecret(resourceConfigs)
+	return c.applyEncryptionConfigSecret(getResourceConfigs(desiredEncryptionState))
 }
 
 func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserverconfigv1.ResourceConfiguration) error {
