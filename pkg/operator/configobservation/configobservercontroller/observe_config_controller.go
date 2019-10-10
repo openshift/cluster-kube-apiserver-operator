@@ -20,7 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
-
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
@@ -42,9 +42,11 @@ func NewConfigObserver(
 		operatorclient.OperatorNamespace,
 	}
 
-	configMapPreRunCacheSynced := []cache.InformerSynced{}
+	preRunCacheSynced := []cache.InformerSynced{}
 	for _, ns := range interestingNamespaces {
-		configMapPreRunCacheSynced = append(configMapPreRunCacheSynced, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced)
+		preRunCacheSynced = append(preRunCacheSynced,
+			kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced,
+		)
 	}
 
 	c := &ConfigObserver{
@@ -62,13 +64,15 @@ func NewConfigObserver(
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
+				SecretLister_:                kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
 
 				ResourceSync: resourceSyncer,
-				PreRunCachesSynced: append(configMapPreRunCacheSynced,
+				PreRunCachesSynced: append(preRunCacheSynced,
 					operatorClient.Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
+					kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer().HasSynced,
 
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
 					configInformer.Config().V1().Authentications().Informer().HasSynced,
@@ -87,6 +91,10 @@ func NewConfigObserver(
 			apiserver.ObserveUserClientCABundle,
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			auth.ObserveAuthMetadata,
+			encryption.NewEncryptionConfigObserver(
+				operatorclient.TargetNamespace,
+				[]string{"apiServerArguments", "encryption-provider-config"},
+			),
 			etcd.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
 				"openshift-kube-apiserver",
