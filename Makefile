@@ -44,11 +44,12 @@ $(call add-bindata,v4.1.0,./bindata/v4.1.0/...,bindata,v410_00_assets,pkg/operat
 # $4 - output
 $(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 
+test-e2e: GO_TEST_FLAGS += -timeout 1h
 # these are extremely slow serial e2e encryption tests that modify the cluster's global state 
 .PHONY: test-e2e-encryption
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
-test-e2e-encryption: GO_TEST_FLAGS += -timeout 3h
+test-e2e-encryption: GO_TEST_FLAGS += -timeout 4h
 test-e2e-encryption: GO_TEST_FLAGS += -p 1
 test-e2e-encryption: GO_TEST_FLAGS += -parallel 1
 test-e2e-encryption: test-unit
