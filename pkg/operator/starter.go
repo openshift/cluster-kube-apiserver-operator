@@ -5,14 +5,22 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -24,10 +32,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -144,6 +148,24 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	encryptionControllers, err := encryption.NewControllers(
+		operatorclient.TargetNamespace,
+		"encryption-config-kube-apiserver",
+		operatorClient,
+		configClient.ConfigV1().APIServers(),
+		configInformers.Config().V1().APIServers(),
+		kubeInformersForNamespaces,
+		kubeClient,
+		ctx.EventRecorder,
+		resourceSyncController,
+		dynamicClient,
+		schema.GroupResource{Group: "", Resource: "secrets"},
+		schema.GroupResource{Group: "", Resource: "configmaps"},
+	)
+	if err != nil {
+		return err
+	}
+
 	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
 		operatorClient,
 		configInformers,
@@ -168,6 +190,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go configObserver.Run(1, ctx.Done())
 	go clusterOperatorStatus.Run(1, ctx.Done())
 	go certRotationController.Run(1, ctx.Done())
+	go encryptionControllers.Run(ctx.Done())
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
 
@@ -199,6 +222,8 @@ var RevisionSecrets = []revision.RevisionResource{
 	// this is needed so that the cert syncer itself can request certs.  It uses localhost
 	{Name: "kube-apiserver-cert-syncer-client-cert-key"},
 	{Name: "kubelet-client"},
+	// etcd encryption
+	{Name: "encryption-config", Optional: true},
 }
 
 var CertConfigMaps = []revision.RevisionResource{
