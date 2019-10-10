@@ -253,7 +253,7 @@ func validateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.St
 	}
 
 	if len(status.Conditions) != len(expectedConditions) {
-		ts.Fatalf("expected to get %d conditions from operator client but got %d", len(expectedConditions), len(status.Conditions))
+		ts.Fatalf("expected to get %d conditions from operator client but got %d:\n\nexpected=%v\n\ngot=%v", len(expectedConditions), len(status.Conditions), expectedConditions, status.Conditions)
 	}
 
 	for _, actualCondition := range status.Conditions {

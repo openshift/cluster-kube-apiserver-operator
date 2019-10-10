@@ -189,14 +189,13 @@ func TestMigrationController(t *testing.T) {
 						Type:   "EncryptionMigrationControllerProgressing",
 						Status: "False",
 					},
-					{
-						Type:   "EncryptionStorageMigrationProgressing",
-						Status: "False",
-					},
 				}
+				// TODO: test sequence of condition changes, not only the end result
 				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
 			},
 		},
+
+		// TODO: add more tests for not so happy paths
 	}
 
 	for _, scenario := range scenarios {

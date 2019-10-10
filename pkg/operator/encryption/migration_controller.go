@@ -109,8 +109,7 @@ func (c *migrationController) sync() error {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	isProgressingReason, configError := c.migrateKeysIfNeededAndRevisionStable()
-	isProgressing := len(isProgressingReason) > 0
+	resetProgressing, configError := c.migrateKeysIfNeededAndRevisionStable()
 
 	// update failing condition
 	degraded := operatorv1.OperatorCondition{
@@ -123,26 +122,18 @@ func (c *migrationController) sync() error {
 		degraded.Message = configError.Error()
 	}
 
-	// update progressing condition
-	progressing := operatorv1.OperatorCondition{
-		Type:   "EncryptionMigrationControllerProgressing",
-		Status: operatorv1.ConditionFalse,
-	}
-	if isProgressing {
-		progressing.Status = operatorv1.ConditionTrue
-		progressing.Reason = isProgressingReason
-		progressing.Message = isProgressingReason // TODO maybe put job information
-	}
+	updateFuncs := []operatorv1helpers.UpdateStaticPodStatusFunc{operatorv1helpers.UpdateStaticPodConditionFn(degraded)}
 
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient,
-		operatorv1helpers.UpdateStaticPodConditionFn(degraded),
-		operatorv1helpers.UpdateStaticPodConditionFn(progressing),
-	); updateError != nil {
+	// reset progressing condition
+	if resetProgressing {
+		progressing := operatorv1.OperatorCondition{
+			Type:   "EncryptionMigrationControllerProgressing",
+			Status: operatorv1.ConditionFalse,
+		}
+		updateFuncs = append(updateFuncs, operatorv1helpers.UpdateStaticPodConditionFn(progressing))
+	}
+	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, updateFuncs...); updateError != nil {
 		return updateError
-	}
-
-	if isProgressing && configError == nil {
-		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
 	}
 
 	return configError
@@ -153,22 +144,36 @@ type migrationTracker struct {
 	resources []schema.GroupResource
 }
 
-// TODO doc
-func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
-	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
-	if len(isProgressingReason) > 0 || err != nil {
-		return isProgressingReason, err
-	}
-	if currentEncryptionConfig == nil {
-		return "", nil
+func (c *migrationController) setProgressing(reason, message string, args ...string) error {
+	// update progressing condition
+	progressing := operatorv1.OperatorCondition{
+		Type:    "EncryptionMigrationControllerProgressing",
+		Status:  operatorv1.ConditionTrue,
+		Reason:  reason,
+		Message: fmt.Sprintf(message, args),
 	}
 
-	// TODO we need this check?  Could it dead lock?  -> seems more possible now
-	// no storage migration until all masters catch up with revision
+	_, _, err := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(progressing))
+	return err
+}
+
+// TODO doc
+func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgressing bool, err error) {
+	// no storage migration during revision changes
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	if err != nil {
+		return false, err
+	}
+	if currentEncryptionConfig == nil || len(isTransitionalReason) > 0 {
+		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
+		return true, nil
+	}
+
+	// no storage migration until config is stable
 	desiredEncryptedConfigResources := getResourceConfigs(desiredEncryptionState)
 	if !reflect.DeepEqual(currentEncryptionConfig.Resources, desiredEncryptedConfigResources) {
-		return "PodAndAPIStateNotConverged", nil // retry in a little while but do not go degraded
+		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
+		return true, nil // retry in a little while but do not go degraded
 	}
 
 	// all API servers have converged onto a single revision that matches our desired overall encryption state
@@ -177,7 +182,6 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, er
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
 	var errs []error
-	var ranStorageMigration bool
 	trackers := map[string]migrationTracker{}
 	for gr, grActualKeys := range getGRsActualKeys(currentEncryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
@@ -186,17 +190,20 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, er
 
 		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector, c.targetNamespace)
 		if err != nil {
-			return "WriteKeySecretNotFound", err
+			return true, err
 		}
-		ok := writeSecret != nil // TODO not sure if this progressing tracking makes any sense now
-		if !ok {                 // make sure this is a fully observed write key
-			isProgressingReason = "WriteKeyNotObserved" // since we are waiting for an observation, we are progressing
+		ok := writeSecret != nil
+		if !ok { // make sure this is a fully observed write key
 			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 
+		// storage migration takes a long time so we expose that via a distinct status change
+		if err := c.setProgressing(strings.Title(groupToHumanReadable(gr))+strings.Title(gr.Resource), "migrating resource %s.%s to new write key", groupToHumanReadable(gr), gr.Resource); err != nil {
+			return false, err
+		}
+
 		if needsMigration(writeSecret, gr) {
-			ranStorageMigration = true
 			migrationErr := c.runStorageMigration(gr)
 			errs = append(errs, migrationErr)
 			if migrationErr != nil {
@@ -228,17 +235,9 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, er
 		}
 	}
 
-	// regardless of if the storage migrations we ran were successful, we are no longer running them
-	if ranStorageMigration {
-		notProgressing := operatorv1.OperatorCondition{
-			Type:   "EncryptionStorageMigrationProgressing",
-			Status: operatorv1.ConditionFalse,
-		}
-		_, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(notProgressing))
-		errs = append(errs, updateError)
-	}
-
-	return isProgressingReason, utilerrors.NewAggregate(errs)
+	err = utilerrors.NewAggregate(errs)
+	resetProgressing = err == nil // keep condition in case of error as we resume after backoff
+	return
 }
 
 func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
@@ -260,17 +259,6 @@ func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
 }
 
 func (c *migrationController) runStorageMigration(gr schema.GroupResource) error {
-	// storage migration takes a long time so we expose that via a distinct status change
-	progressing := operatorv1.OperatorCondition{
-		Type:    "EncryptionStorageMigrationProgressing",
-		Status:  operatorv1.ConditionTrue,
-		Reason:  strings.Title(groupToHumanReadable(gr)) + strings.Title(gr.Resource),
-		Message: fmt.Sprintf("Storage migration is in progress for group=%s resource=%s", groupToHumanReadable(gr), gr.Resource),
-	}
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(progressing)); updateError != nil {
-		return updateError
-	}
-
 	version, err := c.getVersion(gr)
 	if err != nil {
 		return err
