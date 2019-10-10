@@ -42,7 +42,7 @@ type stateController struct {
 	preRunCachesSynced []cache.InformerSynced
 
 	encryptedGRs             map[schema.GroupResource]bool
-	destName                 string
+	encryptionConfigName     string
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
@@ -70,8 +70,8 @@ func newStateController(
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
 		encryptedGRs:    encryptedGRs,
-		destName:        destName,
 		targetNamespace: targetNamespace,
+		encryptionConfigName: destName,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -138,7 +138,7 @@ func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserve
 
 	_, _, applyErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.destName,
+			Name:      c.encryptionConfigName,
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
