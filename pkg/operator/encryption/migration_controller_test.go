@@ -41,7 +41,50 @@ func TestMigrationController(t *testing.T) {
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
 		expectedError              error
 	}{
-		// scenario 1
+		{
+			name:            "no config => nothing happens",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+				{Group: "", Resource: "configmaps"},
+			},
+			targetAPIResources: []metav1.APIResource{
+				{
+					Name:       "secrets",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+				{
+					Name:       "configmaps",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				func() runtime.Object {
+					cm := createConfigMap("cm-1", "os")
+					cm.Kind = "ConfigMap"
+					cm.APIVersion = corev1.SchemeGroupVersion.String()
+					return cm
+				}(),
+				func() runtime.Object {
+					cm := createConfigMap("cm-2", "os")
+					cm.Kind = "ConfigMap"
+					cm.APIVersion = corev1.SchemeGroupVersion.String()
+					return cm
+				}(),
+			},
+			initialSecrets: nil,
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+			},
+		},
+
 		{
 			name:            "a happy path scenario that tests resources encryption and secrets annotation",
 			targetNamespace: "kms",
