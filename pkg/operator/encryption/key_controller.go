@@ -57,7 +57,7 @@ type keyController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs map[schema.GroupResource]bool
+	encryptedGRs []schema.GroupResource
 
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -76,7 +76,7 @@ func newKeyController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 ) *keyController {
 	c := &keyController{
 		operatorClient:  operatorClient,
@@ -131,12 +131,18 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	_, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
 	if len(isProgressingReason) > 0 {
 		c.queue.AddAfter(encWorkKey, 2*time.Minute)
+		return nil
+	}
+
+	// avoid intended start of encryption
+	hasBeenOnBefore := currentConfig != nil || secretsFound
+	if currentMode == identity && !hasBeenOnBefore {
 		return nil
 	}
 

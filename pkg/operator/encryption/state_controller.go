@@ -41,8 +41,8 @@ type stateController struct {
 	eventRecorder      events.Recorder
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs             map[schema.GroupResource]bool
-	destName                 string
+	encryptedGRs             []schema.GroupResource
+	encryptionConfigName     string
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
@@ -58,10 +58,10 @@ func newStateController(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
+	podClient corev1client.PodsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
-	podClient corev1client.PodsGetter,
+	encryptedGRs []schema.GroupResource,
 ) *stateController {
 	c := &stateController{
 		operatorClient: operatorClient,
@@ -69,9 +69,9 @@ func newStateController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		encryptedGRs:    encryptedGRs,
-		destName:        destName,
-		targetNamespace: targetNamespace,
+		encryptedGRs:         encryptedGRs,
+		encryptionConfigName: destName,
+		targetNamespace:      targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -109,24 +109,23 @@ func (c *stateController) sync() error {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	// TODO: fix scenarios 7 and 8
-	_, encryptionState, _, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
-	if len(encryptionState) == 0 {
+	if len(transitioningReason) > 0 {
 		c.queue.AddAfter(stateWorkKey, 2*time.Minute)
 		return nil
 	}
 
-	resourceConfigs := getResourceConfigs(encryptionState)
-
-	// if we have no config, do not create the secret
-	if len(resourceConfigs) == 0 {
+	if currentConfig == nil && !secretsFound {
+		// we depend on the key controller to create the first key to bootstrap encryption.
+		// Later-on either the config exists or there are keys, even in the case of disabled
+		// encryption via the apiserver config.
 		return nil
 	}
 
-	return c.applyEncryptionConfigSecret(resourceConfigs)
+	return c.applyEncryptionConfigSecret(getResourceConfigs(desiredEncryptionState))
 }
 
 func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserverconfigv1.ResourceConfiguration) error {
@@ -138,7 +137,7 @@ func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserve
 
 	_, _, applyErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.destName,
+			Name:      c.encryptionConfigName,
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Annotations: map[string]string{
 				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,

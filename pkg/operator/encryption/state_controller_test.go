@@ -22,13 +22,13 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-func TestEncryptionStateController(t *testing.T) {
+func TestStateController(t *testing.T) {
 	scenarios := []struct {
 		name                     string
 		initialResources         []runtime.Object
 		encryptionSecretSelector metav1.ListOptions
 		targetNamespace          string
-		targetGRs                map[schema.GroupResource]bool
+		targetGRs                []schema.GroupResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions []string
 		// destName denotes the name of the secret that contains EncryptionConfiguration
@@ -45,13 +45,13 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "no secret with EncryptionConfig is created when there are no secrets with the encryption keys",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
 			},
-			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "get:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "create:events:kms"},
+			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
 		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
@@ -61,8 +61,8 @@ func TestEncryptionStateController(t *testing.T) {
 			targetNamespace:          "kms",
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=kms"},
 			destName:                 "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -95,8 +95,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "secret with EncryptionConfig is created and it contains a single write key",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -146,8 +146,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "no-op when no key is transitioning",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -190,8 +190,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "the key with ID=34 is transitioning (observed as a read key) so it is used as a write key in the EncryptionConfig",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -278,8 +278,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "checks if the order of the keys is preserved and that they read keys are pruned - all migrated",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -380,8 +380,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "checks if the order of the keys is preserved - with a key that is transitioning",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -473,8 +473,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "no encryption cfg in the target ns (was deleted)",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -539,8 +539,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "a user can't stop encrypting config maps",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
@@ -605,8 +605,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "degraded a pod with invalid condition",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createDummyKubeAPIPodInUnknownPhase("kube-apiserver-1", "kms"),
@@ -629,8 +629,8 @@ func TestEncryptionStateController(t *testing.T) {
 			name:            "no-op as an invalid secret is not considered",
 			targetNamespace: "kms",
 			destName:        "encryption-config-kube-apiserver-test",
-			targetGRs: map[schema.GroupResource]bool{
-				{Group: "", Resource: "secrets"}: true,
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
 			},
 			initialResources: []runtime.Object{
 				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("")),
@@ -683,10 +683,10 @@ func TestEncryptionStateController(t *testing.T) {
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
+				fakePodClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
 				scenario.targetGRs,
-				fakePodClient,
 			)
 
 			// act

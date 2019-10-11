@@ -58,7 +58,7 @@ type migrationController struct {
 
 	preRunCachesSynced []cache.InformerSynced
 
-	encryptedGRs map[schema.GroupResource]bool
+	encryptedGRs []schema.GroupResource
 
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
@@ -78,7 +78,7 @@ func newMigrationController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-	encryptedGRs map[schema.GroupResource]bool,
+	encryptedGRs []schema.GroupResource,
 	podClient corev1client.PodsGetter,
 	dynamicClient dynamic.Interface, // temporary hack
 	discoveryClient discovery.ServerResourcesInterface,
@@ -156,7 +156,7 @@ type migrationTracker struct {
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (string, error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if len(isProgressingReason) > 0 || err != nil {
 		return isProgressingReason, err
 	}
