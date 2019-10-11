@@ -15,24 +15,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
-func findSecretForKey(key keyAndMode, secrets []*corev1.Secret, targetNamespace string) *corev1.Secret {
-	if key == (keyAndMode{}) {
-		return nil
-	}
-
-	for _, secret := range secrets {
-		sKeyAndMode, _, ok := secretToKeyAndMode(secret, targetNamespace)
-		if !ok {
-			continue
-		}
-		if sKeyAndMode == key {
-			return secret.DeepCopy()
-		}
-	}
-
-	return nil
-}
-
 func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, targetNamespace string) (*corev1.Secret, error) {
 	if key == (keyAndMode{}) {
 		return nil, nil

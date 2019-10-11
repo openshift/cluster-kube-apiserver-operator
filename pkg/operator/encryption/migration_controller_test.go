@@ -41,7 +41,50 @@ func TestMigrationController(t *testing.T) {
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
 		expectedError              error
 	}{
-		// scenario 1
+		{
+			name:            "no config => nothing happens",
+			targetNamespace: "kms",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+				{Group: "", Resource: "configmaps"},
+			},
+			targetAPIResources: []metav1.APIResource{
+				{
+					Name:       "secrets",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+				{
+					Name:       "configmaps",
+					Namespaced: true,
+					Group:      "",
+					Version:    "v1",
+				},
+			},
+			initialResources: []runtime.Object{
+				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				func() runtime.Object {
+					cm := createConfigMap("cm-1", "os")
+					cm.Kind = "ConfigMap"
+					cm.APIVersion = corev1.SchemeGroupVersion.String()
+					return cm
+				}(),
+				func() runtime.Object {
+					cm := createConfigMap("cm-2", "os")
+					cm.Kind = "ConfigMap"
+					cm.APIVersion = corev1.SchemeGroupVersion.String()
+					return cm
+				}(),
+			},
+			initialSecrets: nil,
+			expectedActions: []string{
+				"list:pods:kms",
+				"get:secrets:kms",
+				"list:secrets:openshift-config-managed",
+			},
+		},
+
 		{
 			name:            "a happy path scenario that tests resources encryption and secrets annotation",
 			targetNamespace: "kms",
@@ -125,10 +168,15 @@ func TestMigrationController(t *testing.T) {
 				"get:secrets:kms",
 				"list:secrets:openshift-config-managed",
 				"list:secrets:openshift-config-managed",
-				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
 				"get:secrets:openshift-config-managed",
 				"update:secrets:openshift-config-managed",
-				"create:events:kms",
+				"create:events:operator",
+				"list:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"get:secrets:openshift-config-managed",
+				"update:secrets:openshift-config-managed",
+				"create:events:operator",
 			},
 			validateFunc: func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object) {
 				// validate if the secrets were properly annotated
@@ -146,14 +194,13 @@ func TestMigrationController(t *testing.T) {
 						Type:   "EncryptionMigrationControllerProgressing",
 						Status: "False",
 					},
-					{
-						Type:   "EncryptionStorageMigrationProgressing",
-						Status: "False",
-					},
 				}
+				// TODO: test sequence of condition changes, not only the end result
 				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
 			},
 		},
+
+		// TODO: add more tests for not so happy paths
 	}
 
 	for _, scenario := range scenarios {
@@ -189,7 +236,7 @@ func TestMigrationController(t *testing.T) {
 				allResources = append(allResources, initialSecret)
 			}
 			fakeKubeClient := fake.NewSimpleClientset(allResources...)
-			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})
+			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events("operator"), "test-encryptionKeyController", &corev1.ObjectReference{})
 			// we pass "openshift-config-managed" and $targetNamespace ns because the controller creates an informer for secrets in that namespace.
 			// note that the informer factory is not used in the test - it's only needed to create the controller
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
