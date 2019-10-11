@@ -9,9 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
-var (
-	_ cloudprovider.InfrastructureLister = Listers{}
-)
+var _ cloudprovider.InfrastructureLister = Listers{}
 
 type Listers struct {
 	APIServerLister       configlistersv1.APIServerLister
@@ -25,7 +23,7 @@ type Listers struct {
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
-	SecretLister_                corelistersv1.SecretLister
+	SecretLister                 corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
@@ -49,7 +47,4 @@ func (l Listers) ProxyLister() configlistersv1.ProxyLister {
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
 	return l.PreRunCachesSynced
-}
-func (l Listers) SecretLister() corelistersv1.SecretLister {
-	return l.SecretLister_
 }

@@ -1,27 +1,25 @@
 package encryption
 
 import (
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-
-	"github.com/openshift/library-go/pkg/operator/configobserver"
-	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-const (
-	encryptionConfFilePath = "/etc/kubernetes/static-pod-resources/secrets/encryption-config/encryption-config"
-)
-
-type SecretLister interface {
-	SecretLister() corev1listers.SecretLister
-}
-
-// TODO: add a unit test
-func NewEncryptionConfigObserver(targetNamespace string, encryptionConfigPath []string) configobserver.ObserveConfigFunc {
+// NewEncryptionConfigObserver sets encryption-provider-config flag to /etc/kubernetes/static-pod-resources/secrets/encryption-config/encryption-config
+// in the configuration file if encryption-config in the targetNamespace is found
+//
+// note:
+// the flag is not removed when the encryption-config was accidentally removed
+// there is an active reconciliation loop in place that will eventually synchronize the missing resource
+func NewEncryptionConfigObserver(targetNamespace string, encryptionConfFilePath string) configobserver.ObserveConfigFunc {
 	return func(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-		listers := genericListers.(SecretLister)
+		encryptionConfigPath := []string{"apiServerArguments", "encryption-provider-config"}
+		listers := genericListers.(configobservation.Listers)
 		var errs []error
 		previouslyObservedConfig := map[string]interface{}{}
 
@@ -36,14 +34,17 @@ func NewEncryptionConfigObserver(targetNamespace string, encryptionConfigPath []
 			}
 		}
 
+		previousEncryptionConfigFound := len(existingEncryptionConfig) > 0
 		observedConfig := map[string]interface{}{}
 
-		encryptionConfigSecret, err := listers.SecretLister().Secrets(targetNamespace).Get(encryptionConfSecret)
+		encryptionConfigSecret, err := listers.SecretLister.Secrets(targetNamespace).Get(encryptionConfSecret)
 		if errors.IsNotFound(err) {
-			recorder.Warningf("ObserveEncryptionConfigNotFound", "encryption config secret %s/%s not found", targetNamespace, encryptionConfSecret)
-			// TODO what is the best thing to do here?
-			// for now we do not unset the config as we are checking a synced version of the secret that could be deleted
-			// return observedConfig, errs
+			// warn only if the encryption-provider-config flag was set before
+			if previousEncryptionConfigFound {
+				recorder.Warningf("ObserveEncryptionConfigNotFound", "encryption config secret %s/%s not found after encryption has been enabled", targetNamespace, encryptionConfSecret)
+			}
+			// encryption secret is optional so it doesn't prevent apiserver from running
+			// there is an active reconciliation loop in place that will eventually synchronize the missing resource
 			return previouslyObservedConfig, errs // do not append the not found error
 		}
 		if err != nil {

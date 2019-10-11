@@ -64,7 +64,7 @@ func NewConfigObserver(
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
-				SecretLister_:                kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+				SecretLister:                 kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
 
 				ResourceSync: resourceSyncer,
@@ -93,7 +93,8 @@ func NewConfigObserver(
 			auth.ObserveAuthMetadata,
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
-				[]string{"apiServerArguments", "encryption-provider-config"},
+				// static path at which we expect to find the encryption config secret
+				"/etc/kubernetes/static-pod-resources/secrets/encryption-config/encryption-config",
 			),
 			etcd.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
