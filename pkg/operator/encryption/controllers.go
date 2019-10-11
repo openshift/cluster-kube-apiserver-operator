@@ -134,39 +134,28 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOpe
 	return management.IsOperatorManaged(operatorSpec.ManagementState), nil
 }
 
-func setUpGlobalMachineConfigEncryptionInformers(
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
-	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	eventHandler cache.ResourceEventHandler,
-) []cache.InformerSynced {
-	operatorInformer := operatorClient.Informer()
-	operatorInformer.AddEventHandler(eventHandler)
-
-	secretsInformer := kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer()
-	secretsInformer.AddEventHandler(eventHandler)
-
-	return []cache.InformerSynced{
-		operatorInformer.HasSynced,
-		secretsInformer.HasSynced,
-	}
-}
-
-func setUpAllEncryptionInformers(
+func setUpInformers(
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	targetNamespace string,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	eventHandler cache.ResourceEventHandler,
 ) []cache.InformerSynced {
-	podInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer()
-	podInformer.AddEventHandler(eventHandler)
+	targetPodInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Pods().Informer()
+	targetPodInformer.AddEventHandler(eventHandler)
 
-	secretsInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer()
-	secretsInformer.AddEventHandler(eventHandler)
+	targetSecretsInformer := kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer()
+	targetSecretsInformer.AddEventHandler(eventHandler)
 
-	return append([]cache.InformerSynced{
-		podInformer.HasSynced,
-		secretsInformer.HasSynced,
-	},
-		setUpGlobalMachineConfigEncryptionInformers(operatorClient, kubeInformersForNamespaces, eventHandler)...)
+	operatorInformer := operatorClient.Informer()
+	operatorInformer.AddEventHandler(eventHandler)
 
+	managedSecretsInformer := kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Informer()
+	managedSecretsInformer.AddEventHandler(eventHandler)
+
+	return []cache.InformerSynced{
+		targetPodInformer.HasSynced,
+		targetSecretsInformer.HasSynced,
+		operatorInformer.HasSynced,
+		managedSecretsInformer.HasSynced,
+	}
 }
