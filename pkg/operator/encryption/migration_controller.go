@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,11 +21,13 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/pager"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -139,18 +139,13 @@ func (c *migrationController) sync() error {
 	return configError
 }
 
-type migrationTracker struct {
-	secret    *corev1.Secret
-	resources []schema.GroupResource
-}
-
-func (c *migrationController) setProgressing(reason, message string, args ...string) error {
+func (c *migrationController) setProgressing(reason, message string, args ...interface{}) error {
 	// update progressing condition
 	progressing := operatorv1.OperatorCondition{
 		Type:    "EncryptionMigrationControllerProgressing",
 		Status:  operatorv1.ConditionTrue,
 		Reason:  reason,
-		Message: fmt.Sprintf(message, args),
+		Message: fmt.Sprintf(message, args...),
 	}
 
 	_, _, err := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(progressing))
@@ -181,8 +176,6 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
-	var errs []error
-	trackers := map[string]migrationTracker{}
 	for gr, grActualKeys := range getGRsActualKeys(currentEncryptionConfig) {
 		if !grActualKeys.hasWriteKey() {
 			continue // no write key to migrate to
@@ -198,46 +191,77 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 			continue
 		}
 
-		// storage migration takes a long time so we expose that via a distinct status change
-		if err := c.setProgressing(strings.Title(groupToHumanReadable(gr))+strings.Title(gr.Resource), "migrating resource %s.%s to new write key", groupToHumanReadable(gr), gr.Resource); err != nil {
-			return false, err
-		}
-
 		if needsMigration(writeSecret, gr) {
-			migrationErr := c.runStorageMigration(gr)
-			errs = append(errs, migrationErr)
-			if migrationErr != nil {
-				continue
+			// storage migration takes a long time so we expose that via a distinct status change
+			if err := c.setProgressing(strings.Title(groupToHumanReadable(gr))+strings.Title(gr.Resource), "migrating resource %s.%s to new write key", groupToHumanReadable(gr), gr.Resource); err != nil {
+				return false, err
+			}
+
+			if err := c.runStorageMigration(gr); err != nil {
+				return false, err
+			}
+
+			// update secret annotations
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				s, err := c.secretClient.Secrets(writeSecret.Namespace).Get(writeSecret.Name, metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to get key secret %s/%s: %v", writeSecret.Namespace, writeSecret.Name, err)
+				}
+
+				changed, err := setResourceMigrated(gr, s)
+				if !changed {
+					return nil
+				}
+
+				_, _, updateErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, s)
+				return updateErr
+			}); err != nil {
+				return false, err
 			}
 		}
-
-		tracker := trackers[writeSecret.Name]
-		tracker.secret = writeSecret
-		tracker.resources = append(tracker.resources, gr)
-		trackers[writeSecret.Name] = tracker
 	}
 
-	for _, tracker := range trackers {
-		migratedSecret := tracker.secret.DeepCopy()
-		if migratedSecret.Annotations == nil {
-			migratedSecret.Annotations = map[string]string{}
-		}
-		migratedSecret.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
-		migratedResourceBytes, marshallErr := json.Marshal(migratedGroupResources{Resources: tracker.resources})
-		if marshallErr != nil {
-			errs = append(errs, marshallErr)
-			continue
-		}
-		migratedSecret.Annotations[encryptionSecretMigratedResources] = string(migratedResourceBytes)
-		_, _, updateErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, migratedSecret)
-		if updateErr != nil {
-			errs = append(errs, updateErr)
+	// if we reach this, all migration went fine and we can reset progressing condition
+	return true, nil
+}
+
+func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
+	migratedGRs := migratedGroupResources{}
+	if existing, found := s.Annotations[encryptionSecretMigratedResources]; found {
+		if err := json.Unmarshal([]byte(existing), &migratedGRs); err != nil {
+			// ignore error and just start fresh, causing some more migration at worst
+			migratedGRs = migratedGroupResources{}
 		}
 	}
 
-	err = utilerrors.NewAggregate(errs)
-	resetProgressing = err == nil // keep condition in case of error as we resume after backoff
-	return
+	alreadyMigrated := false
+	for _, existingGR := range migratedGRs.Resources {
+		if existingGR == gr {
+			alreadyMigrated = true
+			break
+		}
+	}
+
+	// update timestamp, if missing or first migration of gr
+	if _, found := s.Annotations[encryptionSecretMigratedTimestamp]; found && alreadyMigrated {
+		return false, nil
+	}
+	if s.Annotations == nil {
+		s.Annotations = map[string]string{}
+	}
+	s.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
+
+	// update resource list
+	if !alreadyMigrated {
+		migratedGRs.Resources = append(migratedGRs.Resources, gr)
+		bs, err := json.Marshal(migratedGRs)
+		if err != nil {
+			return false, fmt.Errorf("failed to marshal %s annotation value %#v for key secret %s/%s", encryptionSecretMigratedResources, migratedGRs, s.Namespace, s.Name)
+		}
+		s.Annotations[encryptionSecretMigratedResources] = string(bs)
+	}
+
+	return true, nil
 }
 
 func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
