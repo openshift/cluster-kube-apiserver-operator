@@ -9,7 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
-var _ cloudprovider.InfrastructureLister = &Listers{}
+var _ cloudprovider.InfrastructureLister = Listers{}
 
 type Listers struct {
 	APIServerLister       configlistersv1.APIServerLister
@@ -23,6 +23,7 @@ type Listers struct {
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
+	SecretLister                 corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
