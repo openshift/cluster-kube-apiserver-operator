@@ -78,7 +78,7 @@ func newStateController(
 		podClient:                podClient,
 	}
 
-	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 	c.encoder = apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 
 	return c

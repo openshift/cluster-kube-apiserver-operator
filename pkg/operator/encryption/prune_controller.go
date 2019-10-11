@@ -76,7 +76,7 @@ func newPruneController(
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpAllEncryptionInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
