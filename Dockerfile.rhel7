@@ -8,8 +8,9 @@ FROM registry.svc.ci.openshift.org/ocp/4.0:base
 RUN mkdir -p /usr/share/bootkube/manifests
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/* /usr/share/bootkube/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
-COPY manifests/*.yaml /manifests
-COPY manifests/image-references /manifests
+RUN mkdir -p /manifests
+COPY manifests/*.yaml /manifests/
+COPY manifests/image-references /manifests/
 LABEL io.openshift.release.operator true
 # FIXME: entrypoint shouldn't be bash but the binary (needs fixing the chain)
 # ENTRYPOINT ["/usr/bin/cluster-kube-apiserver-operator"]
