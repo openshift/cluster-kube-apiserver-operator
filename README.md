@@ -69,6 +69,41 @@ The current operator status is reported using the `ClusterOperator` resource. To
 $ oc get clusteroperator/kube-apiserver
 ```
 
+## Developing and debugging the operator
+
+In the running cluster [cluster-version-operator](https://github.com/openshift/cluster-version-operator/) is responsible
+for maintaining functioning and non-altered elements.  In that case to be able to use custom operator image one has to
+perform one of these operations:
+
+1. Set your operator in umanaged state, see [here](https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusterversion.md) for details, in short:
+
+```
+oc patch clusterversion/version --type='merge' -p "$(cat <<- EOF
+spec:
+  overrides:
+  - group: apps/v1
+    kind: Deployment
+    name: kube-apiserver-operator
+    namespace: openshift-kube-apiserver-operator
+    unmanaged: true
+EOF
+)"
+```
+
+2. Scale down cluster-version-operator:
+
+```
+oc scale --replicas=0 deploy/cluster-version-operator -n openshift-cluster-version
+```
+
+IMPORTANT: This apprach disables cluster-version-operator completly, whereas previous only tells it to not manage a kube-apiserver-operator!
+
+After doing this you can now change the image of the operator to the desired one:
+
+```
+oc patch pod/kube-apiserver-operator-<rand_digits> -n openshift-kube-apiserver-operator -p '{"spec":{"containers":[{"name":"kube-apiserver-operator","image":"<user>/cluster-kube-apiserver-operator"}]}}'
+```
+
 
 ## Developing and debugging the bootkube bootstrap phase
 
