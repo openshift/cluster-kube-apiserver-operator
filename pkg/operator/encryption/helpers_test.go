@@ -163,9 +163,9 @@ func actionStrings(actions []clientgotesting.Action) []string {
 }
 
 func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
-	keysResources := []encryptionKeysResourceTuple{}
+	keysResources := []keysResourceModes{}
 	for _, resource := range resources {
-		keysResources = append(keysResources, encryptionKeysResourceTuple{
+		keysResources = append(keysResources, keysResourceModes{
 			resource: resource,
 			keys: []apiserverconfigv1.Key{
 				{Name: keyID, Secret: keyBase64},
@@ -176,7 +176,7 @@ func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 	return createEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources)
 }
 
-func createEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+func createEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []keysResourceModes) *apiserverconfigv1.EncryptionConfiguration {
 	ec := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
@@ -221,10 +221,10 @@ func createEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []encryptionKey
 	return ec
 }
 
-func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+func createEncryptionCfgWithWriteKey(keysResources []keysResourceModes) *apiserverconfigv1.EncryptionConfiguration {
 	configurations := []apiserverconfigv1.ResourceConfiguration{}
 	for _, keysResource := range keysResources {
-		// TODO allow secretbox -> not sure if encryptionKeysResourceTuple makes sense
+		// TODO allow secretbox -> not sure if keysResourceModes makes sense
 		providers := []apiserverconfigv1.ProviderConfiguration{}
 		for _, key := range keysResource.keys {
 			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
@@ -280,7 +280,7 @@ func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, e
 	}
 }
 
-type encryptionKeysResourceTuple struct {
+type keysResourceModes struct {
 	resource string
 	keys     []apiserverconfigv1.Key
 	// an ordered list of an encryption modes thatch matches the keys

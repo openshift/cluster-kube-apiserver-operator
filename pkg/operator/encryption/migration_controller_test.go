@@ -129,7 +129,7 @@ func TestMigrationController(t *testing.T) {
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionKeysResourceTuple{
+					keysResForSecrets := keysResourceModes{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
 							{
@@ -138,7 +138,7 @@ func TestMigrationController(t *testing.T) {
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionKeysResourceTuple{
+					keysResForConfigMaps := keysResourceModes{
 						resource: "configmaps",
 						keys: []apiserverconfigv1.Key{
 							{
@@ -148,7 +148,7 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ec := createEncryptionCfgWithWriteKey([]keysResourceModes{keysResForConfigMaps, keysResForSecrets})
 					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 

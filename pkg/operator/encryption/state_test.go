@@ -958,7 +958,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "single write key",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := encryptionKeysResourceTuple{
+				keysRes := keysResourceModes{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
 						{
@@ -967,7 +967,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
+				ec := createEncryptionCfgWithWriteKey([]keysResourceModes{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]groupResourceKeys{
@@ -983,7 +983,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "multiple keys",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := encryptionKeysResourceTuple{
+				keysRes := keysResourceModes{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
 						{
@@ -996,7 +996,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 						},
 					},
 				}
-				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysRes})
+				ec := createEncryptionCfgWithWriteKey([]keysResourceModes{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]groupResourceKeys{
@@ -1015,7 +1015,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "single write key multiple resources",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := []encryptionKeysResourceTuple{
+				keysRes := []keysResourceModes{
 					{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
@@ -1057,7 +1057,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "multiple keys and multiple resources",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := []encryptionKeysResourceTuple{
+				keysRes := []keysResourceModes{
 					{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{
@@ -1159,7 +1159,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "turn off encryption for single resource",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := encryptionKeysResourceTuple{
+				keysRes := keysResourceModes{
 					resource: "secrets",
 					keys: []apiserverconfigv1.Key{
 						{
@@ -1175,7 +1175,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 					},
 					modes: []string{"aescbc", "aesgcm"},
 				}
-				ec := createEncryptionCfgNoWriteKeyMultipleReadKeys([]encryptionKeysResourceTuple{keysRes})
+				ec := createEncryptionCfgNoWriteKeyMultipleReadKeys([]keysResourceModes{keysRes})
 				return ec
 			}(),
 			output: map[schema.GroupResource]groupResourceKeys{
@@ -1194,7 +1194,7 @@ func TestEncryptionConfigToGroupResourceKeysRoundtrip(t *testing.T) {
 		{
 			name: "turn off encryption for multiple resources",
 			input: func() *apiserverconfigv1.EncryptionConfiguration {
-				keysRes := []encryptionKeysResourceTuple{
+				keysRes := []keysResourceModes{
 					{
 						resource: "secrets",
 						keys: []apiserverconfigv1.Key{

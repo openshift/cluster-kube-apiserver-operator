@@ -132,7 +132,7 @@ func TestPruneController(t *testing.T) {
 						Secret: km.key.Secret,
 					})
 				}
-				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{{
+				ec := createEncryptionCfgWithWriteKey([]keysResourceModes{{
 					resource: "secrets",
 					keys: append([]apiserverconfigv1.Key{
 						{
