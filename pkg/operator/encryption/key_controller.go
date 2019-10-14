@@ -157,7 +157,7 @@ func (c *keyController) checkAndCreateKeys() error {
 	// are missing.
 
 	for _, grKeys := range desiredEncryptionState {
-		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
+		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason, c.encryptedGRs)
 		if !ok {
 			continue
 		}
@@ -266,13 +266,7 @@ func (c *keyController) getCurrentModeAndExternalReason() (mode, string, error) 
 }
 
 // TODO unit tests
-func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uint64, string, bool) {
-	// if the length of read secrets is more than one (i.e. we have more than just the write key),
-	// then we haven't successfully migrated and removed old keys so you should wait before generating more keys.
-	if len(grKeys.readSecrets) > 1 {
-		return 0, "", false
-	}
-
+func needsNewKey(grKeys keysState, currentMode mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.readSecrets) == 0 {
 		return 0, "no-secrets", currentMode != identity
@@ -280,8 +274,19 @@ func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uin
 
 	latestKey, latestKeyID := grKeys.latestKey()
 
+	// if latest secret has been deleted, we will never be able to migrate to that key.
+	if !secretIsBacked(latestKey) {
+		return latestKeyID, "missing-secret", true
+	}
+
+	// if the length of read secrets is more than one (i.e. we have more than just the write key),
+	// then we haven't successfully migrated and removed old keys so you should wait before generating more keys.
+	if len(grKeys.readSecrets) > 1 {
+		return 0, "", false
+	}
+
 	// we have not migrated the latest key, do nothing until that is complete
-	if len(latestKey.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
+	if allMigrated, _, _ := migratedFor(encryptedGRs, latestKey); !allMigrated {
 		return 0, "", false
 	}
 

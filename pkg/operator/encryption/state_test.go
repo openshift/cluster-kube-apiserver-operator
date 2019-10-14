@@ -39,7 +39,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			expected.TypeMeta = metav1.TypeMeta{}
 			encryptionConfig := &apiserverconfigv1.EncryptionConfiguration{Resources: getResourceConfigs(state)}
 			if !reflect.DeepEqual(expected, encryptionConfig) {
-				ts.Errorf("state %#v does not match encryption config (A input, B output):\n%s", state, diff.ObjectDiff(expected, encryptionConfig))
+				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, encryptionConfig))
 			}
 		}
 	}
@@ -126,26 +126,26 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				Resources: []apiserverconfigv1.ResourceConfiguration{{
 					Resources: []string{"configmaps"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
-					}, {
 						AESCBC: &apiserverconfigv1.AESConfiguration{
 							Keys: []apiserverconfigv1.Key{{
 								Name:   "1",
 								Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
 							}},
 						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
 					}},
 				}, {
 					Resources: []string{"secrets"},
 					Providers: []apiserverconfigv1.ProviderConfiguration{{
-						Identity: &apiserverconfigv1.IdentityConfiguration{},
-					}, {
 						AESCBC: &apiserverconfigv1.AESConfiguration{
 							Keys: []apiserverconfigv1.Key{{
 								Name:   "1",
 								Secret: base64.StdEncoding.EncodeToString([]byte("71ea7c91419a68fd1224f88d50316b4e")),
 							}},
 						},
+					}, {
+						Identity: &apiserverconfigv1.IdentityConfiguration{},
 					}},
 				}}}),
 		},
@@ -384,7 +384,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				}}),
 		},
 		{
-			"config exists, only some secret is missing => missing secret is not used as write key, but next most-recent key is",
+			"config exists, write key secret is missing => no-op",
 			args{
 				&apiserverconfigv1.EncryptionConfiguration{
 					Resources: []apiserverconfigv1.ResourceConfiguration{
@@ -461,15 +461,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
-									Name:   "4",
-									Secret: base64.StdEncoding.EncodeToString([]byte("447907494bßc4897b876c8476bf807bc")),
+									Name:   "5",
+									Secret: base64.StdEncoding.EncodeToString([]byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
 								}},
 							},
 						}, {
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
-									Name:   "5",
-									Secret: base64.StdEncoding.EncodeToString([]byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
+									Name:   "4",
+									Secret: base64.StdEncoding.EncodeToString([]byte("447907494bßc4897b876c8476bf807bc")),
 								}},
 							},
 						}, {
@@ -488,15 +488,15 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 						Providers: []apiserverconfigv1.ProviderConfiguration{{
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
-									Name:   "4",
-									Secret: base64.StdEncoding.EncodeToString([]byte("447907494bßc4897b876c8476bf807bc")),
+									Name:   "5",
+									Secret: base64.StdEncoding.EncodeToString([]byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
 								}},
 							},
 						}, {
 							AESCBC: &apiserverconfigv1.AESConfiguration{
 								Keys: []apiserverconfigv1.Key{{
-									Name:   "5",
-									Secret: base64.StdEncoding.EncodeToString([]byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
+									Name:   "4",
+									Secret: base64.StdEncoding.EncodeToString([]byte("447907494bßc4897b876c8476bf807bc")),
 								}},
 							},
 						}, {

@@ -72,32 +72,41 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		desiredEncryptionState = groupResourcesState{}
 	}
 
+	// add new resources without keys. These resources will trigger STEP 2.
+	for _, gr := range toBeEncryptedGRs {
+		if _, ok := desiredEncryptionState[gr]; !ok {
+			desiredEncryptionState[gr] = keysState{}
+		}
+	}
+
 	//
 	// STEP 1: without secrets, wait for the key controller to create one
 	//
 	// the code after this point assumes at least one secret
 	if len(encryptionSecrets) == 0 {
 		klog.V(4).Infof("no encryption secrets found")
-
-		// rotate through identity. This will also trigger a new key being generated
-		for _, gr := range toBeEncryptedGRs {
-			if _, ok := desiredEncryptionState[gr]; !ok {
-				desiredEncryptionState[gr] = keysState{}
-			} else {
-				grState := desiredEncryptionState[gr]
-				grState.writeSecret = nil
-				desiredEncryptionState[gr] = grState
-			}
-		}
-
 		return desiredEncryptionState
 	}
 
-	// add new resources without keys. These resources will trigger STEP 2.
-	for _, gr := range toBeEncryptedGRs {
-		if _, ok := desiredEncryptionState[gr]; !ok {
-			desiredEncryptionState[gr] = keysState{}
+	// override fake secrets with real ones if they exist
+	for gr, grState := range desiredEncryptionState {
+		for i, rs := range grState.readSecrets {
+			for _, s := range encryptionSecrets {
+				if equalKeyAndEqualID(rs, s) {
+					grState.readSecrets[i] = s
+					break
+				}
+			}
 		}
+		if grState.writeSecret != nil {
+			for _, s := range encryptionSecrets {
+				if equalKeyAndEqualID(grState.writeSecret, s) {
+					grState.writeSecret = s
+					break
+				}
+			}
+		}
+		desiredEncryptionState[gr] = grState
 	}
 
 	//
@@ -122,7 +131,15 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	for gr, grState := range desiredEncryptionState {
 		changed := false
 		for _, expected := range expectedReadSecrets {
-			if !hasKeyInSecret(grState.readSecrets, expected) {
+			found := false
+			for _, rs := range grState.readSecrets {
+				if equalKeyInSecret(rs, expected) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Just adding raw key without trusting any metadata on it
 				grState.readSecrets = append(grState.readSecrets, expected)
 				changed = true
 				allReadSecretsAsExpected = false
@@ -130,7 +147,18 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 			}
 		}
 		if changed {
+			grState.readSecrets = sortRecentFirst(grState.readSecrets)
 			desiredEncryptionState[gr] = grState
+		}
+
+		// verify that all read secrets are backed by a real secret, and therefore
+		// in encryptionSecrets. Read secrets are sorted. So encryptionSecrets[0]
+		// is a good next write key because it is most recent.
+		for _, rs := range grState.readSecrets {
+			if !secretIsBacked(rs) {
+				allReadSecretsAsExpected = false
+				break
+			}
 		}
 	}
 	if !allReadSecretsAsExpected {
@@ -251,7 +279,7 @@ func encryptionConfigToEncryptionState(c *apiserverconfigv1.EncryptionConfigurat
 
 		s[gr] = keysState{
 			writeSecret: writeSecret,
-			readSecrets: readSecrets,
+			readSecrets: sortRecentFirst(readSecrets),
 		}
 	}
 	return s
@@ -265,6 +293,7 @@ func keyAndModeToKeySecret(k keyAndMode) (*corev1.Secret, error) {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("encryption-%s", k.key.Name),
+			// no namespace as this is used to distinguish backed from these fake secrets
 			Annotations: map[string]string{
 				encryptionSecretMode: string(k.mode),
 			},
@@ -499,13 +528,14 @@ func equalKeyInSecret(s1, s2 *corev1.Secret) bool {
 	return km1 == km2
 }
 
-func hasKeyInSecret(secrets []*corev1.Secret, secret *corev1.Secret) bool {
-	for _, s := range secrets {
-		if equalKeyInSecret(s, secret) {
-			return true
-		}
+func equalKeyAndEqualID(s1, s2 *corev1.Secret) bool {
+	if !equalKeyInSecret(s1, s2) {
+		return false
 	}
-	return false
+
+	id1, valid1 := secretToKeyID(s1)
+	id2, valid2 := secretToKeyID(s2)
+	return valid1 && valid2 && id1 == id2
 }
 
 // groupToHumanReadable extracts a group from gr and makes it more readable, for example it converts an empty group to "core"

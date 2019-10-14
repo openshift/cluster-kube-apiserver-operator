@@ -120,6 +120,10 @@ func (k keysState) latestKey() (*corev1.Secret, uint64) {
 	return key, keyID
 }
 
+func secretIsBacked(s *corev1.Secret) bool {
+	return s != nil && len(s.Namespace) > 0
+}
+
 // groupResourceKeys represents, for a single group resource, the write and read keys in a
 // format that can be directly translated to and from the on disk EncryptionConfiguration object.
 type groupResourceKeys struct {
