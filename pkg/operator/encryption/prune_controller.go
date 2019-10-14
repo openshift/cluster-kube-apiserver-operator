@@ -115,7 +115,7 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 		return nil
 	}
 
-	allUsedKeys := make([]keyAndMode, 0, len(desiredEncryptionConfig))
+	allUsedKeys := make([]KeyState, 0, len(desiredEncryptionConfig))
 	for _, grKeys := range desiredEncryptionConfig {
 		allUsedKeys = append(allUsedKeys, grKeys.readKeys...)
 	}

@@ -15,15 +15,15 @@ import (
 	"k8s.io/klog"
 )
 
-func secretToKeyAndMode(s *corev1.Secret) (keyAndMode, error) {
+func secretToKeyAndMode(s *corev1.Secret) (KeyState, error) {
 	data := s.Data[encryptionSecretKeyData]
 
 	keyID, validKeyID := nameToKeyID(s.Name)
 	if !validKeyID {
-		return keyAndMode{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
+		return KeyState{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
 	}
 
-	key := keyAndMode{
+	key := KeyState{
 		key: apiserverconfigv1.Key{
 			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
 			Name:   strconv.FormatUint(keyID, 10),
@@ -35,7 +35,7 @@ func secretToKeyAndMode(s *corev1.Secret) (keyAndMode, error) {
 	if v, ok := s.Annotations[encryptionSecretMigratedTimestamp]; ok {
 		ts, err := time.Parse(time.RFC3339, v)
 		if err != nil {
-			return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedTimestamp, err)
+			return KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedTimestamp, err)
 		}
 		key.migrated.ts = ts
 	}
@@ -43,7 +43,7 @@ func secretToKeyAndMode(s *corev1.Secret) (keyAndMode, error) {
 	if v, ok := s.Annotations[encryptionSecretMigratedResources]; ok && len(v) > 0 {
 		migrated := &migratedGroupResources{}
 		if err := json.Unmarshal([]byte(v), migrated); err != nil {
-			return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedResources, err)
+			return KeyState{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedResources, err)
 		}
 		key.migrated.resources = migrated.Resources
 	}
@@ -60,10 +60,10 @@ func secretToKeyAndMode(s *corev1.Secret) (keyAndMode, error) {
 	case aescbc, secretbox, identity:
 		key.mode = keyMode
 	default:
-		return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
+		return KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
 	}
 	if keyMode != identity && len(data) == 0 {
-		return keyAndMode{}, fmt.Errorf("secret %s/%s has of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
+		return KeyState{}, fmt.Errorf("secret %s/%s has of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
 	}
 
 	return key, nil
@@ -77,7 +77,7 @@ func nameToKeyID(name string) (uint64, bool) {
 	return keyID, !invalidKeyID
 }
 
-func getResourceConfigs(encryptionState map[schema.GroupResource]groupResourceKeys) []apiserverconfigv1.ResourceConfiguration {
+func getResourceConfigs(encryptionState map[schema.GroupResource]GroupResourceState) []apiserverconfigv1.ResourceConfiguration {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 
 	for gr, grKeys := range encryptionState {
@@ -96,15 +96,15 @@ func getResourceConfigs(encryptionState map[schema.GroupResource]groupResourceKe
 }
 
 // secretsToProviders maps the write and read secrets to the equivalent read and write keys.
-// it primarily handles the conversion of keyAndMode to the appropriate provider config.
+// it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func secretsToProviders(desired groupResourceKeys) []apiserverconfigv1.ProviderConfiguration {
+func secretsToProviders(desired GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.readKeys
 
 	// write key comes first
 	if desired.hasWriteKey() {
-		allKeys = append([]keyAndMode{desired.writeKey}, allKeys...)
+		allKeys = append([]KeyState{desired.writeKey}, allKeys...)
 	}
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity

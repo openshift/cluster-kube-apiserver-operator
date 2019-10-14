@@ -226,7 +226,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	return true, nil
 }
 
-func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
+func findSecretForKeyWithClient(key KeyState, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
 	if len(key.key.Name) == 0 {
 		return nil, nil
 	}

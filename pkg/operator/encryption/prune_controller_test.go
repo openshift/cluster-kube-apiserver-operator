@@ -126,7 +126,7 @@ func TestPruneController(t *testing.T) {
 			writeKeyID := uint64(len(scenario.initialSecrets) + 1)
 			writeKeySecret := createEncryptionKeySecretWithRawKey(scenario.targetNamespace, nil, writeKeyID, writeKeyRaw)
 
-			initialKeys := []keyAndMode{}
+			initialKeys := []KeyState{}
 			for _, s := range scenario.initialSecrets {
 				km, err := secretToKeyAndMode(s)
 				if err != nil {

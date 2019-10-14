@@ -59,8 +59,8 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]groupResourceKeys {
-	backedKeys := make([]keyAndMode, 0, len(encryptionSecrets))
+func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) map[schema.GroupResource]GroupResourceState {
+	backedKeys := make([]KeyState, 0, len(encryptionSecrets))
 	for _, s := range encryptionSecrets {
 		km, err := secretToKeyAndMode(s)
 		if err != nil {
@@ -75,13 +75,13 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	//
 	desiredEncryptionState := encryptionConfigToEncryptionState(oldEncryptionConfig)
 	if desiredEncryptionState == nil {
-		desiredEncryptionState = map[schema.GroupResource]groupResourceKeys{}
+		desiredEncryptionState = map[schema.GroupResource]GroupResourceState{}
 	}
 
 	// add new resources without keys. These resources will trigger STEP 2.
 	for _, gr := range toBeEncryptedGRs {
 		if _, ok := desiredEncryptionState[gr]; !ok {
-			desiredEncryptionState[gr] = groupResourceKeys{}
+			desiredEncryptionState[gr] = GroupResourceState{}
 		}
 	}
 
@@ -205,7 +205,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	}
 	for gr := range desiredEncryptionState {
 		grState := desiredEncryptionState[gr]
-		grState.readKeys = []keyAndMode{writeKey}
+		grState.readKeys = []KeyState{writeKey}
 		desiredEncryptionState[gr] = grState
 	}
 	klog.V(4).Infof("write key %s set as sole write key", writeKey.key.Name)
@@ -214,7 +214,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 
 // migratedFor returns whether all given resources are marked as migrated in the given key.
 // It returns missing GRs and a reason if that's not the case.
-func migratedFor(grs []schema.GroupResource, km keyAndMode) (ok bool, missing []schema.GroupResource, reason string) {
+func migratedFor(grs []schema.GroupResource, km KeyState) (ok bool, missing []schema.GroupResource, reason string) {
 	var missingStrings []string
 	for _, gr := range grs {
 		found := false
@@ -238,7 +238,7 @@ func migratedFor(grs []schema.GroupResource, km keyAndMode) (ok bool, missing []
 }
 
 // keysWithPotentiallyPersistedData returns the minimal, recent secrets which have migrated all given GRs.
-func keysWithPotentiallyPersistedData(grs []schema.GroupResource, recentFirstSortedKeys []keyAndMode) []keyAndMode {
+func keysWithPotentiallyPersistedData(grs []schema.GroupResource, recentFirstSortedKeys []KeyState) []KeyState {
 	for i, k := range recentFirstSortedKeys {
 		if allMigrated, missing, _ := migratedFor(grs, k); allMigrated {
 			return recentFirstSortedKeys[:i+1]
@@ -250,7 +250,7 @@ func keysWithPotentiallyPersistedData(grs []schema.GroupResource, recentFirstSor
 	return recentFirstSortedKeys
 }
 
-func encryptionConfigToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
+func encryptionConfigToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]GroupResourceState {
 	if c == nil {
 		return nil
 	}
@@ -266,8 +266,8 @@ func encryptionConfigToEncryptionState(c *apiserverconfigv1.EncryptionConfigurat
 	return ret
 }
 
-func sortRecentFirst(unsorted []keyAndMode) []keyAndMode {
-	ret := make([]keyAndMode, len(unsorted))
+func sortRecentFirst(unsorted []KeyState) []KeyState {
+	ret := make([]KeyState, len(unsorted))
 	copy(ret, unsorted)
 	sort.Slice(ret, func(i, j int) bool {
 		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
@@ -284,12 +284,12 @@ func sortRecentFirst(unsorted []keyAndMode) []keyAndMode {
 // a special variant of the aesgcm provider is used to track the identity provider (since we need to keep the
 // name of the key somewhere).  this is not an issue because aesgcm is not supported as a key provider since it
 // is unsafe to use when you cannot control the number of writes (and we have no way to control apiserver writes).
-func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]groupResourceKeys {
+func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]GroupResourceState {
 	if encryptionConfig == nil {
 		return nil
 	}
 
-	out := map[schema.GroupResource]groupResourceKeys{}
+	out := map[schema.GroupResource]GroupResourceState{}
 	for _, resourceConfig := range encryptionConfig.Resources {
 		// resources should be a single group resource and
 		if len(resourceConfig.Resources) != 1 {
@@ -297,7 +297,7 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 			continue // should never happen
 		}
 
-		grk := groupResourceKeys{}
+		grk := GroupResourceState{}
 
 		// we know that this is safe because providers is non-empty
 		// we need to track the last provider as it may be a fake provider that is holding the identity key info
@@ -306,17 +306,17 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 		var hasFakeIdentityProvider bool
 
 		for i, provider := range resourceConfig.Providers {
-			var key keyAndMode
+			var key KeyState
 
 			switch {
 			case provider.AESCBC != nil && len(provider.AESCBC.Keys) == 1:
-				key = keyAndMode{
+				key = KeyState{
 					key:  provider.AESCBC.Keys[0],
 					mode: aescbc,
 				}
 
 			case provider.Secretbox != nil && len(provider.Secretbox.Keys) == 1:
-				key = keyAndMode{
+				key = KeyState{
 					key:  provider.Secretbox.Keys[0],
 					mode: secretbox,
 				}
@@ -325,7 +325,7 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 				if i != 0 {
 					continue // we do not want to add a key for this unless it is a write key
 				}
-				key = keyAndMode{
+				key = KeyState{
 					mode: identity,
 				}
 
@@ -351,7 +351,7 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 			grk.writeKey.key = lastProvider.AESGCM.Keys[0]
 		case hasFakeIdentityProvider:
 			grk.readKeys = append(grk.readKeys,
-				keyAndMode{
+				KeyState{
 					key:  lastProvider.AESGCM.Keys[0],
 					mode: identity,
 				})
@@ -368,7 +368,7 @@ func getEncryptionConfigAndState(
 	targetNamespace string,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
-) (current *apiserverconfigv1.EncryptionConfiguration, desired map[schema.GroupResource]groupResourceKeys, secretsFound bool, transitioningReason string, err error) {
+) (current *apiserverconfigv1.EncryptionConfiguration, desired map[schema.GroupResource]GroupResourceState, secretsFound bool, transitioningReason string, err error) {
 	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
 	if err != nil {
 		return nil, nil, false, "", err
@@ -478,11 +478,11 @@ func podReady(pod corev1.Pod) bool {
 	return false
 }
 
-func equalKeyInSecret(s1, s2 *keyAndMode) bool {
+func equalKeyInSecret(s1, s2 *KeyState) bool {
 	return s1.mode == s2.mode && s1.key.Secret == s2.key.Secret
 }
 
-func equalKeyAndEqualID(s1, s2 *keyAndMode) bool {
+func equalKeyAndEqualID(s1, s2 *KeyState) bool {
 	if s1.mode != s2.mode || s1.key.Secret != s2.key.Secret {
 		return false
 	}

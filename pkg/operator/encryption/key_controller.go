@@ -266,7 +266,7 @@ func (c *keyController) getCurrentModeAndExternalReason() (mode, string, error) 
 }
 
 // TODO unit tests
-func needsNewKey(grKeys groupResourceKeys, currentMode mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+func needsNewKey(grKeys GroupResourceState, currentMode mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.readKeys) == 0 {
 		return 0, "no-secrets", currentMode != identity

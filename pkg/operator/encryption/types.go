@@ -74,31 +74,31 @@ const encryptionConfSecret = "encryption-config"
 // revisionLabel is used to find the current revision for a given API server.
 const revisionLabel = "revision"
 
-// groupResourceKeys represents, for a single group resource, the write and read keys in a
+// GroupResourceState represents, for a single group resource, the write and read keys in a
 // format that can be directly translated to and from the on disk EncryptionConfiguration object.
-type groupResourceKeys struct {
-	writeKey keyAndMode
-	readKeys []keyAndMode
+type GroupResourceState struct {
+	writeKey KeyState
+	readKeys []KeyState
 }
 
-func (k groupResourceKeys) hasWriteKey() bool {
+func (k GroupResourceState) hasWriteKey() bool {
 	return len(k.writeKey.key.Name) > 0 && len(k.writeKey.key.Secret) > 0
 }
 
-type keyAndMode struct {
+type KeyState struct {
 	key  apiserverconfigv1.Key
 	mode mode
 
 	// described whether it is backed by a secret.
 	backed   bool
-	migrated Migration
+	migrated MigrationState
 	// some controller logic caused this secret to be created by the key controller.
 	internalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	externalReason string
 }
 
-type Migration struct {
+type MigrationState struct {
 	// the timestamp fo the last migration
 	ts time.Time
 	// the resources that were migrated at some point in time to this key.
