@@ -107,6 +107,12 @@ apiServerArguments:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
   kubelet-preferred-address-types:
   - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
+  # value needed to be bumped for scale tests.  The kube-apiserver did ok here
+  max-requests-inflight:
+  - "1200"
+  # value should logically scale with max-requests-inflight
+  max-mutating-requests-inflight:
+  - "600"
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
