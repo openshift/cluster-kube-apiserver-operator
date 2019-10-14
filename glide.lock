@@ -1,5 +1,5 @@
 hash: 3fd9d64450bac5d55b34b87c35df3f0b663ab61535790a8fc82241a696b88af8
-updated: 2019-10-07T11:44:42.114816+02:00
+updated: 2019-10-14T12:24:45.506184+02:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -52,8 +52,6 @@ imports:
   - log
 - name: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
-- name: github.com/fatih/color
-  version: 3f9d52f7176a6927daacff70a3e8d1dc2025c53e
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
@@ -66,8 +64,6 @@ imports:
   version: 6aced65f8501fe1217321abf0749d354824ba2ff
 - name: github.com/go-openapi/swag
   version: 1d0bd113de87027671077d3c71eb3ac5d7dbba72
-- name: github.com/gobuffalo/flect
-  version: 86360480338dcc8c7b61de28a928595f77079989
 - name: github.com/gogo/protobuf
   version: 65acae22fc9d1fe290b33faa2bd64cdc20a463a0
   subpackages:
@@ -147,13 +143,6 @@ imports:
   version: 7087cb70de9f7a8bc0a10c375cb0d2280a8edf9c
   subpackages:
   - simplelru
-- name: github.com/hpcloud/tail
-  version: a30252cb686a21eb2d0b98132633053ec2f7f1e5
-  subpackages:
-  - ratelimiter
-  - util
-  - watch
-  - winfile
 - name: github.com/imdario/mergo
   version: 9316a62528ac99aaecb4e47eadd6dc8aa6533d58
 - name: github.com/inconshreveable/mousetrap
@@ -170,10 +159,6 @@ imports:
   - buffer
   - jlexer
   - jwriter
-- name: github.com/mattn/go-colorable
-  version: 98ec13f34aabf44cc914c65a1cfb7b9bc815aef1
-- name: github.com/mattn/go-isatty
-  version: 62f712808a2a54a0f220e557074b33f99af9440b
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -186,28 +171,8 @@ imports:
   version: a547fc61f48d567d5b4ec6f8aee5573d8efce11d
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
-- name: github.com/onsi/ginkgo
-  version: eea6ad008b96acdaa524f5b409513bf062b500ad
-  subpackages:
-  - config
-  - internal/codelocation
-  - internal/containernode
-  - internal/failer
-  - internal/leafnodes
-  - internal/remote
-  - internal/spec
-  - internal/spec_iterator
-  - internal/specrunner
-  - internal/suite
-  - internal/testingtproxy
-  - internal/writer
-  - reporters
-  - reporters/stenographer
-  - reporters/stenographer/support/go-colorable
-  - reporters/stenographer/support/go-isatty
-  - types
 - name: github.com/openshift/api
-  version: d92789481b059132f1febccd9bb47cb27220f248
+  version: 9c66d377c971623a3507a4ce5b33c496e72b9499
   subpackages:
   - apps
   - apps/v1
@@ -268,7 +233,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: 97c62d8a29013969b080844b90404fd37588b457
+  version: 1c39da7905541e452aec8753e0ab82b0658744c4
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -306,6 +271,7 @@ imports:
   - pkg/operator/staticpod/controller/backingresource/bindata
   - pkg/operator/staticpod/controller/installer
   - pkg/operator/staticpod/controller/installer/bindata
+  - pkg/operator/staticpod/controller/installerstate
   - pkg/operator/staticpod/controller/monitoring
   - pkg/operator/staticpod/controller/monitoring/bindata
   - pkg/operator/staticpod/controller/node
@@ -391,9 +357,6 @@ imports:
   subpackages:
   - context
   - context/ctxhttp
-  - html
-  - html/atom
-  - html/charset
   - http/httpguts
   - http2
   - http2/hpack
@@ -414,21 +377,10 @@ imports:
   version: e6919f6577db79269a6443b9dc46d18f2238fb5d
   subpackages:
   - cases
-  - encoding
-  - encoding/charmap
-  - encoding/htmlindex
-  - encoding/internal
-  - encoding/internal/identifier
-  - encoding/japanese
-  - encoding/korean
-  - encoding/simplifiedchinese
-  - encoding/traditionalchinese
-  - encoding/unicode
   - internal
   - internal/language
   - internal/language/compact
   - internal/tag
-  - internal/utf8internal
   - language
   - runes
   - secure/bidirule
@@ -445,16 +397,6 @@ imports:
   version: e65039ee4138194d75ebaa2da35887260d5e15b2
   subpackages:
   - container/intsets
-  - go/expect
-  - go/gcexportdata
-  - go/internal/cgo
-  - go/internal/gcimporter
-  - go/internal/packagesdriver
-  - go/packages
-  - go/packages/packagestest
-  - internal/fastwalk
-  - internal/gopathwalk
-  - internal/semver
 - name: google.golang.org/appengine
   version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
   subpackages:
@@ -503,18 +445,12 @@ imports:
   - stats
   - status
   - tap
-- name: gopkg.in/fsnotify.v1
-  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 7d6a1875575e09256dc552b4c0e450dcd02bd10e
-- name: gopkg.in/tomb.v1
-  version: dd632973f1e7218eb1089048e0798ec9ae7dceb8
 - name: gopkg.in/yaml.v2
   version: f221b8435cfb71e54062f6c6e99e9ade30b124d5
-- name: gopkg.in/yaml.v3
-  version: c8b7dadae55537a6c8367220c0f93d3205869c8a
 - name: k8s.io/api
   version: 95b840bb6a1f5f0462af804c8589396d294d4914
   subpackages:
@@ -734,6 +670,7 @@ imports:
   - dynamic
   - dynamic/dynamicinformer
   - dynamic/dynamiclister
+  - dynamic/fake
   - informers
   - informers/admissionregistration
   - informers/admissionregistration/v1
@@ -969,27 +906,12 @@ imports:
   version: 581e00157fb1a0435d4fac54a52d1ca1e481d60e
   subpackages:
   - buffer
+  - diff
+  - field
   - integer
   - path
   - pointer
   - trace
-- name: sigs.k8s.io/controller-tools
-  version: 4752ed2de7d2fc1b6b18398bf26cf2ce6b53cd94
-  subpackages:
-  - pkg/crd
-  - pkg/crd/markers
-  - pkg/deepcopy
-  - pkg/genall
-  - pkg/genall/help
-  - pkg/genall/help/pretty
-  - pkg/loader
-  - pkg/loader/testutils
-  - pkg/markers
-  - pkg/rbac
-  - pkg/schemapatcher
-  - pkg/schemapatcher/internal/yaml
-  - pkg/typescaffold
-  - pkg/webhook
 - name: sigs.k8s.io/structured-merge-diff
   version: 0c1d754dd6485aa156ff3c8c599079adac6ec82f
   subpackages:
@@ -999,21 +921,5 @@ imports:
   - typed
   - value
 - name: sigs.k8s.io/yaml
-  version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
-testImports:
-- name: github.com/onsi/gomega
-  version: 90e289841c1ed79b7a598a7cd9959750cb5e89e2
-  subpackages:
-  - format
-  - gstruct
-  - gstruct/errors
-  - internal/assertion
-  - internal/asyncassertion
-  - internal/oraclematcher
-  - internal/testingtsupport
-  - matchers
-  - matchers/support/goraph/bipartitegraph
-  - matchers/support/goraph/edge
-  - matchers/support/goraph/node
-  - matchers/support/goraph/util
-  - types
+  version: 4cd0c284b15f1735b8cc247df097d262b8903f9f
+testImports: []
