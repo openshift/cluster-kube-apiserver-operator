@@ -67,3 +67,11 @@ verify-codegen-crds: crd-schema-gen
 verify-codegen: verify-codegen-crds
 verify: verify-codegen
 .PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify crd-schema-gen
+
+update-codegen: update-codegen-tls-md
+update-codegen-tls-md:
+	go run ./tls/markdown-gen > TLS.md
+verify-codegen: verify-codegen-tls-md
+verify-codegen-tls-md:
+	bash -ec "diff -u TLS.md <(go run ./tls/markdown-gen)"
+.PHONE: update-codegen-tls-md verify-codegen-tls-md

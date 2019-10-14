@@ -12,20 +12,26 @@ import (
 	"k8s.io/client-go/util/cert"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/tls"
+
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
+var (
+	csrSignerName        = tls.OpenShiftKubeAPIServerOperator_CSRSigner.Name
+	csrSignerNamespace   = tls.OpenShiftKubeAPIServerOperator_CSRSigner.Namespace
+	csrSignerCAName      = tls.OpenShiftKubeAPIServerOperator_CSRSignerCA.Name
+	csrSignerCANamespace = tls.OpenShiftKubeAPIServerOperator_CSRSignerCA.Namespace
+)
+
 func ManageCSRCABundle(lister corev1listers.ConfigMapLister, client corev1client.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},
+		tls.OpenShiftKubeAPIServerOperator_CSRControllerCA.ResourceLocation(),
 		lister,
-		// include the CA we use to sign CSRs
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-signer-ca"},
-		// include the CA we use to sign the cert key pairs from from csr-signer
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-signer-ca"},
+		tls.OpenShiftKubeAPIServerOperator_CSRControllerCA.FromResourceLocations()...,
 	)
 	if err != nil {
 		return nil, false, err
@@ -35,7 +41,7 @@ func ManageCSRCABundle(lister corev1listers.ConfigMapLister, client corev1client
 
 func ManageCSRSigner(lister corev1listers.SecretLister, client corev1client.SecretsGetter, recorder events.Recorder) (*corev1.Secret, bool, error) {
 	// get the certkey pair we will sign with. We're going to add the cert to a ca bundle so we can recognize the chain it signs back to the signer
-	csrSigner, err := lister.Secrets(operatorclient.OperatorNamespace).Get("csr-signer")
+	csrSigner, err := lister.Secrets(operatorclient.OperatorNamespace).Get(csrSignerName)
 	if apierrors.IsNotFound(err) {
 		return nil, false, nil
 	}
@@ -62,7 +68,7 @@ func ManageCSRSigner(lister corev1listers.SecretLister, client corev1client.Secr
 	}
 
 	csrSigner = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.TargetNamespace, Name: "csr-signer"},
+		ObjectMeta: metav1.ObjectMeta{Namespace: csrSignerNamespace, Name: csrSignerName},
 		Data: map[string][]byte{
 			"tls.crt": certBytes,
 			"tls.key": []byte(signingKey),
@@ -73,7 +79,7 @@ func ManageCSRSigner(lister corev1listers.SecretLister, client corev1client.Secr
 
 func ManageCSRIntermediateCABundle(lister corev1listers.SecretLister, client corev1client.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	// get the certkey pair we will sign with. We're going to add the cert to a ca bundle so we can recognize the chain it signs back to the signer
-	csrSigner, err := lister.Secrets(operatorclient.OperatorNamespace).Get("csr-signer")
+	csrSigner, err := lister.Secrets(csrSignerNamespace).Get(csrSignerName)
 	if apierrors.IsNotFound(err) {
 		return nil, false, nil
 	}
@@ -93,10 +99,10 @@ func ManageCSRIntermediateCABundle(lister corev1listers.SecretLister, client cor
 		return nil, false, err
 	}
 
-	csrSignerCA, err := client.ConfigMaps(operatorclient.OperatorNamespace).Get("csr-signer-ca", metav1.GetOptions{})
+	csrSignerCA, err := client.ConfigMaps(csrSignerCANamespace).Get(csrSignerCAName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		csrSignerCA = &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.OperatorNamespace, Name: "csr-signer-ca"},
+			ObjectMeta: metav1.ObjectMeta{Namespace: csrSignerCANamespace, Name: csrSignerCAName},
 			Data:       map[string]string{},
 		}
 	} else if err != nil {

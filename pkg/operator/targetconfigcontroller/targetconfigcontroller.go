@@ -37,6 +37,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+	"github.com/openshift/cluster-kube-apiserver-operator/tls"
 )
 
 const workQueueKey = "key"
@@ -320,19 +321,9 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 
 func ManageClientCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
+		tls.OpenShiftKubeAPIServer_ClientCA.ConfigMap.ResourceLocation(),
 		lister,
-		// this is from the installer and contains the value to verify the admin.kubeconfig user
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
-		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images
-		// this is from kube-controller-manager and indicates the ca-bundle.crt to verify their signatures (kubelet client certs)
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "csr-controller-ca"},
-		// this is from the installer and contains the value to verify the kube-apiserver communicating to the kubelet
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-apiserver-to-kubelet-client-ca"},
-		// this bundle is what this operator uses to mint new client certs it directly manages
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-control-plane-signer-ca"},
-		// this bundle is what a user uses to mint new client certs it directly manages
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "user-client-ca"},
+		tls.OpenShiftKubeAPIServer_ClientCA.FromResourceLocations()...,
 	)
 	if err != nil {
 		return nil, false, err
@@ -343,14 +334,9 @@ func ManageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 
 func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
+		tls.OpenShiftKubeAPIServer_KubeAPIServerServerCA.ResourceLocation(),
 		lister,
-		// this bundle is what this operator uses to mint loadbalancers certs
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "loadbalancer-serving-ca"},
-		// this bundle is what this operator uses to mint localhost certs
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "localhost-serving-ca"},
-		// this bundle is what a user uses to mint service-network certs
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "service-network-serving-ca"},
+		tls.OpenShiftKubeAPIServer_KubeAPIServerServerCA.FromResourceLocations()...,
 	)
 	if err != nil {
 		return nil, false, err
