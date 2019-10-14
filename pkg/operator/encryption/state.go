@@ -53,6 +53,7 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 // To do this it compares the current state against the available secrets and to-be-encrypted resources.
 // oldEncryptionConfig can be nil if there is no config yet.
 // If there are no secrets, the identity is set for all resources as write key.
+// It is assumed that encryptionSecrets are all valid.
 //
 // The basic rules are:
 //
@@ -60,13 +61,13 @@ func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision s
 // 2. every GR must have all the read-keys (existing as secrets) since last complete migration.
 // 3. if (2) is the case, the write-key must be the most recent key.
 // 4. if (2) and (3) are the case, all non-write keys should be removed.
-func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, targetNamespace string, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) groupResourcesState {
+func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.EncryptionConfiguration, encryptionSecrets []*corev1.Secret, toBeEncryptedGRs []schema.GroupResource) groupResourcesState {
 	encryptionSecrets = sortRecentFirst(encryptionSecrets)
 
 	//
 	// STEP 0: start with old encryption config, and alter is in the rest of the rest of the func towards the desired state.
 	//
-	desiredEncryptionState := encryptionConfigToEncryptionState(targetNamespace, oldEncryptionConfig)
+	desiredEncryptionState := encryptionConfigToEncryptionState(oldEncryptionConfig)
 	if desiredEncryptionState == nil {
 		desiredEncryptionState = groupResourcesState{}
 	}
@@ -81,9 +82,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		// rotate through identity. This will also trigger a new key being generated
 		for _, gr := range toBeEncryptedGRs {
 			if _, ok := desiredEncryptionState[gr]; !ok {
-				desiredEncryptionState[gr] = keysState{
-					targetNamespace: targetNamespace,
-				}
+				desiredEncryptionState[gr] = keysState{}
 			} else {
 				grState := desiredEncryptionState[gr]
 				grState.writeSecret = nil
@@ -97,9 +96,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// add new resources without keys. These resources will trigger STEP 2.
 	for _, gr := range toBeEncryptedGRs {
 		if _, ok := desiredEncryptionState[gr]; !ok {
-			desiredEncryptionState[gr] = keysState{
-				targetNamespace: targetNamespace,
-			}
+			desiredEncryptionState[gr] = keysState{}
 		}
 	}
 
@@ -125,7 +122,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	for gr, grState := range desiredEncryptionState {
 		changed := false
 		for _, expected := range expectedReadSecrets {
-			if !hasSecret(grState.readSecrets, expected) {
+			if !hasKeyInSecret(grState.readSecrets, expected) {
 				grState.readSecrets = append(grState.readSecrets, expected)
 				changed = true
 				allReadSecretsAsExpected = false
@@ -147,7 +144,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	writeSecret := encryptionSecrets[0]
 	allWriteSecretsAsExpected := true
 	for gr, grState := range desiredEncryptionState {
-		if grState.writeSecret == nil || grState.writeSecret.Name != writeSecret.Name {
+		if grState.writeSecret == nil || !equalKeyInSecret(grState.writeSecret, writeSecret) {
 			allWriteSecretsAsExpected = false
 			klog.V(4).Infof("%s does not have write secret %s", gr, writeSecret.Name)
 			break
@@ -222,7 +219,7 @@ func keysWithPotentiallyPersistedData(grs []schema.GroupResource, recentFirstSor
 	return recentFirstSortedSecrets
 }
 
-func encryptionConfigToEncryptionState(targetNamespace string, c *apiserverconfigv1.EncryptionConfiguration) groupResourcesState {
+func encryptionConfigToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) groupResourcesState {
 	if c == nil {
 		return nil
 	}
@@ -235,7 +232,7 @@ func encryptionConfigToEncryptionState(targetNamespace string, c *apiserverconfi
 		var writeSecret *corev1.Secret
 		if keys.hasWriteKey() {
 			var err error
-			writeSecret, err = keyAndModeToKeySecret(targetNamespace, keys.writeKey)
+			writeSecret, err = keyAndModeToKeySecret(keys.writeKey)
 			if err != nil {
 				klog.Warningf("skipping invalid write-key from encryption config for resource %s: %v", gr, err)
 			} else {
@@ -244,7 +241,7 @@ func encryptionConfigToEncryptionState(targetNamespace string, c *apiserverconfi
 		}
 
 		for _, readKey := range keys.readKeys {
-			readSecret, err := keyAndModeToKeySecret(targetNamespace, readKey)
+			readSecret, err := keyAndModeToKeySecret(readKey)
 			if err != nil {
 				klog.Warningf("skipping invalid read-key from encryption config for resource %s: %v", gr, err)
 			} else {
@@ -253,26 +250,21 @@ func encryptionConfigToEncryptionState(targetNamespace string, c *apiserverconfi
 		}
 
 		s[gr] = keysState{
-			targetNamespace: targetNamespace,
-			writeSecret:     writeSecret,
-			readSecrets:     readSecrets,
+			writeSecret: writeSecret,
+			readSecrets: readSecrets,
 		}
 	}
 	return s
 }
 
-func keyAndModeToKeySecret(targetNamespace string, k keyAndMode) (*corev1.Secret, error) {
+func keyAndModeToKeySecret(k keyAndMode) (*corev1.Secret, error) {
 	bs, err := base64.StdEncoding.DecodeString(k.key.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed decoding base64 data of key %s", k.key.Name)
 	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-encryption-%s", targetNamespace, k.key.Name),
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Labels: map[string]string{
-				encryptionSecretComponent: targetNamespace,
-			},
+			Name: fmt.Sprintf("encryption-%s", k.key.Name),
 			Annotations: map[string]string{
 				encryptionSecretMode: string(k.mode),
 			},
@@ -405,7 +397,7 @@ func getEncryptionConfigAndState(
 	}
 	var encryptionSecrets []*corev1.Secret
 	for i, s := range encryptionSecretList.Items {
-		if _, _, ok := secretToKeyAndMode(&s, targetNamespace); !ok {
+		if _, _, ok := secretToKeyAndMode(&s); !ok {
 			klog.Infof("skipping invalid encryption secret %s", s.Name)
 			continue
 		} else {
@@ -413,7 +405,7 @@ func getEncryptionConfigAndState(
 		}
 	}
 
-	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, targetNamespace, encryptionSecrets, encryptedGRs)
+	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, encryptionSecrets, encryptedGRs)
 
 	return encryptionConfig, desiredEncryptionState, len(encryptionSecrets) > 0, "", nil
 }
@@ -495,9 +487,21 @@ func podReady(pod corev1.Pod) bool {
 	return false
 }
 
-func hasSecret(secrets []*corev1.Secret, secret *corev1.Secret) bool {
+func equalKeyInSecret(s1, s2 *corev1.Secret) bool {
+	km1, _, valid := secretToKeyAndMode(s1)
+	if !valid {
+		return false
+	}
+	km2, _, valid := secretToKeyAndMode(s2)
+	if !valid {
+		return false
+	}
+	return km1 == km2
+}
+
+func hasKeyInSecret(secrets []*corev1.Secret, secret *corev1.Secret) bool {
 	for _, s := range secrets {
-		if s.Name == secret.Name {
+		if equalKeyInSecret(s, secret) {
 			return true
 		}
 	}

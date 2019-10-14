@@ -126,7 +126,7 @@ func TestPruneController(t *testing.T) {
 				additionalReadSecrets := keysWithPotentiallyPersistedData(scenario.targetGRs, sortRecentFirst(scenario.initialSecrets))
 				var additionaReadKeys []apiserverconfigv1.Key
 				for _, s := range additionalReadSecrets {
-					km, readKeyID, _ := secretToKeyAndMode(s, scenario.targetNamespace)
+					km, readKeyID, _ := secretToKeyAndMode(s)
 					additionaReadKeys = append(additionaReadKeys, apiserverconfigv1.Key{
 						Name:   fmt.Sprintf("%d", readKeyID),
 						Secret: km.key.Secret,
