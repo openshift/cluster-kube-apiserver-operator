@@ -82,8 +82,6 @@ const revisionLabel = "revision"
 // overall desired configuration (which is the same as the current state when the system is at steady state).
 type groupResourcesState map[schema.GroupResource]keysState
 type keysState struct {
-	targetNamespace string
-
 	// sorted by key number, highest first
 	readSecrets []*corev1.Secret
 	writeSecret *corev1.Secret
@@ -92,7 +90,7 @@ type keysState struct {
 func (k keysState) readKeys() []keyAndMode {
 	ret := make([]keyAndMode, 0, len(k.readSecrets))
 	for _, readKey := range k.readSecrets {
-		readKeyAndMode, _, ok := secretToKeyAndMode(readKey, k.targetNamespace)
+		readKeyAndMode, _, ok := secretToKeyAndMode(readKey)
 		if !ok {
 			klog.Infof("failed to convert read secret %s to key", readKey.Name)
 			continue
@@ -107,7 +105,7 @@ func (k keysState) writeKey() keyAndMode {
 		return keyAndMode{}
 	}
 
-	writeKeyAndMode, _, ok := secretToKeyAndMode(k.writeSecret, k.targetNamespace)
+	writeKeyAndMode, _, ok := secretToKeyAndMode(k.writeSecret)
 	if !ok {
 		klog.Infof("failed to convert write secret %s to key", k.writeSecret.Name)
 		return keyAndMode{}

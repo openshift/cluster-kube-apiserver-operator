@@ -26,7 +26,7 @@ func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.Secret
 	}
 
 	for _, secret := range encryptionSecretList.Items {
-		sKeyAndMode, _, ok := secretToKeyAndMode(&secret, targetNamespace)
+		sKeyAndMode, _, ok := secretToKeyAndMode(&secret)
 		if !ok {
 			continue
 		}
@@ -38,8 +38,7 @@ func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.Secret
 	return nil, nil
 }
 
-func secretToKeyAndMode(encryptionSecret *corev1.Secret, targetNamespace string) (keyAndMode, uint64, bool) {
-	component := encryptionSecret.Labels[encryptionSecretComponent]
+func secretToKeyAndMode(encryptionSecret *corev1.Secret) (keyAndMode, uint64, bool) {
 	keyData := encryptionSecret.Data[encryptionSecretKeyData]
 	keyMode := mode(encryptionSecret.Annotations[encryptionSecretMode])
 
@@ -53,7 +52,7 @@ func secretToKeyAndMode(encryptionSecret *corev1.Secret, targetNamespace string)
 		},
 		mode: keyMode,
 	}
-	invalidKey := len(keyData) == 0 || !validKeyID || component != targetNamespace
+	invalidKey := len(keyData) == 0 || !validKeyID
 	switch keyMode {
 	case aescbc, secretbox, identity:
 	default:
