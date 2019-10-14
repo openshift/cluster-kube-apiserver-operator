@@ -3,10 +3,8 @@ package encryption
 import (
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
-	"k8s.io/klog"
 )
 
 // This label is used to find secrets that build up the final encryption config.  The names of the
@@ -76,54 +74,6 @@ const encryptionConfSecret = "encryption-config"
 // revisionLabel is used to find the current revision for a given API server.
 const revisionLabel = "revision"
 
-// groupResourcesState represents the secrets (i.e. encryption keys) associated with each group resource.
-// see getDesiredEncryptionState for how this map is built.  it is first fed the current state based on the on
-// disk configuration.  the actual state of the secrets in the kube API is then layered on top to determine the
-// overall desired configuration (which is the same as the current state when the system is at steady state).
-type groupResourcesState map[schema.GroupResource]keysState
-type keysState struct {
-	// sorted by key number, highest first
-	readSecrets []*corev1.Secret
-	writeSecret *corev1.Secret
-}
-
-func (k keysState) readKeys() []keyAndMode {
-	ret := make([]keyAndMode, 0, len(k.readSecrets))
-	for _, readKey := range k.readSecrets {
-		readKeyAndMode, _, ok := secretToKeyAndMode(readKey)
-		if !ok {
-			klog.Infof("failed to convert read secret %s to key", readKey.Name)
-			continue
-		}
-		ret = append(ret, readKeyAndMode)
-	}
-	return ret
-}
-
-func (k keysState) writeKey() keyAndMode {
-	if k.writeSecret == nil {
-		return keyAndMode{}
-	}
-
-	writeKeyAndMode, _, ok := secretToKeyAndMode(k.writeSecret)
-	if !ok {
-		klog.Infof("failed to convert write secret %s to key", k.writeSecret.Name)
-		return keyAndMode{}
-	}
-
-	return writeKeyAndMode
-}
-
-func (k keysState) latestKey() (*corev1.Secret, uint64) {
-	key := k.readSecrets[0]
-	keyID, _ := secretToKeyID(key)
-	return key, keyID
-}
-
-func secretIsBacked(s *corev1.Secret) bool {
-	return s != nil && len(s.Namespace) > 0
-}
-
 // groupResourceKeys represents, for a single group resource, the write and read keys in a
 // format that can be directly translated to and from the on disk EncryptionConfiguration object.
 type groupResourceKeys struct {
@@ -138,6 +88,21 @@ func (k groupResourceKeys) hasWriteKey() bool {
 type keyAndMode struct {
 	key  apiserverconfigv1.Key
 	mode mode
+
+	// described whether it is backed by a secret.
+	backed   bool
+	migrated Migration
+	// some controller logic caused this secret to be created by the key controller.
+	internalReason string
+	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
+	externalReason string
+}
+
+type Migration struct {
+	// the timestamp fo the last migration
+	ts time.Time
+	// the resources that were migrated at some point in time to this key.
+	resources []schema.GroupResource
 }
 
 // mode is the value associated with the encryptionSecretMode annotation

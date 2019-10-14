@@ -114,22 +114,34 @@ func TestPruneController(t *testing.T) {
 				nil,
 				nil,
 			)
+
 			rawSecrets := []runtime.Object{}
 			for _, initialSecret := range scenario.initialSecrets {
 				rawSecrets = append(rawSecrets, initialSecret)
 			}
+
 			fakePod := createDummyKubeAPIPod("kube-apiserver-1", "kms")
+
 			writeKeyRaw := []byte("71ea7c91419a68fd1224f88d50316b4e") // NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=
 			writeKeyID := uint64(len(scenario.initialSecrets) + 1)
 			writeKeySecret := createEncryptionKeySecretWithRawKey(scenario.targetNamespace, nil, writeKeyID, writeKeyRaw)
+
+			initialKeys := []keyAndMode{}
+			for _, s := range scenario.initialSecrets {
+				km, err := secretToKeyAndMode(s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				initialKeys = append(initialKeys, km)
+			}
+
 			encryptionConfig := func() *corev1.Secret {
-				additionalReadSecrets := keysWithPotentiallyPersistedData(scenario.targetGRs, sortRecentFirst(scenario.initialSecrets))
-				var additionaReadKeys []apiserverconfigv1.Key
-				for _, s := range additionalReadSecrets {
-					km, readKeyID, _ := secretToKeyAndMode(s)
-					additionaReadKeys = append(additionaReadKeys, apiserverconfigv1.Key{
-						Name:   fmt.Sprintf("%d", readKeyID),
-						Secret: km.key.Secret,
+				additionalReadKeys := keysWithPotentiallyPersistedData(scenario.targetGRs, sortRecentFirst(initialKeys))
+				var additionaConfigReadKeys []apiserverconfigv1.Key
+				for _, rk := range additionalReadKeys {
+					additionaConfigReadKeys = append(additionaConfigReadKeys, apiserverconfigv1.Key{
+						Name:   rk.key.Name,
+						Secret: rk.key.Secret,
 					})
 				}
 				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{{
@@ -139,7 +151,7 @@ func TestPruneController(t *testing.T) {
 							Name:   fmt.Sprintf("%d", writeKeyID),
 							Secret: base64.StdEncoding.EncodeToString(writeKeyRaw),
 						},
-					}, additionaReadKeys...),
+					}, additionaConfigReadKeys...),
 				}})
 				ec.APIVersion = corev1.SchemeGroupVersion.String()
 				return createEncryptionCfgSecret(t, "kms", "1", ec)

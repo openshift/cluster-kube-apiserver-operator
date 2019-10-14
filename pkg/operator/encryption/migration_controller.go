@@ -26,6 +26,7 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -181,7 +182,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 			continue // no write key to migrate to
 		}
 
-		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector, c.targetNamespace)
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector)
 		if err != nil {
 			return true, err
 		}
@@ -223,6 +224,30 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 
 	// if we reach this, all migration went fine and we can reset progressing condition
 	return true, nil
+}
+
+func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
+	if len(key.key.Name) == 0 {
+		return nil, nil
+	}
+
+	secrets, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, secret := range secrets.Items {
+		sKeyAndMode, err := secretToKeyAndMode(&secret)
+		if err != nil {
+			// invalid
+			continue
+		}
+		if equalKeyAndEqualID(&sKeyAndMode, &key) {
+			return &secret, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {

@@ -2,76 +2,82 @@ package encryption
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
-func findSecretForKeyWithClient(key keyAndMode, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions, targetNamespace string) (*corev1.Secret, error) {
-	if key == (keyAndMode{}) {
-		return nil, nil
+func secretToKeyAndMode(s *corev1.Secret) (keyAndMode, error) {
+	data := s.Data[encryptionSecretKeyData]
+
+	keyID, validKeyID := nameToKeyID(s.Name)
+	if !validKeyID {
+		return keyAndMode{}, fmt.Errorf("secret %s/%s has an invalid name", s.Namespace, s.Name)
 	}
-
-	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, secret := range encryptionSecretList.Items {
-		sKeyAndMode, _, ok := secretToKeyAndMode(&secret)
-		if !ok {
-			continue
-		}
-		if sKeyAndMode == key {
-			return secret.DeepCopy(), nil
-		}
-	}
-
-	return nil, nil
-}
-
-func secretToKeyAndMode(encryptionSecret *corev1.Secret) (keyAndMode, uint64, bool) {
-	keyData := encryptionSecret.Data[encryptionSecretKeyData]
-	keyMode := mode(encryptionSecret.Annotations[encryptionSecretMode])
-
-	keyID, validKeyID := secretToKeyID(encryptionSecret)
 
 	key := keyAndMode{
 		key: apiserverconfigv1.Key{
 			// we use keyID as the name to limit the length of the field as it is used as a prefix for every value in etcd
 			Name:   strconv.FormatUint(keyID, 10),
-			Secret: base64.StdEncoding.EncodeToString(keyData),
+			Secret: base64.StdEncoding.EncodeToString(data),
 		},
-		mode: keyMode,
+		backed: true,
 	}
-	invalidKey := len(keyData) == 0 || !validKeyID
+
+	if v, ok := s.Annotations[encryptionSecretMigratedTimestamp]; ok {
+		ts, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedTimestamp, err)
+		}
+		key.migrated.ts = ts
+	}
+
+	if v, ok := s.Annotations[encryptionSecretMigratedResources]; ok && len(v) > 0 {
+		migrated := &migratedGroupResources{}
+		if err := json.Unmarshal([]byte(v), migrated); err != nil {
+			return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid %s annotation: %v", s.Namespace, s.Name, encryptionSecretMigratedResources, err)
+		}
+		key.migrated.resources = migrated.Resources
+	}
+
+	if v, ok := s.Annotations[encryptionSecretInternalReason]; ok && len(v) > 0 {
+		key.internalReason = v
+	}
+	if v, ok := s.Annotations[encryptionSecretExternalReason]; ok && len(v) > 0 {
+		key.externalReason = v
+	}
+
+	keyMode := mode(s.Annotations[encryptionSecretMode])
 	switch keyMode {
 	case aescbc, secretbox, identity:
+		key.mode = keyMode
 	default:
-		invalidKey = true
+		return keyAndMode{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
+	}
+	if keyMode != identity && len(data) == 0 {
+		return keyAndMode{}, fmt.Errorf("secret %s/%s has of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
 	}
 
-	return key, keyID, !invalidKey
+	return key, nil
 }
 
-func secretToKeyID(encryptionSecret *corev1.Secret) (uint64, bool) {
-	// see format and ordering comment above encryptionSecretComponent near the top of this file
-	lastIdx := strings.LastIndex(encryptionSecret.Name, "-")
-	keyIDStr := encryptionSecret.Name[lastIdx+1:] // this can never overflow since str[-1+1:] is always valid
+func nameToKeyID(name string) (uint64, bool) {
+	lastIdx := strings.LastIndex(name, "-")
+	keyIDStr := name[lastIdx+1:] // this can never overflow since str[-1+1:] is always valid
 	keyID, keyIDErr := strconv.ParseUint(keyIDStr, 10, 0)
 	invalidKeyID := lastIdx == -1 || keyIDErr != nil
 	return keyID, !invalidKeyID
 }
 
-func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1.ResourceConfiguration {
+func getResourceConfigs(encryptionState map[schema.GroupResource]groupResourceKeys) []apiserverconfigv1.ResourceConfiguration {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 
 	for gr, grKeys := range encryptionState {
@@ -89,38 +95,11 @@ func getResourceConfigs(encryptionState groupResourcesState) []apiserverconfigv1
 	return resourceConfigs
 }
 
-func secretsToKeyAndModes(grKeys keysState) groupResourceKeys {
-	desired := groupResourceKeys{}
-
-	desired.writeKey = grKeys.writeKey()
-
-	// keys have a duplicate of the write key
-	// or there is no write key
-
-	// we know these are sorted with highest key ID first
-	readKeys := grKeys.readKeys()
-	for i := range readKeys {
-		readKey := readKeys[i]
-
-		readKeyIsWriteKey := desired.hasWriteKey() && readKey == desired.writeKey
-		// if present, do not include a duplicate write key in the read key list
-		if !readKeyIsWriteKey {
-			desired.readKeys = append(desired.readKeys, readKey)
-		}
-
-		// TODO consider being smarter about read keys we prune to avoid some rollouts
-	}
-
-	return desired
-}
-
 // secretsToProviders maps the write and read secrets to the equivalent read and write keys.
 // it primarily handles the conversion of keyAndMode to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func secretsToProviders(grKeys keysState) []apiserverconfigv1.ProviderConfiguration {
-	desired := secretsToKeyAndModes(grKeys)
-
+func secretsToProviders(desired groupResourceKeys) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.readKeys
 
 	// write key comes first

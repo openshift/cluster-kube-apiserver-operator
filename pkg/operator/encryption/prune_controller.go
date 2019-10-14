@@ -115,25 +115,24 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 		return nil
 	}
 
-	usedSecrets := make([]*corev1.Secret, 0, len(desiredEncryptionConfig))
+	allUsedKeys := make([]keyAndMode, 0, len(desiredEncryptionConfig))
 	for _, grKeys := range desiredEncryptionConfig {
-		usedSecrets = append(usedSecrets, grKeys.readSecrets...)
+		allUsedKeys = append(allUsedKeys, grKeys.readKeys...)
 	}
 
-	allkeys, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.encryptionSecretSelector)
+	allSecrets, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.encryptionSecretSelector)
 	if err != nil {
 		return err
 	}
 
 	// sort by keyID
-	encryptionSecrets := make([]*corev1.Secret, 0, len(allkeys.Items))
-	for _, s := range allkeys.Items {
-		encryptionSecrets = append(encryptionSecrets, s.DeepCopy()) // don't use &s because it constant through-out the loop
+	encryptionSecrets := make([]*corev1.Secret, 0, len(allSecrets.Items))
+	for _, s := range allSecrets.Items {
+		encryptionSecrets = append(encryptionSecrets, s.DeepCopy()) // don't use &s because it is constant through-out the loop
 	}
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
-		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
-		iKeyID, _ := secretToKeyID(encryptionSecrets[i])
-		jKeyID, _ := secretToKeyID(encryptionSecrets[j])
+		iKeyID, _ := nameToKeyID(encryptionSecrets[i].Name)
+		jKeyID, _ := nameToKeyID(encryptionSecrets[j].Name)
 		return iKeyID > jKeyID
 	})
 
@@ -141,9 +140,13 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 	skippedKeys := 0
 NextEncryptionSecret:
 	for _, s := range encryptionSecrets {
-		for _, us := range usedSecrets {
-			if equalKeyInSecret(us, s) {
-				continue NextEncryptionSecret
+		k, err := secretToKeyAndMode(s)
+		if err == nil {
+			// ignore invalid keys, check whether secret is used
+			for _, us := range allUsedKeys {
+				if equalKeyAndEqualID(&us, &k) {
+					continue NextEncryptionSecret
+				}
 			}
 		}
 

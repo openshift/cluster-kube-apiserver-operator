@@ -20,10 +20,10 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		encryptionSecrets   []*corev1.Secret
 		toBeEncryptedGRs    []schema.GroupResource
 	}
-	type ValidateState func(ts *testing.T, args *args, state groupResourcesState)
+	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]groupResourceKeys)
 
-	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state groupResourcesState) {
-		return func(ts *testing.T, _ *args, state groupResourcesState) {
+	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state map[schema.GroupResource]groupResourceKeys) {
+		return func(ts *testing.T, _ *args, state map[schema.GroupResource]groupResourceKeys) {
 			if expected == nil && state != nil {
 				ts.Errorf("expected nil state, got: %#v", state)
 				return
@@ -44,7 +44,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		}
 	}
 
-	outputMatchingInputConfig := func(ts *testing.T, args *args, state groupResourcesState) {
+	outputMatchingInputConfig := func(ts *testing.T, args *args, state map[schema.GroupResource]groupResourceKeys) {
 		equalsConfig(args.oldEncryptionConfig)(ts, args, state)
 	}
 
