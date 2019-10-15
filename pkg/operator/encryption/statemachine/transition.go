@@ -42,13 +42,8 @@ func GetEncryptionConfigAndState(
 		return nil, nil, false, "", err
 	}
 	var encryptionSecrets []*corev1.Secret
-	for i, s := range encryptionSecretList.Items {
-		if _, err := secrets.ToKeyState(&s); err != nil {
-			klog.Infof("skipping invalid encryption secret %s", s.Name)
-			continue
-		} else {
-			encryptionSecrets = append(encryptionSecrets, &encryptionSecretList.Items[i])
-		}
+	for i := range encryptionSecretList.Items {
+		encryptionSecrets = append(encryptionSecrets, &encryptionSecretList.Items[i])
 	}
 
 	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, encryptionSecrets, encryptedGRs)
@@ -74,17 +69,18 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 		km, err := secrets.ToKeyState(s)
 		if err != nil {
 			klog.Warningf("skipping invalid secret: %v", err)
+			continue
 		}
 		backedKeys = append(backedKeys, km)
 	}
 	backedKeys = state.SortRecentFirst(backedKeys)
 
 	//
-	// STEP 0: start with old encryption config, and alter is in the rest of the rest of the func towards the desired state.
+	// STEP 0: start with old encryption config, and alter it towards the desired state in the following STEPs.
 	//
 	desiredEncryptionState := encryptionconfig.ToEncryptionState(oldEncryptionConfig)
 	if desiredEncryptionState == nil {
-		desiredEncryptionState = map[schema.GroupResource]state.GroupResourceState{}
+		desiredEncryptionState = make(map[schema.GroupResource]state.GroupResourceState, len(toBeEncryptedGRs))
 	}
 
 	// add new resources without keys. These resources will trigger STEP 2.
@@ -101,12 +97,12 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	// STEP 1: without secrets, wait for the key controller to create one
 	//
 	// the code after this point assumes at least one secret
-	if len(encryptionSecrets) == 0 {
+	if len(backedKeys) == 0 {
 		klog.V(4).Infof("no encryption secrets found")
 		return desiredEncryptionState
 	}
 
-	// override fake secrets with real ones if they exist
+	// enrich KeyState with values from secrets
 	for gr, grState := range desiredEncryptionState {
 		for i, rk := range grState.ReadKeys {
 			for _, k := range backedKeys {
@@ -156,7 +152,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 				grState.ReadKeys = append(grState.ReadKeys, expected)
 				changed = true
 				allReadSecretsAsExpected = false
-				klog.V(4).Infof("encryped resource %s misses read key %s", gr, expected.Key.Name)
+				klog.V(4).Infof("encrypted resource %s misses read key %s", gr, expected.Key.Name)
 			}
 		}
 		if changed {
