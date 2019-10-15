@@ -41,7 +41,6 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 }
 
 func TestEncryptionRotation(t *testing.T) {
-	t.Skip()
 	kv, done, _, apiServerClient, kubeClient, operatorClient := getEncryptionClients(t)
 	defer done()
 	secretsClient := kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
