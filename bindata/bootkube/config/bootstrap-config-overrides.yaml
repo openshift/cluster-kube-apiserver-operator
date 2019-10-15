@@ -60,4 +60,6 @@ apiServerArguments:
     - "RotateKubeletServerCertificate=true"
     - "SupportPodPidsLimit=true"
     - "TLSSecurityProfile=true"
-    - "LocalStorageCapacityIsolation=false"
+    - "NodeDisruptionExclusion=true"
+    - "ServiceNodeExclusion=true"
+    - "LegacyNodeRoleBehavior=false"

@@ -5,9 +5,16 @@ all: build
 include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
 	golang.mk \
 	targets/openshift/bindata.mk \
-	targets/openshift/deps.mk \
 	targets/openshift/images.mk \
+	targets/openshift/crd-schema-gen.mk \
 )
+
+# Set crd-schema-gen variables
+CONTROLLER_GEN_VERSION :=v0.2.1
+CRD_APIS :=./vendor/github.com/openshift/api/operator/v1
+
+# Exclude e2e tests from unit testing
+GO_TEST_PACKAGES :=./pkg/... ./cmd/...
 
 IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 
@@ -30,6 +37,13 @@ $(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.2
 # and also hooked into {update,verify}-generated for broader integration.
 $(call add-bindata,v4.1.0,./bindata/v4.1.0/...,bindata,v410_00_assets,pkg/operator/v410_00_assets/bindata.go)
 
+# This will call a macro called "add-crd-gen" will will generate crd manifests based on the parameters:
+# $1 - target name
+# $2 - apis
+# $3 - manifests
+# $4 - output
+$(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
+
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
@@ -43,7 +57,7 @@ test-e2e: GO_TEST_FLAGS += -v
 test-e2e: GO_TEST_FLAGS += -timeout 1h
 test-e2e: test-unit
 
-# these are extremely slow serial e2e encryption tests that modify the cluster's global state
+# these are extremely slow serial e2e encryption tests that modify the cluster's global state 
 .PHONY: test-e2e-encryption
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
@@ -52,19 +66,16 @@ test-e2e-encryption: GO_TEST_FLAGS += -p 1
 test-e2e-encryption: GO_TEST_FLAGS += -parallel 1
 test-e2e-encryption: test-unit
 
-CRD_SCHEMA_GEN_VERSION := v1.0.0
-crd-schema-gen:
-	git clone -b $(CRD_SCHEMA_GEN_VERSION) --single-branch --depth 1 https://github.com/openshift/crd-schema-gen.git $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen
-	GOPATH=$(CRD_SCHEMA_GEN_GOPATH) GOBIN=$(CRD_SCHEMA_GEN_GOPATH)/bin go install $(CRD_SCHEMA_GEN_GOPATH)/src/github.com/openshift/crd-schema-gen/cmd/crd-schema-gen
-
-update-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
-update-codegen-crds: crd-schema-gen
-	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1
 update-codegen: update-codegen-crds
+.PHONY: update-codegen
 
-verify-codegen-crds: CRD_SCHEMA_GEN_GOPATH :=$(shell mktemp -d)
-verify-codegen-crds: crd-schema-gen
-	$(CRD_SCHEMA_GEN_GOPATH)/bin/crd-schema-gen --apis-dir vendor/github.com/openshift/api/operator/v1 --verify-only
 verify-codegen: verify-codegen-crds
-verify: verify-codegen
-.PHONY: update-codegen-crds update-codegen verify-codegen-crds verify-codegen verify crd-schema-gen
+.PHONY: verify-codegen
+
+test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
+test-e2e: test-unit
+.PHONY: test-e2e
+
+clean:
+	$(RM) ./cluster-kube-apiserver-operator
+.PHONY: clean
