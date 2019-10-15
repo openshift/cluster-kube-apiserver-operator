@@ -293,22 +293,14 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 	return true, nil
 }
 
-func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
-	if len(secret.Annotations[secrets.EncryptionSecretMigratedTimestamp]) == 0 {
-		return true
+func needsMigration(secret *corev1.Secret, gr schema.GroupResource) bool {
+	ks, err := secrets.ToKeyState(secret)
+	if err != nil {
+		klog.Infof("invalid key secret %s/%s", secret.Namespace, secret.Name)
+		return false
 	}
-
-	jsonMigratedResources := secret.Annotations[secrets.EncryptionSecretMigratedResources]
-	if len(jsonMigratedResources) == 0 {
-		return true
-	}
-	resources := &secrets.MigratedGroupResources{}
-	if err := json.Unmarshal([]byte(jsonMigratedResources), resources); err != nil {
-		klog.Infof("failed parse resources for %s: %v", secret.Name, err)
-		return true
-	}
-
-	return !resources.HasResource(resource)
+	alreadyMigrated, _, _ := state.MigratedFor([]schema.GroupResource{gr}, ks)
+	return !alreadyMigrated
 }
 
 func (c *migrationController) runStorageMigration(gr schema.GroupResource) error {
