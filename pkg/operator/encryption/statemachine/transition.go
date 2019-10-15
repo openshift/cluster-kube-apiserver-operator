@@ -164,14 +164,9 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 			desiredEncryptionState[gr] = grState
 		}
 
-		// verify that all read secrets are backed by a real secret, and therefore
-		// in encryptionSecrets. Read secrets are sorted. So encryptionSecrets[0]
-		// is a good next write key because it is most recent.
-		for _, rk := range grState.ReadKeys {
-			if !rk.Backed {
-				allReadSecretsAsExpected = false
-				break
-			}
+		// potential write-key must be backed. Otherwise stop here in STEP 2 and let key controller create a new key.
+		if !grState.ReadKeys[0].Backed {
+			allReadSecretsAsExpected = false
 		}
 	}
 	if !allReadSecretsAsExpected {
