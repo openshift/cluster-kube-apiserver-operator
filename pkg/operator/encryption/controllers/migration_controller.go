@@ -170,8 +170,8 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	}
 
 	// no storage migration until config is stable
-	desiredEncryptedConfigResources := encryptionconfig.FromEncryptionState(desiredEncryptionState)
-	if !reflect.DeepEqual(currentEncryptionConfig.Resources, desiredEncryptedConfigResources.Resources) {
+	desiredEncryptedConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+	if !reflect.DeepEqual(currentEncryptionConfig.Resources, desiredEncryptedConfig.Resources) {
 		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
 		return true, nil // retry in a little while but do not go degraded
 	}
