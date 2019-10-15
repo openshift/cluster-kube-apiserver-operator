@@ -36,6 +36,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 }
 
 // ToEncryptionState converts config to state.
+// Read keys contain a potential write key. Read keys are sorted, recent first.
 func ToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]state.GroupResourceState {
 	if c == nil {
 		return nil
@@ -44,7 +45,16 @@ func ToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.
 	ret := getGRsActualKeys(c)
 	for gr, keys := range ret {
 		if keys.HasWriteKey() {
-			keys.ReadKeys = append(keys.ReadKeys, keys.WriteKey)
+			found := false
+			for _, rk := range keys.ReadKeys {
+				if state.EqualKeyAndEqualID(&rk, &keys.WriteKey) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				keys.ReadKeys = append(keys.ReadKeys, keys.WriteKey)
+			}
 		}
 		keys.ReadKeys = state.SortRecentFirst(keys.ReadKeys)
 		ret[gr] = keys
@@ -143,9 +153,15 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 func secretsToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
-	// write key comes first
+	// Write key comes first. Filter it out in the tail of read keys.
 	if desired.HasWriteKey() {
 		allKeys = append([]state.KeyState{desired.WriteKey}, allKeys...)
+		for i := 1; i < len(allKeys); i++ {
+			if state.EqualKeyAndEqualID(&allKeys[i], &desired.WriteKey) {
+				allKeys = append(allKeys[:i], allKeys[i+1:]...)
+				break
+			}
+		}
 	}
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity

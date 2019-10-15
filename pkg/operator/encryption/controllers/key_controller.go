@@ -207,7 +207,11 @@ func (c *keyController) validateExistingSecret(keySecret *corev1.Secret, keyID u
 	actualKeyID, ok := state.NameToKeyID(actualKeySecret.Name)
 	if !ok || actualKeyID != keyID {
 		// TODO we can just get stuck in degraded here ...
-		return fmt.Errorf("secret %s is in invalid state, new keys cannot be created for encryption target", keySecret.Name)
+		return fmt.Errorf("secret %s has an invalid name, new keys cannot be created for encryption target", keySecret.Name)
+	}
+
+	if _, err := secrets.ToKeyState(actualKeySecret); err != nil {
+		return fmt.Errorf("secret %s is invalid, new keys cannot be created for encryption target", keySecret.Name)
 	}
 
 	return nil // we made this key earlier

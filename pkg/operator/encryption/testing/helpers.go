@@ -30,7 +30,7 @@ const (
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-encryption-%d", targetNS, keyID),
+			Name:      fmt.Sprintf("encryption-key-%s-%d", targetNS, keyID),
 			Namespace: "openshift-config-managed",
 			Annotations: map[string]string{
 				state.KubernetesDescriptionKey: state.KubernetesDescriptionScaryValue,

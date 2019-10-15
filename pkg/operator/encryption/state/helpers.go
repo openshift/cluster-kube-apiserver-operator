@@ -61,10 +61,12 @@ func SortRecentFirst(unsorted []KeyState) []KeyState {
 
 func NameToKeyID(name string) (uint64, bool) {
 	lastIdx := strings.LastIndex(name, "-")
-	keyIDStr := name[lastIdx+1:] // this can never overflow since str[-1+1:] is always valid
-	keyID, keyIDErr := strconv.ParseUint(keyIDStr, 10, 0)
-	invalidKeyID := lastIdx == -1 || keyIDErr != nil
-	return keyID, !invalidKeyID
+	idString := name
+	if lastIdx >= 0 {
+		idString = name[lastIdx+1:] // this can never overflow since str[-1+1:] is
+	}
+	id, err := strconv.ParseUint(idString, 10, 0)
+	return id, err == nil
 }
 
 func EqualKeyAndEqualID(s1, s2 *KeyState) bool {

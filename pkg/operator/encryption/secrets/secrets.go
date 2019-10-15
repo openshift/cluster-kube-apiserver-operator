@@ -65,7 +65,7 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid mode: %s", s.Namespace, s.Name, keyMode)
 	}
 	if keyMode != state.Identity && len(data) == 0 {
-		return state.KeyState{}, fmt.Errorf("secret %s/%s has of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
+		return state.KeyState{}, fmt.Errorf("secret %s/%s of mode %q must have non-empty key", s.Namespace, s.Name, keyMode)
 	}
 
 	return key, nil
@@ -79,7 +79,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("encryption-key-%s-%d", component, ks.Key.Name),
+			Name:      fmt.Sprintf("encryption-key-%s-%s", component, ks.Key.Name),
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Labels: map[string]string{
 				EncryptionKeySecretsLabel: component,
