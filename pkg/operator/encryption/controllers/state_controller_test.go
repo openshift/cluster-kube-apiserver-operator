@@ -34,21 +34,17 @@ func TestStateController(t *testing.T) {
 		targetNamespace          string
 		targetGRs                []schema.GroupResource
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
-		expectedActions []string
-		// destName denotes the name of the secret that contains EncryptionConfiguration
-		// this field is required to create the controller
-		destName                   string
+		expectedActions            []string
 		expectedEncryptionCfg      *apiserverconfigv1.EncryptionConfiguration
 		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
 		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
 		expectedError              error
 	}{
-		// scenario 1: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace
+		// scenario 1: validates if "encryption-config-kms" secret with EncryptionConfiguration in "openshift-config-managed" namespace
 		// was not created when no secrets with encryption keys are present in that namespace.
 		{
 			name:            "no secret with EncryptionConfig is created when there are no secrets with the encryption keys",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -58,13 +54,12 @@ func TestStateController(t *testing.T) {
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
-		// scenario 2: validates if "encryption-config-kube-apiserver-test" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
+		// scenario 2: validates if "encryption-config-kms" secret with EncryptionConfiguration in "openshift-config-managed" namespace is created,
 		// it also checks the content and the order of encryption providers, this test expects identity first and aescbc second
 		{
 			name:                     "secret with EncryptionConfig is created without a write key",
 			targetNamespace:          "kms",
 			encryptionSecretSelector: metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component=kms"},
-			destName:                 "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -98,7 +93,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "secret with EncryptionConfig is created and it contains a single write key",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -149,7 +143,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "no-op when no key is transitioning",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -182,7 +175,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -193,7 +186,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "the key with ID=34 is transitioning (observed as a read key) so it is used as a write key in the EncryptionConfig",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -235,7 +227,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -281,7 +273,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "checks if the order of the keys is preserved and that they read keys are pruned - all migrated",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -341,7 +332,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -383,7 +374,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "checks if the order of the keys is preserved - with a key that is transitioning",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -427,7 +417,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -476,7 +466,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "no encryption cfg in the target ns (was deleted)",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -495,7 +484,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -542,7 +531,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "a user can't stop encrypting config maps",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -597,7 +585,7 @@ func TestStateController(t *testing.T) {
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey(keysRes)
 					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
-					ecs.Name = "encryption-config-kube-apiserver-test"
+					ecs.Name = "encryption-config-kms"
 					return ecs
 				}(),
 			},
@@ -608,7 +596,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "degraded a pod with invalid condition",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -632,7 +619,6 @@ func TestStateController(t *testing.T) {
 		{
 			name:            "no-op as an invalid secret is not considered",
 			targetNamespace: "kms",
-			destName:        "encryption-config-kube-apiserver-test",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
@@ -683,7 +669,7 @@ func TestStateController(t *testing.T) {
 			fakePodClient := fakeKubeClient.CoreV1()
 
 			target := NewStateController(
-				scenario.targetNamespace, scenario.destName,
+				scenario.targetNamespace,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
@@ -710,7 +696,7 @@ func TestStateController(t *testing.T) {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
-				scenario.validateFunc(t, fakeKubeClient.Actions(), scenario.destName, scenario.expectedEncryptionCfg)
+				scenario.validateFunc(t, fakeKubeClient.Actions(), fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, scenario.targetNamespace), scenario.expectedEncryptionCfg)
 			}
 			if scenario.validateOperatorClientFunc != nil {
 				scenario.validateOperatorClientFunc(t, fakeOperatorClient)

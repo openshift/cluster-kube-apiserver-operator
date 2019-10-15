@@ -23,7 +23,7 @@ type runner interface {
 }
 
 func NewControllers(
-	targetNamespace, destName string,
+	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
@@ -42,7 +42,7 @@ func NewControllers(
 
 	if err := resourceSyncer.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionconfig.EncryptionConfSecretName},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: destName},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: targetNamespace},
 	); err != nil {
 		return nil, err
 	}
@@ -63,7 +63,6 @@ func NewControllers(
 			),
 			controllers.NewStateController(
 				targetNamespace,
-				destName,
 				operatorClient,
 				kubeInformersForNamespaces,
 				kubeClient.CoreV1(),
