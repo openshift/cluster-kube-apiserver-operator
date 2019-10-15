@@ -32,8 +32,12 @@ func TestRoundtrip(t *testing.T) {
 				Backed: true, // this will be set by ToKeyState()
 				Mode:   "aescbc",
 				Migrated: state.MigrationState{
-					now,
-					[]schema.GroupResource{{"", "secrets"}, {"", "configmaps"}, {"networking.openshift.io", "routes"}},
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "networking.openshift.io", Resource: "routes"},
+					},
 				},
 				InternalReason: "internal",
 				ExternalReason: "external",
@@ -62,8 +66,12 @@ func TestRoundtrip(t *testing.T) {
 				Backed: true, // this will be set by ToKeyState()
 				Mode:   "identity",
 				Migrated: state.MigrationState{
-					now,
-					[]schema.GroupResource{{"", "secrets"}, {"", "configmaps"}, {"networking.openshift.io", "routes"}},
+					Timestamp: now,
+					Resources: []schema.GroupResource{
+						{Resource: "secrets"},
+						{Resource: "configmaps"},
+						{Group: "networking.openshift.io", Resource: "routes"},
+					},
 				},
 				InternalReason: "internal",
 				ExternalReason: "external",
