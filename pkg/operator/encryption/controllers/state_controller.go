@@ -1,12 +1,10 @@
-package encryption
+package controllers
 
 import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -17,6 +15,8 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -49,11 +49,9 @@ type stateController struct {
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 	secretClient   corev1client.SecretsGetter
 	podClient      corev1client.PodsGetter
-
-	encoder runtime.Encoder
 }
 
-func newStateController(
+func NewStateController(
 	targetNamespace, destName string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -79,7 +77,6 @@ func newStateController(
 	}
 
 	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
-	c.encoder = apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
 
 	return c
 }
@@ -109,7 +106,7 @@ func (c *stateController) sync() error {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -125,31 +122,20 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error 
 		return nil
 	}
 
-	return c.applyEncryptionConfigSecret(getResourceConfigs(desiredEncryptionState))
+	return c.applyEncryptionConfigSecret(encryptionconfig.FromEncryptionState(desiredEncryptionState))
 }
 
-func (c *stateController) applyEncryptionConfigSecret(resourceConfigs []apiserverconfigv1.ResourceConfiguration) error {
-	encryptionConfig := &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs}
-	encryptionConfigBytes, err := runtime.Encode(c.encoder, encryptionConfig)
+func (c *stateController) applyEncryptionConfigSecret(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) error {
+	s, err := encryptionconfig.ToSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, c.encryptionConfigName, encryptionConfig)
 	if err != nil {
-		return err // indicates static generated code is broken, unrecoverable
+		return err
 	}
 
-	_, _, applyErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.encryptionConfigName,
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Annotations: map[string]string{
-				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
-			},
-			Finalizers: []string{encryptionSecretFinalizer},
-		},
-		Data: map[string][]byte{encryptionConfSecret: encryptionConfigBytes},
-	})
+	_, _, applyErr := resourceapply.ApplySecret(c.secretClient, c.eventRecorder, s)
 	return applyErr
 }
 
-func (c *stateController) run(stopCh <-chan struct{}) {
+func (c *stateController) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 

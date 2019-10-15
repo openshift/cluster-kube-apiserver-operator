@@ -1,4 +1,4 @@
-package encryption
+package testing
 
 import (
 	"encoding/json"
@@ -10,29 +10,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	clientgotesting "k8s.io/client-go/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
 	encryptionSecretKeyDataForTest           = "encryption.apiserver.operator.openshift.io-key"
-	encryptionConfSecretForTest              = "encryption-config"
 	encryptionSecretMigratedTimestampForTest = "encryption.apiserver.operator.openshift.io/migrated-timestamp"
 	encryptionSecretMigratedResourcesForTest = "encryption.apiserver.operator.openshift.io/migrated-resources"
 )
 
-func createEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-encryption-%d", targetNS, keyID),
 			Namespace: "openshift-config-managed",
 			Annotations: map[string]string{
-				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
+				state.KubernetesDescriptionKey: state.KubernetesDescriptionScaryValue,
 
 				"encryption.apiserver.operator.openshift.io/mode":            "aescbc",
 				"encryption.apiserver.operator.openshift.io/internal-reason": "no-secrets",
@@ -47,7 +48,7 @@ func createEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource
 	}
 
 	if len(grs) > 0 {
-		migratedResourceBytes, err := json.Marshal(migratedGroupResources{Resources: grs})
+		migratedResourceBytes, err := json.Marshal(secrets.MigratedGroupResources{Resources: grs})
 		if err != nil {
 			panic(err)
 		}
@@ -57,31 +58,31 @@ func createEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource
 	return s
 }
 
-func createEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
-	secret := createEncryptionKeySecretNoData(targetNS, grs, keyID)
+func CreateEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
+	secret := CreateEncryptionKeySecretNoData(targetNS, grs, keyID)
 	secret.Data[encryptionSecretKeyDataForTest] = rawKey
 	return secret
 }
 
-func createEncryptionKeySecretWithKeyFromExistingSecret(targetNS string, grs []schema.GroupResource, keyID uint64, existingSecret *corev1.Secret) *corev1.Secret {
-	secret := createEncryptionKeySecretNoData(targetNS, grs, keyID)
+func CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNS string, grs []schema.GroupResource, keyID uint64, existingSecret *corev1.Secret) *corev1.Secret {
+	secret := CreateEncryptionKeySecretNoData(targetNS, grs, keyID)
 	if rawKey, exist := existingSecret.Data[encryptionSecretKeyDataForTest]; exist {
 		secret.Data[encryptionSecretKeyDataForTest] = rawKey
 	}
 	return secret
 }
 
-func createMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, ts time.Time) *corev1.Secret {
-	secret := createEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey)
+func CreateMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, ts time.Time) *corev1.Secret {
+	secret := CreateEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey)
 	secret.Annotations[encryptionSecretMigratedTimestampForTest] = ts.Format(time.RFC3339)
 	return secret
 }
 
-func createExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
-	return createMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
+func CreateExpiredMigratedEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
+	return CreateMigratedEncryptionKeySecretWithRawKey(targetNS, grs, keyID, rawKey, time.Now().Add(-(time.Hour*24*7 + time.Hour)))
 }
 
-func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
+func CreateDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -103,32 +104,13 @@ func createDummyKubeAPIPod(name, namespace string) *corev1.Pod {
 	}
 }
 
-func createDummyKubeAPIPodInUnknownPhase(name, namespace string) *corev1.Pod {
-	p := createDummyKubeAPIPod(name, namespace)
+func CreateDummyKubeAPIPodInUnknownPhase(name, namespace string) *corev1.Pod {
+	p := CreateDummyKubeAPIPod(name, namespace)
 	p.Status.Phase = corev1.PodUnknown
 	return p
 }
 
-func secretDataToEncryptionConfig(secret *corev1.Secret) (*apiserverconfigv1.EncryptionConfiguration, error) {
-	rawEncryptionConfig, exist := secret.Data[encryptionConfSecretForTest]
-	if !exist {
-		return nil, errors.New("the secret doesn't contain an encryption configuration")
-	}
-
-	decoder := apiserverCodecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
-	decodedEncryptionConfig, err := runtime.Decode(decoder, rawEncryptionConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	encryptionConfig, ok := decodedEncryptionConfig.(*apiserverconfigv1.EncryptionConfiguration)
-	if !ok {
-		return nil, fmt.Errorf("encryption config has wrong type %T", decodedEncryptionConfig)
-	}
-	return encryptionConfig, nil
-}
-
-func validateActionsVerbs(actualActions []clientgotesting.Action, expectedActions []string) error {
+func ValidateActionsVerbs(actualActions []clientgotesting.Action, expectedActions []string) error {
 	if len(actualActions) != len(expectedActions) {
 		return fmt.Errorf("expected to get %d actions but got %d, expected=%v, got=%v", len(expectedActions), len(actualActions), expectedActions, actionStrings(actualActions))
 	}
@@ -152,7 +134,7 @@ func actionStrings(actions []clientgotesting.Action) []string {
 	return res
 }
 
-func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
+func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
 	ret := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
@@ -181,12 +163,12 @@ func createEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...
 	return ret
 }
 
-func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
 	configurations := []apiserverconfigv1.ResourceConfiguration{}
 	for _, keysResource := range keysResources {
-		// TODO allow secretbox -> not sure if encryptionKeysResourceTuple makes sense
+		// TODO allow secretbox -> not sure if EncryptionKeysResourceTuple makes sense
 		providers := []apiserverconfigv1.ProviderConfiguration{}
-		for _, key := range keysResource.keys {
+		for _, key := range keysResource.Keys {
 			providers = append(providers, apiserverconfigv1.ProviderConfiguration{
 				AESCBC: &apiserverconfigv1.AESConfiguration{
 					Keys: []apiserverconfigv1.Key{key},
@@ -198,7 +180,7 @@ func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple
 		})
 
 		configurations = append(configurations, apiserverconfigv1.ResourceConfiguration{
-			Resources: []string{keysResource.resource},
+			Resources: []string{keysResource.Resource},
 			Providers: providers,
 		})
 	}
@@ -212,40 +194,22 @@ func createEncryptionCfgWithWriteKey(keysResources []encryptionKeysResourceTuple
 	}
 }
 
-func createEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
+func CreateEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
 	t.Helper()
 
-	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-	rawEncryptionCfg, err := runtime.Encode(encoder, encryptionCfg)
+	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, revision), encryptionCfg)
 	if err != nil {
-		t.Fatalf("unable to encode the encryption config, err = %v", err)
+		t.Fatal(err)
 	}
-
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", encryptionConfSecretForTest, revision),
-			Namespace: targetNs,
-			Annotations: map[string]string{
-				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
-			},
-			Finalizers: []string{"encryption.apiserver.operator.openshift.io/deletion-protection"},
-		},
-		Data: map[string][]byte{
-			encryptionConfSecretForTest: rawEncryptionCfg,
-		},
-	}
+	return s
 }
 
-type encryptionKeysResourceTuple struct {
-	resource string
-	keys     []apiserverconfigv1.Key
+type EncryptionKeysResourceTuple struct {
+	Resource string
+	Keys     []apiserverconfigv1.Key
 }
 
-func validateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient, expectedConditions []operatorv1.OperatorCondition) {
+func ValidateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient, expectedConditions []operatorv1.OperatorCondition) {
 	ts.Helper()
 	_, status, _, err := operatorClient.GetStaticPodOperatorState()
 	if err != nil {
@@ -270,4 +234,15 @@ func validateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.St
 		}
 
 	}
+}
+
+func ValidateEncryptionKey(secret *corev1.Secret) error {
+	rawKey, exist := secret.Data[encryptionSecretKeyDataForTest]
+	if !exist {
+		return errors.New("the secret doesn't contain an encryption key")
+	}
+	if len(rawKey) != 32 {
+		return fmt.Errorf("incorrect length of the encryption key, expected 32, got %d bytes", len(rawKey))
+	}
+	return nil
 }

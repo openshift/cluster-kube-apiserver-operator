@@ -1,4 +1,4 @@
-package encryption
+package controllers
 
 import (
 	"context"
@@ -26,6 +26,10 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -72,7 +76,7 @@ type migrationController struct {
 	discoveryClient discovery.ServerResourcesInterface
 }
 
-func newMigrationController(
+func NewMigrationController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -156,7 +160,7 @@ func (c *migrationController) setProgressing(reason, message string, args ...int
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgressing bool, err error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return false, err
 	}
@@ -166,7 +170,7 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	}
 
 	// no storage migration until config is stable
-	desiredEncryptedConfigResources := getResourceConfigs(desiredEncryptionState)
+	desiredEncryptedConfigResources := encryptionconfig.FromEncryptionState(desiredEncryptionState)
 	if !reflect.DeepEqual(currentEncryptionConfig.Resources, desiredEncryptedConfigResources) {
 		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
 		return true, nil // retry in a little while but do not go degraded
@@ -177,18 +181,18 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	// we never want to migrate during an intermediate state because that could lead to one API server
 	// using a write key that another API server has not observed
 	// this could lead to etcd storing data that not all API servers can decrypt
-	for gr, grActualKeys := range getGRsActualKeys(currentEncryptionConfig) {
-		if !grActualKeys.hasWriteKey() {
+	for gr, grActualKeys := range encryptionconfig.ToEncryptionState(currentEncryptionConfig) {
+		if !grActualKeys.HasWriteKey() {
 			continue // no write key to migrate to
 		}
 
-		writeSecret, err := findSecretForKeyWithClient(grActualKeys.writeKey, c.secretClient, c.encryptionSecretSelector)
+		writeSecret, err := findSecretForKeyWithClient(grActualKeys.WriteKey, c.secretClient, c.encryptionSecretSelector)
 		if err != nil {
 			return true, err
 		}
 		ok := writeSecret != nil
 		if !ok { // make sure this is a fully observed write key
-			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.writeKey.key.Name, groupToHumanReadable(gr), gr.Resource)
+			klog.V(4).Infof("write key %s for group=%s resource=%s not fully observed", grActualKeys.WriteKey.Key.Name, groupToHumanReadable(gr), gr.Resource)
 			continue
 		}
 
@@ -226,23 +230,23 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 	return true, nil
 }
 
-func findSecretForKeyWithClient(key KeyState, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
-	if len(key.key.Name) == 0 {
+func findSecretForKeyWithClient(key state.KeyState, secretClient corev1client.SecretsGetter, encryptionSecretSelector metav1.ListOptions) (*corev1.Secret, error) {
+	if len(key.Key.Name) == 0 {
 		return nil, nil
 	}
 
-	secrets, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
+	secretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, secret := range secrets.Items {
-		sKeyAndMode, err := secretToKeyAndMode(&secret)
+	for _, secret := range secretList.Items {
+		sKeyAndMode, err := secrets.ToKeyState(&secret)
 		if err != nil {
 			// invalid
 			continue
 		}
-		if equalKeyAndEqualID(&sKeyAndMode, &key) {
+		if state.EqualKeyAndEqualID(&sKeyAndMode, &key) {
 			return &secret, nil
 		}
 	}
@@ -251,11 +255,11 @@ func findSecretForKeyWithClient(key KeyState, secretClient corev1client.SecretsG
 }
 
 func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error) {
-	migratedGRs := migratedGroupResources{}
-	if existing, found := s.Annotations[encryptionSecretMigratedResources]; found {
+	migratedGRs := secrets.MigratedGroupResources{}
+	if existing, found := s.Annotations[secrets.EncryptionSecretMigratedResources]; found {
 		if err := json.Unmarshal([]byte(existing), &migratedGRs); err != nil {
 			// ignore error and just start fresh, causing some more migration at worst
-			migratedGRs = migratedGroupResources{}
+			migratedGRs = secrets.MigratedGroupResources{}
 		}
 	}
 
@@ -268,43 +272,43 @@ func setResourceMigrated(gr schema.GroupResource, s *corev1.Secret) (bool, error
 	}
 
 	// update timestamp, if missing or first migration of gr
-	if _, found := s.Annotations[encryptionSecretMigratedTimestamp]; found && alreadyMigrated {
+	if _, found := s.Annotations[secrets.EncryptionSecretMigratedTimestamp]; found && alreadyMigrated {
 		return false, nil
 	}
 	if s.Annotations == nil {
 		s.Annotations = map[string]string{}
 	}
-	s.Annotations[encryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
+	s.Annotations[secrets.EncryptionSecretMigratedTimestamp] = time.Now().Format(time.RFC3339)
 
 	// update resource list
 	if !alreadyMigrated {
 		migratedGRs.Resources = append(migratedGRs.Resources, gr)
 		bs, err := json.Marshal(migratedGRs)
 		if err != nil {
-			return false, fmt.Errorf("failed to marshal %s annotation value %#v for key secret %s/%s", encryptionSecretMigratedResources, migratedGRs, s.Namespace, s.Name)
+			return false, fmt.Errorf("failed to marshal %s annotation value %#v for key secret %s/%s", secrets.EncryptionSecretMigratedResources, migratedGRs, s.Namespace, s.Name)
 		}
-		s.Annotations[encryptionSecretMigratedResources] = string(bs)
+		s.Annotations[secrets.EncryptionSecretMigratedResources] = string(bs)
 	}
 
 	return true, nil
 }
 
 func needsMigration(secret *corev1.Secret, resource schema.GroupResource) bool {
-	if len(secret.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
+	if len(secret.Annotations[secrets.EncryptionSecretMigratedTimestamp]) == 0 {
 		return true
 	}
 
-	jsonMigratedResources := secret.Annotations[encryptionSecretMigratedResources]
+	jsonMigratedResources := secret.Annotations[secrets.EncryptionSecretMigratedResources]
 	if len(jsonMigratedResources) == 0 {
 		return true
 	}
-	resources := &migratedGroupResources{}
+	resources := &secrets.MigratedGroupResources{}
 	if err := json.Unmarshal([]byte(jsonMigratedResources), resources); err != nil {
 		klog.Infof("failed parse resources for %s: %v", secret.Name, err)
 		return true
 	}
 
-	return !resources.hasResource(resource)
+	return !resources.HasResource(resource)
 }
 
 func (c *migrationController) runStorageMigration(gr schema.GroupResource) error {
@@ -354,7 +358,7 @@ func (c *migrationController) getVersion(gr schema.GroupResource) (string, error
 	return "", fmt.Errorf("failed to find version for %s, discoveryErr=%v", gr, discoveryErr)
 }
 
-func (c *migrationController) run(stopCh <-chan struct{}) {
+func (c *migrationController) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -401,4 +405,14 @@ func (c *migrationController) eventHandler() cache.ResourceEventHandler {
 		UpdateFunc: func(old, new interface{}) { c.queue.Add(migrationWorkKey) },
 		DeleteFunc: func(obj interface{}) { c.queue.Add(migrationWorkKey) },
 	}
+}
+
+// groupToHumanReadable extracts a group from gr and makes it more readable, for example it converts an empty group to "core"
+// Note: do not use it to get resources from the server only when printing to a log file
+func groupToHumanReadable(gr schema.GroupResource) string {
+	group := gr.Group
+	if len(group) == 0 {
+		group = "core"
+	}
+	return group
 }

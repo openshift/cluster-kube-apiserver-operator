@@ -1,4 +1,4 @@
-package encryption
+package statemachine
 
 import (
 	"encoding/base64"
@@ -11,6 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	"k8s.io/utils/diff"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
+	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
 
 func TestGetDesiredEncryptionState(t *testing.T) {
@@ -20,10 +24,10 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		encryptionSecrets   []*corev1.Secret
 		toBeEncryptedGRs    []schema.GroupResource
 	}
-	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]GroupResourceState)
+	type ValidateState func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState)
 
-	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state map[schema.GroupResource]GroupResourceState) {
-		return func(ts *testing.T, _ *args, state map[schema.GroupResource]GroupResourceState) {
+	equalsConfig := func(expected *apiserverconfigv1.EncryptionConfiguration) func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState) {
+		return func(ts *testing.T, _ *args, state map[schema.GroupResource]state.GroupResourceState) {
 			if expected == nil && state != nil {
 				ts.Errorf("expected nil state, got: %#v", state)
 				return
@@ -37,14 +41,14 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 			}
 			expected := expected.DeepCopy()
 			expected.TypeMeta = metav1.TypeMeta{}
-			encryptionConfig := &apiserverconfigv1.EncryptionConfiguration{Resources: getResourceConfigs(state)}
+			encryptionConfig := encryptionconfig.FromEncryptionState(state)
 			if !reflect.DeepEqual(expected, encryptionConfig) {
 				ts.Errorf("unexpected encryption config (A: expected, B: got):\n%s", diff.ObjectDiff(expected, encryptionConfig))
 			}
 		}
 	}
 
-	outputMatchingInputConfig := func(ts *testing.T, args *args, state map[schema.GroupResource]GroupResourceState) {
+	outputMatchingInputConfig := func(ts *testing.T, args *args, state map[schema.GroupResource]state.GroupResourceState) {
 		equalsConfig(args.oldEncryptionConfig)(ts, args, state)
 	}
 
@@ -81,7 +85,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 		{
 			"config exists without write keys, no secrets => nothing done, config unchanged",
 			args{
-				createEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
+				encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=", "configmaps", "secrets"),
 				"kms",
 				nil,
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
@@ -169,7 +173,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -236,7 +240,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}},
 			},
@@ -277,7 +281,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				nil,
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -317,11 +321,11 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				nil,
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 4, []byte("447907494bßc4897b876c8476bf807bc"), time.Now()),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 3, []byte("3cbfbe7d76876e076b076c659cd895ff"), time.Now()),
-					createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 2, []byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 1, []byte("11ea7c91419a68fd1224f88d50316b4a"), time.Now()),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 4, []byte("447907494bßc4897b876c8476bf807bc"), time.Now()),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 3, []byte("3cbfbe7d76876e076b076c659cd895ff"), time.Now()),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 2, []byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 1, []byte("11ea7c91419a68fd1224f88d50316b4a"), time.Now()),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -445,11 +449,11 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 					}},
 				"kms",
 				[]*corev1.Secret{
-					// missing: createEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 4, []byte("447907494bßc4897b876c8476bf807bc"), time.Now()),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 3, []byte("3cbfbe7d76876e076b076c659cd895ff"), time.Now()),
-					createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 2, []byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 1, []byte("11ea7c91419a68fd1224f88d50316b4a"), time.Now()),
+					// missing: encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 4, []byte("447907494bßc4897b876c8476bf807bc"), time.Now()),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 3, []byte("3cbfbe7d76876e076b076c659cd895ff"), time.Now()),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}}, 2, []byte("2b234b23cb23c4b2cb24cb24bcbffbca")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 1, []byte("11ea7c91419a68fd1224f88d50316b4a"), time.Now()),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -542,7 +546,7 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 					}},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 5, []byte("55b5bcbc85cb857c7c07c56c54983cbcd")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -609,8 +613,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
-					createEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -705,8 +709,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
-					createEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -801,8 +805,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
-					createEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723")),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},
@@ -897,8 +901,8 @@ func TestGetDesiredEncryptionState(t *testing.T) {
 				},
 				"kms",
 				[]*corev1.Secret{
-					createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
-					createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723"), time.Now()),
+					encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("11ea7c91419a68fd1224f88d50316b4e")),
+					encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}}, 2, []byte("2bc2bdbc2bec2ebce7b27ce792639723"), time.Now()),
 				},
 				[]schema.GroupResource{{Group: "", Resource: "configmaps"}, {Group: "", Resource: "secrets"}},
 			},

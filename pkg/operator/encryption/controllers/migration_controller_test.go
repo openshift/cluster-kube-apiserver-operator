@@ -1,4 +1,4 @@
-package encryption
+package controllers
 
 import (
 	"encoding/json"
@@ -24,6 +24,9 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
 
 func TestMigrationController(t *testing.T) {
@@ -63,7 +66,7 @@ func TestMigrationController(t *testing.T) {
 				},
 			},
 			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				func() runtime.Object {
 					cm := createConfigMap("cm-1", "os")
 					cm.Kind = "ConfigMap"
@@ -107,7 +110,7 @@ func TestMigrationController(t *testing.T) {
 				},
 			},
 			initialResources: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver-1", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms"),
 				func() runtime.Object {
 					cm := createConfigMap("cm-1", "os")
 					cm.Kind = "ConfigMap"
@@ -123,24 +126,24 @@ func TestMigrationController(t *testing.T) {
 			},
 			initialSecrets: []*corev1.Secret{
 				func() *corev1.Secret {
-					s := createEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e"))
+					s := encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("71ea7c91419a68fd1224f88d50316b4e"))
 					s.Kind = "Secret"
 					s.APIVersion = corev1.SchemeGroupVersion.String()
 					return s
 				}(),
 				func() *corev1.Secret {
-					keysResForSecrets := encryptionKeysResourceTuple{
-						resource: "secrets",
-						keys: []apiserverconfigv1.Key{
+					keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
+						Resource: "secrets",
+						Keys: []apiserverconfigv1.Key{
 							{
 								Name:   "1",
 								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
 							},
 						},
 					}
-					keysResForConfigMaps := encryptionKeysResourceTuple{
-						resource: "configmaps",
-						keys: []apiserverconfigv1.Key{
+					keysResForConfigMaps := encryptiontesting.EncryptionKeysResourceTuple{
+						Resource: "configmaps",
+						Keys: []apiserverconfigv1.Key{
 							{
 								Name:   "1",
 								Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
@@ -148,8 +151,8 @@ func TestMigrationController(t *testing.T) {
 						},
 					}
 
-					ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
-					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
+					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
 					return ecs
@@ -196,7 +199,7 @@ func TestMigrationController(t *testing.T) {
 					},
 				}
 				// TODO: test sequence of condition changes, not only the end result
-				validateOperatorClientConditions(ts, operatorClient, expectedConditions)
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, expectedConditions)
 			},
 		},
 
@@ -275,7 +278,7 @@ func TestMigrationController(t *testing.T) {
 			}}
 
 			// act
-			target := newMigrationController(
+			target := NewMigrationController(
 				scenario.targetNamespace,
 				fakeOperatorClient,
 				kubeInformers,
@@ -299,11 +302,11 @@ func TestMigrationController(t *testing.T) {
 			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
 				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
-			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 
-			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
@@ -384,15 +387,15 @@ func validateSecretsWereAnnotated(ts *testing.T, grs []schema.GroupResource, act
 			ts.Errorf("missing update on %s/%s", expected.Namespace, expected.Name)
 			continue
 		}
-		if _, ok := s.Annotations[encryptionSecretMigratedTimestampForTest]; !ok {
-			ts.Errorf("missing %s annotation on %s/%s", encryptionSecretMigratedTimestampForTest, s.Namespace, s.Name)
+		if _, ok := s.Annotations[secrets.EncryptionSecretMigratedTimestamp]; !ok {
+			ts.Errorf("missing %s annotation on %s/%s", secrets.EncryptionSecretMigratedTimestamp, s.Namespace, s.Name)
 		}
-		if v, ok := s.Annotations[encryptionSecretMigratedResourcesForTest]; !ok {
-			ts.Errorf("missing %s annotation on %s/%s", encryptionSecretMigratedResourcesForTest, s.Namespace, s.Name)
+		if v, ok := s.Annotations[secrets.EncryptionSecretMigratedResources]; !ok {
+			ts.Errorf("missing %s annotation on %s/%s", secrets.EncryptionSecretMigratedResources, s.Namespace, s.Name)
 		} else {
-			migratedGRs := migratedGroupResources{}
+			migratedGRs := secrets.MigratedGroupResources{}
 			if err := json.Unmarshal([]byte(v), &migratedGRs); err != nil {
-				ts.Errorf("failed to unmarshal %s annotation %q of secret %s/%s: %v", encryptionSecretMigratedResourcesForTest, v, s.Namespace, s.Name, err)
+				ts.Errorf("failed to unmarshal %s annotation %q of secret %s/%s: %v", secrets.EncryptionSecretMigratedResources, v, s.Namespace, s.Name, err)
 				continue
 			}
 			migratedGRsSet := map[string]bool{}
@@ -401,7 +404,7 @@ func validateSecretsWereAnnotated(ts *testing.T, grs []schema.GroupResource, act
 			}
 			for _, gr := range grs {
 				if _, found := migratedGRsSet[gr.String()]; !found {
-					ts.Errorf("missing resource %s in %s annotation on %s/%s", gr.String(), encryptionSecretMigratedResourcesForTest, s.Namespace, s.Name)
+					ts.Errorf("missing resource %s in %s annotation on %s/%s", gr.String(), secrets.EncryptionSecretMigratedResources, s.Namespace, s.Name)
 				}
 			}
 		}
