@@ -18,7 +18,7 @@ import (
 
 // ToKeyState converts a key secret to a key state.
 func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
-	data := s.Data[encryptionSecretKeyData]
+	data := s.Data[EncryptionSecretKeyDataKey]
 
 	keyID, validKeyID := state.NameToKeyID(s.Name)
 	if !validKeyID {
@@ -95,7 +95,7 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 			Finalizers: []string{EncryptionSecretFinalizer},
 		},
 		Data: map[string][]byte{
-			encryptionSecretKeyData: bs,
+			EncryptionSecretKeyDataKey: bs,
 		},
 	}
 

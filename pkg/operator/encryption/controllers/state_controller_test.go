@@ -107,7 +107,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 34, []byte("171582a0fcd6c5fdb65cbf5a3e9249d7")),
 				func() *corev1.Secret {
 					ec := encryptiontesting.CreateEncryptionCfgNoWriteKey("34", "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=", "secrets")
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 			},
@@ -167,7 +167,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret {
@@ -181,7 +181,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),
@@ -216,7 +216,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed
@@ -234,7 +234,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),
@@ -314,7 +314,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
@@ -340,7 +340,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),
@@ -408,7 +408,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
@@ -426,7 +426,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),
@@ -494,7 +494,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysRes})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),
@@ -571,7 +571,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey(keysRes)
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					return ecs
 				}(),
 				func() *corev1.Secret { // encryption config in openshift-config-managed namespace
@@ -596,7 +596,7 @@ func TestStateController(t *testing.T) {
 						},
 					}
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey(keysRes)
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "openshift-config-managed", "1", ec)
 					ecs.Name = "encryption-config-kube-apiserver-test"
 					return ecs
 				}(),

@@ -158,7 +158,7 @@ func TestPruneController(t *testing.T) {
 					}, additionaConfigReadKeys...),
 				}})
 				ec.APIVersion = corev1.SchemeGroupVersion.String()
-				return encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+				return createEncryptionCfgSecret(t, "kms", "1", ec)
 			}()
 			fakeKubeClient := fake.NewSimpleClientset(append(rawSecrets, writeKeySecret, fakePod, encryptionConfig)...)
 			eventRecorder := events.NewRecorder(fakeKubeClient.CoreV1().Events(scenario.targetNamespace), "test-encryptionKeyController", &corev1.ObjectReference{})

@@ -15,7 +15,6 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -28,6 +27,10 @@ const (
 )
 
 func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource, keyID uint64) *corev1.Secret {
+	return CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, "aescbc")
+}
+
+func CreateEncryptionKeySecretNoDataWithMode(targetNS string, grs []schema.GroupResource, keyID uint64, mode string) *corev1.Secret {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("encryption-key-%s-%d", targetNS, keyID),
@@ -35,7 +38,7 @@ func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource
 			Annotations: map[string]string{
 				state.KubernetesDescriptionKey: state.KubernetesDescriptionScaryValue,
 
-				"encryption.apiserver.operator.openshift.io/mode":            "aescbc",
+				"encryption.apiserver.operator.openshift.io/mode":            mode,
 				"encryption.apiserver.operator.openshift.io/internal-reason": "no-secrets",
 				"encryption.apiserver.operator.openshift.io/external-reason": "",
 			},
@@ -59,7 +62,11 @@ func CreateEncryptionKeySecretNoData(targetNS string, grs []schema.GroupResource
 }
 
 func CreateEncryptionKeySecretWithRawKey(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte) *corev1.Secret {
-	secret := CreateEncryptionKeySecretNoData(targetNS, grs, keyID)
+	return CreateEncryptionKeySecretWithRawKeyWithMode(targetNS, grs, keyID, rawKey, "aescbc")
+}
+
+func CreateEncryptionKeySecretWithRawKeyWithMode(targetNS string, grs []schema.GroupResource, keyID uint64, rawKey []byte, mode string) *corev1.Secret {
+	secret := CreateEncryptionKeySecretNoDataWithMode(targetNS, grs, keyID, mode)
 	secret.Data[encryptionSecretKeyDataForTest] = rawKey
 	return secret
 }
@@ -135,32 +142,61 @@ func actionStrings(actions []clientgotesting.Action) []string {
 }
 
 func CreateEncryptionCfgNoWriteKey(keyID string, keyBase64 string, resources ...string) *apiserverconfigv1.EncryptionConfiguration {
-	ret := &apiserverconfigv1.EncryptionConfiguration{
+	keysResources := []EncryptionKeysResourceTuple{}
+	for _, resource := range resources {
+		keysResources = append(keysResources, EncryptionKeysResourceTuple{
+			Resource: resource,
+			Keys: []apiserverconfigv1.Key{
+				{Name: keyID, Secret: keyBase64},
+			},
+		})
+
+	}
+	return CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources)
+}
+
+func CreateEncryptionCfgNoWriteKeyMultipleReadKeys(keysResources []EncryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
+	ec := &apiserverconfigv1.EncryptionConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "EncryptionConfiguration",
 			APIVersion: "apiserver.config.k8s.io/v1",
 		},
+		Resources: []apiserverconfigv1.ResourceConfiguration{},
 	}
 
-	for _, r := range resources {
-		ret.Resources = append(ret.Resources, apiserverconfigv1.ResourceConfiguration{
-			Resources: []string{r},
+	for _, keysResource := range keysResources {
+		rc := apiserverconfigv1.ResourceConfiguration{
+			Resources: []string{keysResource.Resource},
 			Providers: []apiserverconfigv1.ProviderConfiguration{
 				{
 					Identity: &apiserverconfigv1.IdentityConfiguration{},
 				},
-				{
-					AESCBC: &apiserverconfigv1.AESConfiguration{
-						Keys: []apiserverconfigv1.Key{
-							{Name: keyID, Secret: keyBase64},
-						},
-					},
-				},
 			},
-		})
+		}
+		for i, key := range keysResource.Keys {
+			desiredMode := ""
+			if len(keysResource.Modes) == len(keysResource.Keys) {
+				desiredMode = keysResource.Modes[i]
+			}
+			switch desiredMode {
+			case "aesgcm":
+				rc.Providers = append(rc.Providers, apiserverconfigv1.ProviderConfiguration{
+					AESGCM: &apiserverconfigv1.AESConfiguration{
+						Keys: []apiserverconfigv1.Key{key},
+					},
+				})
+			default:
+				rc.Providers = append(rc.Providers, apiserverconfigv1.ProviderConfiguration{
+					AESCBC: &apiserverconfigv1.AESConfiguration{
+						Keys: []apiserverconfigv1.Key{key},
+					},
+				})
+			}
+		}
+		ec.Resources = append(ec.Resources, rc)
 	}
 
-	return ret
+	return ec
 }
 
 func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple) *apiserverconfigv1.EncryptionConfiguration {
@@ -194,19 +230,12 @@ func CreateEncryptionCfgWithWriteKey(keysResources []EncryptionKeysResourceTuple
 	}
 }
 
-func CreateEncryptionCfgSecret(t *testing.T, targetNs string, revision string, encryptionCfg *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
-	t.Helper()
-
-	s, err := encryptionconfig.ToSecret(targetNs, fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, revision), encryptionCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return s
-}
-
 type EncryptionKeysResourceTuple struct {
 	Resource string
 	Keys     []apiserverconfigv1.Key
+	// an ordered list of an encryption modes thatch matches the keys
+	// for example mode[0] matches keys[0]
+	Modes []string
 }
 
 func ValidateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient, expectedConditions []operatorv1.OperatorCondition) {

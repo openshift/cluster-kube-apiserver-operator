@@ -152,7 +152,7 @@ func TestMigrationController(t *testing.T) {
 					}
 
 					ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
-					ecs := encryptiontesting.CreateEncryptionCfgSecret(t, "kms", "1", ec)
+					ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
 					ecs.APIVersion = corev1.SchemeGroupVersion.String()
 
 					return ecs

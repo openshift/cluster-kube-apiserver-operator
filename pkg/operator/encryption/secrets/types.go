@@ -43,7 +43,7 @@ const (
 
 	// In the data field of the secret API object, this (map) key is used to hold the actual encryption key
 	// (i.e. for AES-CBC mode the value associated with this map key is 32 bytes of random noise).
-	encryptionSecretKeyData = "encryption.apiserver.operator.openshift.io-key"
+	EncryptionSecretKeyDataKey = "encryption.apiserver.operator.openshift.io-key"
 
 	// encryptionSecretFinalizer is a finalizer attached to all secrets generated
 	// by the encryption controllers.  Its sole purpose is to prevent the accidental
