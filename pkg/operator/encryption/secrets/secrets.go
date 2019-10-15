@@ -75,9 +75,10 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	bs, err := base64.StdEncoding.DecodeString(ks.Key.Secret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode key string", err)
+		return nil, fmt.Errorf("failed to decode key string")
 	}
-	return &corev1.Secret{
+
+	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("encryption-key-%s-%s", component, ks.Key.Name),
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -96,7 +97,21 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		Data: map[string][]byte{
 			encryptionSecretKeyData: bs,
 		},
-	}, nil
+	}
+
+	if !ks.Migrated.Timestamp.IsZero() {
+		s.Annotations[EncryptionSecretMigratedTimestamp] = ks.Migrated.Timestamp.Format(time.RFC3339)
+	}
+	if len(ks.Migrated.Resources) > 0 {
+		migrated := MigratedGroupResources{Resources: ks.Migrated.Resources}
+		bs, err := json.Marshal(migrated)
+		if err != nil {
+			return nil, err
+		}
+		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
+	}
+
+	return s, nil
 }
 
 // HasResource returns whether the given group resource is contained in the migrated group resource list.
