@@ -1,6 +1,8 @@
 package encryption
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -42,7 +44,7 @@ func NewControllers(
 
 	if err := resourceSyncer.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionconfig.EncryptionConfSecretName},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: targetNamespace},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, targetNamespace)},
 	); err != nil {
 		return nil, err
 	}

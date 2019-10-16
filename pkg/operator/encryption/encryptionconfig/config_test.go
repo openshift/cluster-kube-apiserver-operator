@@ -273,7 +273,7 @@ func TestToEncryptionState(t *testing.T) {
 								Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
 							},
 
-							// secretsToProviders puts "fakeIdentityProvider" as last
+							// stateToProviders puts "fakeIdentityProvider" as last
 							{
 								Name:   "35",
 								Secret: newFakeIdentityEncodedKeyForTest(),
@@ -290,7 +290,7 @@ func TestToEncryptionState(t *testing.T) {
 								Secret: "MTcxNTgyYTBmY2Q2YzVmZGI2NWNiZjVhM2U5MjQ5ZDc=",
 							},
 
-							// secretsToProviders puts "fakeIdentityProvider" as last
+							// stateToProviders puts "fakeIdentityProvider" as last
 							{
 								Name:   "35",
 								Secret: newFakeIdentityEncodedKeyForTest(),

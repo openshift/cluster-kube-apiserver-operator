@@ -23,7 +23,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
 			Resources: []string{gr.String()}, // we are forced to lose data here because this API is broken
-			Providers: secretsToProviders(grKeys),
+			Providers: stateToProviders(grKeys),
 		})
 	}
 
@@ -37,23 +37,6 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 
 // ToEncryptionState converts config to state.
 // Read keys contain a potential write key. Read keys are sorted, recent first.
-func ToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]state.GroupResourceState {
-	if c == nil {
-		return nil
-	}
-
-	ret := getGRsActualKeys(c)
-
-	// sort read-keys, recent first
-	for gr, keys := range ret {
-		keys.ReadKeys = state.SortRecentFirst(keys.ReadKeys)
-		ret[gr] = keys
-	}
-
-	return ret
-}
-
-// getGRsActualKeys parses the given encryptionConfig to determine the write and read keys per group resource.
 //
 // It assumes:
 // - the first provider provides the write key
@@ -63,7 +46,7 @@ func ToEncryptionState(c *apiserverconfigv1.EncryptionConfiguration) map[schema.
 // - each resource has a distinct configuration with zero or more key based providers and the identity provider.
 // - the last providers might be of type aesgcm. Then it carries the names of identity keys, recent first.
 //   We never use aesgcm as a real key because it is unsafe.
-func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]state.GroupResourceState {
+func ToEncryptionState(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) map[schema.GroupResource]state.GroupResourceState {
 	if encryptionConfig == nil {
 		return nil
 	}
@@ -72,11 +55,11 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 	for _, resourceConfig := range encryptionConfig.Resources {
 		// resources should be a single group resource
 		if len(resourceConfig.Resources) != 1 {
-			klog.Infof("skipping invalid encryption config for resource %s", resourceConfig.Resources)
+			klog.Warningf("skipping invalid encryption config for resource %s", resourceConfig.Resources)
 			continue // should never happen
 		}
 
-		grk := state.GroupResourceState{}
+		grState := state.GroupResourceState{}
 
 		for i, provider := range resourceConfig.Providers {
 			var ks state.KeyState
@@ -109,23 +92,26 @@ func getGRsActualKeys(encryptionConfig *apiserverconfigv1.EncryptionConfiguratio
 				continue // should never happen
 			}
 
-			if i == 0 || (ks.Mode == state.Identity && !grk.HasWriteKey()) {
-				grk.WriteKey = ks
+			if i == 0 || (ks.Mode == state.Identity && !grState.HasWriteKey()) {
+				grState.WriteKey = ks
 			}
 
-			grk.ReadKeys = append(grk.ReadKeys, ks) // also for write key as they are also read keys
+			grState.ReadKeys = append(grState.ReadKeys, ks) // also for write key as they are also read keys
 		}
 
-		out[schema.ParseGroupResource(resourceConfig.Resources[0])] = grk
+		// sort read-keys, recent first
+		grState.ReadKeys = state.SortRecentFirst(grState.ReadKeys)
+
+		out[schema.ParseGroupResource(resourceConfig.Resources[0])] = grState
 	}
 	return out
 }
 
-// secretsToProviders maps the write and read secrets to the equivalent read and write keys.
+// stateToProviders maps the write and read secrets to the equivalent read and write keys.
 // it primarily handles the conversion of KeyState to the appropriate provider config.
 // the identity mode is transformed into a custom aesgcm provider that simply exists to
 // curry the associated null key secret through the encryption state machine.
-func secretsToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
+func stateToProviders(desired state.GroupResourceState) []apiserverconfigv1.ProviderConfiguration {
 	allKeys := desired.ReadKeys
 
 	providers := make([]apiserverconfigv1.ProviderConfiguration, 0, len(allKeys)+1) // one extra for identity
@@ -185,7 +171,7 @@ func secretsToProviders(desired state.GroupResourceState) []apiserverconfigv1.Pr
 		})
 	}
 
-	// add fake aesgcp providers carrying identity names
+	// add fake aesgm providers carrying identity names
 	providers = append(providers, aesgcmProviders...)
 
 	return providers
