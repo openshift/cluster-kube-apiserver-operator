@@ -38,7 +38,7 @@ func TestStateController(t *testing.T) {
 		expectedActions            []string
 		expectedEncryptionCfg      *apiserverconfigv1.EncryptionConfiguration
 		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, destName string, expectedEncryptionCfg *apiserverconfigv1.EncryptionConfiguration)
-		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.OperatorClient)
 		expectedError              error
 	}{
 		// scenario 1: validates if "encryption-config-kms" secret with EncryptionConfiguration in "openshift-config-managed" namespace
@@ -605,7 +605,7 @@ func TestStateController(t *testing.T) {
 			},
 			expectedActions: []string{"list:pods:kms"},
 			expectedError:   errors.New("failed to get converged static pod revision: api server pod kube-apiserver-1 in unknown phase"),
-			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
 					Type:    "EncryptionStateControllerDegraded",
 					Status:  "True",
@@ -627,7 +627,7 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("")),
 			},
 			expectedActions: []string{"list:pods:kms"},
-			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
 					Type:   "EncryptionStateControllerDegraded",
 					Status: "False",
@@ -640,25 +640,20 @@ func TestStateController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.StaticPodOperatorSpec{
-					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState: operatorv1.Managed,
-					},
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
 				},
-				&operatorv1.StaticPodOperatorStatus{
-					OperatorStatus: operatorv1.OperatorStatus{
-						// we need to set up proper conditions before the test starts because
-						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
-						Conditions: []operatorv1.OperatorCondition{
-							{
-								Type:   "EncryptionStateControllerDegraded",
-								Status: "False",
-							},
+				&operatorv1.OperatorStatus{
+					// we need to set up proper conditions before the test starts because
+					// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
+					Conditions: []operatorv1.OperatorCondition{
+						{
+							Type:   "EncryptionStateControllerDegraded",
+							Status: "False",
 						},
 					},
 				},
-				nil,
 				nil,
 			)
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialResources...)

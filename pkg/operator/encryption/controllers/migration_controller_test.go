@@ -42,7 +42,7 @@ func TestMigrationController(t *testing.T) {
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions            []string
 		validateFunc               func(ts *testing.T, actionsKube []clientgotesting.Action, actionsDynamic []clientgotesting.Action, initialSecrets []*corev1.Secret, targetGRs []schema.GroupResource, unstructuredObjs []runtime.Object)
-		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.OperatorClient)
 		expectedError              error
 	}{
 		{
@@ -188,7 +188,7 @@ func TestMigrationController(t *testing.T) {
 				// validate if the resources were "encrypted"
 				validateMigratedResources(ts, actionsDynamic, unstructuredObjs, targetGRs)
 			},
-			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedConditions := []operatorv1.OperatorCondition{
 					{
 						Type:   "EncryptionMigrationControllerDegraded",
@@ -210,27 +210,22 @@ func TestMigrationController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.StaticPodOperatorSpec{
-					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState: operatorv1.Managed,
-					},
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
 				},
-				&operatorv1.StaticPodOperatorStatus{
-					OperatorStatus: operatorv1.OperatorStatus{
-						Conditions: []operatorv1.OperatorCondition{
-							{
-								Type:   "EncryptionMigrationControllerDegraded",
-								Status: "False",
-							},
-							{
-								Type:   "EncryptionMigrationControllerProgressing",
-								Status: operatorv1.ConditionFalse,
-							},
+				&operatorv1.OperatorStatus{
+					Conditions: []operatorv1.OperatorCondition{
+						{
+							Type:   "EncryptionMigrationControllerDegraded",
+							Status: "False",
+						},
+						{
+							Type:   "EncryptionMigrationControllerProgressing",
+							Status: operatorv1.ConditionFalse,
 						},
 					},
 				},
-				nil,
 				nil,
 			)
 

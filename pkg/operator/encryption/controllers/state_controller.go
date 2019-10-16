@@ -45,7 +45,7 @@ type stateController struct {
 	component                string
 	encryptionSecretSelector metav1.ListOptions
 
-	operatorClient operatorv1helpers.StaticPodOperatorClient
+	operatorClient operatorv1helpers.OperatorClient
 	secretClient   corev1client.SecretsGetter
 	deployer       statemachine.Deployer
 }
@@ -53,7 +53,7 @@ type stateController struct {
 func NewStateController(
 	component string,
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -96,7 +96,7 @@ func (c *stateController) sync() error {
 		cond.Reason = "Error"
 		cond.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 

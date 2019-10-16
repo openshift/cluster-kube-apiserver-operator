@@ -23,7 +23,7 @@ type runner interface {
 func NewControllers(
 	component string,
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,

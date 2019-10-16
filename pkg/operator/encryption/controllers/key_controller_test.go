@@ -46,7 +46,7 @@ func TestKeyController(t *testing.T) {
 		// expectedActions holds actions to be verified in the form of "verb:resource:namespace"
 		expectedActions            []string
 		validateFunc               func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource)
-		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient)
+		validateOperatorClientFunc func(ts *testing.T, operatorClient v1helpers.OperatorClient)
 		expectedError              error
 	}{
 		{
@@ -236,7 +236,7 @@ func TestKeyController(t *testing.T) {
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed", "get:secrets:openshift-config-managed"},
-			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
+			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.OperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
 					Type:    "EncryptionKeyControllerDegraded",
 					Status:  "True",
@@ -252,25 +252,20 @@ func TestKeyController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.StaticPodOperatorSpec{
-					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState: operatorv1.Managed,
-					},
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
 				},
-				&operatorv1.StaticPodOperatorStatus{
-					OperatorStatus: operatorv1.OperatorStatus{
-						// we need to set up proper conditions before the test starts because
-						// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
-						Conditions: []operatorv1.OperatorCondition{
-							{
-								Type:   "EncryptionKeyControllerDegraded",
-								Status: "False",
-							},
+				&operatorv1.OperatorStatus{
+					// we need to set up proper conditions before the test starts because
+					// the controller calls UpdateStatus which calls UpdateOperatorStatus method which is unsupported (fake client) and throws an exception
+					Conditions: []operatorv1.OperatorCondition{
+						{
+							Type:   "EncryptionKeyControllerDegraded",
+							Status: "False",
 						},
 					},
 				},
-				nil,
 				nil,
 			)
 			fakeKubeClient := fake.NewSimpleClientset(scenario.initialObjects...)

@@ -56,7 +56,7 @@ const migrationWorkKey = "key"
 //   encryption.apiserver.operator.openshift.io/migrated-resources annotations on the
 //   current write-key secrets.
 type migrationController struct {
-	operatorClient operatorv1helpers.StaticPodOperatorClient
+	operatorClient operatorv1helpers.OperatorClient
 
 	queue         workqueue.RateLimitingInterface
 	eventRecorder events.Recorder
@@ -77,7 +77,7 @@ type migrationController struct {
 
 func NewMigrationController(
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -124,7 +124,7 @@ func (c *migrationController) sync() error {
 		degraded.Message = configError.Error()
 	}
 
-	updateFuncs := []operatorv1helpers.UpdateStaticPodStatusFunc{operatorv1helpers.UpdateStaticPodConditionFn(degraded)}
+	updateFuncs := []operatorv1helpers.UpdateStatusFunc{operatorv1helpers.UpdateConditionFn(degraded)}
 
 	// reset progressing condition
 	if resetProgressing {
@@ -132,9 +132,9 @@ func (c *migrationController) sync() error {
 			Type:   "EncryptionMigrationControllerProgressing",
 			Status: operatorv1.ConditionFalse,
 		}
-		updateFuncs = append(updateFuncs, operatorv1helpers.UpdateStaticPodConditionFn(progressing))
+		updateFuncs = append(updateFuncs, operatorv1helpers.UpdateConditionFn(progressing))
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, updateFuncs...); updateError != nil {
+	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, updateFuncs...); updateError != nil {
 		return updateError
 	}
 
@@ -150,7 +150,7 @@ func (c *migrationController) setProgressing(reason, message string, args ...int
 		Message: fmt.Sprintf(message, args...),
 	}
 
-	_, _, err := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(progressing))
+	_, _, err := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(progressing))
 	return err
 }
 
