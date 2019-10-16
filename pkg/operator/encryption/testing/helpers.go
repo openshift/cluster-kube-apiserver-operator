@@ -39,7 +39,7 @@ func CreateEncryptionKeySecretNoDataWithMode(targetNS string, grs []schema.Group
 				state.KubernetesDescriptionKey: state.KubernetesDescriptionScaryValue,
 
 				"encryption.apiserver.operator.openshift.io/mode":            mode,
-				"encryption.apiserver.operator.openshift.io/internal-reason": "no-secrets",
+				"encryption.apiserver.operator.openshift.io/internal-reason": "",
 				"encryption.apiserver.operator.openshift.io/external-reason": "",
 			},
 			Labels: map[string]string{
