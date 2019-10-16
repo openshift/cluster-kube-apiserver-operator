@@ -24,13 +24,14 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
+	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/crypto"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/operator/events"
-	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const encWorkKey = "key"
@@ -94,7 +95,7 @@ func NewKeyController(
 		apiServerClient: apiServerClient,
 
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
-		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
+		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"),
 
 		encryptedGRs:    encryptedGRs,
 		targetNamespace: targetNamespace,
@@ -195,6 +196,13 @@ func (c *keyController) checkAndCreateKeys() error {
 	if errors.IsAlreadyExists(createErr) {
 		return c.validateExistingSecret(keySecret, newKeyID)
 	}
+	if createErr != nil {
+		c.eventRecorder.Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
+		return createErr
+	}
+
+	c.eventRecorder.Eventf("EncryptionKeyCreated", "Secret %q successfully created: %q", keySecret.Name, reasons)
+
 	return createErr
 }
 

@@ -198,13 +198,19 @@ func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgr
 
 		if needsMigration(writeSecret, gr) {
 			// storage migration takes a long time so we expose that via a distinct status change
-			if err := c.setProgressing(strings.Title(groupToHumanReadable(gr))+strings.Title(gr.Resource), "migrating resource %s.%s to new write key", groupToHumanReadable(gr), gr.Resource); err != nil {
+			reason, message := strings.Title(groupToHumanReadable(gr))+strings.Title(gr.Resource), fmt.Sprintf("migrating resource %s.%s to new write key", groupToHumanReadable(gr), gr.Resource)
+			if err := c.setProgressing(reason, message); err != nil {
+				return false, err
+			}
+			c.eventRecorder.Eventf("EncryptionMigrationStarted", fmt.Sprintf("Started %s", message))
+
+			migrationStartedTime := time.Now()
+			if err := c.runStorageMigration(gr); err != nil {
+				c.eventRecorder.Eventf("EncryptionMigrationFailed", fmt.Sprintf("Failed %s (took %s): %v", message, time.Since(migrationStartedTime), err))
 				return false, err
 			}
 
-			if err := c.runStorageMigration(gr); err != nil {
-				return false, err
-			}
+			c.eventRecorder.Eventf("EncryptionMigrationFinished", fmt.Sprintf("Finished %s in %s", message, time.Since(migrationStartedTime)))
 
 			// update secret annotations
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {

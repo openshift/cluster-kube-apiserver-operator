@@ -119,7 +119,7 @@ func CreateDummyKubeAPIPodInUnknownPhase(name, namespace string) *corev1.Pod {
 
 func ValidateActionsVerbs(actualActions []clientgotesting.Action, expectedActions []string) error {
 	if len(actualActions) != len(expectedActions) {
-		return fmt.Errorf("expected to get %d actions but got %d, expected=%v, got=%v", len(expectedActions), len(actualActions), expectedActions, actionStrings(actualActions))
+		return fmt.Errorf("expected to get %d actions but got %d\nexpected=%v \n got=%v", len(expectedActions), len(actualActions), expectedActions, actionStrings(actualActions))
 	}
 	for i, a := range actualActions {
 		if got, expected := actionString(a), expectedActions[i]; got != expected {

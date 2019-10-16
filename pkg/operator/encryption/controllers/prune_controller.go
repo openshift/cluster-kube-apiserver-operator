@@ -140,6 +140,7 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 	})
 
 	var deleteErrs []error
+	deletedKeys := 0
 	skippedKeys := 0
 NextEncryptionSecret:
 	for _, s := range encryptionSecrets {
@@ -179,8 +180,12 @@ NextEncryptionSecret:
 		if err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(secret.Name, nil); err != nil {
 			deleteErrs = append(deleteErrs, err)
 		} else {
+			deletedKeys++
 			klog.V(4).Infof("Successfully pruned secret %s/%s", secret.Namespace, secret.Name)
 		}
+	}
+	if deletedKeys > 0 {
+		c.eventRecorder.Eventf("EncryptionKeysPruned", "Successfully pruned %d secrets", deletedKeys)
 	}
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
 }
