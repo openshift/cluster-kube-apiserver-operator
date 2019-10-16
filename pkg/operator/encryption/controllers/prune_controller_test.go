@@ -100,23 +100,18 @@ func TestPruneController(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// setup
-			fakeOperatorClient := v1helpers.NewFakeStaticPodOperatorClient(
-				&operatorv1.StaticPodOperatorSpec{
-					OperatorSpec: operatorv1.OperatorSpec{
-						ManagementState: operatorv1.Managed,
-					},
+			fakeOperatorClient := v1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{
+					ManagementState: operatorv1.Managed,
 				},
-				&operatorv1.StaticPodOperatorStatus{
-					OperatorStatus: operatorv1.OperatorStatus{
-						Conditions: []operatorv1.OperatorCondition{
-							{
-								Type:   "EncryptionPruneControllerDegraded",
-								Status: "False",
-							},
+				&operatorv1.OperatorStatus{
+					Conditions: []operatorv1.OperatorCondition{
+						{
+							Type:   "EncryptionPruneControllerDegraded",
+							Status: "False",
 						},
 					},
 				},
-				nil,
 				nil,
 			)
 

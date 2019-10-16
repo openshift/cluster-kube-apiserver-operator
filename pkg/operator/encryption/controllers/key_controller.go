@@ -60,7 +60,7 @@ const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 //       the key secret's creationTimestamp because the clock is supposed to
 //       start when a migration has been finished, not when it begins.
 type keyController struct {
-	operatorClient  operatorv1helpers.StaticPodOperatorClient
+	operatorClient  operatorv1helpers.OperatorClient
 	apiServerClient configv1client.APIServerInterface
 
 	queue         workqueue.RateLimitingInterface
@@ -80,7 +80,7 @@ type keyController struct {
 func NewKeyController(
 	component string,
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -129,7 +129,7 @@ func (c *keyController) sync() error {
 		cond.Reason = "Error"
 		cond.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 
@@ -237,7 +237,7 @@ func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, e
 		return "", "", err
 	}
 
-	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
+	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", err
 	}

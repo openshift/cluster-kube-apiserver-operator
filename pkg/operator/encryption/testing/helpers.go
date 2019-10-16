@@ -238,9 +238,9 @@ type EncryptionKeysResourceTuple struct {
 	Modes []string
 }
 
-func ValidateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient, expectedConditions []operatorv1.OperatorCondition) {
+func ValidateOperatorClientConditions(ts *testing.T, operatorClient v1helpers.OperatorClient, expectedConditions []operatorv1.OperatorCondition) {
 	ts.Helper()
-	_, status, _, err := operatorClient.GetStaticPodOperatorState()
+	_, status, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		ts.Fatal(err)
 	}

@@ -39,7 +39,7 @@ const (
 // them.  Keeping a small number of old keys around is meant to help facilitate
 // decryption of old backups (and general precaution).
 type pruneController struct {
-	operatorClient operatorv1helpers.StaticPodOperatorClient
+	operatorClient operatorv1helpers.OperatorClient
 
 	queue         workqueue.RateLimitingInterface
 	eventRecorder events.Recorder
@@ -56,7 +56,7 @@ type pruneController struct {
 
 func NewPruneController(
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -98,7 +98,7 @@ func (c *pruneController) sync() error {
 		cond.Reason = "Error"
 		cond.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStaticPodStatus(c.operatorClient, operatorv1helpers.UpdateStaticPodConditionFn(cond)); updateError != nil {
+	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 

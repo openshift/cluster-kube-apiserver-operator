@@ -10,8 +10,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
-func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOperatorClient) (bool, error) {
-	operatorSpec, _, _, err := operatorClient.GetStaticPodOperatorState()
+func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClient) (bool, error) {
+	operatorSpec, _, _, err := operatorClient.GetOperatorState()
 	if err != nil {
 		return false, err
 	}
@@ -21,7 +21,7 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.StaticPodOpe
 
 func setUpInformers(
 	deployer statemachine.Deployer,
-	operatorClient operatorv1helpers.StaticPodOperatorClient,
+	operatorClient operatorv1helpers.OperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	eventHandler cache.ResourceEventHandler,
 ) []cache.InformerSynced {
