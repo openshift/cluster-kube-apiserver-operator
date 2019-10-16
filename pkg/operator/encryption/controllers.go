@@ -21,7 +21,7 @@ type runner interface {
 }
 
 func NewControllers(
-	targetNamespace string,
+	component string,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
@@ -36,12 +36,12 @@ func NewControllers(
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
 	// this is fine in terms of performance since these controllers will be idle most of the time
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
-	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + targetNamespace}
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
 
 	return &Controllers{
 		controllers: []runner{
 			controllers.NewKeyController(
-				targetNamespace,
+				component,
 				deployer,
 				operatorClient,
 				apiServerClient,
@@ -53,7 +53,7 @@ func NewControllers(
 				encryptedGRs,
 			),
 			controllers.NewStateController(
-				targetNamespace,
+				component,
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
@@ -63,7 +63,6 @@ func NewControllers(
 				encryptedGRs,
 			),
 			controllers.NewPruneController(
-				targetNamespace,
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
@@ -73,7 +72,6 @@ func NewControllers(
 				encryptedGRs,
 			),
 			controllers.NewMigrationController(
-				targetNamespace,
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,

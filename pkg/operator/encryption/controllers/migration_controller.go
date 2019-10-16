@@ -65,7 +65,6 @@ type migrationController struct {
 
 	encryptedGRs []schema.GroupResource
 
-	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
 	secretClient corev1client.SecretsGetter
@@ -77,7 +76,6 @@ type migrationController struct {
 }
 
 func NewMigrationController(
-	targetNamespace string,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -94,8 +92,7 @@ func NewMigrationController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionMigrationController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-migration-controller"),
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,

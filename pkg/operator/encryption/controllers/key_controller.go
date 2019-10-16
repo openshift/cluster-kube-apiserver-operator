@@ -70,7 +70,7 @@ type keyController struct {
 
 	encryptedGRs []schema.GroupResource
 
-	targetNamespace          string
+	component                string
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
@@ -78,7 +78,7 @@ type keyController struct {
 }
 
 func NewKeyController(
-	targetNamespace string,
+	component string,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
@@ -96,8 +96,8 @@ func NewKeyController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
+		component:    component,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
@@ -228,7 +228,7 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
-	return secrets.FromKeyState(c.targetNamespace, ks)
+	return secrets.FromKeyState(c.component, ks)
 }
 
 func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, error) {

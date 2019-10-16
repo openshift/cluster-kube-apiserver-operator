@@ -285,7 +285,6 @@ func TestMigrationController(t *testing.T) {
 
 			// act
 			target := NewMigrationController(
-				scenario.targetNamespace,
 				deployer,
 				fakeOperatorClient,
 				kubeInformers,

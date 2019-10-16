@@ -42,7 +42,7 @@ type stateController struct {
 	preRunCachesSynced []cache.InformerSynced
 
 	encryptedGRs             []schema.GroupResource
-	targetNamespace          string
+	component                string
 	encryptionSecretSelector metav1.ListOptions
 
 	operatorClient operatorv1helpers.StaticPodOperatorClient
@@ -51,7 +51,7 @@ type stateController struct {
 }
 
 func NewStateController(
-	targetNamespace string,
+	component string,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -66,8 +66,8 @@ func NewStateController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionStateController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-state-controller"),
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
+		component:    component,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
@@ -124,7 +124,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error 
 }
 
 func (c *stateController) applyEncryptionConfigSecret(encryptionConfig *apiserverconfigv1.EncryptionConfiguration) error {
-	s, err := encryptionconfig.ToSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.targetNamespace), encryptionConfig)
+	s, err := encryptionconfig.ToSecret(operatorclient.GlobalMachineSpecifiedConfigNamespace, fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.component), encryptionConfig)
 	if err != nil {
 		return err
 	}

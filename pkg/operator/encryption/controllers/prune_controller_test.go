@@ -174,7 +174,6 @@ func TestPruneController(t *testing.T) {
 			}
 
 			target := NewPruneController(
-				scenario.targetNamespace,
 				deployer,
 				fakeOperatorClient,
 				kubeInformers,

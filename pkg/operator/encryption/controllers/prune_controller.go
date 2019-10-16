@@ -48,7 +48,6 @@ type pruneController struct {
 
 	encryptedGRs []schema.GroupResource
 
-	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
@@ -56,7 +55,6 @@ type pruneController struct {
 }
 
 func NewPruneController(
-	targetNamespace string,
 	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -71,8 +69,7 @@ func NewPruneController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPruneController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-prune-controller"), // TODO unused
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
