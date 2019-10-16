@@ -1,4 +1,4 @@
-package encryption
+package controllers
 
 import (
 	"errors"
@@ -21,6 +21,8 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
 
 func TestKeyController(t *testing.T) {
@@ -78,7 +80,7 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			targetNamespace:  "kms",
-			initialObjects:   []runtime.Object{createDummyKubeAPIPod("kube-apiserver", "kms")},
+			initialObjects:   []runtime.Object{encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms")},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
 			},
@@ -95,7 +97,7 @@ func TestKeyController(t *testing.T) {
 			targetNamespace: "kms",
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
 			},
 			apiServerObjects: []runtime.Object{&configv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -111,11 +113,11 @@ func TestKeyController(t *testing.T) {
 					if action.Matches("create", "secrets") {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
-						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 1, actualSecret)
+						expectedSecret := encryptiontesting.CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 1, actualSecret)
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
 						}
-						if err := validateEncryptionKey(actualSecret); err != nil {
+						if err := encryptiontesting.ValidateEncryptionKey(actualSecret); err != nil {
 							ts.Error(err)
 						}
 						wasSecretValidated = true
@@ -128,45 +130,56 @@ func TestKeyController(t *testing.T) {
 			},
 		},
 
-		// Verifies if a new key is not created when there is a valid write key in the system.
 		{
-			name: "no-op when a valid write key exists",
+			name: "no-op when a valid write key exists, but is not migrated",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
-		// Checks if a new key is not created when there is a valid write (migrated/used) key in the system.
 		{
-			name: "no-op when a valid migrated key exists",
+			name: "no-op when a valid write key exists, is migrated, but not expired",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 3, []byte("61def964fb967f5d7c44a2af8dab6865"), time.Now()),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865"), time.Now()),
 			},
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
 		},
 
-		// Checks if a new write key is created because the previous one was migrated.
+		{
+			name: "creates a new write key because previous one is migrated, but has no migration timestamp",
+			targetGRs: []schema.GroupResource{
+				{Group: "", Resource: "secrets"},
+			},
+			initialObjects: []runtime.Object{
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 7, []byte("61def964fb967f5d7c44a2af8dab6865")),
+			},
+			apiServerObjects: apiServerAesCBC,
+			targetNamespace:  "kms",
+			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
+		},
+
 		{
 			name: "creates a new write key because the previous one expired",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
@@ -177,12 +190,12 @@ func TestKeyController(t *testing.T) {
 					if action.Matches("create", "secrets") {
 						createAction := action.(clientgotesting.CreateAction)
 						actualSecret := createAction.GetObject().(*corev1.Secret)
-						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 6, actualSecret)
+						expectedSecret := encryptiontesting.CreateEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 6, actualSecret)
 						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "timestamp-too-old"
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
 						}
-						if err := validateEncryptionKey(actualSecret); err != nil {
+						if err := encryptiontesting.ValidateEncryptionKey(actualSecret); err != nil {
 							ts.Error(err)
 						}
 						wasSecretValidated = true
@@ -195,58 +208,19 @@ func TestKeyController(t *testing.T) {
 			},
 		},
 
-		// Checks if a new write key is not created given that the previous one was migrated and the new write key already exists.
 		{
-			name: "no-op when the previous key was migrated and the current one is valid but hasn't been observed (no read/write annotations)",
+			name: "no-op when the previous key was migrated and the current one is valid but hasn't been observed",
 			targetGRs: []schema.GroupResource{
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
-				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 5, []byte("61def964fb967f5d7c44a2af8dab6865")),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 6, []byte("61def964fb967f5d7c44a2af8dab6865")),
 			},
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
 			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed"},
-		},
-
-		// Checks if a new secret write key with ID equal to "101" is created because the previous (with ID equal to "100") one was migrated.
-		// note that IDs of keys (not secrets) cannot exceed 100
-		{
-			name: "creates a new write key because the previous one expired - overflow",
-			targetGRs: []schema.GroupResource{
-				{Group: "", Resource: "secrets"},
-			},
-			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createExpiredMigratedEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 100, []byte("61def964fb967f5d7c44a2af8dab6865")),
-			},
-			apiServerObjects: apiServerAesCBC,
-			targetNamespace:  "kms",
-			expectedActions:  []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "create:secrets:openshift-config-managed"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action, targetNamespace string, targetGRs []schema.GroupResource) {
-				wasSecretValidated := false
-				for _, action := range actions {
-					if action.Matches("create", "secrets") {
-						createAction := action.(clientgotesting.CreateAction)
-						actualSecret := createAction.GetObject().(*corev1.Secret)
-						expectedSecret := createEncryptionKeySecretWithKeyFromExistingSecret(targetNamespace, []schema.GroupResource{}, 101, actualSecret)
-						expectedSecret.Annotations["encryption.apiserver.operator.openshift.io/internal-reason"] = "timestamp-too-old"
-						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
-							ts.Errorf(diff.ObjectDiff(expectedSecret, actualSecret))
-						}
-						if err := validateEncryptionKey(actualSecret); err != nil {
-							ts.Error(err)
-						}
-						wasSecretValidated = true
-						break
-					}
-				}
-				if !wasSecretValidated {
-					ts.Errorf("the secret wasn't created and validated")
-				}
-			},
 		},
 
 		{
@@ -255,8 +229,8 @@ func TestKeyController(t *testing.T) {
 				{Group: "", Resource: "secrets"},
 			},
 			initialObjects: []runtime.Object{
-				createDummyKubeAPIPod("kube-apiserver", "kms"),
-				createEncryptionKeySecretWithRawKey("kms", []schema.GroupResource{{Group: "", Resource: "secrets"}}, 1, []byte("")),
+				encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver", "kms"),
+				encryptiontesting.CreateEncryptionKeySecretWithRawKey("kms", nil, 1, []byte("")),
 			},
 			apiServerObjects: apiServerAesCBC,
 			targetNamespace:  "kms",
@@ -266,11 +240,11 @@ func TestKeyController(t *testing.T) {
 					Type:    "EncryptionKeyControllerDegraded",
 					Status:  "True",
 					Reason:  "Error",
-					Message: "secret kms-encryption-1 is in invalid state, new keys cannot be created for encryption target",
+					Message: "secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target",
 				}
-				validateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
+				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
-			expectedError: errors.New("secret kms-encryption-1 is in invalid state, new keys cannot be created for encryption target"),
+			expectedError: errors.New("secret encryption-key-kms-1 is invalid, new keys cannot be created for encryption target"),
 		},
 	}
 
@@ -310,7 +284,7 @@ func TestKeyController(t *testing.T) {
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
-			target := newKeyController(scenario.targetNamespace, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakePodClient, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
+			target := NewKeyController(scenario.targetNamespace, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakePodClient, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
 
 			// act
 			err := target.sync()
@@ -325,7 +299,7 @@ func TestKeyController(t *testing.T) {
 			if err != nil && scenario.expectedError != nil && err.Error() != scenario.expectedError.Error() {
 				t.Fatalf("unexpected error returned = %v, expected = %v", err, scenario.expectedError)
 			}
-			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
@@ -336,15 +310,4 @@ func TestKeyController(t *testing.T) {
 			}
 		})
 	}
-}
-
-func validateEncryptionKey(secret *corev1.Secret) error {
-	rawKey, exist := secret.Data[encryptionSecretKeyDataForTest]
-	if !exist {
-		return errors.New("the secret doesn't contain an encryption key")
-	}
-	if len(rawKey) != 32 {
-		return fmt.Errorf("incorrect length of the encryption key, expected 32, got %d bytes", len(rawKey))
-	}
-	return nil
 }

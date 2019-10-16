@@ -1,4 +1,4 @@
-package encryption
+package observer
 
 import (
 	"fmt"
@@ -12,6 +12,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
+	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
+
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -29,9 +32,11 @@ func TestEncryptionConfigObserver(t *testing.T) {
 			name: "a secret with encryption config exits thus encryption-provider-config flag is set",
 			initialResources: func() []runtime.Object {
 				ret := []runtime.Object{}
-				ec := createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
-				ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
-				ecs.Name = "encryption-config"
+				ec := encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
+				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec)
+				if err != nil {
+					t.Fatal(err)
+				}
 				ret = append(ret, ecs)
 				return ret
 			}(),
@@ -81,9 +86,11 @@ func TestEncryptionConfigObserver(t *testing.T) {
 			name: "warn about encryption-provider-config value change",
 			initialResources: func() []runtime.Object {
 				ret := []runtime.Object{}
-				ec := createEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
-				ecs := createEncryptionCfgSecret(t, "kms", "1", ec)
-				ecs.Name = "encryption-config"
+				ec := encryptiontesting.CreateEncryptionCfgNoWriteKey("1", "NjFkZWY5NjRmYjk2N2Y1ZDdjNDRhMmFmOGRhYjY4NjU=", "secrets")
+				ecs, err := encryptionconfig.ToSecret("kms", "encryption-config", ec)
+				if err != nil {
+					t.Fatal(err)
+				}
 				ret = append(ret, ecs)
 				return ret
 			}(),

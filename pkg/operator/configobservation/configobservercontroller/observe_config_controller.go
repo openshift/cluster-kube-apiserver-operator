@@ -20,7 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
+	encryption "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/observer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 

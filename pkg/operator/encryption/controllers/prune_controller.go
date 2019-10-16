@@ -1,4 +1,4 @@
-package encryption
+package controllers
 
 import (
 	"fmt"
@@ -19,6 +19,9 @@ import (
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -52,7 +55,7 @@ type pruneController struct {
 	secretClient corev1client.SecretsGetter
 }
 
-func newPruneController(
+func NewPruneController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -106,7 +109,7 @@ func (c *pruneController) sync() error {
 }
 
 func (c *pruneController) deleteOldMigratedSecrets() error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -115,33 +118,39 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 		return nil
 	}
 
-	usedSecrets := make([]*corev1.Secret, 0, len(desiredEncryptionConfig))
+	allUsedKeys := make([]state.KeyState, 0, len(desiredEncryptionConfig))
 	for _, grKeys := range desiredEncryptionConfig {
-		usedSecrets = append(usedSecrets, grKeys.readSecrets...)
+		allUsedKeys = append(allUsedKeys, grKeys.ReadKeys...)
 	}
 
-	allkeys, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.encryptionSecretSelector)
+	allSecrets, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(c.encryptionSecretSelector)
 	if err != nil {
 		return err
 	}
 
 	// sort by keyID
-	encryptionSecrets := make([]*corev1.Secret, 0, len(allkeys.Items))
-	for _, s := range allkeys.Items {
-		encryptionSecrets = append(encryptionSecrets, s.DeepCopy()) // don't use &s because it constant through-out the loop
+	encryptionSecrets := make([]*corev1.Secret, 0, len(allSecrets.Items))
+	for _, s := range allSecrets.Items {
+		encryptionSecrets = append(encryptionSecrets, s.DeepCopy()) // don't use &s because it is constant through-out the loop
 	}
 	sort.Slice(encryptionSecrets, func(i, j int) bool {
-		// it is fine to ignore the validKeyID bool here because we filtered out invalid secrets in the loop above
-		iKeyID, _ := secretToKeyID(encryptionSecrets[i])
-		jKeyID, _ := secretToKeyID(encryptionSecrets[j])
+		iKeyID, _ := state.NameToKeyID(encryptionSecrets[i].Name)
+		jKeyID, _ := state.NameToKeyID(encryptionSecrets[j].Name)
 		return iKeyID > jKeyID
 	})
 
 	var deleteErrs []error
 	skippedKeys := 0
+NextEncryptionSecret:
 	for _, s := range encryptionSecrets {
-		if hasKeyInSecret(usedSecrets, s) {
-			continue
+		k, err := secrets.ToKeyState(s)
+		if err == nil {
+			// ignore invalid keys, check whether secret is used
+			for _, us := range allUsedKeys {
+				if state.EqualKeyAndEqualID(&us, &k) {
+					continue NextEncryptionSecret
+				}
+			}
 		}
 
 		// skip the most recent unused secrets around
@@ -155,8 +164,8 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 
 		// remove our finalizer if it is present
 		secret := s.DeepCopy()
-		if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(encryptionSecretFinalizer) {
-			delete(finalizers, encryptionSecretFinalizer)
+		if finalizers := sets.NewString(secret.Finalizers...); finalizers.Has(secrets.EncryptionSecretFinalizer) {
+			delete(finalizers, secrets.EncryptionSecretFinalizer)
 			secret.Finalizers = finalizers.List()
 			var updateErr error
 			secret, updateErr = c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Update(secret)
@@ -176,7 +185,7 @@ func (c *pruneController) deleteOldMigratedSecrets() error {
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
 }
 
-func (c *pruneController) run(stopCh <-chan struct{}) {
+func (c *pruneController) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 

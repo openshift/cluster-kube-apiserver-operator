@@ -1,6 +1,7 @@
-package encryption
+package controllers
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -22,12 +24,21 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/crypto"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const encWorkKey = "key"
+
+// encryptionSecretMigrationInterval determines how much time must pass after a key has been observed as
+// migrated before a new key is created by the key minting controller.  The new key's ID will be one
+// greater than the last key's ID (the first key has a key ID of 1).
+const encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 
 // keyController creates new keys if necessary. It
 // * watches
@@ -66,7 +77,7 @@ type keyController struct {
 	secretClient corev1client.SecretsGetter
 }
 
-func newKeyController(
+func NewKeyController(
 	targetNamespace string,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
@@ -131,7 +142,7 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := getEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -142,7 +153,7 @@ func (c *keyController) checkAndCreateKeys() error {
 
 	// avoid intended start of encryption
 	hasBeenOnBefore := currentConfig != nil || secretsFound
-	if currentMode == identity && !hasBeenOnBefore {
+	if currentMode == state.Identity && !hasBeenOnBefore {
 		return nil
 	}
 
@@ -157,7 +168,7 @@ func (c *keyController) checkAndCreateKeys() error {
 	// are missing.
 
 	for _, grKeys := range desiredEncryptionState {
-		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason)
+		keyID, internalReason, ok := needsNewKey(grKeys, currentMode, externalReason, c.encryptedGRs)
 		if !ok {
 			continue
 		}
@@ -176,54 +187,51 @@ func (c *keyController) checkAndCreateKeys() error {
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(newKeyID, currentMode, internalReason, externalReason)
+	if err != nil {
+		return fmt.Errorf("failed to create key: %v", err)
+	}
 	_, createErr := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(keySecret)
 	if errors.IsAlreadyExists(createErr) {
-		return c.validateExistingKey(keySecret, newKeyID)
+		return c.validateExistingSecret(keySecret, newKeyID)
 	}
 	return createErr
 }
 
-func (c *keyController) validateExistingKey(keySecret *corev1.Secret, keyID uint64) error {
+func (c *keyController) validateExistingSecret(keySecret *corev1.Secret, keyID uint64) error {
 	actualKeySecret, err := c.secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get(keySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	_, actualKeyID, validKey := secretToKeyAndMode(actualKeySecret)
-	if valid := actualKeyID == keyID && validKey; !valid {
+	actualKeyID, ok := state.NameToKeyID(actualKeySecret.Name)
+	if !ok || actualKeyID != keyID {
 		// TODO we can just get stuck in degraded here ...
-		return fmt.Errorf("secret %s is in invalid state, new keys cannot be created for encryption target", keySecret.Name)
+		return fmt.Errorf("secret %s has an invalid name, new keys cannot be created for encryption target", keySecret.Name)
+	}
+
+	if _, err := secrets.ToKeyState(actualKeySecret); err != nil {
+		return fmt.Errorf("secret %s is invalid, new keys cannot be created for encryption target", keySecret.Name)
 	}
 
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode mode, internalReason, externalReason string) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			// this ends up looking like openshift-kube-apiserver-encryption-3
-			Name:      fmt.Sprintf("%s-encryption-%d", c.targetNamespace, keyID),
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Labels: map[string]string{
-				encryptionSecretComponent: c.targetNamespace,
-			},
-			Annotations: map[string]string{
-				kubernetesDescriptionKey: kubernetesDescriptionScaryValue,
-
-				encryptionSecretMode:           string(currentMode),
-				encryptionSecretInternalReason: internalReason,
-				encryptionSecretExternalReason: externalReason,
-			},
-			Finalizers: []string{encryptionSecretFinalizer},
+func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, internalReason, externalReason string) (*corev1.Secret, error) {
+	bs := crypto.ModeToNewKeyFunc[currentMode]()
+	ks := state.KeyState{
+		Key: apiserverv1.Key{
+			Name:   fmt.Sprintf("%d", keyID),
+			Secret: base64.StdEncoding.EncodeToString(bs),
 		},
-		Data: map[string][]byte{
-			encryptionSecretKeyData: modeToNewKeyFunc[currentMode](),
-		},
+		Mode:           currentMode,
+		InternalReason: internalReason,
+		ExternalReason: externalReason,
 	}
+	return secrets.FromKeyState(c.targetNamespace, ks)
 }
 
-func (c *keyController) getCurrentModeAndExternalReason() (mode, string, error) {
+func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, error) {
 	apiServer, err := c.apiServerClient.Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
@@ -255,63 +263,66 @@ func (c *keyController) getCurrentModeAndExternalReason() (mode, string, error) 
 	}
 
 	reason := encryptionConfig.Encryption.Reason
-	switch currentMode := mode(apiServer.Spec.Encryption.Type); currentMode {
-	case aescbc, identity: // secretbox is disabled for now
+	switch currentMode := state.Mode(apiServer.Spec.Encryption.Type); currentMode {
+	case state.AESCBC, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, nil
 	case "": // unspecified means use the default (which can change over time)
-		return defaultMode, reason, nil
+		return state.DefaultMode, reason, nil
 	default:
 		return "", "", fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 
 // TODO unit tests
-func needsNewKey(grKeys keysState, currentMode mode, externalReason string) (uint64, string, bool) {
+func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+	// we always need to have some encryption keys unless we are turned off
+	if len(grKeys.ReadKeys) == 0 {
+		return 0, "no-secrets", currentMode != state.Identity
+	}
+
+	latestKey := grKeys.ReadKeys[0]
+	latestKeyID, ok := state.NameToKeyID(latestKey.Key.Name)
+	if !ok {
+		return latestKeyID, "invalid-secret", true
+	}
+
+	// if latest secret has been deleted, we will never be able to migrate to that key.
+	if !latestKey.Backed {
+		return latestKeyID, "missing-secret", true
+	}
+
 	// if the length of read secrets is more than one (i.e. we have more than just the write key),
 	// then we haven't successfully migrated and removed old keys so you should wait before generating more keys.
-	if len(grKeys.readSecrets) > 1 {
+	if len(grKeys.ReadKeys) > 1 {
 		return 0, "", false
 	}
 
-	// we always need to have some encryption keys unless we are turned off
-	if len(grKeys.readSecrets) == 0 {
-		return 0, "no-secrets", currentMode != identity
-	}
-
-	latestKey, latestKeyID := grKeys.latestKey()
-
 	// we have not migrated the latest key, do nothing until that is complete
-	if len(latestKey.Annotations[encryptionSecretMigratedTimestamp]) == 0 {
+	if allMigrated, _, _ := state.MigratedFor(encryptedGRs, latestKey); !allMigrated {
 		return 0, "", false
 	}
 
 	// if the most recent secret was encrypted in a mode different than the current mode, we need to generate a new key
-	if latestKey.Annotations[encryptionSecretMode] != string(currentMode) {
+	if latestKey.Mode != currentMode {
 		return latestKeyID, "new-mode", true
 	}
 
 	// if the most recent secret turned off encryption and we want to keep it that way, do nothing
-	if latestKey.Annotations[encryptionSecretMode] == string(identity) && currentMode == identity {
+	if latestKey.Mode == state.Identity && currentMode == state.Identity {
 		return 0, "", false
 	}
 
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
-	if latestKey.Annotations[encryptionSecretExternalReason] != externalReason && len(externalReason) != 0 {
+	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {
 		return latestKeyID, "new-external-reason", true
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
-	migrationTimestamp, err := time.Parse(time.RFC3339, latestKey.Annotations[encryptionSecretMigratedTimestamp])
-	if err != nil {
-		klog.Infof("failed to parse migration timestamp for %s, forcing new key: %v", latestKey.Name, err)
-		return latestKeyID, "timestamp-error", true
-	}
-
-	return latestKeyID, "timestamp-too-old", time.Since(migrationTimestamp) > encryptionSecretMigrationInterval
+	return latestKeyID, "timestamp-too-old", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
 }
 
-func (c *keyController) run(stopCh <-chan struct{}) {
+func (c *keyController) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 

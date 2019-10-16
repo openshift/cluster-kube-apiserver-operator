@@ -1,4 +1,4 @@
-package encryption
+package controllers
 
 import (
 	"crypto/rand"
@@ -19,6 +19,10 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
+	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
 
 func TestPruneController(t *testing.T) {
@@ -43,7 +47,7 @@ func TestPruneController(t *testing.T) {
 				ns := "kms"
 				all := []*corev1.Secret{}
 				all = append(all, createMigratedEncryptionKeySecretsWithRndKey(t, 10, ns, "secrets")...)
-				all = append(all, createEncryptionKeySecretWithRawKey(ns, nil, 11, []byte("cfbbae883984944e48d25590abdfd300")))
+				all = append(all, encryptiontesting.CreateEncryptionKeySecretWithRawKey(ns, nil, 11, []byte("cfbbae883984944e48d25590abdfd300")))
 				return all
 			}(),
 			expectedActions: []string{"list:pods:kms", "get:secrets:kms", "list:secrets:openshift-config-managed", "list:secrets:openshift-config-managed"},
@@ -114,32 +118,44 @@ func TestPruneController(t *testing.T) {
 				nil,
 				nil,
 			)
+
 			rawSecrets := []runtime.Object{}
 			for _, initialSecret := range scenario.initialSecrets {
 				rawSecrets = append(rawSecrets, initialSecret)
 			}
-			fakePod := createDummyKubeAPIPod("kube-apiserver-1", "kms")
+
+			fakePod := encryptiontesting.CreateDummyKubeAPIPod("kube-apiserver-1", "kms")
+
 			writeKeyRaw := []byte("71ea7c91419a68fd1224f88d50316b4e") // NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=
 			writeKeyID := uint64(len(scenario.initialSecrets) + 1)
-			writeKeySecret := createEncryptionKeySecretWithRawKey(scenario.targetNamespace, nil, writeKeyID, writeKeyRaw)
+			writeKeySecret := encryptiontesting.CreateEncryptionKeySecretWithRawKey(scenario.targetNamespace, nil, writeKeyID, writeKeyRaw)
+
+			initialKeys := []state.KeyState{}
+			for _, s := range scenario.initialSecrets {
+				km, err := secrets.ToKeyState(s)
+				if err != nil {
+					t.Fatal(err)
+				}
+				initialKeys = append(initialKeys, km)
+			}
+
 			encryptionConfig := func() *corev1.Secret {
-				additionalReadSecrets := keysWithPotentiallyPersistedData(scenario.targetGRs, sortRecentFirst(scenario.initialSecrets))
-				var additionaReadKeys []apiserverconfigv1.Key
-				for _, s := range additionalReadSecrets {
-					km, readKeyID, _ := secretToKeyAndMode(s)
-					additionaReadKeys = append(additionaReadKeys, apiserverconfigv1.Key{
-						Name:   fmt.Sprintf("%d", readKeyID),
-						Secret: km.key.Secret,
+				additionalReadKeys := state.KeysWithPotentiallyPersistedData(scenario.targetGRs, state.SortRecentFirst(initialKeys))
+				var additionaConfigReadKeys []apiserverconfigv1.Key
+				for _, rk := range additionalReadKeys {
+					additionaConfigReadKeys = append(additionaConfigReadKeys, apiserverconfigv1.Key{
+						Name:   rk.Key.Name,
+						Secret: rk.Key.Secret,
 					})
 				}
-				ec := createEncryptionCfgWithWriteKey([]encryptionKeysResourceTuple{{
-					resource: "secrets",
-					keys: append([]apiserverconfigv1.Key{
+				ec := encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{{
+					Resource: "secrets",
+					Keys: append([]apiserverconfigv1.Key{
 						{
 							Name:   fmt.Sprintf("%d", writeKeyID),
 							Secret: base64.StdEncoding.EncodeToString(writeKeyRaw),
 						},
-					}, additionaReadKeys...),
+					}, additionaConfigReadKeys...),
 				}})
 				ec.APIVersion = corev1.SchemeGroupVersion.String()
 				return createEncryptionCfgSecret(t, "kms", "1", ec)
@@ -151,7 +167,7 @@ func TestPruneController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 
-			target := newPruneController(
+			target := NewPruneController(
 				scenario.targetNamespace,
 				fakeOperatorClient,
 				kubeInformers,
@@ -169,7 +185,7 @@ func TestPruneController(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := validateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
+			if err := encryptiontesting.ValidateActionsVerbs(fakeKubeClient.Actions(), scenario.expectedActions); err != nil {
 				t.Fatalf("incorrect action(s) detected: %v", err)
 			}
 			if scenario.validateFunc != nil {
@@ -224,7 +240,7 @@ func createMigratedEncryptionKeySecretsWithRndKey(ts *testing.T, count int, name
 	}
 	ret := []*corev1.Secret{}
 	for i := 1; i <= count; i++ {
-		s := createMigratedEncryptionKeySecretWithRawKey(namespace, []schema.GroupResource{{Group: "", Resource: resource}}, uint64(i), rawKey, time.Now())
+		s := encryptiontesting.CreateMigratedEncryptionKeySecretWithRawKey(namespace, []schema.GroupResource{{Group: "", Resource: resource}}, uint64(i), rawKey, time.Now())
 		ret = append(ret, s)
 	}
 	return ret
