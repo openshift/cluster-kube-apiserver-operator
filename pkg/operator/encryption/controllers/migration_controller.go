@@ -65,26 +65,24 @@ type migrationController struct {
 
 	encryptedGRs []schema.GroupResource
 
-	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
 	secretClient corev1client.SecretsGetter
 
-	podClient corev1client.PodsGetter
+	deployer statemachine.Deployer
 
 	dynamicClient   dynamic.Interface
 	discoveryClient discovery.ServerResourcesInterface
 }
 
 func NewMigrationController(
-	targetNamespace string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs []schema.GroupResource,
-	podClient corev1client.PodsGetter,
 	dynamicClient dynamic.Interface, // temporary hack
 	discoveryClient discovery.ServerResourcesInterface,
 ) *migrationController {
@@ -94,17 +92,16 @@ func NewMigrationController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionMigrationController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-migration-controller"),
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
-		podClient:                podClient,
+		deployer:                 deployer,
 		dynamicClient:            dynamicClient,
 		discoveryClient:          discoveryClient,
 	}
 
-	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -160,7 +157,7 @@ func (c *migrationController) setProgressing(reason, message string, args ...int
 // TODO doc
 func (c *migrationController) migrateKeysIfNeededAndRevisionStable() (resetProgressing bool, err error) {
 	// no storage migration during revision changes
-	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentEncryptionConfig, desiredEncryptionState, _, isTransitionalReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return false, err
 	}

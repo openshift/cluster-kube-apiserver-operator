@@ -70,20 +70,20 @@ type keyController struct {
 
 	encryptedGRs []schema.GroupResource
 
-	targetNamespace          string
+	component                string
 	encryptionSecretSelector metav1.ListOptions
 
-	podClient    corev1client.PodsGetter
+	deployer     statemachine.Deployer
 	secretClient corev1client.SecretsGetter
 }
 
 func NewKeyController(
-	targetNamespace string,
+	component string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
@@ -96,15 +96,15 @@ func NewKeyController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionKeyController"),
 		eventRecorder: eventRecorder.WithComponentSuffix("encryption-key-controller"), // TODO unused
 
-		encryptedGRs:    encryptedGRs,
-		targetNamespace: targetNamespace,
+		encryptedGRs: encryptedGRs,
+		component:    component,
 
 		encryptionSecretSelector: encryptionSecretSelector,
-		podClient:                podClient,
+		deployer:                 deployer,
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	apiServerInformer.Informer().AddEventHandler(c.eventHandler())
 	c.preRunCachesSynced = append(c.preRunCachesSynced, apiServerInformer.Informer().HasSynced)
@@ -142,7 +142,7 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		InternalReason: internalReason,
 		ExternalReason: externalReason,
 	}
-	return secrets.FromKeyState(c.targetNamespace, ks)
+	return secrets.FromKeyState(c.component, ks)
 }
 
 func (c *keyController) getCurrentModeAndExternalReason() (state.Mode, string, error) {

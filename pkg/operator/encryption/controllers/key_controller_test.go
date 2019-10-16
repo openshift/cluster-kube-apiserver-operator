@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
 	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
 
@@ -284,10 +285,16 @@ func TestKeyController(t *testing.T) {
 			fakeConfigClient := configv1clientfake.NewSimpleClientset(scenario.apiServerObjects...)
 			fakeApiServerClient := fakeConfigClient.ConfigV1().APIServers()
 			fakeApiServerInformer := configv1informers.NewSharedInformerFactory(fakeConfigClient, time.Minute).Config().V1().APIServers()
-			target := NewKeyController(scenario.targetNamespace, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakePodClient, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
+
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			target := NewKeyController(scenario.targetNamespace, deployer, fakeOperatorClient, fakeApiServerClient, fakeApiServerInformer, kubeInformers, fakeSecretClient, scenario.encryptionSecretSelector, eventRecorder, scenario.targetGRs)
 
 			// act
-			err := target.sync()
+			err = target.sync()
 
 			// validate
 			if err == nil && scenario.expectedError != nil {
