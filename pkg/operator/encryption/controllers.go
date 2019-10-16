@@ -1,8 +1,6 @@
 package encryption
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -11,13 +9,11 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/controllers"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/statemachine"
 )
 
 type runner interface {
@@ -26,13 +22,13 @@ type runner interface {
 
 func NewControllers(
 	targetNamespace string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
-	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	dynamicClient dynamic.Interface, // temporary hack for in-process storage migration
 	encryptedGRs ...schema.GroupResource,
 ) (*Controllers, error) {
@@ -42,22 +38,15 @@ func NewControllers(
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + targetNamespace}
 
-	if err := resourceSyncer.SyncSecret(
-		resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionconfig.EncryptionConfSecretName},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, targetNamespace)},
-	); err != nil {
-		return nil, err
-	}
-
 	return &Controllers{
 		controllers: []runner{
 			controllers.NewKeyController(
 				targetNamespace,
+				deployer,
 				operatorClient,
 				apiServerClient,
 				apiServerInformer,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				encryptionSecretSelector,
 				eventRecorder,
@@ -65,9 +54,9 @@ func NewControllers(
 			),
 			controllers.NewStateController(
 				targetNamespace,
+				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				encryptionSecretSelector,
 				eventRecorder,
@@ -75,9 +64,9 @@ func NewControllers(
 			),
 			controllers.NewPruneController(
 				targetNamespace,
+				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
 				kubeClient.CoreV1(),
 				encryptionSecretSelector,
 				eventRecorder,
@@ -85,13 +74,13 @@ func NewControllers(
 			),
 			controllers.NewMigrationController(
 				targetNamespace,
+				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
 				kubeClient.CoreV1(),
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
-				kubeClient.CoreV1(),
 				dynamicClient,
 				kubeClient.Discovery(),
 			),

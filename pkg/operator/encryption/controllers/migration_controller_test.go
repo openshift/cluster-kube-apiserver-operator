@@ -25,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
 	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
 )
@@ -277,20 +278,25 @@ func TestMigrationController(t *testing.T) {
 				},
 			}}
 
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			// act
 			target := NewMigrationController(
 				scenario.targetNamespace,
+				deployer,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
 				scenario.targetGRs,
-				fakeKubeClient.CoreV1(),
 				fakeDynamicClient,
 				fakeDiscoveryClient,
 			)
-			err := target.sync()
+			err = target.sync()
 
 			// validate
 			if err == nil && scenario.expectedError != nil {

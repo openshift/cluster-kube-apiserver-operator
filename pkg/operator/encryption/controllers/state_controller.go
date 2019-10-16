@@ -47,15 +47,15 @@ type stateController struct {
 
 	operatorClient operatorv1helpers.StaticPodOperatorClient
 	secretClient   corev1client.SecretsGetter
-	podClient      corev1client.PodsGetter
+	deployer       statemachine.Deployer
 }
 
 func NewStateController(
 	targetNamespace string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
-	podClient corev1client.PodsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs []schema.GroupResource,
@@ -71,10 +71,10 @@ func NewStateController(
 
 		encryptionSecretSelector: encryptionSecretSelector,
 		secretClient:             secretClient,
-		podClient:                podClient,
+		deployer:                 deployer,
 	}
 
-	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -104,7 +104,7 @@ func (c *stateController) sync() error {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret() error {
-	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}

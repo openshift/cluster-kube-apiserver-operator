@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/secrets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
@@ -167,11 +168,16 @@ func TestPruneController(t *testing.T) {
 			kubeInformers := v1helpers.NewKubeInformersForNamespaces(fakeKubeClient, "openshift-config-managed", scenario.targetNamespace)
 			fakeSecretClient := fakeKubeClient.CoreV1()
 
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakeKubeClient.CoreV1(), fakeSecretClient)
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			target := NewPruneController(
 				scenario.targetNamespace,
+				deployer,
 				fakeOperatorClient,
 				kubeInformers,
-				fakeKubeClient.CoreV1(),
 				fakeSecretClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
@@ -179,7 +185,7 @@ func TestPruneController(t *testing.T) {
 			)
 
 			// act
-			err := target.sync()
+			err = target.sync()
 
 			// validate
 			if err != nil {

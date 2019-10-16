@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
+	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -148,15 +149,19 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	deployer, err := encryptiondeployer.NewStaticPodDeployer(operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1())
+	if err != nil {
+		return err
+	}
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
+		deployer,
 		operatorClient,
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient,
 		ctx.EventRecorder,
-		resourceSyncController,
 		dynamicClient,
 		schema.GroupResource{Group: "", Resource: "secrets"},
 		schema.GroupResource{Group: "", Resource: "configmaps"},

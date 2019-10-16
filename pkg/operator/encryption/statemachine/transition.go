@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
@@ -17,26 +17,40 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
+// Deployer abstracts the deployment machanism like the static pod controllers.
+type Deployer interface {
+	// DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
+	// instances of the operand have acknowledged it.
+	DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error)
+
+	// AddEventHandler registers a event handler whenever the backing resource change
+	// that might influence the result of DeployedEncryptionConfigSecret.
+	AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced
+}
+
 func GetEncryptionConfigAndState(
-	podClient corev1client.PodsGetter,
+	deployer Deployer,
 	secretClient corev1client.SecretsGetter,
-	targetNamespace string,
 	encryptionSecretSelector metav1.ListOptions,
 	encryptedGRs []schema.GroupResource,
 ) (current *apiserverconfigv1.EncryptionConfiguration, desired map[schema.GroupResource]state.GroupResourceState, secretsFound bool, transitioningReason string, err error) {
-	revision, err := getAPIServerRevisionOfAllInstances(podClient.Pods(targetNamespace))
+	// get current config
+	encryptionConfigSecret, converged, err := deployer.DeployedEncryptionConfigSecret()
 	if err != nil {
 		return nil, nil, false, "", err
 	}
-	if len(revision) == 0 {
+	if !converged {
 		return nil, nil, false, "APIServerRevisionNotConverged", nil
 	}
-
-	encryptionConfig, err := getCurrentEncryptionConfig(secretClient.Secrets(targetNamespace), revision)
-	if err != nil {
-		return nil, nil, false, "", err
+	var encryptionConfig *apiserverconfigv1.EncryptionConfiguration
+	if encryptionConfigSecret != nil {
+		encryptionConfig, err = encryptionconfig.FromSecret(encryptionConfigSecret)
+		if err != nil {
+			return nil, nil, false, "", fmt.Errorf("invalid encryption config %s/%s: %v", encryptionConfigSecret.Namespace, encryptionConfigSecret.Name, err)
+		}
 	}
 
+	// compute desired config
 	encryptionSecretList, err := secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).List(encryptionSecretSelector)
 	if err != nil {
 		return nil, nil, false, "", err
@@ -45,7 +59,6 @@ func GetEncryptionConfigAndState(
 	for i := range encryptionSecretList.Items {
 		encryptionSecrets = append(encryptionSecrets, &encryptionSecretList.Items[i])
 	}
-
 	desiredEncryptionState := getDesiredEncryptionState(encryptionConfig, encryptionSecrets, encryptedGRs)
 
 	return encryptionConfig, desiredEncryptionState, len(encryptionSecrets) > 0, "", nil
@@ -208,22 +221,4 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	}
 	klog.V(4).Infof("write key %s set as sole write key", writeKey.Key.Name)
 	return desiredEncryptionState
-}
-
-func getCurrentEncryptionConfig(secrets corev1client.SecretInterface, revision string) (*apiserverconfigv1.EncryptionConfiguration, error) {
-	encryptionConfigSecret, err := secrets.Get(encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
-	if err != nil {
-		// if encryption is not enabled at this revision or the secret was deleted, we should not error
-		if errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	c, err := encryptionconfig.FromSecret(encryptionConfigSecret)
-	if err != nil {
-		return nil, fmt.Errorf("invalid encryption config at revision %s: %v", revision, err)
-	}
-
-	return c, nil
 }

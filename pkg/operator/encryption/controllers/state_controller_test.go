@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/state"
 	encryptiontesting "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/testing"
@@ -603,13 +604,13 @@ func TestStateController(t *testing.T) {
 				encryptiontesting.CreateDummyKubeAPIPodInUnknownPhase("kube-apiserver-1", "kms"),
 			},
 			expectedActions: []string{"list:pods:kms"},
-			expectedError:   errors.New("api server pod kube-apiserver-1 in unknown phase"),
+			expectedError:   errors.New("failed to get converged static pod revision: api server pod kube-apiserver-1 in unknown phase"),
 			validateOperatorClientFunc: func(ts *testing.T, operatorClient v1helpers.StaticPodOperatorClient) {
 				expectedCondition := operatorv1.OperatorCondition{
 					Type:    "EncryptionStateControllerDegraded",
 					Status:  "True",
 					Reason:  "Error",
-					Message: "api server pod kube-apiserver-1 in unknown phase",
+					Message: "failed to get converged static pod revision: api server pod kube-apiserver-1 in unknown phase",
 				}
 				encryptiontesting.ValidateOperatorClientConditions(ts, operatorClient, []operatorv1.OperatorCondition{expectedCondition})
 			},
@@ -668,19 +669,23 @@ func TestStateController(t *testing.T) {
 			fakeSecretClient := fakeKubeClient.CoreV1()
 			fakePodClient := fakeKubeClient.CoreV1()
 
+			deployer, err := encryptiondeployer.NewStaticPodDeployer(scenario.targetNamespace, kubeInformers, nil, fakePodClient, fakeSecretClient)
+			if err != nil {
+				t.Fatal(err)
+			}
 			target := NewStateController(
 				scenario.targetNamespace,
+				deployer,
 				fakeOperatorClient,
 				kubeInformers,
 				fakeSecretClient,
-				fakePodClient,
 				scenario.encryptionSecretSelector,
 				eventRecorder,
 				scenario.targetGRs,
 			)
 
 			// act
-			err := target.sync()
+			err = target.sync()
 
 			// validate
 			if err == nil && scenario.expectedError != nil {

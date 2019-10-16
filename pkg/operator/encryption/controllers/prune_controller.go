@@ -51,15 +51,15 @@ type pruneController struct {
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
-	podClient    corev1client.PodsGetter
+	deployer     statemachine.Deployer
 	secretClient corev1client.SecretsGetter
 }
 
 func NewPruneController(
 	targetNamespace string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
@@ -75,11 +75,11 @@ func NewPruneController(
 		targetNamespace: targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
-		podClient:                podClient,
+		deployer:                 deployer,
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	return c
 }
@@ -109,7 +109,7 @@ func (c *pruneController) sync() error {
 }
 
 func (c *pruneController) deleteOldMigratedSecrets() error {
-	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}

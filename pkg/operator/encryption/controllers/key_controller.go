@@ -73,17 +73,17 @@ type keyController struct {
 	targetNamespace          string
 	encryptionSecretSelector metav1.ListOptions
 
-	podClient    corev1client.PodsGetter
+	deployer     statemachine.Deployer
 	secretClient corev1client.SecretsGetter
 }
 
 func NewKeyController(
 	targetNamespace string,
+	deployer statemachine.Deployer,
 	operatorClient operatorv1helpers.StaticPodOperatorClient,
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
@@ -100,11 +100,11 @@ func NewKeyController(
 		targetNamespace: targetNamespace,
 
 		encryptionSecretSelector: encryptionSecretSelector,
-		podClient:                podClient,
+		deployer:                 deployer,
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpInformers(operatorClient, targetNamespace, kubeInformersForNamespaces, c.eventHandler())
+	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
 
 	apiServerInformer.Informer().AddEventHandler(c.eventHandler())
 	c.preRunCachesSynced = append(c.preRunCachesSynced, apiServerInformer.Informer().HasSynced)
@@ -142,7 +142,7 @@ func (c *keyController) checkAndCreateKeys() error {
 		return err
 	}
 
-	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.podClient, c.secretClient, c.targetNamespace, c.encryptionSecretSelector, c.encryptedGRs)
+	currentConfig, desiredEncryptionState, secretsFound, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
