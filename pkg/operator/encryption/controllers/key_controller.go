@@ -307,14 +307,14 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 		return latestKeyID, "new-mode", true
 	}
 
-	// if the most recent secret turned off encryption and we want to keep it that way, do nothing
-	if latestKey.Mode == state.Identity && currentMode == state.Identity {
-		return 0, "", false
-	}
-
 	// if the most recent secret has a different external reason than the current reason, we need to generate a new key
 	if latestKey.ExternalReason != externalReason && len(externalReason) != 0 {
 		return latestKeyID, "new-external-reason", true
+	}
+
+	// never expire identity keys
+	if latestKey.Mode == state.Identity {
+		return 0, "", false
 	}
 
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
