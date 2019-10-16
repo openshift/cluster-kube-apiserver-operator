@@ -3,8 +3,9 @@ package encryption
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -27,7 +28,8 @@ func NewControllers(
 	apiServerClient configv1client.APIServerInterface,
 	apiServerInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	secretsClient corev1.SecretsGetter,
+	discovery discovery.DiscoveryInterface,
 	eventRecorder events.Recorder,
 	dynamicClient dynamic.Interface, // temporary hack for in-process storage migration
 	encryptedGRs ...schema.GroupResource,
@@ -47,7 +49,7 @@ func NewControllers(
 				apiServerClient,
 				apiServerInformer,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
+				secretsClient,
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
@@ -57,7 +59,7 @@ func NewControllers(
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
+				secretsClient,
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
@@ -66,7 +68,7 @@ func NewControllers(
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
+				secretsClient,
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
@@ -75,12 +77,12 @@ func NewControllers(
 				deployer,
 				operatorClient,
 				kubeInformersForNamespaces,
-				kubeClient.CoreV1(),
+				secretsClient,
 				encryptionSecretSelector,
 				eventRecorder,
 				encryptedGRs,
 				dynamicClient,
-				kubeClient.Discovery(),
+				discovery,
 			),
 		},
 	}, nil
