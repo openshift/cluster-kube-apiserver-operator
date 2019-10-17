@@ -60,6 +60,8 @@ verify-codegen: verify-codegen-crds
 .PHONY: verify-codegen
 
 test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
+test-e2e: GO_TEST_FLAGS += -v
+test-e2e: GO_TEST_FLAGS += -timeout 1h
 test-e2e: test-unit
 .PHONY: test-e2e
 
