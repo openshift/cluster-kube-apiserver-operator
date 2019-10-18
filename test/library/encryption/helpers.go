@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
@@ -23,6 +24,34 @@ var (
 	waitPollInterval = 15 * time.Second
 	waitPollTimeout  = 60 * time.Minute // a happy path scenario needs to roll out 3 revisions each taking ~10 min
 )
+
+func TestEncryptionTypeAESCBC(t *testing.T) {
+	e := NewE(t)
+	etcdClient := TestEncryptionType(e, configv1.EncryptionTypeAESCBC)
+	AssertSecretsAndConfigMaps(e, etcdClient, string(configv1.EncryptionTypeAESCBC))
+}
+
+func TestEncryptionType(t testing.TB, encryptionType configv1.EncryptionType) EtcdClient {
+	t.Helper()
+	t.Logf("Starting encryption e2e test for %q mode", encryptionType)
+
+	etcdClient, apiServerClient, operatorClient := GetClients(t)
+
+	apiServer, err := apiServerClient.Get("cluster", metav1.GetOptions{})
+	require.NoError(t, err)
+	needsUpdate := apiServer.Spec.Encryption.Type != encryptionType
+	if needsUpdate {
+		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
+		apiServer.Spec.Encryption.Type = encryptionType
+		_, err = apiServerClient.Update(apiServer)
+		require.NoError(t, err)
+	} else {
+		t.Logf("APIServer is already configured to use %q mode", encryptionType)
+	}
+
+	WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t, operatorClient)
+	return etcdClient
+}
 
 func GetClients(t testing.TB) (EtcdClient, configv1client.APIServerInterface, operatorclient.KubeAPIServerInterface) {
 	t.Helper()
