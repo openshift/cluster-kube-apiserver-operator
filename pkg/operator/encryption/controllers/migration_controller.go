@@ -338,15 +338,19 @@ func (c *migrationController) runStorageMigration(gr schema.GroupResource) error
 func (c *migrationController) getVersion(gr schema.GroupResource) (string, error) {
 	resourceLists, discoveryErr := c.discoveryClient.ServerPreferredResources() // safe to ignore error
 	for _, resourceList := range resourceLists {
+		groupVersion, err := schema.ParseGroupVersion(resourceList.GroupVersion)
+		if err != nil {
+			return "", err
+		}
+		if groupVersion.Group != gr.Group {
+			continue
+		}
 		for _, resource := range resourceList.APIResources {
-			if resource.Group == gr.Group && resource.Name == gr.Resource {
+			if (len(resource.Group) == 0 || resource.Group == gr.Group) && resource.Name == gr.Resource {
 				if len(resource.Version) > 0 {
 					return resource.Version, nil
 				}
-				groupVersion, err := schema.ParseGroupVersion(resourceList.GroupVersion)
-				if err == nil {
-					return groupVersion.Version, nil
-				}
+				return groupVersion.Version, nil
 			}
 		}
 	}
