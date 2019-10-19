@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
+
+	configv1 "github.com/openshift/api/config/v1"
 )
 
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
@@ -28,10 +31,10 @@ const (
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
 )
 
-func AssertSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode string) {
+func AssertSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType) {
 	t.Helper()
-	assertSecrets(t, clientSet.Etcd, expectedMode)
-	assertConfigMaps(t, clientSet.Etcd, expectedMode)
+	assertSecrets(t, clientSet.Etcd, string(expectedMode))
+	assertConfigMaps(t, clientSet.Etcd, string(expectedMode))
 	assertLastMigratedKey(t, clientSet.Kube)
 }
 
@@ -53,16 +56,20 @@ func assertLastMigratedKey(t testing.TB, kubeClient kubernetes.Interface) {
 	t.Helper()
 	expectedGRs := defaultTargetGRs
 	t.Logf("Checking if the last migrated key was used to encrypt %v", expectedGRs)
-	keyName, migratedResources, err := GetLastKeyMeta(kubeClient)
+	lastMigratedKeyMeta, err := GetLastKeyMeta(kubeClient)
 	require.NoError(t, err)
+	if len(lastMigratedKeyMeta.Name) == 0 {
+		t.Log("Nothing to check no new key was created")
+		return
+	}
 
-	if len(expectedGRs) != len(migratedResources) {
-		t.Errorf("Wrong number of migrated resources for %q key, expected %d, got %d", keyName, len(expectedGRs), len(migratedResources))
+	if len(expectedGRs) != len(lastMigratedKeyMeta.Migrated) {
+		t.Errorf("Wrong number of migrated resources for %q key, expected %d, got %d", lastMigratedKeyMeta.Name, len(expectedGRs), len(lastMigratedKeyMeta.Migrated))
 	}
 
 	for _, expectedGR := range expectedGRs {
-		if !hasResource(expectedGR, migratedResources) {
-			t.Errorf("%q wasn't used to encrypt %v, only %v", keyName, expectedGR, migratedResources)
+		if !hasResource(expectedGR, lastMigratedKeyMeta.Migrated) {
+			t.Errorf("%q wasn't used to encrypt %v, only %v", lastMigratedKeyMeta.Name, expectedGR, lastMigratedKeyMeta.Migrated)
 		}
 	}
 }
