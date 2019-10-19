@@ -1,21 +1,29 @@
 package encryption
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	operatorhelpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -25,35 +33,42 @@ var (
 	waitPollTimeout  = 60 * time.Minute // a happy path scenario needs to roll out 3 revisions each taking ~10 min
 )
 
-func TestEncryptionTypeAESCBC(t *testing.T) {
-	e := NewE(t)
-	etcdClient := TestEncryptionType(e, configv1.EncryptionTypeAESCBC)
-	AssertSecretsAndConfigMaps(e, etcdClient, string(configv1.EncryptionTypeAESCBC))
+type ClientSet struct {
+	Etcd            EtcdClient
+	ApiServerConfig configv1client.APIServerInterface
+	Operator        operatorv1client.KubeAPIServerInterface
+	Kube            kubernetes.Interface
 }
 
-func TestEncryptionType(t testing.TB, encryptionType configv1.EncryptionType) EtcdClient {
+func TestEncryptionTypeAESCBC(t *testing.T) {
+	e := NewE(t)
+	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESCBC)
+	AssertSecretsAndConfigMaps(e, clientSet, string(configv1.EncryptionTypeAESCBC))
+}
+
+func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.EncryptionType) ClientSet {
 	t.Helper()
 	t.Logf("Starting encryption e2e test for %q mode", encryptionType)
 
-	etcdClient, apiServerClient, operatorClient := GetClients(t)
+	clientSet := GetClients(t)
 
-	apiServer, err := apiServerClient.Get("cluster", metav1.GetOptions{})
+	apiServer, err := clientSet.ApiServerConfig.Get("cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 	needsUpdate := apiServer.Spec.Encryption.Type != encryptionType
 	if needsUpdate {
 		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
 		apiServer.Spec.Encryption.Type = encryptionType
-		_, err = apiServerClient.Update(apiServer)
+		_, err = clientSet.ApiServerConfig.Update(apiServer)
 		require.NoError(t, err)
 	} else {
 		t.Logf("APIServer is already configured to use %q mode", encryptionType)
 	}
 
-	WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t, operatorClient)
-	return etcdClient
+	WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t, clientSet.Operator)
+	return clientSet
 }
 
-func GetClients(t testing.TB) (EtcdClient, configv1client.APIServerInterface, operatorclient.KubeAPIServerInterface) {
+func GetClients(t testing.TB) ClientSet {
 	t.Helper()
 
 	kubeConfig, err := library.NewClientConfigForTest()
@@ -65,14 +80,14 @@ func GetClients(t testing.TB) (EtcdClient, configv1client.APIServerInterface, op
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 	etcdClient := NewEtcdClient(kubeClient)
 
-	operatorClient, err := operatorclient.NewForConfig(kubeConfig)
+	operatorClient, err := operatorv1client.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
-	return etcdClient, apiServerConfigClient, operatorClient.KubeAPIServers()
+	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Operator: operatorClient.KubeAPIServers(), Kube: kubeClient}
 }
 
 // WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded waits for the operator and encryption migration controller to report status as active not progressing, and not failing
-func WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t testing.TB, operatorClient operatorclient.KubeAPIServerInterface) {
+func WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t testing.TB, operatorClient operatorv1client.KubeAPIServerInterface) {
 	t.Helper()
 	t.Log("Waiting for Operator and Migration Controller to be: OperatorAvailable: true, OperatorProgressing: false, MigrationProgressing: false, MigrationDegraded: false, Done: true (Migration and Operator not progressing for > 1 min)")
 	// given that a happy path scenario needs to roll out at least 3 revision (each taking ~10 min)
@@ -116,4 +131,131 @@ func WaitForOperatorAndMigrationControllerAvailableNotProgressingNotDegraded(t t
 	}); err != nil {
 		t.Fatalf("Failed waiting for Operator and Migration Controller due to %v", err)
 	}
+}
+
+func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevKeyName string, prevKeyMigratedRes []schema.GroupResource) {
+	t.Helper()
+
+	nextKeyName := ""
+	if len(prevKeyName) > 0 {
+		prevKeyID, prevKeyValid := nameToKeyID(prevKeyName)
+		if !prevKeyValid {
+			t.Errorf("Invalid key %q passed", prevKeyName)
+		}
+		nexKeyID := prevKeyID + 1
+		nextKeyName = strings.Replace(prevKeyName, fmt.Sprintf("%d", prevKeyID), fmt.Sprintf("%d", nexKeyID), 1)
+	} else {
+		prevKeyName = "no previous key"
+		nextKeyName = "encryption-key-openshift-kube-apiserver-1"
+		prevKeyMigratedRes = defaultTargetGRs
+	}
+	t.Logf("Waiting for the next key %q, previous key was %q", nextKeyName, prevKeyName)
+
+	observedKeyName := prevKeyName
+	if err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+		currentKeyName, migratedResourcesForCurrentKey, err := GetLastKeyMeta(kubeClient)
+		if err != nil {
+			return false, err
+		}
+
+		if currentKeyName != observedKeyName {
+			if currentKeyName != nextKeyName {
+				return false, fmt.Errorf("unexpected key observed %q, expected %q", currentKeyName, nextKeyName)
+			}
+			t.Logf("Observed key %q, waiting until it will be used to migrate %v", currentKeyName, prevKeyMigratedRes)
+			observedKeyName = currentKeyName
+		}
+
+		if currentKeyName == nextKeyName {
+			if len(prevKeyMigratedRes) == len(migratedResourcesForCurrentKey) {
+				for _, expectedGR := range prevKeyMigratedRes {
+					if !hasResource(expectedGR, prevKeyMigratedRes) {
+						return false, nil
+					}
+				}
+				t.Logf("Key %q was used to migrate %v", currentKeyName, migratedResourcesForCurrentKey)
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("Failed waiting for key %s to be used to migrate %v, due to %v", nextKeyName, prevKeyMigratedRes, err)
+	}
+}
+
+func GetLastKeyMeta(kubeClient kubernetes.Interface) (string, []schema.GroupResource, error) {
+	secretsClient := kubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace)
+	selectedSecrets, err := secretsClient.List(metav1.ListOptions{LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace})
+	if err != nil {
+		return "", nil, err
+	}
+
+	if len(selectedSecrets.Items) == 0 {
+		return "", nil, nil
+	}
+	encryptionSecrets := make([]*corev1.Secret, 0, len(selectedSecrets.Items))
+	for _, s := range selectedSecrets.Items {
+		encryptionSecrets = append(encryptionSecrets, s.DeepCopy())
+	}
+	sort.Slice(encryptionSecrets, func(i, j int) bool {
+		iKeyID, _ := nameToKeyID(encryptionSecrets[i].Name)
+		jKeyID, _ := nameToKeyID(encryptionSecrets[j].Name)
+		return iKeyID > jKeyID
+	})
+	lastKey := encryptionSecrets[0]
+
+	type migratedGroupResources struct {
+		Resources []schema.GroupResource `json:"resources"`
+	}
+
+	migrated := &migratedGroupResources{}
+	if v, ok := lastKey.Annotations["encryption.apiserver.operator.openshift.io/migrated-resources"]; ok && len(v) > 0 {
+		if err := json.Unmarshal([]byte(v), migrated); err != nil {
+			return "", nil, err
+		}
+	}
+	return lastKey.Name, migrated.Resources, nil
+}
+
+func ForceKeyRotation(t testing.TB, operatorClient operatorv1client.KubeAPIServerInterface, reason string) error {
+	t.Logf("Forcing a new key rotation, reason %q", reason)
+	data := map[string]map[string]string{
+		"encryption": {
+			"reason": reason,
+		},
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		apiServerOperator, err := operatorClient.Get("cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
+		_, err = operatorClient.Update(apiServerOperator)
+		return err
+	})
+}
+
+// hasResource returns whether the given group resource is contained in the migrated group resource list.
+func hasResource(expectedResource schema.GroupResource, actualResources []schema.GroupResource) bool {
+	for _, gr := range actualResources {
+		if gr == expectedResource {
+			return true
+		}
+	}
+	return false
+}
+
+func nameToKeyID(name string) (uint64, bool) {
+	lastIdx := strings.LastIndex(name, "-")
+	idString := name
+	if lastIdx >= 0 {
+		idString = name[lastIdx+1:] // this can never overflow since str[-1+1:] is
+	}
+	id, err := strconv.ParseUint(idString, 10, 0)
+	return id, err == nil
 }

@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"testing"
 	"time"
 
@@ -14,6 +16,11 @@ import (
 
 var protoEncodingPrefix = []byte{0x6b, 0x38, 0x73, 0x00}
 
+var defaultTargetGRs = []schema.GroupResource{
+	{Group: "", Resource: "secrets"},
+	{Group: "", Resource: "configmaps"},
+}
+
 const (
 	jsonEncodingPrefix           = "{"
 	protoEncryptedDataPrefix     = "k8s:enc:"
@@ -21,24 +28,43 @@ const (
 	secretboxTransformerPrefixV1 = "k8s:enc:secretbox:v1:"
 )
 
-func AssertSecretsAndConfigMaps(t testing.TB, etcdClient EtcdClient, expectedMode string) {
+func AssertSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode string) {
 	t.Helper()
-	require.NoError(t, AssertSecrets(t, etcdClient, expectedMode))
-	require.NoError(t, AssertConfigMaps(t, etcdClient, expectedMode))
+	assertSecrets(t, clientSet.Etcd, expectedMode)
+	assertConfigMaps(t, clientSet.Etcd, expectedMode)
+	assertLastMigratedKey(t, clientSet.Kube)
 }
 
-func AssertSecrets(t testing.TB, etcdClient EtcdClient, expectedMode string) error {
+func assertSecrets(t testing.TB, etcdClient EtcdClient, expectedMode string) {
 	t.Logf("Checking if all Secrets where encrypted/decrypted for %q mode", expectedMode)
 	totalSecrets, err := verifyResources(t, etcdClient, "/kubernetes.io/secrets/", expectedMode)
 	t.Logf("Verified %d Secrets, err %v", totalSecrets, err)
-	return err
+	require.NoError(t, err)
 }
 
-func AssertConfigMaps(t testing.TB, etcdClient EtcdClient, expectedMode string) error {
+func assertConfigMaps(t testing.TB, etcdClient EtcdClient, expectedMode string) {
 	t.Logf("Checking if all ConfigMaps where encrypted/decrypted for %q mode", expectedMode)
 	totalConfigMaps, err := verifyResources(t, etcdClient, "/kubernetes.io/configmaps/", expectedMode)
 	t.Logf("Verified %d ConfigMaps, err %v", totalConfigMaps, err)
-	return err
+	require.NoError(t, err)
+}
+
+func assertLastMigratedKey(t testing.TB, kubeClient kubernetes.Interface) {
+	t.Helper()
+	expectedGRs := defaultTargetGRs
+	t.Logf("Checking if the last migrated key was used to encrypt %v", expectedGRs)
+	keyName, migratedResources, err := GetLastKeyMeta(kubeClient)
+	require.NoError(t, err)
+
+	if len(expectedGRs) != len(migratedResources) {
+		t.Errorf("Wrong number of migrated resources for %q key, expected %d, got %d", keyName, len(expectedGRs), len(migratedResources))
+	}
+
+	for _, expectedGR := range expectedGRs {
+		if !hasResource(expectedGR, migratedResources) {
+			t.Errorf("%q wasn't used to encrypt %v, only %v", keyName, expectedGR, migratedResources)
+		}
+	}
 }
 
 func verifyResources(t testing.TB, etcdClient EtcdClient, etcdKeyPreifx, expectedMode string) (int, error) {
