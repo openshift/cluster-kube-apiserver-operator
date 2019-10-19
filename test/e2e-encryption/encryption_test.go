@@ -15,13 +15,13 @@ import (
 func TestEncryptionTypeIdentity(t *testing.T) {
 	e := encryption.NewE(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, configv1.EncryptionTypeIdentity)
-	encryption.AssertSecretsAndConfigMaps(e, clientSet, string(configv1.EncryptionTypeIdentity))
+	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeIdentity)
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
 	e := encryption.NewE(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, "")
-	encryption.AssertSecretsAndConfigMaps(e, clientSet, string(configv1.EncryptionTypeIdentity))
+	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeIdentity)
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
@@ -53,10 +53,11 @@ func TestEncryptionRotation(t *testing.T) {
 	// because a different key was used to encrypt data
 	e := encryption.NewE(t)
 	clientSet := encryption.GetClients(e)
-	lastMigratedKeyName, migratedResources, err := encryption.GetLastKeyMeta(clientSet.Kube)
+	lastMigratedKeyMeta, err := encryption.GetLastKeyMeta(clientSet.Kube)
 	require.NoError(e, err)
 	require.NoError(e, encryption.ForceKeyRotation(e, clientSet.Operator, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
-	encryption.WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyName, migratedResources)
-	encryption.AssertSecretsAndConfigMaps(e, clientSet, string(configv1.EncryptionTypeAESCBC))
+	encryption.WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyMeta)
+	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeAESCBC)
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing
+	// TODO: assert encryption config (resources)
 }
