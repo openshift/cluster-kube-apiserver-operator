@@ -48,7 +48,7 @@ $(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 .PHONY: test-e2e-encryption
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
-test-e2e-encryption: GO_TEST_FLAGS += -timeout 3h
+test-e2e-encryption: GO_TEST_FLAGS += -timeout 4h
 test-e2e-encryption: GO_TEST_FLAGS += -p 1
 test-e2e-encryption: GO_TEST_FLAGS += -parallel 1
 test-e2e-encryption: test-unit
