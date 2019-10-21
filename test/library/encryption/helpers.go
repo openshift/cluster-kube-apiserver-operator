@@ -249,15 +249,14 @@ func ForceKeyRotation(t testing.TB, operatorClient operatorv1client.KubeAPIServe
 	})
 }
 
-func CreateSecretOfLife(t testing.TB, clientSet ClientSet) *corev1.Secret {
+func CreateAndStoreSecretOfLife(t testing.TB, clientSet ClientSet) *corev1.Secret {
 	t.Helper()
-	t.Logf("Creating %q in %s namespace", "secret-of-life", operatorclient.GlobalMachineSpecifiedConfigNamespace)
 	{
 		oldSecretOfLife, err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get("secret-of-life", metav1.GetOptions{})
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !errors.IsNotFound(err) {
 			t.Errorf("Failed to check if the secret already exists, due to %v", err)
 		}
-		if oldSecretOfLife != nil {
+		if len(oldSecretOfLife.Name) > 0 {
 			t.Log("The secret already exist, removing it first")
 			err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(oldSecretOfLife.Name, &metav1.DeleteOptions{})
 			if err != nil {
@@ -265,12 +264,13 @@ func CreateSecretOfLife(t testing.TB, clientSet ClientSet) *corev1.Secret {
 			}
 		}
 	}
-	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(GetSecretOfLife(t))
+	t.Logf("Creating %q in %s namespace", "secret-of-life", operatorclient.GlobalMachineSpecifiedConfigNamespace)
+	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(SecretOfLife(t))
 	require.NoError(t, err)
 	return secretOfLife
 }
 
-func GetSecretOfLife(t testing.TB) *corev1.Secret {
+func SecretOfLife(t testing.TB) *corev1.Secret {
 	t.Helper()
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -316,7 +316,7 @@ func determineNextEncryptionKeyName(prevKeyName string) (string, error) {
 	return "encryption-key-openshift-kube-apiserver-1", nil
 }
 
-func getRawSecretOfLife(t testing.TB, clientSet ClientSet) string {
+func GetRawSecretOfLife(t testing.TB, clientSet ClientSet) string {
 	t.Helper()
 	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()

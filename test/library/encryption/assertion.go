@@ -42,7 +42,7 @@ func AssertSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode 
 
 func AssertSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, secretOfLife *corev1.Secret) {
 	t.Helper()
-	rawSecretValue := getRawSecretOfLife(t, clientSet)
+	rawSecretValue := GetRawSecretOfLife(t, clientSet)
 	if !strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
 		t.Errorf("The secret received from etcd doesn't have %q, content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
 	}
@@ -50,7 +50,7 @@ func AssertSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, secretOfL
 
 func AssertSecretOfLifeEncrypted(t testing.TB, clientSet ClientSet, secretOfLife *corev1.Secret) {
 	t.Helper()
-	rawSecretValue := getRawSecretOfLife(t, clientSet)
+	rawSecretValue := GetRawSecretOfLife(t, clientSet)
 	if strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
 		t.Errorf("The secret received from etcd have %q (plain text), content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
 	}
