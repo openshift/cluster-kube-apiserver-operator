@@ -29,10 +29,27 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		name     string
 		testFunc func(*testing.T)
 	}{
+		{name: "CreateSecretOfLife", testFunc: func(t *testing.T) {
+			e := encryption.NewE(t)
+			encryption.CreateSecretOfLife(e, encryption.GetClients(e))
+		}},
 		{name: "OnAESCBC", testFunc: encryption.TestEncryptionTypeAESCBC},
+		// we don't check the secret of life here because encryption could be already on
 		{name: "OffIdentity", testFunc: TestEncryptionTypeIdentity},
+		{name: "AssertSecretOfLifeNotEncrypted", testFunc: func(t *testing.T) {
+			e := encryption.NewE(t)
+			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.GetSecretOfLife(e))
+		}},
 		{name: "OnAESCBCSecond", testFunc: encryption.TestEncryptionTypeAESCBC},
+		{name: "AssertSecretOfLifeEncrypted", testFunc: func(t *testing.T) {
+			e := encryption.NewE(t)
+			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.GetSecretOfLife(e))
+		}},
 		{name: "OffIdentitySecond", testFunc: TestEncryptionTypeIdentity},
+		{name: "AssertSecretOfLifeNotEncryptedSecond", testFunc: func(t *testing.T) {
+			e := encryption.NewE(t)
+			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.GetSecretOfLife(e))
+		}},
 	}
 
 	// run scenarios
@@ -49,6 +66,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
 	encryption.TestEncryptionTypeAESCBC(t)
+	// TODO: dump events, conditions in case of an failure
 	// TODO: take some samples and make sure that after rotation they look different
 	// because a different key was used to encrypt data
 	e := encryption.NewE(t)

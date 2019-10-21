@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
@@ -36,6 +38,22 @@ func AssertSecretsAndConfigMaps(t testing.TB, clientSet ClientSet, expectedMode 
 	assertSecrets(t, clientSet.Etcd, string(expectedMode))
 	assertConfigMaps(t, clientSet.Etcd, string(expectedMode))
 	assertLastMigratedKey(t, clientSet.Kube)
+}
+
+func AssertSecretOfLifeNotEncrypted(t testing.TB, clientSet ClientSet, secretOfLife *corev1.Secret) {
+	t.Helper()
+	rawSecretValue := getRawSecretOfLife(t, clientSet)
+	if !strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
+		t.Errorf("The secret received from etcd doesn't have %q, content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
+	}
+}
+
+func AssertSecretOfLifeEncrypted(t testing.TB, clientSet ClientSet, secretOfLife *corev1.Secret) {
+	t.Helper()
+	rawSecretValue := getRawSecretOfLife(t, clientSet)
+	if strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
+		t.Errorf("The secret received from etcd have %q (plain text), content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
+	}
 }
 
 func assertSecrets(t testing.TB, etcdClient EtcdClient, expectedMode string) {
