@@ -20,7 +20,12 @@ func NewE(t *testing.T) *E {
 	//
 	// thus std logger will be used when the test are run from a local machine to give instant feedback
 	if len(os.Getenv("PROW_JOB_ID")) == 0 {
+		t.Log("Not running in the CI will print the logs to stdout")
 		e.local = true
+	}
+
+	for _, pair := range os.Environ() {
+		t.Log(pair)
 	}
 
 	return e

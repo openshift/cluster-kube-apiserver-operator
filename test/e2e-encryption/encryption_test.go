@@ -12,6 +12,13 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 )
 
+func TestFailureReporting(t *testing.T) {
+	e := encryption.NewE(t)
+	e.Log("step 1: doing something important")
+	e.Log("step 2: more important things")
+	e.Error("nasty error")
+}
+
 func TestEncryptionTypeIdentity(t *testing.T) {
 	e := encryption.NewE(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, configv1.EncryptionTypeIdentity)
@@ -19,12 +26,14 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
+	t.SkipNow()
 	e := encryption.NewE(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, "")
 	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeIdentity)
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
+	t.SkipNow()
 	scenarios := []struct {
 		name     string
 		testFunc func(*testing.T)
@@ -48,6 +57,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
+	t.SkipNow()
 	encryption.TestEncryptionTypeAESCBC(t)
 	// TODO: take some samples and make sure that after rotation they look different
 	// because a different key was used to encrypt data
