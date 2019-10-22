@@ -1,6 +1,7 @@
 package encryption
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -9,9 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -246,6 +249,39 @@ func ForceKeyRotation(t testing.TB, operatorClient operatorv1client.KubeAPIServe
 	})
 }
 
+func CreateAndStoreSecretOfLife(t testing.TB, clientSet ClientSet) *corev1.Secret {
+	t.Helper()
+	{
+		oldSecretOfLife, err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get("secret-of-life", metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			t.Errorf("Failed to check if the secret already exists, due to %v", err)
+		}
+		if len(oldSecretOfLife.Name) > 0 {
+			t.Log("The secret already exist, removing it first")
+			err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Delete(oldSecretOfLife.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				t.Errorf("Failed to delete %s, err %v", oldSecretOfLife.Name, err)
+			}
+		}
+	}
+	t.Logf("Creating %q in %s namespace", "secret-of-life", operatorclient.GlobalMachineSpecifiedConfigNamespace)
+	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace).Create(SecretOfLife(t))
+	require.NoError(t, err)
+	return secretOfLife
+}
+
+func SecretOfLife(t testing.TB) *corev1.Secret {
+	t.Helper()
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "secret-of-life",
+		},
+		Data: map[string][]byte{
+			"quote": []byte("I have no special talents. I am only passionately curious"),
+		},
+	}
+}
+
 // hasResource returns whether the given group resource is contained in the migrated group resource list.
 func hasResource(expectedResource schema.GroupResource, actualResources []schema.GroupResource) bool {
 	for _, gr := range actualResources {
@@ -278,4 +314,20 @@ func determineNextEncryptionKeyName(prevKeyName string) (string, error) {
 
 	// no encryption key - the first one will look like the following
 	return "encryption-key-openshift-kube-apiserver-1", nil
+}
+
+func GetRawSecretOfLife(t testing.TB, clientSet ClientSet) string {
+	t.Helper()
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	secretOfLifeEtcdPrefix := fmt.Sprintf("/kubernetes.io/secrets/%s/%s", operatorclient.GlobalMachineSpecifiedConfigNamespace, "secret-of-life")
+	resp, err := clientSet.Etcd.Get(timeout, secretOfLifeEtcdPrefix, clientv3.WithPrefix())
+	require.NoError(t, err)
+
+	if len(resp.Kvs) != 1 {
+		t.Errorf("Expected to get a single key from etcd, got %d", len(resp.Kvs))
+	}
+
+	return string(resp.Kvs[0].Value)
 }
