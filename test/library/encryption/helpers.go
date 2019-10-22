@@ -47,8 +47,19 @@ type EncryptionKeyMeta struct {
 	Mode     string
 }
 
+func SetUp(t *testing.T, verboseTearDown ...bool) testing.TB {
+	e := newE(t)
+
+	verboseOutuptOnTearDown := true
+	if len(verboseTearDown) > 0 {
+		verboseOutuptOnTearDown = verboseTearDown[0]
+	}
+	e.registerTearDownFun(setUpTearDown(verboseOutuptOnTearDown))
+	return e
+}
+
 func TestEncryptionTypeAESCBC(t *testing.T) {
-	e := NewE(t)
+	e := SetUp(t)
 	clientSet := SetAndWaitForEncryptionType(e, configv1.EncryptionTypeAESCBC)
 	AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeAESCBC)
 }
@@ -141,7 +152,8 @@ func waitForNoNewEncryptionKey(t testing.TB, kubeClient kubernetes.Interface, pr
 
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Failed to check if no new key will be created, err %v", err)
+		newErr := fmt.Errorf("failed to check if no new key will be created, err %v", err)
+		require.NoError(t, newErr)
 	}
 }
 
@@ -186,7 +198,8 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 		}
 		return false, nil
 	}); err != nil {
-		t.Fatalf("Failed waiting for key %s to be used to migrate %v, due to %v", nextKeyName, prevKeyMeta.Migrated, err)
+		newErr := fmt.Errorf("failed waiting for key %s to be used to migrate %v, due to %v", nextKeyName, prevKeyMeta.Migrated, err)
+		require.NoError(t, newErr)
 	}
 }
 
@@ -279,6 +292,30 @@ func SecretOfLife(t testing.TB) *corev1.Secret {
 		Data: map[string][]byte{
 			"quote": []byte("I have no special talents. I am only passionately curious"),
 		},
+	}
+}
+
+func setUpTearDown(verboseOutput bool) func(testing.TB, bool) {
+	return func(t testing.TB, failed bool) {
+		if failed && verboseOutput { // we don't use t.Failed() because we handle termination differently when running on a local machine
+			t.Logf("Tearing Down %s", t.Name())
+			clientSet := GetClients(t)
+
+			eventList, err := clientSet.Kube.CoreV1().Events(operatorclient.OperatorNamespace).List(metav1.ListOptions{})
+			require.NoError(t, err)
+
+			sort.Slice(eventList.Items, func(i, j int) bool {
+				first := eventList.Items[i]
+				second := eventList.Items[j]
+				return first.LastTimestamp.After(second.LastTimestamp.Time)
+			})
+
+			t.Logf("Events from %q namespace", operatorclient.OperatorNamespace)
+			now := time.Now()
+			for _, ev := range eventList.Items {
+				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
+			}
+		}
 	}
 }
 

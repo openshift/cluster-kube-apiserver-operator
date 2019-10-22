@@ -13,13 +13,13 @@ import (
 )
 
 func TestEncryptionTypeIdentity(t *testing.T) {
-	e := encryption.NewE(t)
+	e := encryption.SetUp(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, configv1.EncryptionTypeIdentity)
 	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeIdentity)
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
-	e := encryption.NewE(t)
+	e := encryption.SetUp(t)
 	clientSet := encryption.SetAndWaitForEncryptionType(e, "")
 	encryption.AssertSecretsAndConfigMaps(e, clientSet, configv1.EncryptionTypeIdentity)
 }
@@ -30,27 +30,27 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		testFunc func(*testing.T)
 	}{
 		{name: "CreateAndStoreSecretOfLife", testFunc: func(t *testing.T) {
-			e := encryption.NewE(t)
+			e := encryption.SetUp(t, false)
 			encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e))
 		}},
 		{name: "OnAESCBC", testFunc: encryption.TestEncryptionTypeAESCBC},
 		{name: "AssertSecretOfLifeEncrypted", testFunc: func(t *testing.T) {
-			e := encryption.NewE(t)
+			e := encryption.SetUp(t, false)
 			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e))
 		}},
 		{name: "OffIdentity", testFunc: TestEncryptionTypeIdentity},
 		{name: "AssertSecretOfLifeNotEncrypted", testFunc: func(t *testing.T) {
-			e := encryption.NewE(t)
+			e := encryption.SetUp(t, false)
 			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e))
 		}},
 		{name: "OnAESCBCSecond", testFunc: encryption.TestEncryptionTypeAESCBC},
 		{name: "AssertSecretOfLifeEncryptedSecond", testFunc: func(t *testing.T) {
-			e := encryption.NewE(t)
+			e := encryption.SetUp(t, false)
 			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e))
 		}},
 		{name: "OffIdentitySecond", testFunc: TestEncryptionTypeIdentity},
 		{name: "AssertSecretOfLifeNotEncryptedSecond", testFunc: func(t *testing.T) {
-			e := encryption.NewE(t)
+			e := encryption.SetUp(t, false)
 			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e))
 		}},
 	}
@@ -68,9 +68,8 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
-	// TODO: dump events, conditions in case of an failure for all scenarios
 	// step 1: create the secret of life
-	e := encryption.NewE(t)
+	e := encryption.SetUp(t)
 	clientSet := encryption.GetClients(e)
 	encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e))
 
