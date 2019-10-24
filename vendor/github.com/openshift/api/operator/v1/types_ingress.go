@@ -138,6 +138,11 @@ type IngressControllerSpec struct {
 	// to release X.Y.Z+1 may cause a new profile configuration to be applied to the ingress
 	// controller, resulting in a rollout.
 	//
+	// Note that the minimum TLS version for ingress controllers is 1.1, and
+	// the maximum TLS version is 1.2.  An implication of this restriction
+	// is that the Modern TLS profile type cannot be used because it
+	// requires TLS 1.3.
+	//
 	// +optional
 	TLSSecurityProfile *configv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 }
@@ -351,6 +356,10 @@ type IngressControllerStatus struct {
 	// tlsProfile is the TLS connection configuration that is in effect.
 	// +optional
 	TLSProfile *configv1.TLSProfileSpec `json:"tlsProfile,omitempty"`
+
+	// observedGeneration is the most recent generation observed.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

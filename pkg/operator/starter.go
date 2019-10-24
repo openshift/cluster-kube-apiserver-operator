@@ -16,23 +16,24 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption"
-	encryptiondeployer "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryption/deployer"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -149,7 +150,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
-	deployer, err := encryptiondeployer.NewStaticPodDeployer(operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1())
+	staticPodNodeProvider := encryptiondeployer.StaticPodNodeProvider{OperatorClient: operatorClient}
+	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), staticPodNodeProvider)
 	if err != nil {
 		return err
 	}
