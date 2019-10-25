@@ -326,6 +326,8 @@ spec:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
       command: ['/usr/bin/timeout', '105', '/bin/bash', '-ec'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
+      securityContext:
+        privileged: true
       args:
       - |
         echo -n "Fixing audit permissions."
