@@ -24,12 +24,12 @@ github.com/coreos/etcd/etcdserver/etcdserverpb
 github.com/coreos/etcd/mvcc/mvccpb
 github.com/coreos/etcd/pkg/logutil
 github.com/coreos/etcd/pkg/types
+github.com/coreos/etcd/pkg/transport
 github.com/coreos/etcd/clientv3/balancer/connectivity
 github.com/coreos/etcd/pkg/systemd
 github.com/coreos/etcd/raft
-github.com/coreos/etcd/pkg/transport
-github.com/coreos/etcd/raft/raftpb
 github.com/coreos/etcd/pkg/tlsutil
+github.com/coreos/etcd/raft/raftpb
 # github.com/coreos/go-systemd v0.0.0-20180511133405-39ca1b05acc7
 github.com/coreos/go-systemd/daemon
 github.com/coreos/go-systemd/journal
@@ -63,8 +63,8 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
-github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/protoc-gen-go/descriptor
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
@@ -193,7 +193,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/informers/externalversions/config/v1
 github.com/openshift/client-go/config/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/scheme
-# github.com/openshift/library-go v0.0.0 => github.com/openshift/library-go v0.0.0-20191024123128-e3ad4b18b12f
+# github.com/openshift/library-go v0.0.0 => github.com/openshift/library-go v0.0.0-20191028130534-5d99e4749ec1
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/prune
@@ -224,6 +224,7 @@ github.com/openshift/library-go/pkg/operator/configobserver/network
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 github.com/openshift/library-go/pkg/operator/resource/resourceread
 github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers
+github.com/openshift/library-go/test/library/encryption
 github.com/openshift/library-go/pkg/controller/fileobserver
 github.com/openshift/library-go/pkg/operator/resource/retry
 github.com/openshift/library-go/pkg/config/configdefaults
@@ -256,6 +257,7 @@ github.com/openshift/library-go/pkg/operator/staticpod/controller/node
 github.com/openshift/library-go/pkg/operator/staticpod/controller/prune
 github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate
 github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller
+github.com/openshift/library-go/test/library
 github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/state
 github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource/bindata
@@ -319,10 +321,10 @@ golang.org/x/net/http2
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
-golang.org/x/net/trace
 golang.org/x/net/websocket
-golang.org/x/net/internal/timeseries
+golang.org/x/net/trace
 golang.org/x/net/context/ctxhttp
+golang.org/x/net/internal/timeseries
 # golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
@@ -609,7 +611,6 @@ k8s.io/client-go/rest
 k8s.io/client-go/tools/clientcmd/api/v1
 k8s.io/client-go/tools/clientcmd
 k8s.io/client-go/tools/clientcmd/api
-k8s.io/client-go/util/retry
 k8s.io/client-go/tools/leaderelection
 k8s.io/client-go/discovery
 k8s.io/client-go/util/flowcontrol
@@ -618,6 +619,7 @@ k8s.io/client-go/tools/record
 k8s.io/client-go/kubernetes/typed/apps/v1
 k8s.io/client-go/kubernetes/typed/rbac/v1
 k8s.io/client-go/kubernetes/typed/storage/v1
+k8s.io/client-go/util/retry
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1
 k8s.io/client-go/kubernetes/typed/apps/v1beta1

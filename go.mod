@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -44,7 +43,7 @@ replace (
 	github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/openshift/api => github.com/openshift/api v3.9.1-0.20191024110424-de6d5d3f2db2+incompatible
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
-	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20191024123128-e3ad4b18b12f
+	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20191028130534-5d99e4749ec1
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	k8s.io/api => k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783

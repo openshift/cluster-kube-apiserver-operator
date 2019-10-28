@@ -238,6 +238,8 @@ github.com/openshift/library-go v0.0.0-20191023092337-10b6237962f7 h1:Z8W15EUHp1
 github.com/openshift/library-go v0.0.0-20191023092337-10b6237962f7/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/openshift/library-go v0.0.0-20191024123128-e3ad4b18b12f h1:aH2QutYQTS8OrF9YpMEnfN4GUCpzZ3qR4UvM7s9kPBY=
 github.com/openshift/library-go v0.0.0-20191024123128-e3ad4b18b12f/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
+github.com/openshift/library-go v0.0.0-20191028130534-5d99e4749ec1 h1:f9GuHKR54vDlIwqQxo/3c3NPFeWooB4jgn9IOM48zu8=
+github.com/openshift/library-go v0.0.0-20191028130534-5d99e4749ec1/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
