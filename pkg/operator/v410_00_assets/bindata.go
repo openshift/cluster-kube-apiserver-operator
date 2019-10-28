@@ -335,6 +335,8 @@ spec:
           echo -n "."
           sleep 1
         done
+      securityContext:
+        privileged: true
   containers:
   - name: kube-apiserver-REVISION
     image: ${IMAGE}
@@ -386,6 +388,8 @@ spec:
             fieldPath: metadata.namespace
       - name: STATIC_POD_VERSION # Avoid using 'REVISION' here otherwise it will be substituted
         value: REVISION
+    securityContext:
+      privileged: true
   - name: kube-apiserver-cert-syncer-REVISION
     env:
     - name: POD_NAME
@@ -442,8 +446,6 @@ spec:
   - hostPath:
       path: /var/log/kube-apiserver
     name: audit-dir
-  securityContext:
-    privileged: true
 `)
 
 func v410KubeApiserverPodYamlBytes() ([]byte, error) {
