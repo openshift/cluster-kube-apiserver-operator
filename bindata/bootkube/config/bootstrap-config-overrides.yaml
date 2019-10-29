@@ -14,6 +14,8 @@ kubeletClientInfo:
 serviceAccountPublicKeyFiles:
 - /etc/kubernetes/secrets/service-account.pub
 servingInfo:
+  bindAddress: "{{.BindAddress}}"
+  bindNetwork: {{.BindNetwork}}
   certFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   clientCA: /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
   keyFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
