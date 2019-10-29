@@ -179,7 +179,7 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 
 	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, o.configPaths...)
 
-	apiServer, err := listers.APIServerLister.Get("cluster")
+	apiServer, err := listers.APIServerLister().Get("cluster")
 	if errors.IsNotFound(err) {
 		// no error, just clear the observed config and observed resources
 		return nil, append(errs, syncObservedResources(resourceSync, deleteSyncRules(o.resourceNames...))...)

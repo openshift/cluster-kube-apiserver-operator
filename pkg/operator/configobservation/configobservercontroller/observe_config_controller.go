@@ -5,6 +5,7 @@ import (
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
@@ -53,7 +54,7 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
-				APIServerLister:       configInformer.Config().V1().APIServers().Lister(),
+				APIServerLister_:      configInformer.Config().V1().APIServers().Lister(),
 				AuthConfigLister:      configInformer.Config().V1().Authentications().Lister(),
 				FeatureGateLister_:    configInformer.Config().V1().FeatureGates().Lister(),
 				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
@@ -89,6 +90,7 @@ func NewConfigObserver(
 			apiserver.ObserveNamedCertificates,
 			apiserver.ObserveUserClientCABundle,
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
+			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
