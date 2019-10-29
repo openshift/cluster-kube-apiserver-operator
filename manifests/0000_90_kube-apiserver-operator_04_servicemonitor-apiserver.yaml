@@ -35,3 +35,34 @@ spec:
     matchLabels:
       component: apiserver
       provider: kubernetes
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+  - name: using-deprecated-apis
+    rules:
+    - alert: UsingDeprecatedAPIAppsV1Beta1
+      annotations:
+        message: A client in the cluster is using deprecated apps/v1beta1 API that will be removed soon.
+      expr: |
+        apiserver_request_count{group="apps",version="v1beta1"}
+      labels:
+        severity: warning
+    - alert: UsingDeprecatedAPIAppsV1Beta2
+      annotations:
+        message: A client in the cluster is using deprecated apps/v1beta2 API that will be removed soon.
+      expr: |
+        apiserver_request_count{group="apps",version="v1beta2"}
+      labels:
+        severity: warning
+    - alert: UsingDeprecatedAPIExtensionsV1Beta1
+      annotations:
+        message: A client in the cluster is using deprecated extensions/v1beta1 API that will be removed soon.
+      expr: |
+        apiserver_request_count{group="extensions",version="v1beta1",resource!~"(?:ingresses|)",client!~".*/kube-controller-manager"}
+      labels:
+        severity: warning
