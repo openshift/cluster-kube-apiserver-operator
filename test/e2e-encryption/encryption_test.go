@@ -38,27 +38,27 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 	}{
 		{name: "CreateAndStoreSecretOfLife", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), operatorclient.GlobalMachineSpecifiedConfigNamespace)
+			operatorencryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), operatorclient.GlobalMachineSpecifiedConfigNamespace)
 		}},
 		{name: "OnAESCBC", testFunc: operatorencryption.TestEncryptionTypeAESCBC},
 		{name: "AssertSecretOfLifeEncrypted", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), operatorencryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
 		}},
 		{name: "OffIdentity", testFunc: TestEncryptionTypeIdentity},
 		{name: "AssertSecretOfLifeNotEncrypted", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), operatorencryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
 		}},
 		{name: "OnAESCBCSecond", testFunc: operatorencryption.TestEncryptionTypeAESCBC},
 		{name: "AssertSecretOfLifeEncryptedSecond", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), operatorencryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
 		}},
 		{name: "OffIdentitySecond", testFunc: TestEncryptionTypeIdentity},
 		{name: "AssertSecretOfLifeNotEncryptedSecond", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), operatorencryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
 		}},
 	}
 
@@ -84,7 +84,7 @@ func TestEncryptionRotation(t *testing.T) {
 	// step 1: create the secret of life
 	e := encryption.NewE(t)
 	clientSet := encryption.GetClients(e)
-	encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), ns)
+	operatorencryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), ns)
 
 	// step 2: run encryption aescbc scenario
 	operatorencryption.TestEncryptionTypeAESCBC(t)
