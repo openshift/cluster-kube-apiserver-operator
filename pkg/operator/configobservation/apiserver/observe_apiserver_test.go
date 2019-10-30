@@ -67,8 +67,8 @@ func TestObserveUserClientCABundle(t *testing.T) {
 			}
 			synced := map[string]string{}
 			listers := configobservation.Listers{
-				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
-				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
+				APIServerLister_: configlistersv1.NewAPIServerLister(indexer),
+				ResourceSync:     &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveUserClientCABundle(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
 			if len(errs) > 0 {
@@ -434,8 +434,8 @@ func TestObserveNamedCertificates(t *testing.T) {
 
 			synced := map[string]string{}
 			listers := configobservation.Listers{
-				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
-				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
+				APIServerLister_: configlistersv1.NewAPIServerLister(indexer),
+				ResourceSync:     &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveNamedCertificates(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
 			if tc.expectErrs && len(errs) == 0 {

@@ -37,7 +37,7 @@ func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, 
 	currentCORSSet.Insert(clusterDefaultCORSALlowedOrigins...)
 
 	observedConfig := map[string]interface{}{}
-	apiServer, err := listers.APIServerLister.Get("cluster")
+	apiServer, err := listers.APIServerLister().Get("cluster")
 	if errors.IsNotFound(err) {
 		klog.Warningf("apiserver.config.openshift.io/cluster: not found")
 		return defaultConfig, errs

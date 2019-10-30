@@ -70,8 +70,8 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 			}
 			synced := map[string]string{}
 			listers := configobservation.Listers{
-				APIServerLister: configlistersv1.NewAPIServerLister(indexer),
-				ResourceSync:    &mockResourceSyncer{t: t, synced: synced},
+				APIServerLister_: configlistersv1.NewAPIServerLister(indexer),
+				ResourceSync:     &mockResourceSyncer{t: t, synced: synced},
 			}
 			result, errs := ObserveAdditionalCORSAllowedOrigins(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
 			if len(errs) > 0 {

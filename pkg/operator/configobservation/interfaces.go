@@ -12,7 +12,7 @@ import (
 var _ cloudprovider.InfrastructureLister = Listers{}
 
 type Listers struct {
-	APIServerLister       configlistersv1.APIServerLister
+	APIServerLister_      configlistersv1.APIServerLister
 	AuthConfigLister      configlistersv1.AuthenticationLister
 	FeatureGateLister_    configlistersv1.FeatureGateLister
 	InfrastructureLister_ configlistersv1.InfrastructureLister
@@ -27,6 +27,10 @@ type Listers struct {
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
+}
+
+func (l Listers) APIServerLister() configlistersv1.APIServerLister {
+	return l.APIServerLister_
 }
 
 func (l Listers) FeatureGateLister() configlistersv1.FeatureGateLister {
