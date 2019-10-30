@@ -1,6 +1,8 @@
 package configmetrics
 
 import (
+	"runtime"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -23,6 +25,10 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 			Name: "cluster_feature_set",
 			Help: "Reports the feature set the cluster is configured to expose. name corresponds to the featureSet field of the cluster. The value is 1 if a cloud provider is supported.",
 		}, []string{"name"}),
+		architecture: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cluster_control_plane_architecture",
+			Help: "Reports the instruction set architecture used by the control plane nodes.",
+		}, []string{"arch"}),
 	})
 }
 
@@ -32,12 +38,14 @@ type configMetrics struct {
 	cloudProvider        *prometheus.GaugeVec
 	featuregateLister    configlisters.FeatureGateLister
 	featureSet           *prometheus.GaugeVec
+	architecture         *prometheus.GaugeVec
 }
 
 // Describe reports the metadata for metrics to the prometheus collector.
 func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- m.cloudProvider.WithLabelValues("", "").Desc()
 	ch <- m.featureSet.WithLabelValues("").Desc()
+	ch <- m.architecture.WithLabelValues("").Desc()
 }
 
 // Collect calculates metrics from the cached config and reports them to the prometheus collector.
@@ -72,4 +80,7 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 		}
 		ch <- g
 	}
+	g := m.architecture.WithLabelValues(runtime.GOARCH)
+	g.Set(1)
+	ch <- g
 }
