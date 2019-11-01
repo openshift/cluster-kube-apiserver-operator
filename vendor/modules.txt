@@ -130,7 +130,9 @@ github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1al
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
 # github.com/mailru/easyjson v0.7.0
