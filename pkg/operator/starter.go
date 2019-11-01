@@ -34,6 +34,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -155,17 +156,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
+	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
+
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		deployer,
+		migrator,
 		operatorClient,
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
-		kubeClient.Discovery(),
 		ctx.EventRecorder,
-		dynamicClient,
 		schema.GroupResource{Group: "", Resource: "secrets"},
 		schema.GroupResource{Group: "", Resource: "configmaps"},
 	)
