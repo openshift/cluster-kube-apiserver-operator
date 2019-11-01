@@ -19,7 +19,7 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible
-	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000 // indirect
+	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29

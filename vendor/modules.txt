@@ -128,13 +128,15 @@ github.com/jteeuwen/go-bindata
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000 => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
 # github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
