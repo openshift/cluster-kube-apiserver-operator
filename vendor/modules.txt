@@ -6,7 +6,7 @@ github.com/PuerkitoBio/purell
 github.com/PuerkitoBio/urlesc
 # github.com/apparentlymart/go-cidr v1.0.1
 github.com/apparentlymart/go-cidr/cidr
-# github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+# github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.0+incompatible
 github.com/blang/semver
@@ -59,7 +59,7 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
-# github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903
+# github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
@@ -127,6 +127,14 @@ github.com/jteeuwen/go-bindata/go-bindata
 github.com/jteeuwen/go-bindata
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000 => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
 # github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -193,7 +201,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/informers/externalversions/config/v1
 github.com/openshift/client-go/config/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/scheme
-# github.com/openshift/library-go v0.0.0 => github.com/openshift/library-go v0.0.0-20191030100914-d6f3b526f033
+# github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29 => github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/prune
@@ -210,6 +218,7 @@ github.com/openshift/library-go/pkg/operator/render/options
 github.com/openshift/library-go/pkg/operator/resource/resourcegraph
 github.com/openshift/library-go/alpha-build-machinery
 github.com/openshift/library-go/pkg/operator/encryption
+github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
 github.com/openshift/library-go/pkg/operator/encryption/deployer
 github.com/openshift/library-go/pkg/operator/genericoperatorclient
 github.com/openshift/library-go/pkg/operator/staticpod
@@ -277,17 +286,15 @@ github.com/pmezard/go-difflib/difflib
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
-# github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
+# github.com/prometheus/common v0.3.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a
+# github.com/prometheus/procfs v0.0.0-20190503130316-740c07785007
 github.com/prometheus/procfs
-github.com/prometheus/procfs/nfs
-github.com/prometheus/procfs/xfs
-github.com/prometheus/procfs/internal/util
+github.com/prometheus/procfs/internal/fs
 # github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v0.0.5
@@ -388,7 +395,7 @@ google.golang.org/grpc/credentials/internal
 google.golang.org/grpc/balancer/base
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/internal/syscall
-# gopkg.in/inf.v0 v0.9.0
+# gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
 # gopkg.in/natefinch/lumberjack.v2 v2.0.0
 gopkg.in/natefinch/lumberjack.v2
@@ -657,8 +664,8 @@ k8s.io/client-go/kubernetes/typed/storage/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1beta1
 k8s.io/client-go/tools/reference
 k8s.io/client-go/util/keyutil
-k8s.io/client-go/dynamic/dynamicinformer
 k8s.io/client-go/tools/pager
+k8s.io/client-go/dynamic/dynamicinformer
 k8s.io/client-go/informers/internalinterfaces
 k8s.io/client-go/informers/admissionregistration
 k8s.io/client-go/informers/apps
