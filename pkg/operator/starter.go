@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -156,7 +158,11 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
+
+	// migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
+	migrationClient := kubemigratorclient.NewForConfigOrDie(ctx.KubeConfig)
+	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
+	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
@@ -192,6 +198,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	migrationInformer.Start(ctx.Done())
 
 	go staticPodControllers.Run(ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())
