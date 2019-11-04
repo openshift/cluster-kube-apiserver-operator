@@ -249,6 +249,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
+	{Name: "localhost-recovery-serving-certkey"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},

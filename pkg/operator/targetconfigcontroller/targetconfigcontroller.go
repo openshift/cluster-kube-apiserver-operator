@@ -351,6 +351,8 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "localhost-serving-ca"},
 		// this bundle is what a user uses to mint service-network certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "service-network-serving-ca"},
+		// this bundle is what this operator uses to mint localhost-recovery certs
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "localhost-recovery-serving-ca"},
 	)
 	if err != nil {
 		return nil, false, err

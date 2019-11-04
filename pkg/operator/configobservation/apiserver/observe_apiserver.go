@@ -117,6 +117,9 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
 		"certFile": "/etc/kubernetes/static-pod-certs/secrets/internal-loadbalancer-serving-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/internal-loadbalancer-serving-certkey/tls.key"})
+	observedNamedCertificates = append(observedNamedCertificates, map[string]interface{}{
+		"certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-recovery-serving-certkey/tls.crt",
+		"keyFile":  "/etc/kubernetes/static-pod-certs/secrets/localhost-recovery-serving-certkey/tls.key"})
 
 	for index, namedCertificate := range namedCertificates {
 		observedNamedCertificate := map[string]interface{}{}

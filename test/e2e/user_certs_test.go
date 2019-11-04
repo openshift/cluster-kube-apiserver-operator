@@ -88,12 +88,14 @@ func TestNamedCertificates(t *testing.T) {
 	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
 	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
 	internalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "internal-loadbalancer-serving-certkey")
+	localhostRecoveryServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-recovery-serving-certkey")
 
 	t.Logf("default serial: %v", defaultServingCertSerialNumber)
 	t.Logf("localhost serial: %v", localhostServingCertSerialNumber)
 	t.Logf("service serial: %v", serviceServingCertSerialNumber)
 	t.Logf("external lb serial: %v", externalLoadBalancerCertSerialNumber)
 	t.Logf("internal lb serial: %v", internalLoadBalancerCertSerialNumber)
+	t.Logf("localhost recovery serial: %v", localhostRecoveryServingCertSerialNumber)
 
 	// execute test cases
 	testCases := []struct {
@@ -175,6 +177,11 @@ func TestNamedCertificates(t *testing.T) {
 			name:                 "Localhost 127.0.0.1",
 			serverName:           "127.0.0.1",
 			expectedSerialNumber: defaultServingCertSerialNumber,
+		},
+		{
+			name:                 "Localhost localhost-recovery",
+			serverName:           "localhost-recovery",
+			expectedSerialNumber: localhostRecoveryServingCertSerialNumber,
 		},
 		{
 			name:                 "ExternalLoadBalancerHostname",
