@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -18,8 +19,18 @@ var DefaultTargetGRs = []schema.GroupResource{
 	{Group: "", Resource: "configmaps"},
 }
 
-func AssertSecretOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, secretOfLife *corev1.Secret) {
+func AssertSecretOfLifeNotEncrypted(t testing.TB, clientSet library.ClientSet, rawSecretOfLife runtime.Object) {
 	t.Helper()
+	secretOfLife := rawSecretOfLife.(*corev1.Secret)
+	rawSecretValue := GetRawSecretOfLife(t, clientSet, secretOfLife.Namespace)
+	if !strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
+		t.Errorf("The secret received from etcd doesn't have %q, content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)
+	}
+}
+
+func AssertSecretOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, rawSecretOfLife runtime.Object) {
+	t.Helper()
+	secretOfLife := rawSecretOfLife.(*corev1.Secret)
 	rawSecretValue := GetRawSecretOfLife(t, clientSet, secretOfLife.Namespace)
 	if strings.Contains(rawSecretValue, string(secretOfLife.Data["quote"])) {
 		t.Errorf("The secret received from etcd have %q (plain text), content of the secret (etcd) %s", string(secretOfLife.Data["quote"]), rawSecretValue)

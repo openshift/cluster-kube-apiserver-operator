@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,7 @@ func GetRawSecretOfLife(t testing.TB, clientSet library.ClientSet, namespace str
 	return string(resp.Kvs[0].Value)
 }
 
-func CreateAndStoreSecretOfLife(t testing.TB, clientSet library.ClientSet, namespace string) *corev1.Secret {
+func CreateAndStoreSecretOfLife(t testing.TB, clientSet library.ClientSet, namespace string) runtime.Object {
 	t.Helper()
 	{
 		oldSecretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Get("secret-of-life", metav1.GetOptions{})
@@ -62,12 +63,13 @@ func CreateAndStoreSecretOfLife(t testing.TB, clientSet library.ClientSet, names
 		}
 	}
 	t.Logf("Creating %q in %s namespace", "secret-of-life", namespace)
-	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(SecretOfLife(t, namespace))
+	rawSecretOfLife := SecretOfLife(t, namespace)
+	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(rawSecretOfLife.(*corev1.Secret))
 	require.NoError(t, err)
 	return secretOfLife
 }
 
-func SecretOfLife(t testing.TB, namespace string) *corev1.Secret {
+func SecretOfLife(t testing.TB, namespace string) runtime.Object {
 	t.Helper()
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
