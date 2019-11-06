@@ -63,6 +63,6 @@ spec:
       annotations:
         message: A client in the cluster is using deprecated extensions/v1beta1 API that will be removed soon.
       expr: |
-        apiserver_request_count{group="extensions",version="v1beta1",resource!~"ingresses|",client!~".*/kube-controller-manager|cluster-policy-controller/.*"}
+        apiserver_request_count{group="extensions",version="v1beta1",resource!~"ingresses|",client!~"hyperkube/.*|cluster-policy-controller/.*"}
       labels:
         severity: warning
