@@ -1,6 +1,7 @@
 package e2e_encryption
 
 import (
+	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,29 +13,38 @@ import (
 
 func TestEncryptionTypeIdentity(t *testing.T) {
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
-		Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-		TargetGRs:     operatorencryption.DefaultTargetGRs,
-		AssertFunc:    operatorencryption.AssertSecretsAndConfigMaps,
+		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		OperatorNamespace:               operatorclient.OperatorNamespace,
+		TargetGRs:                       operatorencryption.DefaultTargetGRs,
+		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 	})
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
 	library.TestEncryptionTypeUnset(t, library.BasicScenario{
-		Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-		TargetGRs:     operatorencryption.DefaultTargetGRs,
-		AssertFunc:    operatorencryption.AssertSecretsAndConfigMaps,
+		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		OperatorNamespace:               operatorclient.OperatorNamespace,
+		TargetGRs:                       operatorencryption.DefaultTargetGRs,
+		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 	})
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
-			Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-			TargetGRs:     operatorencryption.DefaultTargetGRs,
-			AssertFunc:    operatorencryption.AssertSecretsAndConfigMaps,
+			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               operatorclient.OperatorNamespace,
+			TargetGRs:                       operatorencryption.DefaultTargetGRs,
+			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 		},
 		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
 		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
@@ -49,10 +59,13 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 func TestEncryptionRotation(t *testing.T) {
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
-			Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-			TargetGRs:     operatorencryption.DefaultTargetGRs,
-			AssertFunc:    operatorencryption.AssertSecretsAndConfigMaps,
+			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               operatorclient.OperatorNamespace,
+			TargetGRs:                       operatorencryption.DefaultTargetGRs,
+			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 		},
 		CreateResourceFunc: operatorencryption.CreateAndStoreSecretOfLife,
 		GetRawResourceFunc: operatorencryption.GetRawSecretOfLife,

@@ -201,7 +201,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/informers/externalversions/config/v1
 github.com/openshift/client-go/config/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/scheme
-# github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29 => github.com/openshift/library-go v0.0.0-20191105140501-500a6f7314d3
+# github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29 => github.com/openshift/library-go v0.0.0-20191106124920-97392cdc9bd3
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/prune
@@ -531,6 +531,7 @@ k8s.io/apiserver/pkg/server/mux
 k8s.io/apiserver/pkg/server/routes
 k8s.io/apiserver/pkg/server/storage
 k8s.io/apiserver/pkg/util/openapi
+k8s.io/apiserver/pkg/apis/config/v1
 k8s.io/apiserver/pkg/server/options
 k8s.io/apiserver/pkg/server/httplog
 k8s.io/apiserver/pkg/apis/apiserver
@@ -573,7 +574,7 @@ k8s.io/apiserver/pkg/storage/storagebackend/factory
 k8s.io/apiserver/pkg/storage/names
 k8s.io/apiserver/pkg/storage/etcd3/metrics
 k8s.io/apiserver/pkg/storage/value
-k8s.io/apiserver/pkg/apis/config/v1
+k8s.io/apiserver/pkg/apis/config
 k8s.io/apiserver/pkg/authorization/path
 k8s.io/apiserver/pkg/registry/generic/registry
 k8s.io/apiserver/pkg/server/options/encryptionconfig
@@ -591,7 +592,6 @@ k8s.io/apiserver/pkg/admission/plugin/webhook/rules
 k8s.io/apiserver/pkg/util/dryrun
 k8s.io/apiserver/pkg/endpoints/handlers/fieldmanager/internal
 k8s.io/apiserver/pkg/storage/etcd3
-k8s.io/apiserver/pkg/apis/config
 k8s.io/apiserver/pkg/storage/cacher
 k8s.io/apiserver/pkg/storage/errors
 k8s.io/apiserver/pkg/storage/value/encrypt/aes

@@ -47,13 +47,13 @@ func AssertSecretsAndConfigMaps(t testing.TB, clientSet library.ClientSet, expec
 func assertSecrets(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all Secrets where encrypted/decrypted for %q mode", expectedMode)
 	totalSecrets, err := library.VerifyResources(t, etcdClient, "/kubernetes.io/secrets/", expectedMode, false)
-	t.Logf("Verified %d Secrets, err %v", totalSecrets, err)
+	t.Logf("Verified %d Secrets", totalSecrets)
 	require.NoError(t, err)
 }
 
 func assertConfigMaps(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all ConfigMaps where encrypted/decrypted for %q mode", expectedMode)
 	totalConfigMaps, err := library.VerifyResources(t, etcdClient, "/kubernetes.io/configmaps/", expectedMode, false)
-	t.Logf("Verified %d ConfigMaps, err %v", totalConfigMaps, err)
+	t.Logf("Verified %d ConfigMaps", totalConfigMaps)
 	require.NoError(t, err)
 }
