@@ -408,6 +408,7 @@ spec:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
       - --destination-dir=/etc/kubernetes/static-pod-certs
+      - --tls-server-name-override=localhost-recovery
     resources:
       requests:
         memory: 50Mi
