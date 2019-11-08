@@ -201,7 +201,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/informers/externalversions/config/v1
 github.com/openshift/client-go/config/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/scheme
-# github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29 => github.com/openshift/library-go v0.0.0-20191106124920-97392cdc9bd3
+# github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb => github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/prune
@@ -789,10 +789,10 @@ k8s.io/kube-openapi/pkg/util
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/schemaconv
 # k8s.io/utils v0.0.0-20191010214722-8d271d903fe4
+k8s.io/utils/pointer
 k8s.io/utils/buffer
 k8s.io/utils/trace
 k8s.io/utils/integer
-k8s.io/utils/pointer
 k8s.io/utils/path
 # sigs.k8s.io/structured-merge-diff v0.0.0-20190817042607-6149e4549fca
 sigs.k8s.io/structured-merge-diff/fieldpath
