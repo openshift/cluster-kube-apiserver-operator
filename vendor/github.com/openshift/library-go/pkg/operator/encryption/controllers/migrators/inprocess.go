@@ -128,6 +128,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 		for {
 			allResource, err := d.List(opts)
 			if err != nil && !canRetry(err) {
+				klog.Warningf("List of %v failed: %v", gvr, err)
 				return nil, err
 			} else if err != nil {
 				if seconds, delay := errors.SuggestsClientDelay(err); delay {
@@ -135,6 +136,8 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 				}
 				continue
 			}
+
+			klog.V(4).Infof("Migrating %d objects of %v", len(allResource.Items), gvr)
 
 		nextItem:
 			for _, obj := range allResource.Items { // TODO parallelize for-loop
@@ -144,6 +147,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 						continue nextItem
 					}
 					if !canRetry(updateErr) {
+						klog.Warningf("Update of %s/%s failed: %v", obj.GetNamespace(), obj.GetName(), updateErr)
 						errs = append(errs, updateErr)
 						break
 					}
@@ -153,6 +157,8 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 					}
 				}
 			}
+
+			klog.V(4).Infof("Migration of %d objects of %v finished", len(allResource.Items), gvr)
 
 			allResource.Items = nil // do not accumulate items, this fakes the visitor pattern
 			return allResource, nil // leave the rest of the list intact to preserve continue token
