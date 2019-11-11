@@ -1,5 +1,5 @@
-hash: 3242396de82077cf03c242cfe43d626bf4a5b69be0be6ad4de530c7004a6edb2
-updated: 2019-08-13T13:43:48.190741178-04:00
+hash: ff1a0ce2e32a6df3df2eceb9d6dce8d26b76c080ba5923646e7c13d7b62c2d74
+updated: 2019-11-11T13:49:09.808638+01:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -209,7 +209,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: b5570061b31fed3b06c24077c534b1a1bf7ecf8b
+  version: d4a64ec2cbd86f11ea74dfdcf6520d5833d0c6cd
   subpackages:
   - apps
   - apps/v1
@@ -255,7 +255,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: e9678e3b850da36470c5554609c6cd110aace47e
+  version: 5a5508328169b8a6992ea4ef711add89ddce3c6d
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/scheme
@@ -268,7 +268,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: 1eb1131507bff6d494f05b23c8ecf850836d7328
+  version: 8ab60e64997ac0990ef30a4e01481056dec95568
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -306,6 +306,7 @@ imports:
   - pkg/operator/staticpod/controller/backingresource/bindata
   - pkg/operator/staticpod/controller/installer
   - pkg/operator/staticpod/controller/installer/bindata
+  - pkg/operator/staticpod/controller/installerstate
   - pkg/operator/staticpod/controller/monitoring
   - pkg/operator/staticpod/controller/monitoring/bindata
   - pkg/operator/staticpod/controller/node
@@ -332,7 +333,6 @@ imports:
   subpackages:
   - prometheus
   - prometheus/internal
-  - prometheus/promhttp
 - name: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
@@ -825,7 +825,7 @@ imports:
 - name: k8s.io/code-generator
   version: 50b561225d70b3eb79a1faafd3dfe7b1a62cbe73
 - name: k8s.io/component-base
-  version: f0322db00a103489b85cb3835886741a3911636b
+  version: 4a91899592f42b2f5859587cc5a676a5b94d2ee3
   subpackages:
   - cli/flag
   - logs
