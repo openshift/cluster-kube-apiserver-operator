@@ -15,7 +15,7 @@ import:
 - package: k8s.io/apiextensions-apiserver
   version: kubernetes-1.14.0
 - package: k8s.io/component-base
-  version: release-1.14
+  version: kubernetes-1.14.0
 - package: github.com/openshift/api
   version: release-4.2
 - package: github.com/openshift/client-go
@@ -31,6 +31,20 @@ import:
 - package: github.com/stretchr/testify
   version: c679ae2cc0cb27ec3293fea7e254e47386f05d69
 
-  # pinned to a level that kubernetes uses.
+# pinned to a level that kubernetes uses.
 - package: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
+
+# pinned to avoid major changes on bumps
+- package: github.com/ghodss/yaml
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
+- package: github.com/prometheus/client_golang
+  version: 505eaef017263e299324067d40ca2c48f6a2cf50
+- package: golang.org/x/net
+  version: 65e2d4e15006aab9813ff8769e768bbf4bb667a0
+- package: gopkg.in/yaml.v2
+  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+- package: k8s.io/klog
+  version: e531227889390a39d9533dde61f590fe9f4b0035
+- package: github.com/davecgh/go-spew
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
