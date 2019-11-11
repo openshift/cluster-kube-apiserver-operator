@@ -1,7 +1,9 @@
 package configmetrics
 
 import (
+	"github.com/blang/semver"
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/component-base/metrics/legacyregistry"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -12,7 +14,7 @@ import (
 // of Kubernetes.
 // TODO: in the future this may move to cluster-config-operator.
 func Register(configInformer configinformers.SharedInformerFactory) {
-	prometheus.MustRegister(&configMetrics{
+	legacyregistry.MustRegister(&configMetrics{
 		infrastructureLister: configInformer.Config().V1().Infrastructures().Lister(),
 		cloudProvider: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cluster_infrastructure_provider",
@@ -28,10 +30,14 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 
 // configMetrics implements metrics gathering for this component.
 type configMetrics struct {
-	infrastructureLister configlisters.InfrastructureLister
 	cloudProvider        *prometheus.GaugeVec
-	featuregateLister    configlisters.FeatureGateLister
 	featureSet           *prometheus.GaugeVec
+	infrastructureLister configlisters.InfrastructureLister
+	featuregateLister    configlisters.FeatureGateLister
+}
+
+func (m *configMetrics) Create(version *semver.Version) bool {
+	return true
 }
 
 // Describe reports the metadata for metrics to the prometheus collector.
