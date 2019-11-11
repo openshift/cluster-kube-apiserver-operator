@@ -1,5 +1,5 @@
 hash: 679acd7e6f0e53027b700022320c0d8998cb7d8fa8cdb91b441d77e2caba08ed
-updated: 2019-09-02T15:12:16.780917403+02:00
+updated: 2019-11-11T13:03:25.05372+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -234,7 +234,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 7e7e7455fe760f855b2f960923381ebc2f9a1ed1
+  version: 4fc6d252e11cb5118ecf10d1b5d19b9085217bdc
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -472,7 +472,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: f221ef6dc2779b4f80d2821997dfacaf927b73ee
+  version: 1495f70252dcec3e2289bcabc488290dc1cf1258
   repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
   subpackages:
   - pkg/apis/apiextensions
