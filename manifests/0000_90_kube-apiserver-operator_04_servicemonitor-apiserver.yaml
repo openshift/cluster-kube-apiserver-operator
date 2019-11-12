@@ -5,6 +5,8 @@ metadata:
     k8s-app: apiserver
   name: kube-apiserver
   namespace: openshift-kube-apiserver
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -41,6 +43,8 @@ kind: PrometheusRule
 metadata:
   name: kube-apiserver
   namespace: openshift-kube-apiserver
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
   - name: using-deprecated-apis
