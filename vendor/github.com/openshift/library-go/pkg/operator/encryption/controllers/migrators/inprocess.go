@@ -134,6 +134,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 				if seconds, delay := errors.SuggestsClientDelay(err); delay {
 					time.Sleep(time.Duration(seconds) * time.Second)
 				}
+				klog.V(4).Infof("Relisting %v after retryable error: %v", gvr, err)
 				continue
 			}
 
@@ -153,6 +154,7 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 					}
 
 					if seconds, delay := errors.SuggestsClientDelay(updateErr); delay {
+						klog.V(4).Infof("Sleeping %ds while updating %s/%s of type %v after retryable error: %v", obj.GetNamespace(), obj.GetName(), gvr, updateErr)
 						time.Sleep(time.Duration(seconds) * time.Second)
 					}
 				}
