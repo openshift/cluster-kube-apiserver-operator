@@ -133,7 +133,9 @@ func (m *InProcessMigrator) runMigration(gvr schema.GroupVersionResource, writeK
 			if err != nil {
 				klog.Warningf("List of %v failed: %v", gvr, err)
 				if errors.IsResourceExpired(err) {
-					return nil, err // the pager will handle that
+					// start a new list without the continue parameter
+					opts.Continue = ""
+					continue
 				} else if retryable := canRetry(err); retryable == nil || *retryable == false {
 					return nil, err // not retryable or we don't know. Return error and controller will restart migration.
 				} else {
