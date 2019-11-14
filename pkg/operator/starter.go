@@ -227,11 +227,10 @@ var RevisionConfigMaps = []revision.RevisionResource{
 var RevisionSecrets = []revision.RevisionResource{
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-client"},
-	// this is needed so that the cert syncer itself can request certs.  It uses localhost
-	{Name: "kube-apiserver-cert-syncer-client-cert-key"},
 	{Name: "kubelet-client"},
 	// etcd encryption
 	{Name: "encryption-config", Optional: true},
+	{Name: "localhost-recovery-serving-certkey"},
 }
 
 var CertConfigMaps = []revision.RevisionResource{
@@ -248,7 +247,6 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
-	{Name: "localhost-recovery-serving-certkey"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
