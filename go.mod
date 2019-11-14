@@ -22,7 +22,7 @@ require (
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000 // indirect
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
-	github.com/openshift/library-go v0.0.0-20191101120501-b38318f0eb29
+	github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
@@ -46,7 +46,7 @@ replace (
 	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454
 	github.com/openshift/api => github.com/openshift/api v3.9.1-0.20191024110424-de6d5d3f2db2+incompatible
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
-	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20191106124920-97392cdc9bd3
+	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	k8s.io/api => k8s.io/api v0.0.0-20190918155943-95b840bb6a1f
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190918161926-8f644eb6e783
