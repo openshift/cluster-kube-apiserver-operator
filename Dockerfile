@@ -10,6 +10,7 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
 COPY manifests/*.yaml /manifests/
 COPY manifests/image-references /manifests/
+COPY vendor/github.com/openshift/api/operator/v1/0000_20_kube-apiserver-operator_01_config.crd.yaml /manifests
 LABEL io.openshift.release.operator true
 # FIXME: entrypoint shouldn't be bash but the binary (needs fixing the chain)
 # ENTRYPOINT ["/usr/bin/cluster-kube-apiserver-operator"]
