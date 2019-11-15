@@ -5,6 +5,8 @@ metadata:
   name: kube-apiserver-operator
   labels:
     app: kube-apiserver-operator
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   replicas: 1
   strategy:

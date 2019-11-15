@@ -3,6 +3,7 @@ kind: Service
 metadata:
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: kube-apiserver-operator-serving-cert
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
   labels:
     app: kube-apiserver-operator
   name: metrics
