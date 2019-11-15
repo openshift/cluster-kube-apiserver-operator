@@ -56,10 +56,8 @@ admission:
     {{end}}
 apiServerArguments:
   feature-gates:
-    - "ExperimentalCriticalPodAnnotation=true"
     - "RotateKubeletServerCertificate=true"
     - "SupportPodPidsLimit=true"
-    - "TLSSecurityProfile=true"
     - "NodeDisruptionExclusion=true"
     - "ServiceNodeExclusion=true"
     - "LegacyNodeRoleBehavior=false"
