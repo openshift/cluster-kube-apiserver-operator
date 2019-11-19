@@ -42,7 +42,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(ctx.KubeConfig)
+	migrationClientConfig := dynamic.ConfigFor(ctx.KubeConfig)
+	migrationClientConfig.Burst = 40
+	migrationClientConfig.QPS = 30
+	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
@@ -154,7 +157,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
+	migrator := migrators.NewInProcessMigrator(dynamicClientForMigration, kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
