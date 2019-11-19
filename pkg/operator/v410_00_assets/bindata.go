@@ -236,8 +236,8 @@ data:
     users:
       - name: kube-apiserver-cert-syncer
         user:
-          client-certificate: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.crt
-          client-key: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.key
+          client-certificate: /etc/kubernetes/static-pod-resources/secrets/localhost-recovery-serving-certkey/tls.crt
+          client-key: /etc/kubernetes/static-pod-resources/secrets/localhost-recovery-serving-certkey/tls.key
 `)
 
 func v410KubeApiserverKubeconfigCmYamlBytes() ([]byte, error) {
