@@ -24,7 +24,7 @@ IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 # $2 - image ref
 # $3 - Dockerfile path
 # $4 - context directory for image build
-$(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3:cluster-kube-apiserver-operator, ./Dockerfile.rhel7,.)
+$(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.2:cluster-kube-apiserver-operator, ./Dockerfile.rhel7,.)
 
 # This will call a macro called "add-bindata" which will generate bindata specific targets based on the parameters:
 # $0 - macro name
