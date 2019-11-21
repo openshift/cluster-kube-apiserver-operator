@@ -1,6 +1,7 @@
 package resourceapply
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -168,9 +169,19 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 			modifiedKeys = append(modifiedKeys, "data."+existingCopyKey)
 		}
 	}
+	for existingCopyKey, existingCopyBinValue := range existingCopy.BinaryData {
+		if requiredBinValue, ok := required.BinaryData[existingCopyKey]; !ok || !bytes.Equal(existingCopyBinValue, requiredBinValue) {
+			modifiedKeys = append(modifiedKeys, "binaryData."+existingCopyKey)
+		}
+	}
 	for requiredKey := range required.Data {
 		if _, ok := existingCopy.Data[requiredKey]; !ok {
 			modifiedKeys = append(modifiedKeys, "data."+requiredKey)
+		}
+	}
+	for requiredBinKey := range required.BinaryData {
+		if _, ok := existingCopy.BinaryData[requiredBinKey]; !ok {
+			modifiedKeys = append(modifiedKeys, "binaryData."+requiredBinKey)
 		}
 	}
 
@@ -179,6 +190,7 @@ func ApplyConfigMap(client coreclientv1.ConfigMapsGetter, recorder events.Record
 		return existingCopy, false, nil
 	}
 	existingCopy.Data = required.Data
+	existingCopy.BinaryData = required.BinaryData
 
 	actual, err := client.ConfigMaps(required.Namespace).Update(existingCopy)
 
@@ -222,23 +234,7 @@ func ApplySecret(client coreclientv1.SecretsGetter, recorder events.Recorder, re
 	existingCopy.Data = required.Data
 
 	if klog.V(4) {
-		safeRequired := required.DeepCopy()
-		safeExisting := existing.DeepCopy()
-
-		for s := range safeExisting.Data {
-			safeExisting.Data[s] = []byte("OLD")
-		}
-		for s := range safeRequired.Data {
-			if _, preexisting := existing.Data[s]; !preexisting {
-				safeRequired.Data[s] = []byte("NEW")
-			} else if !equality.Semantic.DeepEqual(existing.Data[s], safeRequired.Data[s]) {
-				safeRequired.Data[s] = []byte("MODIFIED")
-			} else {
-				safeRequired.Data[s] = []byte("OLD")
-			}
-		}
-
-		klog.Infof("Secret %q changes: %v", required.Namespace+"/"+required.Name, JSONPatch(safeExisting, safeRequired))
+		klog.Infof("Secret %s/%s changes: %v", required.Namespace, required.Name, JSONPatchSecret(existing, required))
 	}
 	actual, err := client.Secrets(required.Namespace).Update(existingCopy)
 
