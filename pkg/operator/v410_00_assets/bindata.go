@@ -409,6 +409,8 @@ spec:
       - --namespace=$(POD_NAMESPACE)
       - --destination-dir=/etc/kubernetes/static-pod-certs
       - --tls-server-name-override=localhost-recovery
+      - --caches-synced-file=/var/run/informer-caches-synced
+      - -v=2
     resources:
       requests:
         memory: 50Mi
@@ -418,6 +420,12 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
+    readinessProbe:
+      exec:
+        command:
+          - test
+          - -f
+          - /var/run/informer-caches-synced
   - name: kube-apiserver-insecure-readyz-REVISION
     image: ${OPERATOR_IMAGE}
     imagePullPolicy: IfNotPresent
