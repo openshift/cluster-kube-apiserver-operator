@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	goflag "flag"
 	"fmt"
 	"math/rand"
@@ -13,6 +14,7 @@ import (
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/recoveryapiserver"
@@ -35,14 +37,14 @@ func main() {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
-	command := NewOperatorCommand()
+	command := NewOperatorCommand(context.Background())
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 }
 
-func NewOperatorCommand() *cobra.Command {
+func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cluster-kube-apiserver-operator",
 		Short: "OpenShift cluster kube-apiserver operator",
@@ -66,6 +68,7 @@ func NewOperatorCommand() *cobra.Command {
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
 	cmd.AddCommand(recoveryapiserver.NewRecoveryAPIServerCommand())
 	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
+	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 
 	return cmd
