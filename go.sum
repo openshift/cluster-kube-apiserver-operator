@@ -245,12 +245,6 @@ github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298 h1:wg5VfVIEtKI
 github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298/go.mod h1:6rzn+JTr7+WYS2E1TExP4gByoABxMznR6y2SnUIkmxk=
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454 h1:iLsYWhstnDtzE2Syn3QJQrx4F7mpcpwhAPNbk0Zkpvo=
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454/go.mod h1:ArHs8HJeXUzb2/WdnsiGXCVCWQwX5X0a1GNS6hM9FN0=
-github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb h1:/z8bjN9uZb39JFiBAG3tVgxgwWH9oLIboIssLH1blik=
-github.com/openshift/library-go v0.0.0-20191114153449-9563a4e8e5fb/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
-github.com/openshift/library-go v0.0.0-20191118102510-4e2c7112d252 h1:GY3oBSyQIkjpn4UPzs2Fz78zgXlJT6tZUvcVpec+frg=
-github.com/openshift/library-go v0.0.0-20191118102510-4e2c7112d252/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
-github.com/openshift/library-go v0.0.0-20191121124438-7c776f7cc17a h1:AUH7F2j7/piVDQ6Y7jGmIxTVur0H5pz4oGc50zMHrRk=
-github.com/openshift/library-go v0.0.0-20191121124438-7c776f7cc17a/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
@@ -307,6 +301,8 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8 h1:ndzgwNDnKIqyCvHTXaCqh9KlOWKvBry6nuXMJmonVsE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
+github.com/tnozicka/library-go v0.0.0-20191122114236-05d77b49a51e h1:d3J6Z/gQZ8Y7RY40VfwnfhRS6XPUiNWDVrK6aS60tAc=
+github.com/tnozicka/library-go v0.0.0-20191122114236-05d77b49a51e/go.mod h1:GViTo2mTjdzY11QWoiyNc2ga5HdSdi05mVmyGHpGm+Y=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18 h1:MPPkRncZLN9Kh4MEFmbnK4h3BD7AUmskWv2+EeZJCCs=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
