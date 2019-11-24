@@ -10,6 +10,7 @@ import (
 )
 
 func TestEncryptionTypeAESCBC(t *testing.T) {
+	t.SkipNow()
 	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
