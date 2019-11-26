@@ -27,7 +27,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: prometheus-k8s
-  namespace: openshift-monitor
+  namespace: openshift-monitoring
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
