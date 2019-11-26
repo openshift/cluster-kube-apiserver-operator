@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 
@@ -61,6 +62,18 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 				addressErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].hostname not found", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
 				recorder.Warningf("ObserveStorageFailed", addressErr.Error())
 				errs = append(errs, addressErr)
+				continue
+			}
+			if ip := net.ParseIP(address.IP); ip == nil {
+				ipErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
+				errs = append(errs, ipErr)
+				continue
+			}
+			// the installer uses dummy addresses in the subnet `192.0.2.` for host-etcd endpoints
+			// this check see if etcd-bootstrap is populated with a real ip address and uses it
+			// instead of FQDN
+			if address.Hostname == "etcd-bootstrap" && !strings.HasPrefix(address.IP, "192.0.2") {
+				etcdURLs = append(etcdURLs, "https://"+address.IP+":2379")
 				continue
 			}
 			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+dnsSuffix+":2379")
