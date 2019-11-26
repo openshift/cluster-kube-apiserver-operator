@@ -52,6 +52,13 @@ test-e2e-encryption: GO_TEST_FLAGS += -p 1
 test-e2e-encryption: test-unit
 .PHONY: test-e2e-encryption
 
+test-e2e-encryption-perf: GO_TEST_PACKAGES :=./test/e2e-encryption-perf/...
+test-e2e-encryption-perf: GO_TEST_FLAGS += -v
+test-e2e-encryption-perf: GO_TEST_FLAGS += -timeout 1h
+test-e2e-encryption-perf: GO_TEST_FLAGS += -p 1
+test-e2e-encryption-perf: test-unit
+.PHONY: test-e2e-encryption-perf
+
 update-codegen: update-codegen-crds
 .PHONY: update-codegen
 
