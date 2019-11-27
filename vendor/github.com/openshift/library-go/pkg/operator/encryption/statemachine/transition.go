@@ -216,7 +216,7 @@ func getDesiredEncryptionState(oldEncryptionConfig *apiserverconfigv1.Encryption
 	}
 	writeAndLastReadKey := []state.KeyState{writeKey}
 	if len(backedKeys) >= 2 {
-		writeAndLastReadKey = append(writeAndLastReadKey, backedKeys[1])
+		//writeAndLastReadKey = append(writeAndLastReadKey, backedKeys[1])
 	}
 	for gr := range desiredEncryptionState {
 		grState := desiredEncryptionState[gr]
