@@ -111,6 +111,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithVersioning(operatorclient.OperatorNamespace, "kube-apiserver", versionRecorder).
+		WithServiceMonitor(dynamicClient).
 		ToControllers()
 	if err != nil {
 		return err
