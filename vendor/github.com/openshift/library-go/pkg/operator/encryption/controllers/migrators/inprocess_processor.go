@@ -91,8 +91,10 @@ func (p *listProcessor) run(gvr schema.GroupVersionResource) error {
 		metrics.ObserveFailedMigration(gvr.String())
 		return err
 	}
-	klog.V(2).Infof("Migration for %v finished in %v", gvr, time.Now().Sub(migrationStarted))
+	migrationDuration := time.Now().Sub(migrationStarted)
+	klog.V(2).Infof("Migration for %v finished in %v", gvr, migrationDuration)
 	metrics.ObserveSucceededMigration(gvr.String())
+	metrics.ObserveSucceededMigrationDuration(migrationDuration.Seconds(), gvr.String())
 	return nil
 }
 
