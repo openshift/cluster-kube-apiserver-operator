@@ -42,7 +42,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(ctx.KubeConfig)
+	migrationClientConfig := dynamic.ConfigFor(ctx.KubeConfig)
+	migrationClientConfig.Burst = 40
+	migrationClientConfig.QPS = 30
+	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
@@ -154,7 +157,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
+	migrator := migrators.NewInProcessMigrator(dynamicClientForMigration, kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
@@ -188,21 +191,21 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	// register config metrics
 	configmetrics.Register(configInformers)
 
-	kubeInformersForNamespaces.Start(ctx.Done())
-	configInformers.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
+	kubeInformersForNamespaces.Start(ctx.Ctx.Done())
+	configInformers.Start(ctx.Ctx.Done())
+	dynamicInformers.Start(ctx.Ctx.Done())
 
-	go staticPodControllers.Run(ctx.Done())
-	go resourceSyncController.Run(1, ctx.Done())
-	go targetConfigReconciler.Run(1, ctx.Done())
-	go configObserver.Run(1, ctx.Done())
-	go clusterOperatorStatus.Run(1, ctx.Done())
-	go certRotationController.Run(1, ctx.Done())
-	go encryptionControllers.Run(ctx.Done())
-	go featureUpgradeableController.Run(1, ctx.Done())
-	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
+	go staticPodControllers.Run(ctx.Ctx, 1)
+	go resourceSyncController.Run(1, ctx.Ctx.Done())
+	go targetConfigReconciler.Run(1, ctx.Ctx.Done())
+	go configObserver.Run(1, ctx.Ctx.Done())
+	go clusterOperatorStatus.Run(1, ctx.Ctx.Done())
+	go certRotationController.Run(1, ctx.Ctx.Done())
+	go encryptionControllers.Run(ctx.Ctx.Done())
+	go featureUpgradeableController.Run(1, ctx.Ctx.Done())
+	go certRotationTimeUpgradeableController.Run(1, ctx.Ctx.Done())
 
-	<-ctx.Done()
+	<-ctx.Ctx.Done()
 	return fmt.Errorf("stopped")
 }
 
