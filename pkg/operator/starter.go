@@ -188,21 +188,21 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	// register config metrics
 	configmetrics.Register(configInformers)
 
-	kubeInformersForNamespaces.Start(ctx.Done())
-	configInformers.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
+	kubeInformersForNamespaces.Start(ctx.Ctx.Done())
+	configInformers.Start(ctx.Ctx.Done())
+	dynamicInformers.Start(ctx.Ctx.Done())
 
-	go staticPodControllers.Run(ctx.Done())
-	go resourceSyncController.Run(1, ctx.Done())
-	go targetConfigReconciler.Run(1, ctx.Done())
-	go configObserver.Run(1, ctx.Done())
-	go clusterOperatorStatus.Run(1, ctx.Done())
-	go certRotationController.Run(1, ctx.Done())
-	go encryptionControllers.Run(ctx.Done())
-	go featureUpgradeableController.Run(1, ctx.Done())
-	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
+	go staticPodControllers.Run(ctx.Ctx, 1)
+	go resourceSyncController.Run(1, ctx.Ctx.Done())
+	go targetConfigReconciler.Run(1, ctx.Ctx.Done())
+	go configObserver.Run(1, ctx.Ctx.Done())
+	go clusterOperatorStatus.Run(1, ctx.Ctx.Done())
+	go certRotationController.Run(1, ctx.Ctx.Done())
+	go encryptionControllers.Run(ctx.Ctx.Done())
+	go featureUpgradeableController.Run(1, ctx.Ctx.Done())
+	go certRotationTimeUpgradeableController.Run(1, ctx.Ctx.Done())
 
-	<-ctx.Done()
+	<-ctx.Ctx.Done()
 	return fmt.Errorf("stopped")
 }
 
