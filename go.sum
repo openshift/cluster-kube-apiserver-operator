@@ -251,6 +251,8 @@ github.com/openshift/library-go v0.0.0-20191118102510-4e2c7112d252 h1:GY3oBSyQIk
 github.com/openshift/library-go v0.0.0-20191118102510-4e2c7112d252/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/openshift/library-go v0.0.0-20191121124438-7c776f7cc17a h1:AUH7F2j7/piVDQ6Y7jGmIxTVur0H5pz4oGc50zMHrRk=
 github.com/openshift/library-go v0.0.0-20191121124438-7c776f7cc17a/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
+github.com/openshift/library-go v0.0.0-20191129153313-a12222ecd59e h1:ql2wgy9648ob63C0uWu6DItPcSsJ9q/jjCf2BPHfZ2U=
+github.com/openshift/library-go v0.0.0-20191129153313-a12222ecd59e/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
@@ -305,6 +307,8 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
+github.com/sttts/library-go v0.0.0-20191129124347-0004355025fb h1:tqlpgVJE9YQJNIOCtIMoCBG58N8iSAeT1P5KwSDh8Lo=
+github.com/sttts/library-go v0.0.0-20191129124347-0004355025fb/go.mod h1:7jxUj8s/i6L5GilDCNZJGuisFUB0c/I6IU7ralc7fNs=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8 h1:ndzgwNDnKIqyCvHTXaCqh9KlOWKvBry6nuXMJmonVsE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
