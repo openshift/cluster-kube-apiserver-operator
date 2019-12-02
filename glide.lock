@@ -1,5 +1,5 @@
-hash: ff1a0ce2e32a6df3df2eceb9d6dce8d26b76c080ba5923646e7c13d7b62c2d74
-updated: 2019-11-11T13:49:09.808638+01:00
+hash: 18531280b51d55bf6c1e2b9e90df36681795349188f0c788b372fb8302c8717f
+updated: 2019-12-02T10:23:11.298256+01:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -134,13 +134,13 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/gonum/blas
-  version: f22b278b28ac9805aadd613a754a60c35b24ae69
+  version: 37e82626499e1df7c54aeaba0959fd6e7e8dc1e4
   subpackages:
   - blas64
   - native
   - native/internal/math32
 - name: github.com/gonum/floats
-  version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
+  version: f74b330d45c56584a6ea7a27f5c64ea2900631e9
 - name: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
@@ -155,17 +155,17 @@ imports:
   - internal/ordered
   - simple
 - name: github.com/gonum/internal
-  version: f884aa71402950fb2796dbea0d5aa9ef9cfad8ca
+  version: e57e4534cf9b3b00ef6c0175f59d8d2d34f60914
   subpackages:
   - asm/f32
   - asm/f64
 - name: github.com/gonum/lapack
-  version: e4cdc5a0bff924bb10be88482e635bd40429f65e
+  version: 5ed4b826becd1807e09377508f51756586d1a98c
   subpackages:
   - lapack64
   - native
 - name: github.com/gonum/matrix
-  version: c518dec07be9a636c38a4650e217be059b5952ec
+  version: dd6034299e4242c9f0ea36735e6d4264dfcb3f9f
   subpackages:
   - mat64
 - name: github.com/google/gofuzz
@@ -268,7 +268,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: 8ab60e64997ac0990ef30a4e01481056dec95568
+  version: f5e94d5a5034d4874a3ed9dcf42bbcb88e0c7553
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -420,7 +420,7 @@ imports:
   - container/intsets
   - imports
 - name: google.golang.org/appengine
-  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
+  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
   - internal
   - internal/base
@@ -464,6 +464,7 @@ imports:
   - transport
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+  repo: https://github.com/go-inf/inf.git
 - name: gopkg.in/natefinch/lumberjack.v2
   version: 20b71e5b60d756d3d2f80def009790325acc2b23
 - name: gopkg.in/yaml.v2
@@ -868,5 +869,5 @@ imports:
   - typed
   - value
 - name: sigs.k8s.io/yaml
-  version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
+  version: 199c9c29c4e4f08dc72163605467ab691a004022
 testImports: []
