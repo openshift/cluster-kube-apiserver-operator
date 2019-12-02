@@ -26,6 +26,7 @@ require (
 	github.com/openshift/library-go v0.0.0-20191129090103-d5944b425412
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/prometheus/client_golang v1.1.0
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0

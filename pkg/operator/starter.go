@@ -34,6 +34,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -188,6 +189,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	terminationObserverStore := terminationobserver.NewStorage()
+	terminationObserver := terminationobserver.NewTerminationObserver(
+		operatorclient.TargetNamespace,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeClient.CoreV1(),
+		terminationObserverStore,
+		ctx.EventRecorder,
+	)
+
+	// register termination metrics
+	terminationobserver.RegisterMetrics(terminationObserverStore)
+
 	// register config metrics
 	configmetrics.Register(configInformers)
 
@@ -204,6 +217,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go encryptionControllers.Run(ctx.Ctx.Done())
 	go featureUpgradeableController.Run(1, ctx.Ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Ctx.Done())
+	go terminationObserver.Run(ctx.Ctx, 1)
 
 	<-ctx.Ctx.Done()
 	return fmt.Errorf("stopped")
