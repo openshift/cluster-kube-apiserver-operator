@@ -35,6 +35,10 @@ import:
 - package: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
 
+# pinned to vendor despite gopkg.in being down
+- package: gopkg.in/inf.v0
+  repo: https://github.com/go-inf/inf.git
+
 # pinned to avoid major changes on bumps
 - package: github.com/ghodss/yaml
   version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
