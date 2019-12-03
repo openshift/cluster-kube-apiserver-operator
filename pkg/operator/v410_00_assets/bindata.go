@@ -3,6 +3,9 @@
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
+// bindata/v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml
+// bindata/v4.1.0/kube-apiserver/localhost-recovery-sa.yaml
+// bindata/v4.1.0/kube-apiserver/localhost-recovery-token.yaml
 // bindata/v4.1.0/kube-apiserver/ns.yaml
 // bindata/v4.1.0/kube-apiserver/pod-cm.yaml
 // bindata/v4.1.0/kube-apiserver/pod.yaml
@@ -222,7 +225,7 @@ data:
     apiVersion: v1
     clusters:
       - cluster:
-          certificate-authority: /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-server-ca/ca-bundle.crt
+          certificate-authority: /etc/kubernetes/static-pod-resources/secrets/localhost-recovery-client-token/ca.crt
           server: https://localhost:6443
         name: loopback
     contexts:
@@ -236,8 +239,7 @@ data:
     users:
       - name: kube-apiserver-cert-syncer
         user:
-          client-certificate: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.crt
-          client-key: /etc/kubernetes/static-pod-resources/secrets/kube-apiserver-cert-syncer-client-cert-key/tls.key
+          tokenFile: /etc/kubernetes/static-pod-resources/secrets/localhost-recovery-client-token/token
 `)
 
 func v410KubeApiserverKubeconfigCmYamlBytes() ([]byte, error) {
@@ -251,6 +253,81 @@ func v410KubeApiserverKubeconfigCmYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/kubeconfig-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverLocalhostRecoveryClientCrbYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:openshift:operator:kube-apiserver-recovery
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: localhost-recovery-client
+  namespace: openshift-kube-apiserver
+`)
+
+func v410KubeApiserverLocalhostRecoveryClientCrbYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverLocalhostRecoveryClientCrbYaml, nil
+}
+
+func v410KubeApiserverLocalhostRecoveryClientCrbYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverLocalhostRecoveryClientCrbYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverLocalhostRecoverySaYaml = []byte(`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: localhost-recovery-client
+  namespace: openshift-kube-apiserver
+`)
+
+func v410KubeApiserverLocalhostRecoverySaYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverLocalhostRecoverySaYaml, nil
+}
+
+func v410KubeApiserverLocalhostRecoverySaYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverLocalhostRecoverySaYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/localhost-recovery-sa.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverLocalhostRecoveryTokenYaml = []byte(`apiVersion: v1
+kind: Secret
+metadata:
+  name: localhost-recovery-client-token
+  namespace: openshift-kube-apiserver
+  annotations:
+    kubernetes.io/service-account.name: localhost-recovery-client
+type: kubernetes.io/service-account-token
+`)
+
+func v410KubeApiserverLocalhostRecoveryTokenYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverLocalhostRecoveryTokenYaml, nil
+}
+
+func v410KubeApiserverLocalhostRecoveryTokenYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverLocalhostRecoveryTokenYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/localhost-recovery-token.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -678,16 +755,19 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v4.1.0/kube-apiserver/cm.yaml":              v410KubeApiserverCmYaml,
-	"v4.1.0/kube-apiserver/defaultconfig.yaml":   v410KubeApiserverDefaultconfigYaml,
-	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":   v410KubeApiserverKubeconfigCmYaml,
-	"v4.1.0/kube-apiserver/ns.yaml":              v410KubeApiserverNsYaml,
-	"v4.1.0/kube-apiserver/pod-cm.yaml":          v410KubeApiserverPodCmYaml,
-	"v4.1.0/kube-apiserver/pod.yaml":             v410KubeApiserverPodYaml,
-	"v4.1.0/kube-apiserver/recovery-config.yaml": v410KubeApiserverRecoveryConfigYaml,
-	"v4.1.0/kube-apiserver/recovery-pod.yaml":    v410KubeApiserverRecoveryPodYaml,
-	"v4.1.0/kube-apiserver/svc.yaml":             v410KubeApiserverSvcYaml,
-	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":   v410KubeApiserverTrustedCaCmYaml,
+	"v4.1.0/kube-apiserver/cm.yaml":                            v410KubeApiserverCmYaml,
+	"v4.1.0/kube-apiserver/defaultconfig.yaml":                 v410KubeApiserverDefaultconfigYaml,
+	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                 v410KubeApiserverKubeconfigCmYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml": v410KubeApiserverLocalhostRecoveryClientCrbYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":         v410KubeApiserverLocalhostRecoverySaYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-token.yaml":      v410KubeApiserverLocalhostRecoveryTokenYaml,
+	"v4.1.0/kube-apiserver/ns.yaml":                            v410KubeApiserverNsYaml,
+	"v4.1.0/kube-apiserver/pod-cm.yaml":                        v410KubeApiserverPodCmYaml,
+	"v4.1.0/kube-apiserver/pod.yaml":                           v410KubeApiserverPodYaml,
+	"v4.1.0/kube-apiserver/recovery-config.yaml":               v410KubeApiserverRecoveryConfigYaml,
+	"v4.1.0/kube-apiserver/recovery-pod.yaml":                  v410KubeApiserverRecoveryPodYaml,
+	"v4.1.0/kube-apiserver/svc.yaml":                           v410KubeApiserverSvcYaml,
+	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":                 v410KubeApiserverTrustedCaCmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -733,16 +813,19 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v4.1.0": {nil, map[string]*bintree{
 		"kube-apiserver": {nil, map[string]*bintree{
-			"cm.yaml":              {v410KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":   {v410KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"kubeconfig-cm.yaml":   {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
-			"ns.yaml":              {v410KubeApiserverNsYaml, map[string]*bintree{}},
-			"pod-cm.yaml":          {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":             {v410KubeApiserverPodYaml, map[string]*bintree{}},
-			"recovery-config.yaml": {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
-			"recovery-pod.yaml":    {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
-			"svc.yaml":             {v410KubeApiserverSvcYaml, map[string]*bintree{}},
-			"trusted-ca-cm.yaml":   {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
+			"cm.yaml":                            {v410KubeApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":                 {v410KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"kubeconfig-cm.yaml":                 {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
+			"localhost-recovery-client-crb.yaml": {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
+			"localhost-recovery-sa.yaml":         {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},
+			"localhost-recovery-token.yaml":      {v410KubeApiserverLocalhostRecoveryTokenYaml, map[string]*bintree{}},
+			"ns.yaml":                            {v410KubeApiserverNsYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                        {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                           {v410KubeApiserverPodYaml, map[string]*bintree{}},
+			"recovery-config.yaml":               {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
+			"recovery-pod.yaml":                  {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
+			"svc.yaml":                           {v410KubeApiserverSvcYaml, map[string]*bintree{}},
+			"trusted-ca-cm.yaml":                 {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
