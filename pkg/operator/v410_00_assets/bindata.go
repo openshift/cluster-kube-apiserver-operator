@@ -101,7 +101,7 @@ apiServerArguments:
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
   - "true"
-  minimal-shutdown-duration:
+  shutdown-delay-duration:
   - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   http2-max-streams-per-connection:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
