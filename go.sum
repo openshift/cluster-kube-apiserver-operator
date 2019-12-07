@@ -296,6 +296,8 @@ github.com/prometheus/procfs v0.0.0-20190503130316-740c07785007 h1:gT4PpkbWSQM4J
 github.com/prometheus/procfs v0.0.0-20190503130316-740c07785007/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/remyoudompheng/bigfft v0.0.0-20170806203942-52369c62f446/go.mod h1:uYEyJGbgTkfkS4+E/PavXkNJcbFIpEtjt2B0KDQ5+9M=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
+github.com/sanchezl/library-go v0.0.0-20191207035440-a74467e03667 h1:E+yl3KDZDNsAlMwkYE77VoYv8oIr0dCFrvtz4OOZqa0=
+github.com/sanchezl/library-go v0.0.0-20191207035440-a74467e03667/go.mod h1:Uzka5OCk8XNmrJ3TRrizizS0z+5Pz0C3FZKsZM99acg=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2 h1:SPIRibHv4MatM3XXNO2BJeFLZwZ2LvZgfQ5+UNI2im4=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=

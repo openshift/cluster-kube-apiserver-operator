@@ -80,8 +80,6 @@ type InstallerController struct {
 
 	// installerPodImageFn returns the image name for the installer pod
 	installerPodImageFn func() string
-	// ownerRefsFn sets the ownerrefs on the pruner pod
-	ownerRefsFn func(revision int32) ([]metav1.OwnerReference, error)
 
 	installerPodMutationFns []InstallerPodMutationFunc
 }
@@ -143,8 +141,6 @@ func NewInstallerController(
 
 		installerPodImageFn: getInstallerPodImageFromEnv,
 	}
-
-	c.ownerRefsFn = c.setOwnerRefs
 
 	operatorClient.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
@@ -301,34 +297,37 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 
 		// if we are in a transition, check to see whether our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
+
+			// get current revision status
+			_, err := c.configMapsGetter.ConfigMaps(c.targetNamespace).Get(fmt.Sprintf("revision-status-%d", currNodeState.TargetRevision), metav1.GetOptions{})
+			if apierrors.IsNotFound(err) && operatorStatus.LatestAvailableRevision > currNodeState.CurrentRevision {
+				// current revision status was deleted, set target to latest available revision
+				newCurrNodeState := currNodeState.DeepCopy()
+				newCurrNodeState.TargetRevision = operatorStatus.LatestAvailableRevision
+				if b, err, done := c.updateNodeStatus(newCurrNodeState, currNodeState, fmt.Sprintf("target revision %d no longer available", currNodeState.TargetRevision)); done {
+					return b, err
+				}
+			}
+			if err != nil {
+				return true, err
+			}
+
 			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
 				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
 					currNodeState.TargetRevision, currNodeState.NodeName, err)
 				return true, err
 			}
 
-			newCurrNodeState, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(currNodeState, operatorStatus.LatestAvailableRevision)
+			pendingNewRevision := operatorStatus.LatestAvailableRevision > currNodeState.TargetRevision
+			newCurrNodeState, installerPodFailed, reason, err := c.newNodeStateForInstallInProgress(currNodeState, pendingNewRevision)
 			if err != nil {
 				return true, err
 			}
 
 			// if we make a change to this status, we want to write it out to the API before we commence work on the next node.
 			// it's an extra write/read, but it makes the state debuggable from outside this process
-			if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
-				klog.Infof("%q moving to %v because %s", currNodeState.NodeName, spew.Sdump(*newCurrNodeState), reason)
-				newOperatorStatus, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
-				if updateError != nil {
-					return false, updateError
-				} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
-					c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d because %s", currNodeState.NodeName,
-						currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision, reason)
-				}
-				if err := c.updateRevisionStatus(newOperatorStatus); err != nil {
-					klog.Errorf("error updating revision status configmap: %v", err)
-				}
-				return false, nil
-			} else {
-				klog.V(2).Infof("%q is in transition to %d, but has not made progress because %s", currNodeState.NodeName, currNodeState.TargetRevision, reason)
+			if b, err, done := c.updateNodeStatus(newCurrNodeState, currNodeState, reason); done {
+				return b, err
 			}
 
 			// We want to retry the installer pod by deleting and then rekicking. Also we don't set LastFailedRevision.
@@ -370,6 +369,26 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.St
 	}
 
 	return false, nil
+}
+
+func (c *InstallerController) updateNodeStatus(newCurrNodeState *operatorv1.NodeStatus, currNodeState *operatorv1.NodeStatus, reason string) (bool, error, bool) {
+	if !equality.Semantic.DeepEqual(newCurrNodeState, currNodeState) {
+		klog.Infof("%q moving to %v because %s", currNodeState.NodeName, spew.Sdump(*newCurrNodeState), reason)
+		newOperatorStatus, updated, updateError := v1helpers.UpdateStaticPodStatus(c.operatorClient, setNodeStatusFn(newCurrNodeState), setAvailableProgressingNodeInstallerFailingConditions)
+		if updateError != nil {
+			return false, updateError, true
+		} else if updated && currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
+			c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d because %s", currNodeState.NodeName,
+				currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision, reason)
+		}
+		if err := c.updateRevisionStatus(newOperatorStatus); err != nil {
+			klog.Errorf("error updating revision status configmap: %v", err)
+		}
+		return false, nil, true
+	} else {
+		klog.V(2).Infof("%q is in transition to %d, but has not made progress because %s", currNodeState.NodeName, currNodeState.TargetRevision, reason)
+	}
+	return false, nil, false
 }
 
 func (c *InstallerController) updateRevisionStatus(operatorStatus *operatorv1.StaticPodOperatorStatus) error {
@@ -517,7 +536,7 @@ func setAvailableProgressingNodeInstallerFailingConditions(newStatus *operatorv1
 }
 
 // newNodeStateForInstallInProgress returns the new NodeState, whether it was killed by OOM or an error
-func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, latestRevisionAvailable int32) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
+func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *operatorv1.NodeStatus, newRevisionPending bool) (status *operatorv1.NodeStatus, installerPodFailed bool, reason string, err error) {
 	ret := currNodeState.DeepCopy()
 	installerPod, err := c.podsGetter.Pods(c.targetNamespace).Get(getInstallerPodName(currNodeState.TargetRevision, currNodeState.NodeName), metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
@@ -536,11 +555,11 @@ func (c *InstallerController) newNodeStateForInstallInProgress(currNodeState *op
 
 	switch installerPod.Status.Phase {
 	case corev1.PodSucceeded:
-		if pendingNewRevision := latestRevisionAvailable > currNodeState.TargetRevision; pendingNewRevision {
+		if newRevisionPending {
 			// stop early, don't wait for ready static pod because a new revision is waiting
 			ret.LastFailedRevision = currNodeState.TargetRevision
 			ret.TargetRevision = 0
-			ret.LastFailedRevisionErrors = []string{fmt.Sprintf("static pod of revision %d has been installed, but is not ready while new revision %d is pending", currNodeState.TargetRevision, latestRevisionAvailable)}
+			ret.LastFailedRevisionErrors = []string{fmt.Sprintf("static pod of revision has been installed, but is not ready while new revision %d is pending", currNodeState.TargetRevision)}
 			return ret, false, "new revision pending", nil
 		}
 
@@ -649,7 +668,7 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 
-	ownerRefs, err := c.ownerRefsFn(revision)
+	ownerRefs, err := c.setOwnerRefs(revision)
 	if err != nil {
 		return fmt.Errorf("unable to set installer pod ownerrefs: %+v", err)
 	}

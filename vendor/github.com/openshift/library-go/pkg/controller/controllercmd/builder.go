@@ -232,11 +232,7 @@ func (b *ControllerBuilder) Run(config *unstructured.Unstructured, ctx context.C
 		return fmt.Errorf("exited")
 	}
 
-	// ensure blocking TCP connections don't block the leader election
-	leaderConfig := rest.CopyConfig(clientConfig)
-	leaderConfig.Timeout = b.leaderElection.RenewDeadline.Duration
-
-	leaderElection, err := leaderelectionconverter.ToConfigMapLeaderElection(leaderConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
+	leaderElection, err := leaderelectionconverter.ToConfigMapLeaderElection(clientConfig, *b.leaderElection, b.componentName, b.instanceIdentity)
 	if err != nil {
 		return err
 	}
