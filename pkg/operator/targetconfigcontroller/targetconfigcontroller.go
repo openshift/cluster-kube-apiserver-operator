@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
 
-	"k8s.io/klog"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -24,6 +24,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -233,6 +234,14 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		".oauthConfig": RemoveConfig,
 	}
 
+	unprunedBytes, err := resourcemerge.MergePrunedProcessConfig(nil, specialMergeRules,
+		defaultConfig,
+		operatorSpec.ObservedConfig.Raw,
+		operatorSpec.UnsupportedConfigOverrides.Raw)
+	if err != nil {
+		return nil, false, err
+	}
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&kubecontrolplanev1.KubeAPIServerConfig{},
 		configMap,
@@ -245,7 +254,33 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+
+	cm, changed, err := resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	if changed {
+		var unpruned, pruned map[string]interface{}
+
+		if err := json.Unmarshal(unprunedBytes, &unpruned); err != nil {
+			return nil, false, err
+		}
+		if err := json.Unmarshal([]byte(requiredConfigMap.Data["config.yaml"]), &pruned); err != nil {
+			return nil, false, err
+		}
+		// top-level keys are allowed to be pruned, anything inside is not
+		for k := range unpruned {
+			if _, ok := pruned[k]; !ok {
+				delete(unpruned, k)
+			}
+		}
+		topLevelCleanedUnpruned, err := json.Marshal(unpruned)
+		if err != nil {
+			return nil, false, err
+		}
+		if !reflect.DeepEqual(unpruned, pruned) {
+			klog.Warningf("unexpected pruned configuration fields: %s", diff.StringDiff(string(topLevelCleanedUnpruned), string(unprunedBytes)))
+		}
+	}
+
+	return cm, changed, err
 }
 
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
