@@ -249,6 +249,10 @@ github.com/openshift/library-go v0.0.0-20191209093827-acc37612b9f9 h1:bb07omT6Nz
 github.com/openshift/library-go v0.0.0-20191209093827-acc37612b9f9/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/openshift/library-go v0.0.0-20191209154952-998f403c47c2 h1:Pa8bo3zKZd/d9aeXtinD7D1pNio4t1jgsEGRN9QN4VI=
 github.com/openshift/library-go v0.0.0-20191209154952-998f403c47c2/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
+github.com/openshift/library-go v0.0.0-20191210115320-7fa7472f99df h1:AS/YBsQke0bqW30gzP4ODP0cMQT7JQ2UbFtA4HcL8ng=
+github.com/openshift/library-go v0.0.0-20191210115320-7fa7472f99df/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
+github.com/openshift/library-go v0.0.0-20191210125924-37b9180d4790 h1:y3XUDaVobJogwT7UBYNJKYQIWHItK1h4mFMV71Jkbp8=
+github.com/openshift/library-go v0.0.0-20191210125924-37b9180d4790/go.mod h1:NBttNjZpWwup/nthuLbPAPSYC8Qyo+BBK5bCtFoyYjo=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
