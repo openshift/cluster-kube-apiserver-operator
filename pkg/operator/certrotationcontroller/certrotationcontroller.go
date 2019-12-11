@@ -1,6 +1,7 @@
 package certrotationcontroller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -526,16 +527,16 @@ func (c *CertRotationController) RunOnce() error {
 	return utilerrors.NewAggregate(errlist)
 }
 
-func (c *CertRotationController) Run(workers int, stopCh <-chan struct{}) {
+func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	klog.Infof("Starting CertRotation")
 	defer klog.Infof("Shutting down CertRotation")
-	c.WaitForReady(stopCh)
+	c.WaitForReady(ctx.Done())
 
-	go wait.Until(c.runServiceHostnames, time.Second, stopCh)
-	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, stopCh)
-	go wait.Until(c.runInternalLoadBalancerHostnames, time.Second, stopCh)
+	go wait.Until(c.runServiceHostnames, time.Second, ctx.Done())
+	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, ctx.Done())
+	go wait.Until(c.runInternalLoadBalancerHostnames, time.Second, ctx.Done())
 
 	for _, certRotator := range c.certRotators {
-		go certRotator.Run(workers, stopCh)
+		go certRotator.Run(ctx, workers)
 	}
 }
