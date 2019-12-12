@@ -4,6 +4,8 @@ metadata:
   # TODO this should be a clusterrole
   name: prometheus-k8s
   namespace: openshift-kube-apiserver-operator
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 rules:
 - apiGroups:
   - ""

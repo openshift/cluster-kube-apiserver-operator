@@ -3,6 +3,8 @@ kind: Role
 metadata:
   name: prometheus-k8s
   namespace: openshift-kube-apiserver
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 rules:
 - apiGroups:
   - ""
@@ -20,6 +22,8 @@ kind: RoleBinding
 metadata:
   name: prometheus-k8s
   namespace: openshift-kube-apiserver
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

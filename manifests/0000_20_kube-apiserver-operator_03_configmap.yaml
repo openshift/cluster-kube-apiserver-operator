@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   namespace: openshift-kube-apiserver-operator
   name: kube-apiserver-operator-config
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 data:
   config.yaml: |
     apiVersion: operator.openshift.io/v1

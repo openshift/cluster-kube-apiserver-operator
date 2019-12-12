@@ -4,5 +4,6 @@ metadata:
   name: cluster
   annotations:
     release.openshift.io/create-only: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   managementState: Managed
