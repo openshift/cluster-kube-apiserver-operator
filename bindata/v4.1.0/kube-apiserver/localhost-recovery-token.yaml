@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: localhost-recovery-client-token
+  namespace: openshift-kube-apiserver
+  annotations:
+    kubernetes.io/service-account.name: localhost-recovery-client
+type: kubernetes.io/service-account-token
