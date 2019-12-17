@@ -38,20 +38,20 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 )
 
-func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error {
+func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
-	kubeClient, err := kubernetes.NewForConfig(cc.ProtoKubeConfig)
+	kubeClient, err := kubernetes.NewForConfig(controllerContext.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
-	migrationClientConfig := dynamic.ConfigFor(cc.KubeConfig)
+	migrationClientConfig := dynamic.ConfigFor(controllerContext.KubeConfig)
 	migrationClientConfig.Burst = 40
 	migrationClientConfig.QPS = 30
 	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
-	configClient, err := configv1client.NewForConfig(cc.KubeConfig)
+	configClient, err := configv1client.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		"openshift-etcd",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(cc.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		operatorClient,
 		kubeInformersForNamespaces,
 		kubeClient,
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		kubeInformersForNamespaces,
 		configInformers,
 		resourceSyncController,
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
@@ -95,7 +95,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
 		kubeClient,
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 
 	// don't change any versions until we sync
@@ -110,7 +110,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
 	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
-		WithEvents(cc.EventRecorder).
+		WithEvents(controllerContext.EventRecorder).
 		WithInstaller([]string{"cluster-kube-apiserver-operator", "installer"}).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
@@ -135,7 +135,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		configInformers.Config().V1().ClusterOperators(),
 		operatorClient,
 		versionRecorder,
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 
 	certRotationScale, err := certrotation.GetCertRotationScale(kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
@@ -148,7 +148,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		operatorClient,
 		configInformers,
 		kubeInformersForNamespaces,
-		cc.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
+		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 		certRotationScale,
 	)
 	if err != nil {
@@ -171,7 +171,7 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 		schema.GroupResource{Group: "", Resource: "secrets"},
 		schema.GroupResource{Group: "", Resource: "configmaps"},
 	)
@@ -182,20 +182,20 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
 		operatorClient,
 		configInformers,
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 
 	certRotationTimeUpgradeableController := certrotationtimeupgradeablecontroller.NewCertRotationTimeUpgradeableController(
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
-		cc.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
+		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
 	terminationObserver := terminationobserver.NewTerminationObserver(
 		operatorclient.TargetNamespace,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient.CoreV1(),
-		cc.EventRecorder,
+		controllerContext.EventRecorder,
 	)
 
 	// register termination metrics
