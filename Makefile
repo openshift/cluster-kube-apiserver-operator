@@ -7,6 +7,7 @@ include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machine
 	targets/openshift/bindata.mk \
 	targets/openshift/images.mk \
 	targets/openshift/crd-schema-gen.mk \
+	targets/openshift/deps.mk \
 )
 
 # Set crd-schema-gen variables
