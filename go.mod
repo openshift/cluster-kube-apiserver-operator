@@ -15,7 +15,7 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
-	github.com/openshift/api v0.0.0-20191217141120-791af96035a5
+	github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6
 	github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e
 	github.com/openshift/library-go v0.0.0-20191218095328-1c12909e5923
 	github.com/prometheus/client_golang v1.1.0
