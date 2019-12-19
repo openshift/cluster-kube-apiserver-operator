@@ -79,3 +79,5 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 		ch <- g
 	}
 }
+
+func (m *configMetrics) ClearState() {}
