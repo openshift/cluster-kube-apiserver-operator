@@ -305,6 +305,8 @@ github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5X
 github.com/openshift/api v0.0.0-20191213091414-3fbf6bcf78e8/go.mod h1:dh9o4Fs58gpFXGSYfnVxGR9PnV53I8TW84pQaJDdGiY=
 github.com/openshift/api v0.0.0-20191217141120-791af96035a5 h1:iNT2RyvG4HrDU95JH1/6l+oALMmzgLL/Tp3AXAje0ic=
 github.com/openshift/api v0.0.0-20191217141120-791af96035a5/go.mod h1:dOo9oLY4lehI1ZZvNtMKwRVZTqG0y+z8564y1cf1ZOw=
+github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6 h1:SxAWPzmw6o8FZ9MMfYqZ6s/DpIadkztdUb+IMyezqY4=
+github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6/go.mod h1:dv+J0b/HWai0QnMVb37/H0v36klkLBi2TNpPeWDxX10=
 github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e h1:l+fwEFa4Voy9u+6pVOJI33sxwddz1oJ6rbVYpDfGytY=
 github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e/go.mod h1:nLJaHFCQ5Mavh98g2ejEnWYFWBMGVdphrKNjLErOn/w=
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454 h1:iLsYWhstnDtzE2Syn3QJQrx4F7mpcpwhAPNbk0Zkpvo=
