@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -61,4 +64,40 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, configv1helpers.IsStatusConditionTrue(clusteroperator.Status.Conditions, "Upgradeable"))
 
+}
+
+func TestCertRotationStompOnBadType(t *testing.T) {
+	kubeConfig, err := test.NewClientConfigForTest()
+	require.NoError(t, err)
+	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
+
+	// this is inherently racy against a controller
+	err = wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (done bool, err error) {
+		if err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Delete("aggregator-client-signer", nil); err != nil {
+			return false, nil
+		}
+		if _, err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Create(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.OperatorNamespace, Name: "aggregator-client-signer"},
+			Type:       "Opaque",
+		}); err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+	require.NoError(t, err)
+
+	err = wait.PollImmediate(100*time.Millisecond, 30*time.Second, func() (done bool, err error) {
+		curr, err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Get("aggregator-client-signer", metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if curr.Type == corev1.SecretTypeTLS {
+			return true, nil
+		}
+		return false, nil
+	})
+	require.NoError(t, err)
 }
