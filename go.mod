@@ -17,7 +17,7 @@ require (
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6
 	github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e
-	github.com/openshift/library-go v0.0.0-20200103144857-38e0f6451b16
+	github.com/openshift/library-go v0.0.0-20200106191802-9821002633e8
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
