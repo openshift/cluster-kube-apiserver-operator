@@ -10,18 +10,20 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
-	github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6
+	github.com/openshift/api v0.0.0-20200107135504-b46f4769b3cb
 	github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e
 	github.com/openshift/library-go v0.0.0-20200103144857-38e0f6451b16
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.1-beta.0
 	k8s.io/apiserver v0.17.0
