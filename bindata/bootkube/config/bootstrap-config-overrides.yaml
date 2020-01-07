@@ -61,4 +61,5 @@ apiServerArguments:
     - "NodeDisruptionExclusion=true"
     - "ServiceNodeExclusion=true"
     - "SCTPSupport=true"
+    - "IPv6DualStack=true"
     - "LegacyNodeRoleBehavior=false"
