@@ -1,6 +1,8 @@
 package network
 
 import (
+	"net"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
@@ -73,30 +75,42 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 }
 
 // ObserveServicesSubnet watches the network configuration and generates the
-// servicesSubnet
+// servicesSubnet (and bindAddress)
 func ObserveServicesSubnet(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 
 	out := map[string]interface{}{}
-	configPath := []string{"servicesSubnet"}
+	servicesSubnetConfigPath := []string{"servicesSubnet"}
+	bindAddressConfigPath := []string{"servingInfo", "bindAddress"}
+	bindNetworkConfigPath := []string{"servingInfo", "bindNetwork"}
 
-	prev, ok, err := unstructured.NestedString(existingConfig, configPath...)
-	if err != nil {
-		return out, []error{err}
-	}
-	if ok {
-		if err := unstructured.SetNestedField(out, prev, configPath...); err != nil {
-			return out, []error{err}
-		}
-	}
+	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesSubnetConfigPath, bindAddressConfigPath, bindNetworkConfigPath)
 
-	errs := []error{}
 	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
+		return previouslyObservedConfig, errs
 	}
 
-	if err := unstructured.SetNestedField(out, serviceCIDR, configPath...); err != nil {
+	if err := unstructured.SetNestedField(out, serviceCIDR, servicesSubnetConfigPath...); err != nil {
+		errs = append(errs, err)
+	}
+	bindAddress := "0.0.0.0:6443"
+	bindNetwork := "tcp4"
+	// TODO: only do this in the single-stack IPv6 case once network.GetServiceCIDR()
+	// supports dual-stack
+	if serviceCIDR != "" {
+		if ip, _, err := net.ParseCIDR(serviceCIDR); err != nil {
+			errs = append(errs, err)
+		} else if ip.To4() == nil {
+			bindAddress = "[::]:6443"
+			bindNetwork = "tcp6"
+		}
+	}
+	if err := unstructured.SetNestedField(out, bindAddress, bindAddressConfigPath...); err != nil {
+		errs = append(errs, err)
+	}
+	if err := unstructured.SetNestedField(out, bindNetwork, bindNetworkConfigPath...); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -123,7 +137,8 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	// 2. Null externalip policy: enable the externalip admission controller with deny-all
 	// 3. Non-null policy: enable the externalip admission controller, pass through configuration.
 
-	errs := []error{}
+	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, configPath)
+
 	externalIPPolicy, err := network.GetExternalIPPolicy(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
@@ -138,14 +153,6 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	// Case 1: retrieval error. Pass through our existing configuration path,
 	// if it exists.
 	if len(errs) > 0 {
-		previouslyObservedConfig := map[string]interface{}{}
-
-		// an error here is very unlikely
-		prevConfig, ok, err2 := unstructured.NestedMap(existingConfig, configPath...)
-		if ok && err2 != nil {
-			unstructured.SetNestedMap(previouslyObservedConfig, prevConfig, configPath...)
-		}
-
 		return previouslyObservedConfig, errs
 	}
 
@@ -181,4 +188,24 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
 
 	return observedConfig, errs
+}
+
+// extractPreviouslyObservedConfig extracts the previously observed config from the existing config.
+func extractPreviouslyObservedConfig(existing map[string]interface{}, paths ...[]string) (map[string]interface{}, []error) {
+	var errs []error
+	previous := map[string]interface{}{}
+	for _, fields := range paths {
+		value, found, err := unstructured.NestedFieldCopy(existing, fields...)
+		if !found {
+			continue
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+		err = unstructured.SetNestedField(previous, value, fields...)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return previous, errs
 }

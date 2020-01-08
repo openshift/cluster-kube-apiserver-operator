@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
@@ -130,6 +131,12 @@ type TemplateData struct {
 
 	// ServiceClusterIPRange is the IP range for service IPs.
 	ServiceCIDR []string
+
+	// BindAddress is the IP address and port to bind to
+	BindAddress string
+
+	// BindNetwork is the network (tcp4 or tcp6) to bind to
+	BindNetwork string
 }
 
 // Run contains the logic of the render command.
@@ -138,6 +145,8 @@ func (r *renderOpts) Run() error {
 		LockHostPath:   r.lockHostPath,
 		EtcdServerURLs: r.etcdServerURLs,
 		EtcdServingCA:  r.etcdServingCA,
+		BindAddress:    "0.0.0.0:6443",
+		BindNetwork:    "tcp4",
 	}
 	if len(r.clusterConfigFile) > 0 {
 		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
@@ -146,6 +155,24 @@ func (r *renderOpts) Run() error {
 		}
 		if err = discoverCIDRs(clusterConfigFileData, &renderConfig); err != nil {
 			return fmt.Errorf("unable to parse restricted CIDRs from config %q: %v", r.clusterConfigFile, err)
+		}
+	}
+	if len(renderConfig.ClusterCIDR) > 0 {
+		anyIPv4 := false
+		for _, cidr := range renderConfig.ClusterCIDR {
+			cidrBaseIP, _, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return fmt.Errorf("invalid cluster CIDR %q: %v", cidr, err)
+			}
+			if cidrBaseIP.To4() != nil {
+				anyIPv4 = true
+				break
+			}
+		}
+		if !anyIPv4 {
+			// Single-stack IPv6 cluster, so listen on IPv6 not IPv4.
+			renderConfig.BindAddress = "[::]:6443"
+			renderConfig.BindNetwork = "tcp6"
 		}
 	}
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {

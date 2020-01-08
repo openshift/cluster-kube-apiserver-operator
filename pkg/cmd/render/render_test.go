@@ -53,6 +53,38 @@ spec:
     - 172.30.0.0/16
 status: {}
 `
+	networkConfigV6 = `
+apiVersion: config.openshift.io/v1
+kind: Network
+metadata:
+  creationTimestamp: null
+  name: cluster
+spec:
+  clusterNetwork:
+    - cidr: fd01::/48
+      hostPrefix: 64
+  networkType: OpenShiftSDN
+  serviceNetwork:
+    - fd02::/112
+status: {}
+`
+	networkConfigDual = `
+apiVersion: config.openshift.io/v1
+kind: Network
+metadata:
+  creationTimestamp: null
+  name: cluster
+spec:
+  clusterNetwork:
+    - cidr: fd01::/48
+      hostPrefix: 64
+    - cidr: 10.128.0.0/14
+      hostPrefix: 23
+  networkType: OpenShiftSDN
+  serviceNetwork:
+    - 172.30.0.0/16
+status: {}
+`
 )
 
 func TestDiscoverCIDRsFromNetwork(t *testing.T) {
@@ -130,9 +162,10 @@ func TestRenderCommand(t *testing.T) {
 
 	tests := []struct {
 		// note the name is used as a name for a temporary directory
-		name         string
-		args         []string
-		testFunction func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
+		name          string
+		args          []string
+		setupFunction func() error
+		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
 	}{
 		{
 			name: "scenario 1 checks feature gates",
@@ -177,6 +210,50 @@ func TestRenderCommand(t *testing.T) {
 				return nil
 			},
 		},
+		{
+			name: "scenario 2 checks BindAddress under IPv6",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-v6.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v6.yaml"), []byte(networkConfigV6), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if cfg.ServingInfo.BindAddress != "[::]:6443" {
+					return fmt.Errorf("incorrect IPv6 BindAddress: %s", cfg.ServingInfo.BindAddress)
+				}
+				if cfg.ServingInfo.BindNetwork != "tcp6" {
+					return fmt.Errorf("incorrect IPv6 BindNetwork: %s", cfg.ServingInfo.BindNetwork)
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 3 checks BindAddress under dual IPv4-IPv6",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-v4.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v4.yaml"), []byte(networkConfigDual), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if cfg.ServingInfo.BindAddress != "0.0.0.0:6443" {
+					return fmt.Errorf("incorrect IPv4 BindAddress: %s", cfg.ServingInfo.BindAddress)
+				}
+				if cfg.ServingInfo.BindNetwork != "tcp4" {
+					return fmt.Errorf("incorrect IPv4 BindNetwork: %s", cfg.ServingInfo.BindNetwork)
+				}
+				return nil
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -186,6 +263,12 @@ func TestRenderCommand(t *testing.T) {
 			t.Fatalf("%s: unexpected error: %v", test.name, err)
 		}
 		defer teardown()
+
+		if test.setupFunction != nil {
+			if err := test.setupFunction(); err != nil {
+				t.Fatalf("%q failed to set up, error: %v", test.name, err)
+			}
+		}
 
 		test.args = setOutputFlags(test.args, outputDir)
 		err = runRender(test.args...)
