@@ -10,7 +10,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
-// ObserveRestrictedCIDRs generates two configuration
+// ObserveRestrictedCIDRs watches the network configuration and updates the
+// RestrictedEndpointsAdmission controller config.
 func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 
@@ -52,7 +53,7 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 	//      network.openshift.io/RestrictedEndpointsAdmission:
 	//        configuration:
 	//          version: network.openshift.io/v1
-	//          kind: RestrictedEndpointsAdmission
+	//          kind: RestrictedEndpointsAdmissionConfig
 	//          restrictedCIDRs:
 	//            - 10.3.0.0/16 # ServiceCIDR
 	//            - 10.2.0.0/16 # ClusterCIDR
@@ -100,4 +101,32 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 	}
 
 	return out, errs
+}
+
+// ObserveExternalIPPolicy observes the network configuration and generates the
+// ExternalIPRanger admission controller accordingly.
+func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	// set observed values
+	//  admission:
+	//    pluginConfig:
+	//      network.openshift.io/ExternalIPRanger:
+	//        configuration:
+	//          version: network.openshift.io/v1
+	//          kind: ExternalIPRangerAdmissionConfig
+	//          externalIPNetworkCIDRs: [...]
+	observedConfig := map[string]interface{}{}
+	configPath := []string{"admission", "pluginConfig", "network.openshift.io/ExternalIPRanger", "configuration"}
+
+	// For 4.1, we didn't expose the ExternalIP in the network spec so only need to block all IPs by default.
+
+	// Policy, synthesize config
+	// Simply by creating this configuration, the admission controller will
+	// be enabled and block all IPs by default.
+	admissionControllerConfig := unstructured.Unstructured{}
+	admissionControllerConfig.SetAPIVersion("network.openshift.io/v1")
+	admissionControllerConfig.SetKind("ExternalIPRangerAdmissionConfig")
+
+	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
+
+	return observedConfig, []error{}
 }
