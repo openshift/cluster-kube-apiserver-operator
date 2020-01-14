@@ -203,7 +203,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/listers/config/v1
 github.com/openshift/client-go/operator/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1
-# github.com/openshift/library-go v0.0.0-20200109145143-01e799204bbd
+# github.com/openshift/library-go v0.0.0-20200114124611-9ace650367d2
 github.com/openshift/library-go/alpha-build-machinery
 github.com/openshift/library-go/alpha-build-machinery/make
 github.com/openshift/library-go/alpha-build-machinery/make/lib
@@ -249,6 +249,7 @@ github.com/openshift/library-go/pkg/operator/render
 github.com/openshift/library-go/pkg/operator/render/options
 github.com/openshift/library-go/pkg/operator/resource/resourceapply
 github.com/openshift/library-go/pkg/operator/resource/resourcegraph
+github.com/openshift/library-go/pkg/operator/resource/resourcehelper
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
 github.com/openshift/library-go/pkg/operator/resource/resourceread
 github.com/openshift/library-go/pkg/operator/resource/retry
