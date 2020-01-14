@@ -11,10 +11,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 
+	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -46,13 +47,6 @@ import (
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.ProtoKubeConfig)
-	if err != nil {
-		return err
-	}
-	migrationClientConfig := dynamic.ConfigFor(controllerContext.KubeConfig)
-	migrationClientConfig.Burst = 40
-	migrationClientConfig.QPS = 30
-	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
@@ -187,7 +181,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
-	migrator := migrators.NewInProcessMigrator(dynamicClientForMigration, kubeClient.Discovery())
+
+	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerContext.KubeConfig)
+	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
+	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
@@ -234,6 +231,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	migrationInformer.Start(ctx.Done())
 
 	go staticPodControllers.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
