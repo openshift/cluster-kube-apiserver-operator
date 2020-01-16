@@ -86,5 +86,13 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// this ca bundle contains public keys that can be used to verify bound tokens issued by the kube-apiserver
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "bound-sa-token-signing-certs"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "bound-sa-token-signing-certs"},
+	); err != nil {
+		return nil, err
+	}
+
 	return resourceSyncController, nil
 }

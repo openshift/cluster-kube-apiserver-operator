@@ -32,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
@@ -225,6 +226,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	boundSATokenSignerController := boundsatokensignercontroller.NewBoundSATokenSignerController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		kubeClient,
+		controllerContext.EventRecorder,
+	)
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -246,6 +254,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
 	go terminationObserver.Run(ctx, 1)
+	go boundSATokenSignerController.Run(ctx)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
