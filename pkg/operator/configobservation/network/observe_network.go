@@ -113,7 +113,8 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	//        configuration:
 	//          version: network.openshift.io/v1
 	//          kind: ExternalIPRangerAdmissionConfig
-	//          externalIPNetworkCIDRs: [...]
+	//          externalIPNetworkCIDRs: []
+	//          allowIngressIP: false
 	observedConfig := map[string]interface{}{}
 	configPath := []string{"admission", "pluginConfig", "network.openshift.io/ExternalIPRanger", "configuration"}
 
@@ -125,7 +126,7 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	admissionControllerConfig := unstructured.Unstructured{}
 	admissionControllerConfig.SetAPIVersion("network.openshift.io/v1")
 	admissionControllerConfig.SetKind("ExternalIPRangerAdmissionConfig")
-
+	unstructured.SetNestedField(admissionControllerConfig.Object, false, "allowIngressIP")
 	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
 
 	return observedConfig, []error{}
