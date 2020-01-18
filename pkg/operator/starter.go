@@ -270,6 +270,12 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "oauth-metadata", Optional: true},
 	{Name: "cloud-config", Optional: true},
 
+	// This configmap is managed by the operator, but ensuring a revision history
+	// supports signing key promotion. Promotion requires knowing whether the current
+	// public key is present in the configmap(s) associated with the current
+	// revision(s) of the master nodes.
+	{Name: "bound-sa-token-signing-certs"},
+
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-serving-ca"},
 	{Name: "kube-apiserver-server-ca", Optional: true},
@@ -304,6 +310,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
+	{Name: "bound-service-account-signing-key"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},

@@ -1,0 +1,17 @@
+apiVersion: kubecontrolplane.config.openshift.io/v1
+kind: KubeAPIServerConfig
+apiServerArguments:
+  # The following arguments are required to enable bound sa
+  # tokens. This is only supported post-bootstrap so these
+  # values must not appear in defaultconfig.yaml.
+  service-account-issuer:
+  - auth.openshift.io
+  api-audiences:
+  - auth.openshift.io
+  service-account-signing-key-file:
+  - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
+serviceAccountPublicKeyFiles:
+  - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  # The following path contains the public keys needed to verify bound sa
+  # tokens. This is only supported post-bootstrap.
+  - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
