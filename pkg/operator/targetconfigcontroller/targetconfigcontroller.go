@@ -75,12 +75,9 @@ func NewTargetConfigController(
 	}
 
 	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Rbac().V1().Roles().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Rbac().V1().RoleBindings().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
 
 	// we react to some config changes
 	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
@@ -166,21 +163,6 @@ func isRequiredConfigPresent(config []byte) error {
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
 func createTargetConfig(c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
-
-	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v410_00_assets.Asset,
-		"v4.1.0/kube-apiserver/ns.yaml",
-		"v4.1.0/kube-apiserver/svc.yaml",
-		"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
-		"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
-		"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
-		"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
-	)
-
-	for _, currResult := range directResourceResults {
-		if currResult.Error != nil {
-			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
-		}
-	}
 
 	_, _, err := manageKubeAPIServerConfig(c.kubeClient.CoreV1(), recorder, operatorSpec)
 	if err != nil {
