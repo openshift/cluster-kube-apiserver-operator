@@ -496,4 +496,6 @@ func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	for _, certRotator := range c.certRotators {
 		go certRotator.Run(ctx, workers)
 	}
+
+	<-ctx.Done()
 }
