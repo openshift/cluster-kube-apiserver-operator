@@ -15,18 +15,18 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
-	github.com/openshift/api v0.0.0-20191219160953-2f4dddbbf3e6
-	github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e
-	github.com/openshift/library-go v0.0.0-20200114124611-9ace650367d2
+	github.com/openshift/api v0.0.0-20200122114642-1108c9abdb99
+	github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240
+	github.com/openshift/library-go v0.0.0-20200123002050-ef5fb66e6346
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
-	k8s.io/api v0.17.0
-	k8s.io/apimachinery v0.17.1-beta.0
-	k8s.io/apiserver v0.17.0
-	k8s.io/client-go v0.17.0
-	k8s.io/component-base v0.17.0
+	k8s.io/api v0.17.1
+	k8s.io/apimachinery v0.17.1
+	k8s.io/apiserver v0.17.1
+	k8s.io/client-go v0.17.1
+	k8s.io/component-base v0.17.1
 	k8s.io/klog v1.0.0
 )
 
