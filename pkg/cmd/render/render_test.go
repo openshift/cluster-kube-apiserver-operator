@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
@@ -160,6 +161,10 @@ func TestRenderCommand(t *testing.T) {
 	}
 	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
 
+	// tempDisabledFeatureGates lists feature gates that we temporarily disabled.
+	// TODO: Remove this once the IPv6DualStack feature can deal with old clients
+	tempDisabledFeatureGates := sets.NewString("IPv6DualStack") // IPv6DualStack is bugged, don't turn it on
+
 	tests := []struct {
 		// note the name is used as a name for a temporary directory
 		name          string
@@ -186,9 +191,15 @@ func TestRenderCommand(t *testing.T) {
 				}
 				expectedGates := []string{}
 				for _, enabledFG := range defaultFG.Enabled {
+					if tempDisabledFeatureGates.Has(enabledFG) {
+						continue
+					}
 					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG))
 				}
 				for _, disabledFG := range defaultFG.Disabled {
+					if tempDisabledFeatureGates.Has(disabledFG) {
+						continue
+					}
 					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG))
 				}
 				if len(actualGates) != len(expectedGates) {

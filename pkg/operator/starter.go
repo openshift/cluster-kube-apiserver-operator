@@ -6,6 +6,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -87,6 +92,28 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		resourceSyncController,
 		controllerContext.EventRecorder,
 	)
+
+	staticResourceController := staticresourcecontroller.NewStaticResourceController(
+		"KubeAPIServerStaticResources",
+		v410_00_assets.Asset,
+		[]string{
+			"v4.1.0/kube-apiserver/ns.yaml",
+			"v4.1.0/kube-apiserver/svc.yaml",
+			"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
+			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
+			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
+			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
+		},
+		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
+		operatorClient,
+		controllerContext.EventRecorder,
+	).
+		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer()).
+		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer()).
+		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ServiceAccounts().Informer()).
+		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Services().Informer()).
+		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Rbac().V1().ClusterRoleBindings().Informer()).
+		AddNamespaceInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Namespaces().Informer(), operatorclient.TargetNamespace)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
@@ -210,6 +237,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	go staticPodControllers.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
+	go staticResourceController.Run(ctx, 1)
 	go targetConfigReconciler.Run(1, ctx.Done())
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
