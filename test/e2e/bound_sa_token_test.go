@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -12,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -213,4 +216,76 @@ func TestTokenRequestAndReview(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, trev.Status.Error)
 	require.True(t, trev.Status.Authenticated)
+}
+
+// TestChangeServiceAccountIssuer checks that the operator considers
+// the value set for Authentication.ServiceAccountIssuer when setting
+// the configuration configmap for the apiserver pods.
+func TestChangeServiceAccountIssuer(t *testing.T) {
+	kubeConfig, err := testlibrary.NewClientConfigForTest()
+	require.NoError(t, err)
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	require.NoError(t, err)
+	coreClient := kubeClient.CoreV1()
+	configClient, err := configclient.NewForConfig(kubeConfig)
+	require.NoError(t, err)
+
+	// Wait for operator readiness
+	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+
+	defaultIssuer := "auth.openshift.io"
+
+	// Check that the default issuer is set in the operand config
+	require.NoError(t, pollForOperandIssuer(t, coreClient, defaultIssuer))
+
+	nonDefaultIssuer := "https://my-custom-issuer.com"
+	// Update the issuer to a valid value (corner cases are unit tested)
+	setServiceAccountIssuer(t, configClient, nonDefaultIssuer)
+	// Check that the issuer has changed to the non-default value
+	require.NoError(t, pollForOperandIssuer(t, coreClient, nonDefaultIssuer))
+
+	// Clear the issuer
+	setServiceAccountIssuer(t, configClient, "")
+	// Check that the issuer has changed back to the default
+	require.NoError(t, pollForOperandIssuer(t, coreClient, defaultIssuer))
+}
+
+func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, expectedIssuer string) error {
+	return wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
+		configMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get("config", metav1.GetOptions{})
+		if err != nil {
+			t.Errorf("failed to retrieve apiserver config configmap: %v", err)
+			return false, nil
+		}
+		// key has a .yaml extension but actual format is json
+		rawConfig := configMap.Data["config.yaml"]
+		if len(rawConfig) == 0 {
+			t.Logf("config.yaml is empty in apiserver config configmap")
+			return false, nil
+		}
+		config := map[string]interface{}{}
+		if err := json.NewDecoder(bytes.NewBuffer([]byte(rawConfig))).Decode(&config); err != nil {
+			t.Errorf("error parsing config, %v", err)
+			return false, nil
+		}
+		issuers, found, err := unstructured.NestedStringSlice(config, "apiServerArguments", "service-account-issuer")
+		if !found {
+			t.Log("apiServerArguments.service-account-issuer not found in config")
+			return false, nil
+		}
+		issuer := issuers[0]
+		if !found || expectedIssuer != issuer {
+			t.Logf("expected service account issuer to be %q, got %q", expectedIssuer, issuer)
+			return false, nil
+		}
+		return true, nil
+	})
+}
+
+func setServiceAccountIssuer(t *testing.T, client configclient.ConfigV1Interface, issuer string) {
+	auth, err := client.Authentications().Get("cluster", metav1.GetOptions{})
+	require.NoError(t, err)
+	auth.Spec.ServiceAccountIssuer = issuer
+	_, err = client.Authentications().Update(auth)
+	require.NoError(t, err)
 }
