@@ -25,8 +25,8 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
-	k8s.io/api v0.17.2
-	k8s.io/apimachinery v0.17.2
+	k8s.io/api v0.17.1
+	k8s.io/apimachinery v0.17.1
 	k8s.io/apiserver v0.17.1
 	k8s.io/client-go v0.17.1
 	k8s.io/component-base v0.17.1
@@ -38,9 +38,9 @@ replace (
 	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454
 
 	// upstream kube-storage-version-migrator forces these to require a replace
-	k8s.io/api => k8s.io/api v0.17.0
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.17.0
-	k8s.io/apimachinery => k8s.io/apimachinery v0.17.0
-	k8s.io/client-go => k8s.io/client-go v0.17.0
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.17.0
+	k8s.io/api => k8s.io/api v0.17.1
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.17.1
+	k8s.io/apimachinery => k8s.io/apimachinery v0.17.1
+	k8s.io/client-go => k8s.io/client-go v0.17.1
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.17.1
 )
