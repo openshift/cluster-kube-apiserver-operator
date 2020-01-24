@@ -183,6 +183,9 @@ func (r *renderOpts) Run() error {
 		&renderConfig.FileConfig,
 		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v410_00_assets.MustAsset(filepath.Join(bootstrapVersion, "kube-apiserver", "defaultconfig.yaml"))},
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
+		// This file is empty since the post-bootstrap config is rendered by
+		// TargetConfigController.manageKubeAPIServerConfig.
+		// But it needs to be provided or ApplyTo will fail.
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "config-overrides.yaml")),
 		&renderConfig,
 		nil,
