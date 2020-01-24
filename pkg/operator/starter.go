@@ -33,6 +33,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
@@ -222,6 +223,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	boundSATokenSignerController := boundsatokensignercontroller.NewBoundSATokenSignerController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		kubeClient,
+		controllerContext.EventRecorder,
+	)
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -244,6 +252,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
 	go terminationObserver.Run(ctx, 1)
+	go boundSATokenSignerController.Run(ctx)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
@@ -258,6 +267,12 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-cert-syncer-kubeconfig"},
 	{Name: "oauth-metadata", Optional: true},
 	{Name: "cloud-config", Optional: true},
+
+	// This configmap is managed by the operator, but ensuring a revision history
+	// supports signing key promotion. Promotion requires knowing whether the current
+	// public key is present in the configmap(s) associated with the current
+	// revision(s) of the master nodes.
+	{Name: "bound-sa-token-signing-certs"},
 
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-serving-ca"},
@@ -293,6 +308,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
+	{Name: "bound-service-account-signing-key"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
