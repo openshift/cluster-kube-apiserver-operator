@@ -57,7 +57,7 @@ github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
-# github.com/golang/groupcache v0.0.0-20191002201903-404acd9df4cc
+# github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
@@ -125,12 +125,14 @@ github.com/jteeuwen/go-bindata
 github.com/jteeuwen/go-bindata/go-bindata
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17 => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20191031181212-bdca3bf7d454
+# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
+github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
 # github.com/mailru/easyjson v0.7.0
