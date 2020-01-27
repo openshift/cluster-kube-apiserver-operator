@@ -77,9 +77,7 @@ func TestRevisionLimits(t *testing.T) {
 		// are InProgress or Unknown (since these do not count toward failed or succeeded), which could indicate zombie revisions.
 		// Check total+1 to account for possibly a current new revision that just hasn't pruned off the oldest one yet.
 		if len(newRevisions) > int(totalRevisionLimit)+1 {
-			// TODO(marun) If number of revisions has been exceeded, need to give time for the pruning controller to
-			// progress rather than immediately failing.
-			// t.Errorf("more revisions (%v) than total allowed (%v): %+v", len(revisions), totalRevisionLimit, revisions)
+			t.Errorf("more revisions (%v) than total allowed (%v): %+v", len(revisions), totalRevisionLimit, revisions)
 		}
 
 		// No revisions in the last 30 seconds probably means we're not rapidly creating new ones and can return
