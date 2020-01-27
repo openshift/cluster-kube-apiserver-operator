@@ -83,6 +83,10 @@ spec:
       regex: network_plugin_operations_latency_microseconds|sync_proxy_rules_latency_microseconds|rest_client_request_latency_seconds
       sourceLabels:
       - __name__
+    relabelings:
+    - action: replace
+      targetLabel: apiserver
+      replacement: kube-apiserver
     port: https
     scheme: https
     tlsConfig:
@@ -115,3 +119,13 @@ spec:
         apiserver_request_count{group="extensions",version="v1beta1",resource!~"ingresses|",client!~"hyperkube/.*|cluster-policy-controller/.*"}
       labels:
         severity: warning
+  - name: apiserver-requests-in-flight
+    rules:
+      # We want to capture requests in-flight metrics for kube-apiserver and openshift-apiserver.
+      # apiserver='kube-apiserver' indicates that the source is kubernetes apiserver.
+      # apiserver='openshift-apiserver' indicates that the source is openshift apiserver.
+      # The subquery aggregates by apiserver and request kind. requestKind is {mutating|readOnly}
+      # The following query gives us maximum peak of the apiserver concurrency over a 2-minute window.
+    - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
+      expr: |
+        max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
