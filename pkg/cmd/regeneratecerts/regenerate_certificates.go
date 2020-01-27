@@ -157,7 +157,6 @@ func (o *Options) Run() error {
 		Namespace:  "openshift-kube-apiserver-operator",
 	}) // this is a fake object-reference that should hopefully place us in the correct namespace
 
-	// On manual request we want to rotate even if the certs are close to expiry to avoid case when some other cert becomes invalid just after.
 	kubeAPIServerCertRotationController, err := kubeapiservercertrotationcontroller.NewCertRotationController(
 		kubeClient,
 		nil,

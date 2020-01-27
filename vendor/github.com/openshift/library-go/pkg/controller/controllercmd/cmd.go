@@ -262,8 +262,7 @@ func (c *ControllerCommandConfig) StartController(ctx context.Context) error {
 
 	builder := NewController(c.componentName, c.startFunc).
 		WithKubeConfigFile(c.basicFlags.KubeConfigFile, nil).
-		WithComponentNamespace(c.basicFlags.Namespace).
-		WithLeaderElection(config.LeaderElection, c.basicFlags.Namespace, c.componentName+"-lock").
+		WithLeaderElection(config.LeaderElection, "", c.componentName+"-lock").
 		WithServer(config.ServingInfo, config.Authentication, config.Authorization).
 		WithRestartOnChange(exitOnChangeReactorCh, startingFileContent, observedFiles...)
 

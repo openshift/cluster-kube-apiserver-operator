@@ -251,10 +251,12 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (RunnableController
 			"manifests/installer-sa.yaml",
 			"manifests/installer-cluster-rolebinding.yaml",
 		},
-		resourceapply.NewKubeClientHolder(b.kubeClient),
+		(&resourceapply.ClientHolder{}).WithKubernetes(b.kubeClient),
 		b.staticPodOperatorClient,
 		eventRecorder,
-	).AddKubeInformers(b.kubeInformers))
+	).
+		AddInformer(operandInformers.Core().V1().ServiceAccounts().Informer()).
+		AddInformer(operandInformers.Rbac().V1().ClusterRoleBindings().Informer()))
 
 	if b.dynamicClient != nil && b.enableServiceMonitorController {
 		controllers.add(monitoring.NewMonitoringResourceController(

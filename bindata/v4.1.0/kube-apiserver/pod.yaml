@@ -109,28 +109,6 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
-  - name: kube-apiserver-cert-regeneration-controller-REVISION
-    env:
-    - name: POD_NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
-    image: ${OPERATOR_IMAGE}
-    imagePullPolicy: IfNotPresent
-    terminationMessagePolicy: FallbackToLogsOnError
-    command: ["cluster-kube-apiserver-operator", "cert-regeneration-controller"]
-    args:
-      - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
-      - --namespace=$(POD_NAMESPACE)
-      - --tls-server-name=localhost-recovery
-      - -v=2
-    resources:
-      requests:
-        memory: 50Mi
-        cpu: 10m
-    volumeMounts:
-    - mountPath: /etc/kubernetes/static-pod-resources
-      name: resource-dir
   - name: kube-apiserver-insecure-readyz-REVISION
     image: ${OPERATOR_IMAGE}
     imagePullPolicy: IfNotPresent
