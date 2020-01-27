@@ -205,7 +205,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/listers/config/v1
 github.com/openshift/client-go/operator/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1
-# github.com/openshift/library-go v0.0.0-20200123173517-9d0011759106
+# github.com/openshift/library-go v0.0.0-20200124214933-98b5598973f8
 github.com/openshift/library-go/alpha-build-machinery
 github.com/openshift/library-go/alpha-build-machinery/make
 github.com/openshift/library-go/alpha-build-machinery/make/lib
