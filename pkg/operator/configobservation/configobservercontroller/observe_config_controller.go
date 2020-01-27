@@ -93,7 +93,6 @@ func NewConfigObserver(
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
-			auth.ObserveServiceAccountIssuer,
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
 				// static path at which we expect to find the encryption config secret
