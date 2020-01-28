@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -241,7 +240,9 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 
-	go staticPodControllers.Run(ctx, 1)
+	// this run multiple controllers
+	go staticPodControllers.Start(ctx)
+
 	go resourceSyncController.Run(ctx, 1)
 	go staticResourceController.Run(ctx, 1)
 	go targetConfigReconciler.Run(ctx, 1)
@@ -255,7 +256,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go boundSATokenSignerController.Run(ctx, 1)
 
 	<-ctx.Done()
-	return fmt.Errorf("stopped")
+
+	return nil
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
