@@ -2,6 +2,7 @@ package targetconfigcontroller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -9,20 +10,6 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
-	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -32,6 +19,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+
+	"github.com/openshift/library-go/pkg/controller/factory"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
@@ -48,10 +45,6 @@ type TargetConfigController struct {
 
 	kubeClient      kubernetes.Interface
 	configMapLister corev1listers.ConfigMapLister
-	eventRecorder   events.Recorder
-
-	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
 }
 
 func NewTargetConfigController(
@@ -61,34 +54,28 @@ func NewTargetConfigController(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
-) *TargetConfigController {
+) factory.Controller {
 	c := &TargetConfigController{
 		targetImagePullSpec:   targetImagePullSpec,
 		operatorImagePullSpec: operatorImagePullSpec,
-
-		operatorClient:  operatorClient,
-		kubeClient:      kubeClient,
-		configMapLister: kubeInformersForNamespaces.ConfigMapLister(),
-		eventRecorder:   eventRecorder.WithComponentSuffix("target-config-controller"),
-
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TargetConfigController"),
+		operatorClient:        operatorClient,
+		kubeClient:            kubeClient,
+		configMapLister:       kubeInformersForNamespaces.ConfigMapLister(),
 	}
 
-	operatorClient.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-
-	// we react to some config changes
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-
-	return c
+	return factory.New().WithInformers(
+		operatorClient.Informer(),
+		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer(),
+		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer(),
+		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer(),
+	).WithSync(c.sync).ResyncEvery(time.Second).ToController("TargetConfigController", eventRecorder.WithComponentSuffix("target-config-controller"))
 }
 
-func (c TargetConfigController) sync() error {
+func (c TargetConfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
@@ -102,17 +89,17 @@ func (c TargetConfigController) sync() error {
 		// TODO probably just fail
 		return nil
 	default:
-		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
+		syncContext.Recorder().Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return nil
 	}
 
 	// block until config is observed and specific paths are present
 	if err := isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw); err != nil {
-		c.eventRecorder.Warning("ConfigMissing", err.Error())
+		syncContext.Recorder().Warning("ConfigMissing", err.Error())
 		return err
 	}
 
-	requeue, err := createTargetConfig(c, c.eventRecorder, operatorSpec)
+	requeue, err := createTargetConfig(c, syncContext.Recorder(), operatorSpec)
 	if err != nil {
 		return err
 	}
@@ -421,94 +408,6 @@ func ensureLocalhostRecoverySAToken(client coreclientv1.CoreV1Interface, recorde
 	}
 
 	return err
-}
-
-// Run starts the kube-apiserver and blocks until stopCh is closed.
-func (c *TargetConfigController) Run(workers int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	klog.Infof("Starting TargetConfigController")
-	defer klog.Infof("Shutting down TargetConfigController")
-
-	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, stopCh)
-
-	<-stopCh
-}
-
-func (c *TargetConfigController) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *TargetConfigController) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(dsKey)
-
-	err := c.sync()
-	if err == nil {
-		c.queue.Forget(dsKey)
-		return true
-	}
-
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
-
-	return true
-}
-
-// eventHandler queues the operator to check spec and status
-func (c *TargetConfigController) eventHandler() cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(workQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(workQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(workQueueKey) },
-	}
-}
-
-func (c *TargetConfigController) namespaceEventHandler() cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			ns, ok := obj.(*corev1.Namespace)
-			if !ok {
-				c.queue.Add(workQueueKey)
-			}
-			if ns.Name == operatorclient.TargetNamespace {
-				c.queue.Add(workQueueKey)
-			}
-		},
-		UpdateFunc: func(old, new interface{}) {
-			ns, ok := old.(*corev1.Namespace)
-			if !ok {
-				c.queue.Add(workQueueKey)
-			}
-			if ns.Name == operatorclient.TargetNamespace {
-				c.queue.Add(workQueueKey)
-			}
-		},
-		DeleteFunc: func(obj interface{}) {
-			ns, ok := obj.(*corev1.Namespace)
-			if !ok {
-				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
-					return
-				}
-				ns, ok = tombstone.Obj.(*corev1.Namespace)
-				if !ok {
-					utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a Namespace %#v", obj))
-					return
-				}
-			}
-			if ns.Name == operatorclient.TargetNamespace {
-				c.queue.Add(workQueueKey)
-			}
-		},
-	}
 }
 
 func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
