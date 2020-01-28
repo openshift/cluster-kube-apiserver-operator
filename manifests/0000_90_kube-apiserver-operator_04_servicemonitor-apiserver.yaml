@@ -96,22 +96,3 @@ spec:
     matchLabels:
       component: apiserver
       provider: kubernetes
----
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: kube-apiserver
-  namespace: openshift-kube-apiserver
-  annotations:
-    exclude.release.openshift.io/internal-openshift-hosted: "true"
-spec:
-  groups:
-  - name: using-deprecated-apis
-    rules:
-    - alert: UsingDeprecatedAPIExtensionsV1Beta1
-      annotations:
-        message: A client in the cluster is using deprecated extensions/v1beta1 API that will be removed soon.
-      expr: |
-        apiserver_request_count{group="extensions",version="v1beta1",resource!~"ingresses|",client!~"hyperkube/.*|cluster-policy-controller/.*"}
-      labels:
-        severity: warning
