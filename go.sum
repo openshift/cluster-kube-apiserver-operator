@@ -275,6 +275,8 @@ github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNx
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
+github.com/mfojtik/library-go v0.0.0-20200128201726-223cadbd908b h1:DV+GLDiKy/S3+kY31lxZQxU9NmX0tivL5Ovl98SwNHY=
+github.com/mfojtik/library-go v0.0.0-20200128201726-223cadbd908b/go.mod h1:/P1rPwPkaaNtylv8PLYkOTbf6tCdaNYDNqL9Y8GzJfE=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -307,8 +309,6 @@ github.com/openshift/api v0.0.0-20200122114642-1108c9abdb99 h1:WWUaFPHcREzq0p/Zf
 github.com/openshift/api v0.0.0-20200122114642-1108c9abdb99/go.mod h1:fT6U/JfG8uZzemTRwZA2kBDJP5nWz7v05UHnty/D+pk=
 github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240 h1:XYfJWv2Ch+qInGLDEedHRtDsJwnxyU1L8U7SY56NcA8=
 github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240/go.mod h1:4riOwdj99Hd/q+iAcJZfNCsQQQMwURnZV6RL4WHYS5w=
-github.com/openshift/library-go v0.0.0-20200128172308-5750470ea89b h1:IN3DGHx4RMLwaE2PEWIhG7EHmaHKgugl/U6b8sFUiak=
-github.com/openshift/library-go v0.0.0-20200128172308-5750470ea89b/go.mod h1:/P1rPwPkaaNtylv8PLYkOTbf6tCdaNYDNqL9Y8GzJfE=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
