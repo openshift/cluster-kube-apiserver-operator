@@ -17,8 +17,7 @@ spec:
     port: https
     scheme: https
     tlsConfig:
-      # TODO where do you mount the service-ca.crt?
-      insecureSkipVerify: true
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
       serverName: metrics.openshift-kube-apiserver-operator.svc
   jobLabel: component
   namespaceSelector:
