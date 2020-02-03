@@ -119,6 +119,10 @@ func newCertRotationController(
 		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	}
 
+	// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
+	// This must be reverted before we ship
+	rotationDay = rotationDay / 60
+
 	certRotator, err := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
 		certrotation.SigningRotation{
