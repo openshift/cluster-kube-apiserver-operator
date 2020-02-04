@@ -44,3 +44,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.1
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.17.1
 )
+
+replace github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20200204152629-604fac05758d
