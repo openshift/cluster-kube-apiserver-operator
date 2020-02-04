@@ -450,7 +450,7 @@ spec:
       securityContext:
         privileged: true
   containers:
-  - name: kube-apiserver-REVISION
+  - name: kube-apiserver
     image: ${IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
@@ -502,7 +502,7 @@ spec:
         value: REVISION
     securityContext:
       privileged: true
-  - name: kube-apiserver-cert-syncer-REVISION
+  - name: kube-apiserver-cert-syncer
     env:
     - name: POD_NAME
       valueFrom:
@@ -530,7 +530,7 @@ spec:
       name: resource-dir
     - mountPath: /etc/kubernetes/static-pod-certs
       name: cert-dir
-  - name: kube-apiserver-cert-regeneration-controller-REVISION
+  - name: kube-apiserver-cert-regeneration-controller
     env:
     - name: POD_NAMESPACE
       valueFrom:
@@ -552,7 +552,7 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
-  - name: kube-apiserver-insecure-readyz-REVISION
+  - name: kube-apiserver-insecure-readyz
     image: ${OPERATOR_IMAGE}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
