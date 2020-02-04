@@ -324,6 +324,8 @@ func ManageClientCABundle(lister corev1listers.ConfigMapLister, client coreclien
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-control-plane-signer-ca"},
 		// this bundle is what a user uses to mint new client certs it directly manages
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "user-client-ca"},
+		// this bundle is what validates the master kubelet bootstrap credential.  Users can invalid this by removing it.
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kubelet-bootstrap-kubeconfig"},
 	)
 	if err != nil {
 		return nil, false, err
