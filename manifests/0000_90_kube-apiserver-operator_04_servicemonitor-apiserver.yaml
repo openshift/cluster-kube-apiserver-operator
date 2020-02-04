@@ -111,25 +111,17 @@ spec:
     - alert: AggregatedAPIErrors
       annotations:
         message: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} have reported errors."
-        description: "The number of error ({{ $labels.reason }}) has increased for an aggregated API {{ $labels.name }}/{{ $labels.namespace }} in the last 2 minutes."
+        description: "The number of errors have increased for an aggregated API {{ $labels.name }}/{{ $labels.namespace }} in the last minute. Note that high values indicate that the availability of the services changes too often."
       expr: |
-        sum by(name, namespace, reason)(increase(aggregator_unavailable_apiservice_count[2m])) > 1
+        sum by(name, namespace)(increase(aggregator_unavailable_apiservice_count[1m])) > 2
       labels:
         severity: warning
     - alert: AggregatedAPIDown
       annotations:
-        message: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} down."
-        description: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} has not been available for 1 min."
+        message: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} is down."
+        description: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} has not been available at least for the last minute."
       expr: |
         sum by(name, namespace)(sum_over_time(aggregator_unavailable_apiservice[1m])) > 0
-      labels:
-        severity: warning
-    - alert: AggregatedAPIFlapping
-      annotations:
-        message: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} flapping."
-        description: "An aggregated API {{ $labels.name }}/{{ $labels.namespace }} availability changes too often. Seen at least 2 changes in the last 5 minutes."
-      expr: |
-        sum by(name, namespace)(changes(aggregator_unavailable_apiservice[5m])) > 2
       labels:
         severity: warning
   - name: using-deprecated-apis
