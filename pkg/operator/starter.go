@@ -102,13 +102,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
 		operatorClient,
 		controllerContext.EventRecorder,
-	).
-		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer()).
-		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer()).
-		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ServiceAccounts().Informer()).
-		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Services().Informer()).
-		AddInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Rbac().V1().ClusterRoleBindings().Informer()).
-		AddNamespaceInformer(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Namespaces().Informer(), operatorclient.TargetNamespace)
+	).AddKubeInformers(kubeInformersForNamespaces)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
