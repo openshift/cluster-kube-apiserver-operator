@@ -9,6 +9,7 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/library-go/pkg/assets"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func TestYamlCorrectness(t *testing.T) {
@@ -17,9 +18,12 @@ func TestYamlCorrectness(t *testing.T) {
 }
 
 func readAllYaml(path string, t *testing.T) {
-	// TODO: validate also recovery manifest but they take different template and are covered by unit tests
+	excludedManifests := sets.String{}
+	excludedManifests.Insert("recovery-pod.yaml")                                                // can't evaluate field KubeApiserver Image in type render.TemplateData
+	excludedManifests.Insert("0000_90_kube-apiserver-operator_04_servicemonitor-apiserver.yaml") // fails to parse "$labels" variable https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/#templating
+
 	manifests, err := assets.New(path, render.TemplateData{}, func(info os.FileInfo) bool {
-		return assets.OnlyYaml(info) && !strings.HasPrefix(info.Name(), "recovery-")
+		return assets.OnlyYaml(info) && !excludedManifests.Has(info.Name())
 	})
 	if err != nil {
 		t.Errorf("Unexpected error reading manifests from %s: %v", path, err)
