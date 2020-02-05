@@ -6,33 +6,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
-
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
-
 	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
-
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
-	"github.com/openshift/library-go/pkg/operator/encryption"
-	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
-	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
-	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -43,6 +22,24 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
+	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/staleconditions"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 )
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
@@ -224,6 +221,16 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	staleConditionsController := staleconditions.NewRemoveStaleConditions(
+		[]string{
+			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
+			// these can be removed in 4.5
+			"Available", "Progressing",
+		},
+		operatorClient,
+		controllerContext.EventRecorder,
+	)
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -247,6 +254,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
 	go terminationObserver.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx)
+	go staleConditionsController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
