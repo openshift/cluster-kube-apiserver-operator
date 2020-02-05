@@ -126,7 +126,7 @@ func TestObserveServicesSubnet(t *testing.T) {
 	// With no network configured, check that a rump configuration is returned
 	result, errors := ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
 	if len(errors) > 0 {
-		t.Error("expected len(errors) == 0")
+		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
 	if result == nil {
 		t.Errorf("expected result != nil")
@@ -144,19 +144,36 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if err := indexer.Add(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Status: configv1.NetworkStatus{
-			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "podCIDR"}},
-			ServiceNetwork: []string{"serviceCIDR"},
+			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "10.128.0.0/14"}},
+			ServiceNetwork: []string{"172.30.0.0/16"},
 		},
 	}); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
 	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "serviceCIDR" {
+	if conf != "172.30.0.0/16" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "0.0.0.0:6443" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "tcp4" {
 		t.Errorf("Unexpected value: %v", conf)
 	}
 
@@ -164,19 +181,36 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if err := indexer.Update(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 		Status: configv1.NetworkStatus{
-			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "podCIDR1"}},
-			ServiceNetwork: []string{"serviceCIDR1"},
+			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "10.128.0.0/14"}},
+			ServiceNetwork: []string{"fd02::/112"},
 		},
 	}); err != nil {
 		t.Fatal(err.Error())
 	}
 
 	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), result)
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
 	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "serviceCIDR1" {
+	if conf != "fd02::/112" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "[::]:6443" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "tcp6" {
 		t.Errorf("Unexpected value: %v", conf)
 	}
 }
