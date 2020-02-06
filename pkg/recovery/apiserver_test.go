@@ -33,15 +33,15 @@ func TestApiserverRecoveryPod(t *testing.T) {
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{
 							{
-								Name:  "kube-apiserver-cert-syncer-42",
+								Name:  "kube-apiserver-cert-syncer",
 								Image: "not the image you were looking for",
 							},
 							{
-								Name:  "kube-apiserver-42",
+								Name:  "kube-apiserver",
 								Image: image,
 							},
 							{
-								Name:  "kube-apiserver-cert-syncer-41",
+								Name:  "kube-apiserver-cert-syncer",
 								Image: "not the image you were looking for",
 							},
 						},

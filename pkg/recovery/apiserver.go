@@ -142,7 +142,7 @@ func (s *Apiserver) recoveryPod() (*corev1.Pod, error) {
 
 	var kubeApiserverImage string
 	for _, container := range s.kubeApiserverStaticPod.Spec.Containers {
-		if regexp.MustCompile("^kube-apiserver-[a-zA-Z0-9]+$").MatchString(container.Name) {
+		if regexp.MustCompile("^kube-apiserver-[a-zA-Z0-9]+$").MatchString(container.Name) || container.Name == "kube-apiserver" {
 			kubeApiserverImage = container.Image
 		}
 	}
