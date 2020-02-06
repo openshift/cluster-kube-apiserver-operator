@@ -424,6 +424,8 @@ kind: Pod
 metadata:
   namespace: openshift-kube-apiserver
   name: kube-apiserver
+  annotations:
+    kubectl.kubernetes.io/default-logs-container: kube-apiserver
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"

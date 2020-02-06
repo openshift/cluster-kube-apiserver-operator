@@ -8,6 +8,7 @@ metadata:
     openshift.io/component: "api"
   annotations:
     openshift.io/run-level: "0"
+    kubectl.kubernetes.io/default-logs-container: kube-apiserver
 spec:
   restartPolicy: Always
   hostNetwork: true
