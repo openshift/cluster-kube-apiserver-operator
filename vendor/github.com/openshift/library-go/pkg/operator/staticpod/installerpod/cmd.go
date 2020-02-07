@@ -302,8 +302,9 @@ func (o *InstallOptions) copyContent(ctx context.Context) error {
 		if !exists {
 			return true, fmt.Errorf("required 'pod.yaml' key does not exist in configmap")
 		}
-		podContent = strings.Replace(podData, "REVISION", o.Revision, -1)
-		podContent = strings.Replace(podData, "NODE_NAME", o.NodeName, -1)
+		podContent = strings.ReplaceAll(podData, "REVISION", o.Revision)
+		podContent = strings.ReplaceAll(podContent, "NODE_NAME", o.NodeName)
+		podContent = strings.ReplaceAll(podContent, "NODE_ENVVAR_NAME", strings.ReplaceAll(strings.ReplaceAll(o.NodeName, "-", "_"), ".", "_"))
 		return true, nil
 	})
 	if err != nil {
