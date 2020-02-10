@@ -25,6 +25,11 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 			Name: "cluster_feature_set",
 			Help: "Reports the feature set the cluster is configured to expose. name corresponds to the featureSet field of the cluster. The value is 1 if a cloud provider is supported.",
 		}, []string{"name"}),
+		proxyLister: configInformer.Config().V1().Proxies().Lister(),
+		proxyEnablement: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cluster_proxy_enabled",
+			Help: "Reports whether the cluster has been configured to use a proxy. type is which type of proxy configuration has been set - http for an http proxy, https for an https proxy, and trusted_ca if a custom CA was specified.",
+		}, []string{"type"}),
 	})
 }
 
@@ -32,8 +37,10 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 type configMetrics struct {
 	cloudProvider        *prometheus.GaugeVec
 	featureSet           *prometheus.GaugeVec
+	proxyEnablement      *prometheus.GaugeVec
 	infrastructureLister configlisters.InfrastructureLister
 	featuregateLister    configlisters.FeatureGateLister
+	proxyLister          configlisters.ProxyLister
 }
 
 func (m *configMetrics) Create(version *semver.Version) bool {
@@ -44,6 +51,7 @@ func (m *configMetrics) Create(version *semver.Version) bool {
 func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- m.cloudProvider.WithLabelValues("", "").Desc()
 	ch <- m.featureSet.WithLabelValues("").Desc()
+	ch <- m.proxyEnablement.WithLabelValues("").Desc()
 }
 
 // Collect calculates metrics from the cached config and reports them to the prometheus collector.
@@ -70,14 +78,25 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 	if features, err := m.featuregateLister.Get("cluster"); err == nil {
-		g := m.featureSet.WithLabelValues(string(features.Spec.FeatureSet))
-		if features.Spec.FeatureSet == configv1.Default {
-			g.Set(1)
-		} else {
-			g.Set(0)
-		}
-		ch <- g
+		ch <- booleanGaugeValue(
+			m.featureSet.WithLabelValues(string(features.Spec.FeatureSet)),
+			features.Spec.FeatureSet == configv1.Default,
+		)
 	}
+	if proxy, err := m.proxyLister.Get("cluster"); err == nil {
+		ch <- booleanGaugeValue(m.proxyEnablement.WithLabelValues("http"), len(proxy.Spec.HTTPProxy) > 0)
+		ch <- booleanGaugeValue(m.proxyEnablement.WithLabelValues("https"), len(proxy.Spec.HTTPSProxy) > 0)
+		ch <- booleanGaugeValue(m.proxyEnablement.WithLabelValues("trusted_ca"), len(proxy.Spec.TrustedCA.Name) > 0)
+	}
+}
+
+func booleanGaugeValue(g prometheus.Gauge, value bool) prometheus.Gauge {
+	if value {
+		g.Set(1)
+	} else {
+		g.Set(0)
+	}
+	return g
 }
 
 func (m *configMetrics) ClearState() {}
