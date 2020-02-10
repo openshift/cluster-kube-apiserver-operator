@@ -5,6 +5,8 @@ apiServerArguments:
   - etcd3
   storage-media-type:
   - application/vnd.kubernetes.protobuf
+  encryption-provider-config:
+    - /etc/kubernetes/static-pod-resources/encryption-config
 servingInfo:
   bindAddress: 127.0.0.1:7443
   bindNetwork: tcp4
