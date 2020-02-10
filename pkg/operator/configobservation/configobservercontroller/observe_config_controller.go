@@ -1,7 +1,6 @@
 package configobservercontroller
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -106,7 +105,7 @@ func NewConfigObserver(
 				[]string{"apiServerArguments", "cloud-config"}),
 			featuregates.NewObserveFeatureFlagsFunc(
 				nil,
-				sets.NewString("IPv6DualStack"), // IPv6DualStack is bugged, don't turn it on
+				nil,
 				[]string{"apiServerArguments", "feature-gates"},
 			),
 			network.ObserveRestrictedCIDRs,
