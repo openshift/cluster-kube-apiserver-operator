@@ -129,6 +129,7 @@ spec:
           apiserver_request_total{
             group="extensions",
             version="v1beta1",
+            client!~"kube-controller-manager/.*|kube-state-metrics/.*|cluster-policy-controller/.*|openshift-controller-manager/.*"
           }[24h]
         ) > 0
       labels:
