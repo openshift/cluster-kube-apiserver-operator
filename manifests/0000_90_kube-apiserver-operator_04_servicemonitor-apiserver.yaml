@@ -115,25 +115,6 @@ metadata:
     exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
-  - name: using-deprecated-apis
-    rules:
-    - alert: UsingDeprecatedAPIExtensionsV1Beta1
-      annotations:
-        summary: |
-          A client is using a deprecated {{"{{"}} $labels.group {{"}}"}}/{{"{{"}} $labels.version {{"}}"}} API version
-        message: |
-          A client in the cluster has used a deprecated {{"{{"}} $labels.group {{"}}"}}/{{"{{"}} $labels.version {{"}}"}} API version of the {{"{{"}} $labels.resource {{"}}"}} resource in the last 24 hours.
-          This API version may be removed soon; please migrate to the current version of this API.
-      expr: |
-        increase(
-          apiserver_request_total{
-            group="extensions",
-            version="v1beta1",
-            client!~"kube-controller-manager/.*|kube-state-metrics/.*|cluster-policy-controller/.*|openshift-controller-manager/.*"
-          }[24h]
-        ) > 0
-      labels:
-        severity: info
   - name: apiserver-requests-in-flight
     rules:
       # We want to capture requests in-flight metrics for kube-apiserver and openshift-apiserver.
