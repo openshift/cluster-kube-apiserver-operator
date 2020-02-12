@@ -11,6 +11,7 @@
 // bindata/v4.1.0/kube-apiserver/pod-cm.yaml
 // bindata/v4.1.0/kube-apiserver/pod.yaml
 // bindata/v4.1.0/kube-apiserver/recovery-config.yaml
+// bindata/v4.1.0/kube-apiserver/recovery-encryption-config.yaml
 // bindata/v4.1.0/kube-apiserver/recovery-pod.yaml
 // bindata/v4.1.0/kube-apiserver/svc.yaml
 // bindata/v4.1.0/kube-apiserver/trusted-ca-cm.yaml
@@ -607,6 +608,8 @@ apiServerArguments:
   - etcd3
   storage-media-type:
   - application/vnd.kubernetes.protobuf
+  encryption-provider-config:
+    - /etc/kubernetes/static-pod-resources/encryption-config
 servingInfo:
   bindAddress: 127.0.0.1:7443
   bindNetwork: tcp4
@@ -650,6 +653,26 @@ func v410KubeApiserverRecoveryConfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/recovery-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverRecoveryEncryptionConfigYaml = []byte(`apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+`)
+
+func v410KubeApiserverRecoveryEncryptionConfigYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverRecoveryEncryptionConfigYaml, nil
+}
+
+func v410KubeApiserverRecoveryEncryptionConfigYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverRecoveryEncryptionConfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/recovery-encryption-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -825,6 +848,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/pod-cm.yaml":                        v410KubeApiserverPodCmYaml,
 	"v4.1.0/kube-apiserver/pod.yaml":                           v410KubeApiserverPodYaml,
 	"v4.1.0/kube-apiserver/recovery-config.yaml":               v410KubeApiserverRecoveryConfigYaml,
+	"v4.1.0/kube-apiserver/recovery-encryption-config.yaml":    v410KubeApiserverRecoveryEncryptionConfigYaml,
 	"v4.1.0/kube-apiserver/recovery-pod.yaml":                  v410KubeApiserverRecoveryPodYaml,
 	"v4.1.0/kube-apiserver/svc.yaml":                           v410KubeApiserverSvcYaml,
 	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":                 v410KubeApiserverTrustedCaCmYaml,
@@ -886,6 +910,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"pod-cm.yaml":                        {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
 			"pod.yaml":                           {v410KubeApiserverPodYaml, map[string]*bintree{}},
 			"recovery-config.yaml":               {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
+			"recovery-encryption-config.yaml":    {v410KubeApiserverRecoveryEncryptionConfigYaml, map[string]*bintree{}},
 			"recovery-pod.yaml":                  {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
 			"svc.yaml":                           {v410KubeApiserverSvcYaml, map[string]*bintree{}},
 			"trusted-ca-cm.yaml":                 {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
