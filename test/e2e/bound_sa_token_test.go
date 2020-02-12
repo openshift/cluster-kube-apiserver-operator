@@ -49,9 +49,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 	targetNamespace := operatorclient.TargetNamespace
 	operatorNamespace := operatorclient.OperatorNamespace
 
-	// Wait for operator readiness
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
-
 	// Retrieve the operator secret. The values in the secret and config map in the
 	// operand namespace should match the values in the operator secret.
 	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
@@ -61,6 +58,8 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+
 		err := kubeClient.Secrets(targetNamespace).Delete(tokenctl.SigningKeySecretName, &metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
@@ -68,6 +67,8 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand config map should be recreated after deletion.
 	t.Run("configmap-deletion", func(t *testing.T) {
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(tokenctl.PublicKeyConfigMapName, &metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
@@ -79,6 +80,8 @@ func TestBoundTokenSignerController(t *testing.T) {
 	// after deletion. The configmap in the operand namespace should be updated
 	// immediately, and the secret once the configmap is present on all nodes.
 	t.Run("operator-secret-deletion", func(t *testing.T) {
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+
 		// Delete the operator secret
 		err := kubeClient.Secrets(operatorNamespace).Delete(tokenctl.NextSigningKeySecretName, &metav1.DeleteOptions{})
 		require.NoError(t, err)
