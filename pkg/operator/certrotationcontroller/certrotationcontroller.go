@@ -128,8 +128,8 @@ func newCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "aggregator-client-signer",
-			Validity:               30 * defaultRotationDay,
-			Refresh:                15 * defaultRotationDay,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
