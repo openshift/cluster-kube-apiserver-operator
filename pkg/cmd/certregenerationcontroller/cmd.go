@@ -33,27 +33,29 @@ func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 		TLSServerName: "localhost-recovery",
 	}
 
-	cmd := controllercmd.
-		NewControllerCommandConfig("cert-regeneration-controller", version.Get(), func(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
-			o.controllerContext = controllerContext
+	ccc := controllercmd.NewControllerCommandConfig("cert-regeneration-controller", version.Get(), func(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
+		o.controllerContext = controllerContext
 
-			err := o.Validate(ctx)
-			if err != nil {
-				return err
-			}
+		err := o.Validate(ctx)
+		if err != nil {
+			return err
+		}
 
-			err = o.Complete(ctx)
-			if err != nil {
-				return err
-			}
+		err = o.Complete(ctx)
+		if err != nil {
+			return err
+		}
 
-			err = o.Run(ctx)
-			if err != nil {
-				return err
-			}
+		err = o.Run(ctx)
+		if err != nil {
+			return err
+		}
 
-			return nil
-		}).NewCommandWithContext(ctx)
+		return nil
+	})
+	// Serving client for delegated AuthN/AuthZ doesn't support setting TLS SNI name so we need to disable it or it fails recovery
+	ccc.DisableServing = true
+	cmd := ccc.NewCommandWithContext(ctx)
 	cmd.Use = "cert-regeneration-controller"
 	cmd.Short = "Start the Cluster Certificate Regeneration Controller"
 
