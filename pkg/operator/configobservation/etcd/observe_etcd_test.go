@@ -2,6 +2,9 @@ package etcd
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	v1 "k8s.io/api/core/v1"
@@ -10,8 +13,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"reflect"
-	"testing"
 )
 
 const clusterFQDN = "foo.bar"
@@ -71,48 +72,12 @@ func TestObserveStorageURLs(t *testing.T) {
 		endpoint        *v1.Endpoints
 	}{
 		{
-			name:            "test etcd-bootstrap with dummy IP",
+			name:            "test etcd-bootstrap",
 			indexer:         cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
 			currentConfig:   nil,
-			wantStorageURLs: []string{"https://etcd-bootstrap." + clusterFQDN + ":2379"},
-			wantErrs:        nil,
+			wantStorageURLs: []string{},
+			wantErrs:        []error{fmt.Errorf("endpoints openshift-etcd/host-etcd: no etcd endpoint addresses found")},
 			endpoint:        getEndpoint("etcd-bootstrap", "192.0.2.1"),
-		},
-		{
-			name:            "test etcd-bootstrap with real IP",
-			indexer:         cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-			currentConfig:   nil,
-			wantStorageURLs: []string{"https://10.0.0.1:2379"},
-			wantErrs:        nil,
-			endpoint:        getEndpoint("etcd-bootstrap", "10.0.0.1"),
-		},
-		{
-			name:            "test etcd-bootstrap with invalid IPv4",
-			indexer:         cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-			currentConfig:   nil,
-			wantStorageURLs: []string{},
-			wantErrs: []error{fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, 0, 0),
-				fmt.Errorf("endpoints %s/%s: no etcd endpoint addresses found", etcdEndpointNamespace, etcdEndpointName)},
-			endpoint: getEndpoint("etcd-bootstrap", "192.192.0.2.1"),
-		},
-		{
-			name:            "test etcd-bootstrap with valid IPv6",
-			indexer:         cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-			currentConfig:   nil,
-			wantStorageURLs: []string{"https://FE80:CD00:0000:0CDE:1257:0000:211E:729C:2379"},
-			wantErrs:        nil,
-			endpoint:        getEndpoint("etcd-bootstrap", "FE80:CD00:0000:0CDE:1257:0000:211E:729C"),
-		},
-		{
-			name:            "test etcd-bootstrap with invalid IPv6",
-			indexer:         cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}),
-			currentConfig:   nil,
-			wantStorageURLs: []string{},
-			wantErrs: []error{
-				fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, 0, 0),
-				fmt.Errorf("endpoints %s/%s: no etcd endpoint addresses found", etcdEndpointNamespace, etcdEndpointName),
-			},
-			endpoint: getEndpoint("etcd-bootstrap", "FE80:CD00:0000:0CDE:1257:0000:211E:729C:invalid"),
 		},
 		{
 			name:            "test etcd member",
