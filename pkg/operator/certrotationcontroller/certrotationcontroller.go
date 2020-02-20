@@ -170,8 +170,8 @@ func newCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-apiserver-to-kubelet-signer",
-			Validity:               1 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay, // this means we effectively do not rotate
+			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
+			Refresh:                8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
