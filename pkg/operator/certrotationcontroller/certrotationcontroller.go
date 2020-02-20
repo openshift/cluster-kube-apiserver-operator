@@ -118,9 +118,9 @@ func newCertRotationController(
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
 		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	} else {
-		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
+		// for the development cycle, make the rotation 120 times faster (every twelve hours or so for signers, 6 hours for certs).
 		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		rotationDay = rotationDay / 120
 	}
 
 	certRotator, err := certrotation.NewCertRotationController(
@@ -423,8 +423,8 @@ func newCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
-			Validity:               60 * defaultRotationDay,
-			Refresh:                30 * defaultRotationDay,
+			Validity:               60 * rotationDay,
+			Refresh:                30 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -465,8 +465,8 @@ func newCertRotationController(
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
-			Validity:               60 * defaultRotationDay,
-			Refresh:                30 * defaultRotationDay,
+			Validity:               60 * rotationDay,
+			Refresh:                30 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
