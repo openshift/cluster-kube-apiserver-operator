@@ -58,6 +58,13 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	}
 	for subsetIndex, subset := range etcdEndpoints.Subsets {
 		for addressIndex, address := range subset.Addresses {
+			// etcd bootstrap should never be added to the in-cluster kube-apiserver
+			// this can result in some early pods crashlooping, but ensures that we never contact the bootstrap machine from
+			// the in-cluster kube-apiserver so we can safely teardown out of order.
+			if address.Hostname == "etcd-bootstrap" {
+				continue
+			}
+
 			if address.Hostname == "" {
 				addressErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].hostname not found", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
 				recorder.Warningf("ObserveStorageFailed", addressErr.Error())
@@ -67,13 +74,6 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 			if ip := net.ParseIP(address.IP); ip == nil {
 				ipErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
 				errs = append(errs, ipErr)
-				continue
-			}
-			// the installer uses dummy addresses in the subnet `192.0.2.` for host-etcd endpoints
-			// this check see if etcd-bootstrap is populated with a real ip address and uses it
-			// instead of FQDN
-			if address.Hostname == "etcd-bootstrap" && !strings.HasPrefix(address.IP, "192.0.2") {
-				etcdURLs = append(etcdURLs, "https://"+address.IP+":2379")
 				continue
 			}
 			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+dnsSuffix+":2379")
