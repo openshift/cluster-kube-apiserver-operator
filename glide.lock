@@ -1,5 +1,5 @@
-hash: 18531280b51d55bf6c1e2b9e90df36681795349188f0c788b372fb8302c8717f
-updated: 2019-12-02T10:23:11.298256+01:00
+hash: 5d5b0e5e37092f0c2aca978ea99f6ce71f905561e72f0f9dd86d6df43e0cba72
+updated: 2020-02-17T11:37:55.794329+01:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -14,84 +14,18 @@ imports:
 - name: github.com/coreos/etcd
   version: 27fc7e2296f506182f58ce846e48f36b34fe6842
   subpackages:
-  - alarm
-  - auth
   - auth/authpb
-  - client
   - clientv3
-  - clientv3/concurrency
-  - clientv3/namespace
-  - clientv3/naming
-  - compactor
-  - discovery
-  - embed
-  - error
-  - etcdserver
-  - etcdserver/api
-  - etcdserver/api/etcdhttp
-  - etcdserver/api/v2http
-  - etcdserver/api/v2http/httptypes
-  - etcdserver/api/v2v3
-  - etcdserver/api/v3client
-  - etcdserver/api/v3election
-  - etcdserver/api/v3election/v3electionpb
-  - etcdserver/api/v3election/v3electionpb/gw
-  - etcdserver/api/v3lock
-  - etcdserver/api/v3lock/v3lockpb
-  - etcdserver/api/v3lock/v3lockpb/gw
-  - etcdserver/api/v3rpc
   - etcdserver/api/v3rpc/rpctypes
-  - etcdserver/auth
   - etcdserver/etcdserverpb
-  - etcdserver/etcdserverpb/gw
-  - etcdserver/membership
-  - etcdserver/stats
-  - integration
-  - lease
-  - lease/leasehttp
-  - lease/leasepb
-  - mvcc
-  - mvcc/backend
   - mvcc/mvccpb
-  - pkg/adt
-  - pkg/contention
-  - pkg/cors
-  - pkg/cpuutil
-  - pkg/crc
-  - pkg/debugutil
-  - pkg/fileutil
-  - pkg/httputil
-  - pkg/idutil
-  - pkg/ioutil
-  - pkg/logutil
-  - pkg/netutil
-  - pkg/pathutil
-  - pkg/pbutil
-  - pkg/runtime
-  - pkg/schedule
-  - pkg/srv
-  - pkg/testutil
   - pkg/tlsutil
   - pkg/transport
   - pkg/types
-  - pkg/wait
-  - proxy/grpcproxy
-  - proxy/grpcproxy/adapter
-  - proxy/grpcproxy/cache
-  - raft
-  - raft/raftpb
-  - rafthttp
-  - snap
-  - snap/snappb
-  - store
-  - version
-  - wal
-  - wal/walpb
 - name: github.com/coreos/go-systemd
   version: 39ca1b05acc7ad1220e09f133283b8859a8b71ab
   subpackages:
   - daemon
-  - journal
 - name: github.com/davecgh/go-spew
   version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
@@ -268,7 +202,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: f5e94d5a5034d4874a3ed9dcf42bbcb88e0c7553
+  version: bb09df855673a08dfdb10c05430109724560418a
   subpackages:
   - pkg/assets
   - pkg/certs
@@ -365,16 +299,6 @@ imports:
 - name: golang.org/x/crypto
   version: de0752318171da717af4ce24d0a2e8626afaeb11
   subpackages:
-  - bcrypt
-  - blowfish
-  - cryptobyte
-  - cryptobyte/asn1
-  - ed25519
-  - ed25519/internal/edwards25519
-  - internal/subtle
-  - nacl/secretbox
-  - poly1305
-  - salsa20/salsa
   - ssh/terminal
 - name: golang.org/x/net
   version: 65e2d4e15006aab9813ff8769e768bbf4bb667a0
@@ -418,7 +342,6 @@ imports:
   version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
   subpackages:
   - container/intsets
-  - imports
 - name: google.golang.org/appengine
   version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
@@ -445,7 +368,6 @@ imports:
   - encoding
   - encoding/proto
   - grpclog
-  - health
   - health/grpc_health_v1
   - internal
   - internal/backoff
@@ -858,7 +780,6 @@ imports:
   subpackages:
   - buffer
   - integer
-  - pointer
   - trace
 - name: sigs.k8s.io/structured-merge-diff
   version: e85c7b244fd2cc57bb829d73a061f93a441e63ce
