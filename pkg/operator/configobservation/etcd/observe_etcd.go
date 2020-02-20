@@ -57,6 +57,13 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	}
 	for subsetIndex, subset := range etcdEndpoints.Subsets {
 		for addressIndex, address := range subset.Addresses {
+			// etcd bootstrap should never be added to the in-cluster kube-apiserver
+			// this can result in some early pods crashlooping, but ensures that we never contact the bootstrap machine from
+			// the in-cluster kube-apiserver so we can safely teardown out of order.
+			if address.Hostname == "etcd-bootstrap" {
+				continue
+			}
+
 			if address.Hostname == "" {
 				addressErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].hostname not found", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
 				recorder.Warningf("ObserveStorageFailed", addressErr.Error())
