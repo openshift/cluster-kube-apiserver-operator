@@ -126,6 +126,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		[]configv1.ObjectReference{
 			{Group: "operator.openshift.io", Resource: "kubeapiservers", Name: "cluster"},
 			{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"},
+			{Group: "security.openshift.io", Resource: "securitycontextconstraints"},
 			{Resource: "namespaces", Name: operatorclient.GlobalUserSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
