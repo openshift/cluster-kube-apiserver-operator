@@ -464,7 +464,7 @@ spec:
             echo "Copying system trust bundle"
             cp -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           fi
-          exec hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
+          exec hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP}
     resources:
       requests:
         memory: 1Gi
@@ -503,6 +503,10 @@ spec:
             fieldPath: metadata.namespace
       - name: STATIC_POD_VERSION # Avoid using 'REVISION' here otherwise it will be substituted
         value: REVISION
+      - name: HOST_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
     securityContext:
       privileged: true
   - name: kube-apiserver-cert-syncer
