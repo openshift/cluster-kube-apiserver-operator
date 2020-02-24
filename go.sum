@@ -305,13 +305,12 @@ github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5X
 github.com/openshift/api v0.0.0-20200116145750-0e2ff1e215dd/go.mod h1:fT6U/JfG8uZzemTRwZA2kBDJP5nWz7v05UHnty/D+pk=
 github.com/openshift/api v0.0.0-20200210091934-a0e53e94816b h1:BERD6sZj7w9Tt0RBpuw87AC0+SppyxEUgUG/Of5rI+E=
 github.com/openshift/api v0.0.0-20200210091934-a0e53e94816b/go.mod h1:fT6U/JfG8uZzemTRwZA2kBDJP5nWz7v05UHnty/D+pk=
-github.com/openshift/build-machinery-go v0.0.0-20200205161356-ef115f5adc73/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
-github.com/openshift/build-machinery-go v0.0.0-20200210090402-3b072832771e h1:qlMmBDqBavn7p4Y22teVEkJCnU9YAwhABHeXanAirWE=
-github.com/openshift/build-machinery-go v0.0.0-20200210090402-3b072832771e/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
+github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160 h1:V4E6yt4XWiBEPKnJbs/E8pgUq9AjZqzQfsL3eeT84Qs=
+github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
 github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240 h1:XYfJWv2Ch+qInGLDEedHRtDsJwnxyU1L8U7SY56NcA8=
 github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240/go.mod h1:4riOwdj99Hd/q+iAcJZfNCsQQQMwURnZV6RL4WHYS5w=
-github.com/openshift/library-go v0.0.0-20200210105614-4bf528465627 h1:Rs1RtB123VJr+kqXBYOTERNp23tZUUZ6w1gWrkroH3M=
-github.com/openshift/library-go v0.0.0-20200210105614-4bf528465627/go.mod h1:T+sDdW3J/cgxUSqPdAwmhFrJhfFRv1ZtCSTVY59phN4=
+github.com/openshift/library-go v0.0.0-20200221162931-2e4133873386 h1:1R8CIzzeLym3I3niv0yozj4/Sm9EaSS9pSnJe+EaayA=
+github.com/openshift/library-go v0.0.0-20200221162931-2e4133873386/go.mod h1:0rRwY0q5NuKHdiP88Pe5+OVNU8mi0mv5XQ7f7nUbYVc=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=

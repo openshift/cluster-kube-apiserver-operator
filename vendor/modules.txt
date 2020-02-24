@@ -194,7 +194,7 @@ github.com/openshift/api/template
 github.com/openshift/api/template/v1
 github.com/openshift/api/user
 github.com/openshift/api/user/v1
-# github.com/openshift/build-machinery-go v0.0.0-20200210090402-3b072832771e
+# github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160
 github.com/openshift/build-machinery-go
 github.com/openshift/build-machinery-go/make
 github.com/openshift/build-machinery-go/make/lib
@@ -214,7 +214,7 @@ github.com/openshift/client-go/config/informers/externalversions/internalinterfa
 github.com/openshift/client-go/config/listers/config/v1
 github.com/openshift/client-go/operator/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1
-# github.com/openshift/library-go v0.0.0-20200210105614-4bf528465627
+# github.com/openshift/library-go v0.0.0-20200221162931-2e4133873386
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client
