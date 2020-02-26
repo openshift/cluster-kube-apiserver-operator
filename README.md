@@ -96,7 +96,7 @@ EOF
 oc scale --replicas=0 deploy/cluster-version-operator -n openshift-cluster-version
 ```
 
-IMPORTANT: This apprach disables cluster-version-operator completly, whereas previous only tells it to not manage a kube-apiserver-operator!
+IMPORTANT: This approach disables cluster-version-operator completely, whereas the previous patch only tells it to not manage a kube-apiserver-operator!
 
 After doing this you can now change the image of the operator to the desired one:
 
