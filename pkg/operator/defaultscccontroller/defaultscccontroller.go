@@ -3,13 +3,18 @@ package defaultscccontroller
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
+	securityv1 "github.com/openshift/api/security/v1"
 	security1informers "github.com/openshift/client-go/security/informers/externalversions"
+	securityv1listers "github.com/openshift/client-go/security/listers/security/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -26,6 +31,12 @@ type Options struct {
 }
 
 func NewDefaultSCCController(options *Options) (controller *DefaultSCCController, err error) {
+	defaultSCCSet, err := NewDefaultSCCCache()
+	if err != nil {
+		err = fmt.Errorf("[%s] failed to render default SCC assets - %s", ControllerName, err.Error())
+		return
+	}
+
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DefaultSCCController")
 
 	informer := options.Factory.Security().V1().SecurityContextConstraints().Informer()
@@ -36,10 +47,10 @@ func NewDefaultSCCController(options *Options) (controller *DefaultSCCController
 	controller = &DefaultSCCController{
 		queue:    queue,
 		informer: informer,
-		syncer: &Syncer{
-			lister:   lister,
-			recorder: options.Recorder.WithComponentSuffix(ControllerName),
-		},
+		lister:   lister,
+		recorder: options.Recorder.WithComponentSuffix(ControllerName),
+		cache:    defaultSCCSet,
+		updater:  NewOperatorConditionUpdater(options.OperatorClient),
 	}
 
 	return
@@ -50,7 +61,10 @@ func NewDefaultSCCController(options *Options) (controller *DefaultSCCController
 type DefaultSCCController struct {
 	queue    workqueue.RateLimitingInterface
 	informer cache.Controller
-	syncer   *Syncer
+	lister   securityv1listers.SecurityContextConstraintsLister
+	recorder events.Recorder
+	updater  OperatorConditionUpdater
+	cache    *DefaultSCCCache
 }
 
 func (c *DefaultSCCController) Run(stopCh <-chan struct{}) {
@@ -93,7 +107,7 @@ func (c *DefaultSCCController) processNextWorkItem() bool {
 		return true
 	}
 
-	if err := c.syncer.Sync(request); err != nil {
+	if err := c.Sync(request); err != nil {
 		// Put the item back on the work queue to handle any transient errors.
 		c.queue.AddRateLimited(key)
 
@@ -103,6 +117,44 @@ func (c *DefaultSCCController) processNextWorkItem() bool {
 
 	c.queue.Forget(key)
 	return true
+}
+
+func (c *DefaultSCCController) Sync(key types.NamespacedName) error {
+	// If it's not to do with the default SCC, we don't care.
+	if _, exists := c.cache.Get(key.Name); !exists {
+		return nil
+	}
+
+	mutated := make([]string, 0)
+	for _, name := range c.cache.DefaultSCCNames() {
+		original, exists := c.cache.Get(name)
+		if !exists {
+			return fmt.Errorf("name=%s default scc not found in default scc cache", name)
+		}
+
+		current, err := c.lister.Get(name)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				klog.Infof("[%s] name=%s scc has been deleted - %s", ControllerName, name, err.Error())
+				continue
+			}
+
+			return err
+		}
+
+		// original can be mutated safely according to IsDefaultSCC, so no deep copy required.
+		copy1, copy2 := withNoMeta(current), withNoMeta(original)
+		if !equality.Semantic.DeepEqual(copy1, copy2) {
+			mutated = append(mutated, name)
+		}
+	}
+
+	if len(mutated) > 0 {
+		klog.Infof("[%s] default scc has been mutated %s", ControllerName, mutated)
+	}
+
+	condition := NewCondition(mutated)
+	return c.updater.UpdateCondition(condition)
 }
 
 func defaultSCCControllerEventHandler(queue workqueue.RateLimitingInterface) cache.ResourceEventHandler {
@@ -148,4 +200,12 @@ func defaultSCCControllerEventHandler(queue workqueue.RateLimitingInterface) cac
 			addToQueueFunc(key, queue)
 		},
 	}
+}
+
+func withNoMeta(obj *securityv1.SecurityContextConstraints) *securityv1.SecurityContextConstraints {
+	copy := obj.DeepCopy()
+	copy.ObjectMeta = metav1.ObjectMeta{}
+	copy.TypeMeta = metav1.TypeMeta{}
+
+	return copy
 }
