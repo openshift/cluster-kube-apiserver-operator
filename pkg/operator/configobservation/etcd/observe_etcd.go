@@ -6,33 +6,33 @@ import (
 	"reflect"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
 const (
 	etcdEndpointNamespace = "openshift-etcd"
-	etcdEndpointName      = "host-etcd"
+	etcdEndpointName      = "host-etcd-2"
 )
 
 // ObserveStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
 // then the previously observed storage config URLs will be re-used.
-func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
-	observedConfig = map[string]interface{}{}
 	storageConfigURLsPath := []string{"storageConfig", "urls"}
+	var errs []error
 
+	previouslyObservedConfig := map[string]interface{}{}
 	currentEtcdURLs, found, err := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...)
 	if err != nil {
 		errs = append(errs, err)
 	}
 	if found {
-		if err := unstructured.SetNestedStringSlice(observedConfig, currentEtcdURLs, storageConfigURLsPath...); err != nil {
+		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, currentEtcdURLs, storageConfigURLsPath...); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -41,42 +41,36 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	etcdEndpoints, err := listers.OpenshiftEtcdEndpointsLister.Endpoints(etcdEndpointNamespace).Get(etcdEndpointName)
 	if errors.IsNotFound(err) {
 		recorder.Warningf("ObserveStorageFailed", "Required %s/%s endpoint not found", etcdEndpointNamespace, etcdEndpointName)
-		errs = append(errs, fmt.Errorf("endpoints/host-etcd.kube-system: not found"))
-		return
+		return previouslyObservedConfig, append(errs, fmt.Errorf("endpoints/%s.%s: not found", etcdEndpointName, etcdEndpointNamespace))
 	}
 	if err != nil {
 		recorder.Warningf("ObserveStorageFailed", "Error getting %s/%s endpoint: %v", etcdEndpointNamespace, etcdEndpointName, err)
-		errs = append(errs, err)
-		return
+		return previouslyObservedConfig, append(errs, err)
 	}
-	dnsSuffix := etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]
-	if len(dnsSuffix) == 0 {
-		dnsErr := fmt.Errorf("endpoints %s/%s: alpha.installer.openshift.io/dns-suffix annotation not found", etcdEndpointNamespace, etcdEndpointName)
-		recorder.Warning("ObserveStorageFailed", dnsErr.Error())
-		errs = append(errs, dnsErr)
-		return
-	}
+
+	// note: etcd bootstrap should never be added to the in-cluster kube-apiserver
+	// this can result in some early pods crashlooping, but ensures that we never contact the bootstrap machine from
+	// the in-cluster kube-apiserver so we can safely teardown out of order.
+
 	for subsetIndex, subset := range etcdEndpoints.Subsets {
 		for addressIndex, address := range subset.Addresses {
-			// etcd bootstrap should never be added to the in-cluster kube-apiserver
-			// this can result in some early pods crashlooping, but ensures that we never contact the bootstrap machine from
-			// the in-cluster kube-apiserver so we can safely teardown out of order.
-			if address.Hostname == "etcd-bootstrap" {
-				continue
-			}
-
-			if address.Hostname == "" {
-				addressErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].hostname not found", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
-				recorder.Warningf("ObserveStorageFailed", addressErr.Error())
-				errs = append(errs, addressErr)
-				continue
-			}
-			if ip := net.ParseIP(address.IP); ip == nil {
-				ipErr := fmt.Errorf("endpoints %s/%s: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
+			ip := net.ParseIP(address.IP)
+			if ip == nil {
+				ipErr := fmt.Errorf("endpoints/%s in the %s namespace: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
 				errs = append(errs, ipErr)
 				continue
 			}
-			etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+dnsSuffix+":2379")
+			// skip placeholder ip addresses used in previous versions where the hostname was used instead
+			if strings.HasPrefix(ip.String(), "192.0.2.") || strings.HasPrefix(ip.String(), "2001:db8:") {
+				// not considered an error
+				continue
+			}
+			// use the canonical representation of the ip address (not original input) when constructing the url
+			if ip.To4() != nil {
+				etcdURLs = append(etcdURLs, fmt.Sprintf("https://%s:2379", ip))
+			} else {
+				etcdURLs = append(etcdURLs, fmt.Sprintf("https://[%s]:2379", ip))
+			}
 		}
 	}
 
@@ -86,18 +80,17 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		errs = append(errs, emptyURLErr)
 	}
 
-	if len(errs) > 0 {
-		return
-	}
+	// always append `localhost` urls
+	etcdURLs = append(etcdURLs, "https://127.0.0.1:2379", "https://[::1]:2379")
 
+	observedConfig := map[string]interface{}{}
 	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
-		errs = append(errs, err)
-		return
+		return previouslyObservedConfig, append(errs, err)
 	}
 
 	if !reflect.DeepEqual(currentEtcdURLs, etcdURLs) {
 		recorder.Eventf("ObserveStorageUpdated", "Updated storage urls to %s", strings.Join(etcdURLs, ","))
 	}
 
-	return
+	return observedConfig, errs
 }
