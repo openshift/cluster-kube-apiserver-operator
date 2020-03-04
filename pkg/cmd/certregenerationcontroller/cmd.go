@@ -24,14 +24,10 @@ import (
 
 type Options struct {
 	controllerContext *controllercmd.ControllerContext
-
-	TLSServerName string
 }
 
 func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
-	o := &Options{
-		TLSServerName: "localhost-recovery",
-	}
+	o := &Options{}
 
 	ccc := controllercmd.NewControllerCommandConfig("cert-regeneration-controller", version.Get(), func(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 		o.controllerContext = controllerContext
@@ -53,13 +49,9 @@ func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 
 		return nil
 	})
-	// Serving client for delegated AuthN/AuthZ doesn't support setting TLS SNI name so we need to disable it or it fails recovery
-	ccc.DisableServing = true
 	cmd := ccc.NewCommandWithContext(ctx)
 	cmd.Use = "cert-regeneration-controller"
 	cmd.Short = "Start the Cluster Certificate Regeneration Controller"
-
-	cmd.PersistentFlags().StringVarP(&o.TLSServerName, "tls-server-name", "", o.TLSServerName, "The SNI hostname to set for the server in kubeconfig")
 
 	return cmd
 }
@@ -73,15 +65,6 @@ func (o *Options) Complete(ctx context.Context) error {
 }
 
 func (o *Options) Run(ctx context.Context) error {
-	if len(o.TLSServerName) != 0 {
-		// TLSServerName chooses the SNI serving endpoint on the apiserver.
-		// Particularly useful when connecting to "localhost" and wanting to choose a special
-		// serving endpoint like "localhost-recovery" that has long-lived serving certs
-		// for localhost connections.
-		o.controllerContext.KubeConfig.TLSClientConfig.ServerName = o.TLSServerName
-		o.controllerContext.ProtoKubeConfig.TLSClientConfig.ServerName = o.TLSServerName
-	}
-
 	kubeClient, err := kubernetes.NewForConfig(o.controllerContext.ProtoKubeConfig)
 	if err != nil {
 		return fmt.Errorf("can't build kubernetes client: %w", err)
