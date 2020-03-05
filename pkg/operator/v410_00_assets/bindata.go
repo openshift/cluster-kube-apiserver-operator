@@ -263,6 +263,7 @@ data:
       - cluster:
           certificate-authority: /etc/kubernetes/static-pod-resources/secrets/localhost-recovery-client-token/ca.crt
           server: https://localhost:6443
+          tls-server-name: localhost-recovery
         name: loopback
     contexts:
       - context:
@@ -527,7 +528,6 @@ spec:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
       - --destination-dir=/etc/kubernetes/static-pod-certs
-      - --tls-server-name-override=localhost-recovery
     resources:
       requests:
         memory: 50Mi
@@ -550,7 +550,6 @@ spec:
     args:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
-      - --tls-server-name=localhost-recovery
       - -v=2
     resources:
       requests:
