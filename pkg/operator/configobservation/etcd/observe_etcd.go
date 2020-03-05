@@ -80,8 +80,8 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		errs = append(errs, emptyURLErr)
 	}
 
-	// always append `localhost` urls
-	etcdURLs = append(etcdURLs, "https://127.0.0.1:2379", "https://[::1]:2379")
+	// always append `localhost` url
+	etcdURLs = append(etcdURLs, "https://localhost:2379")
 
 	observedConfig := map[string]interface{}{}
 	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
