@@ -173,7 +173,7 @@ func withStorageURL(url string) func(map[string]interface{}) {
 func withLocalhostStorageURLs() func(map[string]interface{}) {
 	return func(observedConfig map[string]interface{}) {
 		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "storageConfig", "urls")
-		urls = append(urls, "https://127.0.0.1:2379", "https://[::1]:2379")
+		urls = append(urls, "https://localhost:2379")
 		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "storageConfig", "urls")
 	}
 }
