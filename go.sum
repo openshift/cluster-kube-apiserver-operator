@@ -275,6 +275,8 @@ github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNx
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
+github.com/mfojtik/library-go v0.0.0-20200309172111-3838ba31481f h1:tV2NFw1VDWom38zQvaE5Isp2vl3+0Tfr53BZeOtMzT4=
+github.com/mfojtik/library-go v0.0.0-20200309172111-3838ba31481f/go.mod h1:HM1nXsKTup/9rYnmXdYbbN+8Ux8Xp39odoqZ4qvSyBo=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/mapstructure v1.1.2/go.mod h1:FVVH3fgwuzCH5S8UJGiWEs2h04kUh9fWfEaFds41c1Y=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -311,8 +313,6 @@ github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240 h1:XYfJWv2Ch+q
 github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240/go.mod h1:4riOwdj99Hd/q+iAcJZfNCsQQQMwURnZV6RL4WHYS5w=
 github.com/openshift/kubernetes-client-go v0.0.0-20200304132934-02649b23d68a h1:T7NDMVHiarViSL0H0wPkiYCvkcPF1APOIZ4QmGxRAm0=
 github.com/openshift/kubernetes-client-go v0.0.0-20200304132934-02649b23d68a/go.mod h1:cLXlTMtWHkuK4tD360KpWz2gG2KtdWEr/OT02i3emRQ=
-github.com/openshift/library-go v0.0.0-20200309133644-48193d0ad816 h1:sdMHMutbyRa87+aWkOMt5asoLCbPT9p+SbXpyCxl+Bw=
-github.com/openshift/library-go v0.0.0-20200309133644-48193d0ad816/go.mod h1:HM1nXsKTup/9rYnmXdYbbN+8Ux8Xp39odoqZ4qvSyBo=
 github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=

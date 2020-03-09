@@ -31,6 +31,17 @@ type KubeStorageVersionMigrator struct {
 	discoveryClient discovery.ServerResourcesInterface
 	client          kubemigratorclient.Interface
 	informer        migrationv1alpha1informer.Interface
+	cacheSynced     func() bool
+}
+
+func (m *KubeStorageVersionMigrator) AddEventHandler(handler cache.ResourceEventHandler) {
+	informer := m.informer.StorageVersionMigrations().Informer()
+	informer.AddEventHandler(handler)
+	m.cacheSynced = informer.HasSynced
+}
+
+func (m *KubeStorageVersionMigrator) HasSynced() bool {
+	return m.cacheSynced()
 }
 
 func (m *KubeStorageVersionMigrator) EnsureMigration(gr schema.GroupResource, writeKey string) (finished bool, result error, ts time.Time, err error) {
@@ -89,14 +100,6 @@ func (m *KubeStorageVersionMigrator) PruneMigration(gr schema.GroupResource) err
 		return err
 	}
 	return nil
-}
-
-func (m *KubeStorageVersionMigrator) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
-	informer := m.informer.StorageVersionMigrations().Informer()
-
-	informer.AddEventHandler(handler)
-
-	return []cache.InformerSynced{informer.HasSynced}
 }
 
 func migrationResourceName(gr schema.GroupResource) string {

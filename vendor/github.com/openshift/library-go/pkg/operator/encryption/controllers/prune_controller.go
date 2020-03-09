@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"fmt"
+	"context"
 	"sort"
 	"time"
 
@@ -10,15 +10,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -27,7 +26,6 @@ import (
 )
 
 const (
-	pruneWorkKey        = "key"
 	keepNumberOfSecrets = 10
 )
 
@@ -40,17 +38,13 @@ const (
 type pruneController struct {
 	operatorClient operatorv1helpers.OperatorClient
 
-	queue         workqueue.RateLimitingInterface
-	eventRecorder events.Recorder
-
-	preRunCachesSynced []cache.InformerSynced
-
 	encryptedGRs []schema.GroupResource
 
 	encryptionSecretSelector metav1.ListOptions
 
 	deployer     statemachine.Deployer
 	secretClient corev1client.SecretsGetter
+	name         string
 }
 
 func NewPruneController(
@@ -61,31 +55,29 @@ func NewPruneController(
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
 	encryptedGRs []schema.GroupResource,
-) *pruneController {
+) factory.Controller {
 	c := &pruneController{
-		operatorClient: operatorClient,
-
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EncryptionPruneController"),
-		eventRecorder: eventRecorder.WithComponentSuffix("encryption-prune-controller"), // TODO unused
-
-		encryptedGRs: encryptedGRs,
-
+		operatorClient:           operatorClient,
+		name:                     "EncryptionPruneController",
+		encryptedGRs:             encryptedGRs,
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		secretClient:             secretClient,
 	}
 
-	c.preRunCachesSynced = setUpInformers(deployer, operatorClient, kubeInformersForNamespaces, c.eventHandler())
-
-	return c
+	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
+		operatorClient.Informer(),
+		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		deployer,
+	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-prune-controller"))
 }
 
-func (c *pruneController) sync() error {
+func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	if ready, err := shouldRunEncryptionController(c.operatorClient); err != nil || !ready {
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.deleteOldMigratedSecrets()
+	configError := c.deleteOldMigratedSecrets(syncCtx.Queue(), syncCtx.Recorder())
 
 	// update failing condition
 	cond := operatorv1.OperatorCondition{
@@ -104,13 +96,13 @@ func (c *pruneController) sync() error {
 	return configError
 }
 
-func (c *pruneController) deleteOldMigratedSecrets() error {
+func (c *pruneController) deleteOldMigratedSecrets(queue workqueue.RateLimitingInterface, recorder events.Recorder) error {
 	_, desiredEncryptionConfig, _, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, c.encryptedGRs)
 	if err != nil {
 		return err
 	}
 	if len(isProgressingReason) > 0 {
-		c.queue.AddAfter(migrationWorkKey, 2*time.Minute)
+		queue.AddAfter(factory.QueueKey(c.name), 2*time.Minute)
 		return nil
 	}
 
@@ -181,56 +173,7 @@ NextEncryptionSecret:
 		}
 	}
 	if deletedKeys > 0 {
-		c.eventRecorder.Eventf("EncryptionKeysPruned", "Successfully pruned %d secrets", deletedKeys)
+		recorder.Eventf("EncryptionKeysPruned", "Successfully pruned %d secrets", deletedKeys)
 	}
 	return utilerrors.FilterOut(utilerrors.NewAggregate(deleteErrs), errors.IsNotFound)
-}
-
-func (c *pruneController) Run(stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	klog.Infof("Starting EncryptionPruneController")
-	defer klog.Infof("Shutting down EncryptionPruneController")
-	if !cache.WaitForCacheSync(stopCh, c.preRunCachesSynced...) {
-		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
-		return
-	}
-
-	// only start one worker
-	go wait.Until(c.runWorker, time.Second, stopCh)
-
-	<-stopCh
-}
-
-func (c *pruneController) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *pruneController) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(dsKey)
-
-	err := c.sync()
-	if err == nil {
-		c.queue.Forget(dsKey)
-		return true
-	}
-
-	utilruntime.HandleError(fmt.Errorf("%v failed with: %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
-
-	return true
-}
-
-func (c *pruneController) eventHandler() cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(pruneWorkKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(pruneWorkKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(pruneWorkKey) },
-	}
 }
