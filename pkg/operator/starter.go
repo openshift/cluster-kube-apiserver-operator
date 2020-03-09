@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -250,7 +249,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
-	go encryptionControllers.Run(ctx.Done())
+	go encryptionControllers.Run(ctx, 1)
 	go featureUpgradeableController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
@@ -258,7 +257,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go staleConditionsController.Run(ctx, 1)
 
 	<-ctx.Done()
-	return fmt.Errorf("stopped")
+	return nil
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
