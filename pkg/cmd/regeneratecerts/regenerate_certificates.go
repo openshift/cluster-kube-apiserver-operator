@@ -188,6 +188,7 @@ func (o *Options) Run() error {
 	// wait until the controllers are ready
 	kubeAPIServerCertRotationController.WaitForReady(ctx.Done())
 	kubeControllerManagerCertRotationController.WaitForReady(ctx.Done())
+
 	select {
 	case <-ctx.Done():
 		return nil

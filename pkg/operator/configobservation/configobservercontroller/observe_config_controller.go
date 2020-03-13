@@ -22,10 +22,11 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/controller/factory"
 )
 
 type ConfigObserver struct {
-	*configobserver.ConfigObserver
+	factory.Controller
 }
 
 func NewConfigObserver(
@@ -49,8 +50,23 @@ func NewConfigObserver(
 		)
 	}
 
+	infomers := []factory.Informer{
+		operatorClient.Informer(),
+		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer(),
+		configInformer.Config().V1().Images().Informer(),
+		configInformer.Config().V1().Infrastructures().Informer(),
+		configInformer.Config().V1().Authentications().Informer(),
+		configInformer.Config().V1().APIServers().Informer(),
+		configInformer.Config().V1().Networks().Informer(),
+		configInformer.Config().V1().Proxies().Informer(),
+		configInformer.Config().V1().Schedulers().Informer(),
+	}
+	for _, ns := range interestingNamespaces {
+		infomers = append(infomers, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer())
+	}
+
 	c := &ConfigObserver{
-		ConfigObserver: configobserver.NewConfigObserver(
+		Controller: configobserver.NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
@@ -84,6 +100,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Schedulers().Informer().HasSynced,
 				),
 			},
+			infomers,
 			// We are disabling this because it doesn't work today and customers aren't going to be able to get the kube service network options right.
 			// Customers may only use SNI.  I'm leaving this code in case we ever come up with a way to make an SNI-like thing based on IPs.
 			//apiserver.ObserveDefaultUserServingCertificate,
@@ -118,21 +135,6 @@ func NewConfigObserver(
 			scheduler.ObserveDefaultNodeSelector,
 		),
 	}
-
-	operatorClient.Informer().AddEventHandler(c.EventHandler())
-
-	for _, ns := range interestingNamespaces {
-		kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().AddEventHandler(c.EventHandler())
-	}
-	kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
-
-	configInformer.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().Authentications().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().APIServers().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().Networks().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().Proxies().Informer().AddEventHandler(c.EventHandler())
-	configInformer.Config().V1().Schedulers().Informer().AddEventHandler(c.EventHandler())
 
 	return c
 }
