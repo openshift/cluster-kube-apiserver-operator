@@ -17,8 +17,11 @@ var clusterDefaultCORSALlowedOrigins = []string{
 	`//localhost(:|$)`,
 }
 
-func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveAdditionalCORSAllowedOrigins(genericListers configobserver.Listers, recorder events.Recorder, completeExistingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	const corsAllowedOriginsPath = "corsAllowedOrigins"
+	existingConfig := configobservation.SelectedPaths(completeExistingConfig,
+		[]string{corsAllowedOriginsPath},
+	)
 
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}

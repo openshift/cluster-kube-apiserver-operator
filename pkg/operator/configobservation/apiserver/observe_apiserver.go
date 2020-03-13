@@ -87,7 +87,12 @@ func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Re
 
 // observeNamedCertificates observes user managed Secrets containing TLS cert info for serving secure traffic to
 // specific hostnames.
-func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Recorder, completeExistingConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+	namedCertificatesPath := []string{"servingInfo", "namedCertificates"}
+	existingConfig := configobservation.SelectedPaths(completeExistingConfig,
+		namedCertificatesPath,
+	)
+
 	var errs []error
 	observedConfig := map[string]interface{}{}
 
@@ -96,11 +101,10 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		// TODO: This should be validation error, not operator error/event.
 		err := fmt.Errorf("spec.servingCerts.namedCertificates cannot have more than %d entries", maxUserNamedCerts)
 		recorder.Warningf("ObserveNamedCertificatesFailed", err.Error())
-		return previouslyObservedConfig, nil, append(errs, err)
+		return existingConfig, nil, append(errs, err)
 	}
 
 	// add the named cert info to the observed config. return the previously observed config on any error.
-	namedCertificatesPath := []string{"servingInfo", "namedCertificates"}
 	resourceSyncRules := syncActionRules{}
 	var observedNamedCertificates []interface{}
 
@@ -125,14 +129,14 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		observedNamedCertificate := map[string]interface{}{}
 		if len(namedCertificate.Names) > 0 {
 			if err := unstructured.SetNestedStringSlice(observedNamedCertificate, namedCertificate.Names, "names"); err != nil {
-				return previouslyObservedConfig, nil, append(errs, err)
+				return existingConfig, nil, append(errs, err)
 			}
 		}
 		sourceSecretName := namedCertificate.ServingCertificate.Name
 		if len(sourceSecretName) == 0 {
 			err := fmt.Errorf("spec.servingCerts.namedCertificates[%d].servingCertificate.name cannot be empty", index)
 			recorder.Warningf("ObserveNamedCertificatesFailed", err.Error())
-			return previouslyObservedConfig, nil, append(errs, err)
+			return existingConfig, nil, append(errs, err)
 		}
 		// pick one of the available target resource names
 		targetSecretName := fmt.Sprintf(namedUserServingCertResourceNameFormat, index)
@@ -143,12 +147,12 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		// add the named certificate to the observed config
 		certFile := fmt.Sprintf("/etc/kubernetes/static-pod-certs/secrets/%s/tls.crt", targetSecretName)
 		if err := unstructured.SetNestedField(observedNamedCertificate, certFile, "certFile"); err != nil {
-			return previouslyObservedConfig, nil, append(errs, err)
+			return existingConfig, nil, append(errs, err)
 		}
 
 		keyFile := fmt.Sprintf("/etc/kubernetes/static-pod-certs/secrets/%s/tls.key", targetSecretName)
 		if err := unstructured.SetNestedField(observedNamedCertificate, keyFile, "keyFile"); err != nil {
-			return previouslyObservedConfig, nil, append(errs, err)
+			return existingConfig, nil, append(errs, err)
 		}
 
 		observedNamedCertificates = append(observedNamedCertificates, observedNamedCertificate)
@@ -156,7 +160,7 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 
 	if len(observedNamedCertificates) > 0 {
 		if err := unstructured.SetNestedField(observedConfig, observedNamedCertificates, namedCertificatesPath...); err != nil {
-			return previouslyObservedConfig, nil, append(errs, err)
+			return existingConfig, nil, append(errs, err)
 		}
 	}
 
