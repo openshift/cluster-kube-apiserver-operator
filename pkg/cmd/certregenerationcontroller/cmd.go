@@ -49,6 +49,13 @@ func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 
 		return nil
 	})
+
+	// Disable serving for recovery as it introduces a dependency on kube-system::extension-apiserver-authentication
+	// configmap which prevents it to start as the CA bundle is expired.
+	// TODO: Remove when the internal logic can start serving without extension-apiserver-authentication
+	//  	 and live reload extension-apiserver-authentication after it is available
+	ccc.DisableServing = true
+
 	cmd := ccc.NewCommandWithContext(ctx)
 	cmd.Use = "cert-regeneration-controller"
 	cmd.Short = "Start the Cluster Certificate Regeneration Controller"
