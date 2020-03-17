@@ -1,6 +1,7 @@
 package e2e_encryption
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -71,12 +72,12 @@ func TestEncryptionRotation(t *testing.T) {
 		GetRawResourceFunc: operatorencryption.GetRawSecretOfLife,
 		UnsupportedConfigFunc: func(raw []byte) error {
 			operatorClient := operatorencryption.GetOperator(t)
-			apiServerOperator, err := operatorClient.Get("cluster", metav1.GetOptions{})
+			apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
-			_, err = operatorClient.Update(apiServerOperator)
+			_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
 			return err
 		},
 	})

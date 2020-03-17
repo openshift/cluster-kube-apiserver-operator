@@ -100,3 +100,7 @@ func booleanGaugeValue(g prometheus.Gauge, value bool) prometheus.Gauge {
 }
 
 func (m *configMetrics) ClearState() {}
+
+func (m *configMetrics) FQName() string {
+	return "cluster_kube_apiserver_operator"
+}

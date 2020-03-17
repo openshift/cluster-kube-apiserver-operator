@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -32,12 +33,12 @@ func TestUserClientCABundle(t *testing.T) {
 
 	// create ca-bundle ConfigMap
 	configMapName := strings.ToLower(test.GenerateNameForTest(t, "UserCA"))
-	_, err = kubeClient.ConfigMaps("openshift-config").Create(
+	_, err = kubeClient.ConfigMaps("openshift-config").Create(context.TODO(),
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: configMapName},
 			Data:       map[string]string{"ca-bundle.crt": string(encodeCertPEM(clientCA.Certificate))},
 		},
-	)
+		metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// configure user client-ca
@@ -55,7 +56,7 @@ func TestUserClientCABundle(t *testing.T) {
 	// wait for user client-ca to appear in combined client-ca bundle
 	var lastResourceVersion string
 	err = wait.Poll(test.WaitPollInterval, test.WaitPollTimeout, func() (bool, error) {
-		caBundle, err := kubeClient.ConfigMaps("openshift-kube-apiserver").Get("client-ca", metav1.GetOptions{})
+		caBundle, err := kubeClient.ConfigMaps("openshift-kube-apiserver").Get(context.TODO(), "client-ca", metav1.GetOptions{})
 		if err != nil || caBundle.ResourceVersion == lastResourceVersion {
 			return false, nil
 		}

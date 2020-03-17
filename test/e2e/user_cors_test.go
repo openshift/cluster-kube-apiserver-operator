@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -95,7 +96,7 @@ func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 }
 
 func getKubeAPIServerConfigOrFail(t *testing.T, operatorClient operatorclient.KubeAPIServerInterface) []string {
-	operatorConfig, err := operatorClient.Get("cluster", metav1.GetOptions{})
+	operatorConfig, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 
 	var unstructuredConfig map[string]interface{}

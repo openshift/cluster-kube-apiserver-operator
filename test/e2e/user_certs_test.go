@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -257,7 +258,7 @@ func getReturnedCertSerialNumber(host, serverName string) (string, error) {
 }
 
 func deleteSecret(client *clientcorev1.CoreV1Client, namespace, name string) error {
-	return client.Secrets(namespace).Delete(name, &metav1.DeleteOptions{})
+	return client.Secrets(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
 func encodeCertPEM(c *x509.Certificate) []byte {
@@ -273,7 +274,7 @@ func createTLSSecret(client *clientcorev1.CoreV1Client, namespace, name string, 
 	if err != nil {
 		return nil, err
 	}
-	return client.Secrets(namespace).Create(
+	return client.Secrets(namespace).Create(context.TODO(),
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
 			Type:       corev1.SecretTypeTLS,
@@ -281,7 +282,7 @@ func createTLSSecret(client *clientcorev1.CoreV1Client, namespace, name string, 
 				corev1.TLSPrivateKeyKey: privateKeyBytes,
 				corev1.TLSCertKey:       encodeCertPEM(certificate),
 			},
-		})
+		}, metav1.CreateOptions{})
 }
 
 func serialNumberOfCertificateFromSecretOrFail(t *testing.T, client *clientcorev1.CoreV1Client, namespace, name string) string {
@@ -291,7 +292,7 @@ func serialNumberOfCertificateFromSecretOrFail(t *testing.T, client *clientcorev
 }
 
 func serialNumberOfCertificateFromSecret(client *clientcorev1.CoreV1Client, namespace, name string) (string, error) {
-	secret, err := client.Secrets(namespace).Get(name, metav1.GetOptions{})
+	secret, err := client.Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -303,15 +304,15 @@ func serialNumberOfCertificateFromSecret(client *clientcorev1.CoreV1Client, name
 }
 
 func updateAPIServerClusterConfigSpec(client *configclient.ConfigV1Client, updateFunc func(spec *configv1.APIServer)) (*configv1.APIServer, error) {
-	apiServer, err := client.APIServers().Get("cluster", metav1.GetOptions{})
+	apiServer, err := client.APIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		apiServer, err = client.APIServers().Create(&configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}})
+		apiServer, err = client.APIServers().Create(context.TODO(), &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}, metav1.CreateOptions{})
 	}
 	if err != nil {
 		return nil, err
 	}
 	updateFunc(apiServer)
-	return client.APIServers().Update(apiServer)
+	return client.APIServers().Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 }
 
 func removeNamedCertificatesBySecretName(apiServer *configv1.APIServer, secretName ...string) {
@@ -339,7 +340,7 @@ func getExternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.Conf
 }
 
 func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
-	infrastructure, err := client.Infrastructures().Get("cluster", metav1.GetOptions{})
+	infrastructure, err := client.Infrastructures().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -358,7 +359,7 @@ func getInternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.Conf
 }
 
 func getInternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
-	infrastructure, err := client.Infrastructures().Get("cluster", metav1.GetOptions{})
+	infrastructure, err := client.Infrastructures().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -376,7 +377,7 @@ func getKubernetesServiceClusterIPOrFail(t *testing.T, client *clientcorev1.Core
 }
 
 func getKubernetesServiceClusterIP(client *clientcorev1.CoreV1Client) (string, error) {
-	service, err := client.Services("default").Get("kubernetes", metav1.GetOptions{})
+	service, err := client.Services("default").Get(context.TODO(), "kubernetes", metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}

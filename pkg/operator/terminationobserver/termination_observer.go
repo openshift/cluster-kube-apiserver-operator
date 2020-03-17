@@ -96,8 +96,8 @@ func NewTerminationObserver(
 	return c
 }
 
-func (c *TerminationObserver) sync() error {
-	podList, err := c.podsGetter.Pods(c.targetNamespace).List(metav1.ListOptions{LabelSelector: "app=openshift-kube-apiserver"})
+func (c *TerminationObserver) sync(ctx context.Context) error {
+	podList, err := c.podsGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app=openshift-kube-apiserver"})
 	if err != nil {
 		return fmt.Errorf("unable to list pods in %q namespace: %v", c.targetNamespace, err)
 	}
@@ -154,18 +154,18 @@ func (c *TerminationObserver) Run(ctx context.Context, workers int) {
 }
 
 func (c *TerminationObserver) runWorker(ctx context.Context) {
-	for c.processNextWorkItem() {
+	for c.processNextWorkItem(ctx) {
 	}
 }
 
-func (c *TerminationObserver) processNextWorkItem() bool {
+func (c *TerminationObserver) processNextWorkItem(ctx context.Context) bool {
 	dsKey, quit := c.queue.Get()
 	if quit {
 		return false
 	}
 	defer c.queue.Done(dsKey)
 
-	err := c.sync()
+	err := c.sync(ctx)
 	if err == nil {
 		c.queue.Forget(dsKey)
 		return true

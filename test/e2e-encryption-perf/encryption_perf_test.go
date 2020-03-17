@@ -1,6 +1,7 @@
 package e2e_encryption_perf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -37,7 +38,7 @@ func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
 			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 		},
 		GetOperatorConditionsFunc: func(t testing.TB) ([]operatorv1.OperatorCondition, error) {
-			apiServerOperator, err := operatorClient.Get("cluster", metav1.GetOptions{})
+			apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -93,7 +94,7 @@ func createSecret(kubeClient kubernetes.Interface, namespace string, errorCollec
 			"quote": []byte("I have no special talents. I am only passionately curious"),
 		},
 	}
-	_, err := kubeClient.CoreV1().Secrets(namespace).Create(secret)
+	_, err := kubeClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	return err
 }
 
@@ -113,7 +114,7 @@ func createConfigMap(kubeClient kubernetes.Interface, namespace string, errorCol
 		BinaryData: nil,
 	}
 
-	_, err := kubeClient.CoreV1().ConfigMaps(namespace).Create(cm)
+	_, err := kubeClient.CoreV1().ConfigMaps(namespace).Create(context.TODO(), cm, metav1.CreateOptions{})
 	return err
 }
 
@@ -130,13 +131,13 @@ func createNamespace(kubeClient kubernetes.Interface, name string, errorCollecto
 		},
 		Status: corev1.NamespaceStatus{},
 	}
-	_, err := kubeClient.CoreV1().Namespaces().Create(ns)
+	_, err := kubeClient.CoreV1().Namespaces().Create(context.TODO(), ns, metav1.CreateOptions{})
 	return err
 }
 
 func waitUntilNamespaceActive(kubeClient kubernetes.Interface, namespace string, errorCollector func(error), statsCollector func(string)) error {
 	err := wait.Poll(10*time.Millisecond, 30*time.Second, func() (bool, error) {
-		ns, err := kubeClient.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+		ns, err := kubeClient.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

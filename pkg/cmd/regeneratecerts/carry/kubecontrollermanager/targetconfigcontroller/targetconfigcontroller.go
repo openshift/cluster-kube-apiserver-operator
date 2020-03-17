@@ -1,6 +1,7 @@
 package targetconfigcontroller
 
 import (
+	"context"
 	"crypto/x509"
 	"reflect"
 
@@ -71,7 +72,7 @@ func ManageCSRSigner(lister corev1listers.SecretLister, client corev1client.Secr
 	return resourceapply.ApplySecret(client, recorder, csrSigner)
 }
 
-func ManageCSRIntermediateCABundle(lister corev1listers.SecretLister, client corev1client.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+func ManageCSRIntermediateCABundle(ctx context.Context, lister corev1listers.SecretLister, client corev1client.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	// get the certkey pair we will sign with. We're going to add the cert to a ca bundle so we can recognize the chain it signs back to the signer
 	csrSigner, err := lister.Secrets(operatorclient.OperatorNamespace).Get("csr-signer")
 	if apierrors.IsNotFound(err) {
@@ -93,7 +94,7 @@ func ManageCSRIntermediateCABundle(lister corev1listers.SecretLister, client cor
 		return nil, false, err
 	}
 
-	csrSignerCA, err := client.ConfigMaps(operatorclient.OperatorNamespace).Get("csr-signer-ca", metav1.GetOptions{})
+	csrSignerCA, err := client.ConfigMaps(operatorclient.OperatorNamespace).Get(ctx, "csr-signer-ca", metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		csrSignerCA = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.OperatorNamespace, Name: "csr-signer-ca"},
