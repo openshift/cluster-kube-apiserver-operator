@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -222,7 +221,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
-	staleConditionsController := staleconditions.NewRemoveStaleConditions(
+	staleConditionsController := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
 			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
 			// these can be removed in 4.5
@@ -258,7 +257,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go staleConditionsController.Run(ctx, 1)
 
 	<-ctx.Done()
-	return fmt.Errorf("stopped")
+	return nil
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.

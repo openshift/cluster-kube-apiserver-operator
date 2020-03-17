@@ -17,6 +17,8 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/controller/factory"
+
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -26,7 +28,7 @@ import (
 const defaultRotationDay = 24 * time.Hour
 
 type CertRotationController struct {
-	certRotators []*certrotation.CertRotationController
+	certRotators []factory.Controller
 
 	networkLister        configlisterv1.NetworkLister
 	infrastructureLister configlisterv1.InfrastructureLister
@@ -39,6 +41,8 @@ type CertRotationController struct {
 
 	internalLoadBalancer               *DynamicServingRotation
 	internalLoadBalancerHostnamesQueue workqueue.RateLimitingInterface
+
+	recorder events.Recorder
 
 	cachesToSync []cache.InformerSynced
 }
@@ -103,6 +107,7 @@ func newCertRotationController(
 		internalLoadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InternalLoadBalancerHostnames"),
 		internalLoadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
 
+		recorder: eventRecorder,
 		cachesToSync: []cache.InformerSynced{
 			configInformer.Config().V1().Networks().Informer().HasSynced,
 			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
@@ -123,7 +128,7 @@ func newCertRotationController(
 		rotationDay = rotationDay / 60
 	}
 
-	certRotator, err := certrotation.NewCertRotationController(
+	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -159,13 +164,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"KubeAPIServerToKubeletClientCert",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -201,13 +204,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"LocalhostServing",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -243,13 +244,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"ServiceNetworkServing",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -286,13 +285,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"ExternalLoadBalancerServing",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -329,13 +326,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"InternalLoadBalancerServing",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -372,13 +367,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"LocalhostRecoveryServing",
 		certrotation.SigningRotation{
 			Namespace:     operatorclient.OperatorNamespace,
@@ -412,13 +405,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"KubeControllerManagerClient",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -454,13 +445,11 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
-	certRotator, err = certrotation.NewCertRotationController(
+	certRotator = certrotation.NewCertRotationController(
 		"KubeSchedulerClient",
 		certrotation.SigningRotation{
 			Namespace:              operatorclient.OperatorNamespace,
@@ -496,10 +485,8 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		operatorClient,
+		eventRecorder,
 	)
-	if err != nil {
-		return nil, err
-	}
 	ret.certRotators = append(ret.certRotators, certRotator)
 
 	return ret, nil
@@ -524,18 +511,15 @@ func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
-
-	for _, certRotator := range c.certRotators {
-		certRotator.WaitForReady(stopCh)
-	}
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.
 // This eliminates the need to pass an OperatorClient and avoids dubious writes and status.
 func (c *CertRotationController) RunOnce() error {
 	errlist := []error{}
+	runOnceCtx := context.WithValue(context.Background(), certrotation.RunOnceContextKey, true)
 	for _, certRotator := range c.certRotators {
-		if err := certRotator.RunOnce(); err != nil {
+		if err := certRotator.Sync(runOnceCtx, factory.NewSyncContext("CertRotationController", c.recorder)); err != nil {
 			errlist = append(errlist, err)
 		}
 	}
