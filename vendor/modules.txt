@@ -125,7 +125,7 @@ github.com/jteeuwen/go-bindata
 github.com/jteeuwen/go-bindata/go-bindata
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
+# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17 => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
 github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
