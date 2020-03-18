@@ -117,7 +117,7 @@ apiServerArguments:
   enable-aggregator-routing:
   - "true"
   shutdown-delay-duration:
-  - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
+  - 30s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   http2-max-streams-per-connection:
   - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
   kubelet-preferred-address-types:
@@ -572,7 +572,7 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
-  terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: 95 # bit more than 30s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:

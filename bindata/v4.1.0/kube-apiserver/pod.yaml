@@ -149,7 +149,7 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
-  terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: 95 # bit more than 30s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
