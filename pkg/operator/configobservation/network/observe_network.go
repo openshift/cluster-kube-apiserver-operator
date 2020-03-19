@@ -14,39 +14,32 @@ import (
 
 // ObserveRestrictedCIDRs watches the network configuration and updates the
 // RestrictedEndpointsAdmission controller config.
-func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
-
-	var errs []error
+func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	configPath := []string{"admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission", "configuration"}
+	defer func() {
+		ret = configobserver.Pruned(ret, configPath)
+	}()
+
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
 
 	admissionControllerConfig := unstructured.Unstructured{}
-	prev, ok, err := unstructured.NestedMap(existingConfig, configPath...)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if ok && err == nil {
-		// If we ever bump the API version, we'll have to do conversion here.
-		admissionControllerConfig.SetUnstructuredContent(prev)
-	}
 	admissionControllerConfig.SetAPIVersion("network.openshift.io/v1")
 	admissionControllerConfig.SetKind("RestrictedEndpointsAdmissionConfig")
 
 	clusterCIDRs, err := network.GetClusterCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
 	if err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// If we weren't able to retrieve cidrs, then return the previous configuration
-	if len(errs) > 0 || len(clusterCIDRs) == 0 || len(serviceCIDR) == 0 {
-		previouslyObservedConfig := map[string]interface{}{}
-		unstructured.SetNestedMap(previouslyObservedConfig, admissionControllerConfig.Object, configPath...)
-		return previouslyObservedConfig, errs
+	if len(clusterCIDRs) == 0 || len(serviceCIDR) == 0 {
+		return existingConfig, errs
 	}
 
 	// set observed values
@@ -65,35 +58,38 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 	}
 
 	if err := unstructured.SetNestedStringSlice(admissionControllerConfig.Object, restrictedCIDRs, "restrictedCIDRs"); err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	observedConfig := map[string]interface{}{}
-	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
+	if err := unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...); err != nil {
+		return existingConfig, append(errs, err)
+	}
 
 	return observedConfig, errs
 }
 
 // ObserveServicesSubnet watches the network configuration and generates the
 // servicesSubnet (and bindAddress)
-func ObserveServicesSubnet(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
-
-	out := map[string]interface{}{}
-	servicesSubnetConfigPath := []string{"servicesSubnet"}
+func ObserveServicesSubnet(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	bindAddressConfigPath := []string{"servingInfo", "bindAddress"}
 	bindNetworkConfigPath := []string{"servingInfo", "bindNetwork"}
+	servicesSubnetConfigPath := []string{"servicesSubnet"}
+	defer func() {
+		ret = configobserver.Pruned(ret, bindAddressConfigPath, bindNetworkConfigPath, servicesSubnetConfigPath)
+	}()
 
-	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesSubnetConfigPath, bindAddressConfigPath, bindNetworkConfigPath)
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
+	observedConfig := map[string]interface{}{}
 
 	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
 	if err != nil {
-		errs = append(errs, err)
-		return previouslyObservedConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
-	if err := unstructured.SetNestedField(out, serviceCIDR, servicesSubnetConfigPath...); err != nil {
-		errs = append(errs, err)
+	if err := unstructured.SetNestedField(observedConfig, serviceCIDR, servicesSubnetConfigPath...); err != nil {
+		return existingConfig, append(errs, err)
 	}
 	bindAddress := "0.0.0.0:6443"
 	bindNetwork := "tcp4"
@@ -107,21 +103,19 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 			bindNetwork = "tcp6"
 		}
 	}
-	if err := unstructured.SetNestedField(out, bindAddress, bindAddressConfigPath...); err != nil {
-		errs = append(errs, err)
+	if err := unstructured.SetNestedField(observedConfig, bindAddress, bindAddressConfigPath...); err != nil {
+		return existingConfig, append(errs, err)
 	}
-	if err := unstructured.SetNestedField(out, bindNetwork, bindNetworkConfigPath...); err != nil {
-		errs = append(errs, err)
+	if err := unstructured.SetNestedField(observedConfig, bindNetwork, bindNetworkConfigPath...); err != nil {
+		return existingConfig, append(errs, err)
 	}
 
-	return out, errs
+	return observedConfig, errs
 }
 
 // ObserveExternalIPPolicy observes the network configuration and generates the
 // ExternalIPRanger admission controller accordingly.
-func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
-
+func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	// set observed values
 	//  admission:
 	//    pluginConfig:
@@ -131,30 +125,30 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	//          kind: ExternalIPRangerAdmissionConfig
 	//          externalIPNetworkCIDRs: [...]
 	configPath := []string{"admission", "pluginConfig", "network.openshift.io/ExternalIPRanger", "configuration"}
+	defer func() {
+		ret = configobserver.Pruned(ret, configPath)
+	}()
+
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
 
 	// Need to handle 3 cases:
 	// 1. retrieval error: pass through existing, if it exists
 	// 2. Null externalip policy: enable the externalip admission controller with deny-all
 	// 3. Non-null policy: enable the externalip admission controller, pass through configuration.
 
-	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, configPath)
-
 	externalIPPolicy, err := network.GetExternalIPPolicy(listers.NetworkLister, recorder)
 	if err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// called "ingress ips" in the controller
 	autoExternalIPs, err := network.GetExternalIPAutoAssignCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
-	// Case 1: retrieval error. Pass through our existing configuration path,
-	// if it exists.
-	if len(errs) > 0 {
-		return previouslyObservedConfig, errs
-	}
+	// Case 1: retrieval error. Pass through our existing configuration path, if it exists. We returned above.
 
 	// Case 2, 3: Policy, synthesize config
 	// Simply by creating this configuration, the admission controller will
@@ -181,31 +175,17 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	allowIngressIP := len(autoExternalIPs) > 0
 
 	if len(conf) > 0 {
-		unstructured.SetNestedStringSlice(admissionControllerConfig.Object, conf, "externalIPNetworkCIDRs")
+		if err := unstructured.SetNestedStringSlice(admissionControllerConfig.Object, conf, "externalIPNetworkCIDRs"); err != nil {
+			return existingConfig, append(errs, err)
+		}
 	}
-	unstructured.SetNestedField(admissionControllerConfig.Object, allowIngressIP, "allowIngressIP")
+	if err := unstructured.SetNestedField(admissionControllerConfig.Object, allowIngressIP, "allowIngressIP"); err != nil {
+		return existingConfig, append(errs, err)
+	}
 	observedConfig := map[string]interface{}{}
-	unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...)
+	if err := unstructured.SetNestedMap(observedConfig, admissionControllerConfig.Object, configPath...); err != nil {
+		return existingConfig, append(errs, err)
+	}
 
 	return observedConfig, errs
-}
-
-// extractPreviouslyObservedConfig extracts the previously observed config from the existing config.
-func extractPreviouslyObservedConfig(existing map[string]interface{}, paths ...[]string) (map[string]interface{}, []error) {
-	var errs []error
-	previous := map[string]interface{}{}
-	for _, fields := range paths {
-		value, found, err := unstructured.NestedFieldCopy(existing, fields...)
-		if !found {
-			continue
-		}
-		if err != nil {
-			errs = append(errs, err)
-		}
-		err = unstructured.SetNestedField(previous, value, fields...)
-		if err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return previous, errs
 }

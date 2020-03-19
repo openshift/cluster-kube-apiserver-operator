@@ -18,21 +18,14 @@ import (
 
 // ObserveInternalRegistryHostname reads the internal registry hostname from the cluster configuration as provided by
 // the registry operator.
-func ObserveInternalRegistryHostname(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveInternalRegistryHostname(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
+	defer func() {
+		ret = configobserver.Pruned(ret, internalRegistryHostnamePath)
+	}()
+
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
-	prevObservedConfig := map[string]interface{}{}
-
-	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	currentInternalRegistryHostname, _, err := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	if len(currentInternalRegistryHostname) > 0 {
-		if err := unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...); err != nil {
-			errs = append(errs, err)
-		}
-	}
 
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
@@ -41,13 +34,18 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 		return observedConfig, errs
 	}
 	if err != nil {
-		return prevObservedConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	internalRegistryHostName := configImage.Status.InternalRegistryHostname
 	if len(internalRegistryHostName) > 0 {
 		if err := unstructured.SetNestedField(observedConfig, internalRegistryHostName, internalRegistryHostnamePath...); err != nil {
 			errs = append(errs, err)
+		}
+		currentInternalRegistryHostname, _, err := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
+		if err != nil {
+			errs = append(errs, err)
+			// keep going on read error from existing config
 		}
 		if internalRegistryHostName != currentInternalRegistryHostname {
 			recorder.Eventf("ObserveInternalRegistryHostnameChanged", "Internal registry hostname changed to %q", internalRegistryHostName)
@@ -58,24 +56,14 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 
 // ObserveExternalRegistryHostnames maps the user provided+generated external registry hostnames to the kube api server
 // configuration.
-func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	externalRegistryHostnamePath := []string{"imagePolicyConfig", "externalRegistryHostnames"}
+	defer func() {
+		ret = configobserver.Pruned(ret, externalRegistryHostnamePath)
+	}()
+
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
-	prevObservedConfig := map[string]interface{}{}
-
-	// first observe all the existing config values so that if we get any errors
-	// we can at least return those.
-	externalRegistryHostnamePath := []string{"imagePolicyConfig", "externalRegistryHostnames"}
-	existingHostnames, _, err := unstructured.NestedStringSlice(existingConfig, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	if len(existingHostnames) > 0 {
-		err := unstructured.SetNestedStringSlice(prevObservedConfig, existingHostnames, externalRegistryHostnamePath...)
-		if err != nil {
-			return prevObservedConfig, append(errs, err)
-		}
-	}
 
 	// now gather the cluster config and turn it into the observed config
 	observedConfig := map[string]interface{}{}
@@ -85,7 +73,7 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 		return observedConfig, errs
 	}
 	if err != nil {
-		return prevObservedConfig, append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// User provided values take precedence, first entry in the array
@@ -95,10 +83,17 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 
 	if len(externalRegistryHostnames) > 0 {
 		if err = unstructured.SetNestedStringSlice(observedConfig, externalRegistryHostnames, externalRegistryHostnamePath...); err != nil {
-			return prevObservedConfig, append(errs, err)
+			return existingConfig, append(errs, err)
 		}
 	}
 
+	// first observe all the existing config values so that if we get any errors
+	// we can at least return those.
+	existingHostnames, _, err := unstructured.NestedStringSlice(existingConfig, externalRegistryHostnamePath...)
+	if err != nil {
+		errs = append(errs, err)
+		// keep going on read error from existing config
+	}
 	if !equality.Semantic.DeepEqual(existingHostnames, externalRegistryHostnames) {
 		recorder.Eventf("ObserveExternalRegistryHostnameChanged", "External registry hostname changed to %v", externalRegistryHostnames)
 	}

@@ -23,7 +23,6 @@ func ObserveServiceAccountIssuer(
 	_ events.Recorder,
 	existingConfig map[string]interface{},
 ) (map[string]interface{}, []error) {
-
 	listers := genericListers.(configobservation.Listers)
 	return observedConfig(existingConfig, listers.AuthConfigLister.Get)
 }
@@ -34,11 +33,24 @@ func ObserveServiceAccountIssuer(
 func observedConfig(
 	existingConfig map[string]interface{},
 	authConfigAccessor func(string) (*v1.Authentication, error),
-) (map[string]interface{}, []error) {
+) (ret map[string]interface{}, _ []error) {
+	serviceAccountIssuerPath := []string{"apiServerArguments", "service-account-issuer"}
+	defer func() {
+		ret = configobserver.Pruned(ret, serviceAccountIssuerPath)
+	}()
 
+	observedConfig := map[string]interface{}{}
 	issuer, errs := observedIssuer(existingConfig, authConfigAccessor)
-	config := unstructuredConfigForIssuer(issuer)
-	return config, errs
+
+	// Returning an empty config when no value is provided for issuer ensures that
+	// the default value will not be overwritten by an empty value.
+	if len(issuer) > 0 {
+		if err := unstructured.SetNestedField(observedConfig, issuer, serviceAccountIssuerPath...); err != nil {
+			return existingConfig, append(errs, err)
+		}
+	}
+
+	return observedConfig, errs
 }
 
 // observedIssuer attempts to source the service account issuer defined in the
@@ -101,23 +113,6 @@ func issuerFromUnstructuredConfig(config map[string]interface{}) (string, []erro
 		}
 	}
 	return previousIssuer, errs
-}
-
-// unstructuredConfigForIssuer creates an unstructured KubeAPIServerConfig fragment
-// for the given issuer.
-func unstructuredConfigForIssuer(issuer string) map[string]interface{} {
-	// Returning an empty config when no value is provided for issuer ensures that
-	// the default value will not be overwritten by an empty value.
-	if len(issuer) == 0 {
-		return map[string]interface{}{}
-	}
-	return map[string]interface{}{
-		"apiServerArguments": map[string]interface{}{
-			"service-account-issuer": []interface{}{
-				issuer,
-			},
-		},
-	}
 }
 
 // checkIssuer validates the issuer in the same way that it will be validated by

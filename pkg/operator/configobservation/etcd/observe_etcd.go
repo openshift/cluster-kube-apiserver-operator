@@ -22,31 +22,24 @@ const (
 
 // ObserveStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
 // then the previously observed storage config URLs will be re-used.
-func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
+func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	storageConfigURLsPath := []string{"storageConfig", "urls"}
-	var errs []error
+	defer func() {
+		ret = configobserver.Pruned(ret, storageConfigURLsPath)
+	}()
 
-	previouslyObservedConfig := map[string]interface{}{}
-	currentEtcdURLs, found, err := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if found {
-		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, currentEtcdURLs, storageConfigURLsPath...); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
 
 	var etcdURLs []string
 	etcdEndpoints, err := listers.OpenshiftEtcdEndpointsLister.Endpoints(etcdEndpointNamespace).Get(etcdEndpointName)
 	if errors.IsNotFound(err) {
 		recorder.Warningf("ObserveStorageFailed", "Required %s/%s endpoint not found", etcdEndpointNamespace, etcdEndpointName)
-		return previouslyObservedConfig, append(errs, fmt.Errorf("endpoints/%s.%s: not found", etcdEndpointName, etcdEndpointNamespace))
+		return existingConfig, append(errs, fmt.Errorf("endpoints/%s.%s: not found", etcdEndpointName, etcdEndpointNamespace))
 	}
 	if err != nil {
 		recorder.Warningf("ObserveStorageFailed", "Error getting %s/%s endpoint: %v", etcdEndpointNamespace, etcdEndpointName, err)
-		return previouslyObservedConfig, append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	// note: etcd bootstrap should never be added to the in-cluster kube-apiserver
@@ -88,9 +81,14 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 
 	observedConfig := map[string]interface{}{}
 	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
-		return previouslyObservedConfig, append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
+	currentEtcdURLs, _, err := unstructured.NestedStringSlice(existingConfig, storageConfigURLsPath...)
+	if err != nil {
+		errs = append(errs, err)
+		// keep going on read error from existing config
+	}
 	if !reflect.DeepEqual(currentEtcdURLs, etcdURLs) {
 		recorder.Eventf("ObserveStorageUpdated", "Updated storage urls to %s", strings.Join(etcdURLs, ","))
 	}

@@ -22,21 +22,14 @@ const (
 
 // ObserveAuthMetadata fills in authConfig.OauthMetadataFile with the path for a configMap referenced by the authentication
 // config.
-func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	topLevelMetadataFilePath := []string{"authConfig", "oauthMetadataFile"}
+	defer func() {
+		ret = configobserver.Pruned(ret, topLevelMetadataFilePath)
+	}()
+
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
-	prevObservedConfig := map[string]interface{}{}
-
-	topLevelMetadataFilePath := []string{"authConfig", "oauthMetadataFile"}
-	currentMetadataFilePath, _, err := unstructured.NestedString(existingConfig, topLevelMetadataFilePath...)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	if len(currentMetadataFilePath) > 0 {
-		if err := unstructured.SetNestedField(prevObservedConfig, currentMetadataFilePath, topLevelMetadataFilePath...); err != nil {
-			errs = append(errs, err)
-		}
-	}
 
 	observedConfig := map[string]interface{}{}
 	authConfigNoDefaults, err := listers.AuthConfigLister.Get("cluster")
@@ -45,8 +38,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		return observedConfig, errs
 	}
 	if err != nil {
-		errs = append(errs, err)
-		return prevObservedConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	authConfig := defaultAuthConfig(authConfigNoDefaults)
@@ -92,8 +84,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		},
 	)
 	if err != nil {
-		errs = append(errs, err)
-		return prevObservedConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	// Unsets oauthMetadataFile if we had an empty source.
@@ -104,7 +95,7 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 	// Set oauthMetadataFile.
 	if err := unstructured.SetNestedField(observedConfig, oauthMetadataFilePath, topLevelMetadataFilePath...); err != nil {
 		recorder.Eventf("ObserveAuthMetadataConfigMap", "Failed setting oauthMetadataFile: %v", err)
-		errs = append(errs, err)
+		return existingConfig, append(errs, err)
 	}
 
 	return observedConfig, errs

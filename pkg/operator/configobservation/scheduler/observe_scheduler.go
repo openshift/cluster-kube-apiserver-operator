@@ -11,21 +11,14 @@ import (
 )
 
 // ObserveDefaultNodeSelector reads the defaultNodeSelector from the scheduler configuration instance cluster
-func ObserveDefaultNodeSelector(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
-	listers := genericListers.(configobservation.Listers)
-	errs := []error{}
-	prevObservedConfig := map[string]interface{}{}
-
+func ObserveDefaultNodeSelector(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defaultNodeSelectorPath := []string{"projectConfig", "defaultNodeSelector"}
-	currentdefaultNodeSelector, _, err := unstructured.NestedString(existingConfig, defaultNodeSelectorPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	if len(currentdefaultNodeSelector) > 0 {
-		if err := unstructured.SetNestedField(prevObservedConfig, currentdefaultNodeSelector, defaultNodeSelectorPath...); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	defer func() {
+		ret = configobserver.Pruned(ret, defaultNodeSelectorPath)
+	}()
+
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
 
 	observedConfig := map[string]interface{}{}
 	schedulerConfig, err := listers.SchedulerLister.Get("cluster")
@@ -34,15 +27,20 @@ func ObserveDefaultNodeSelector(genericListers configobserver.Listers, recorder 
 		return observedConfig, errs
 	}
 	if err != nil {
-		return prevObservedConfig, errs
+		return existingConfig, append(errs, err)
 	}
 
 	defaultNodeSelector := schedulerConfig.Spec.DefaultNodeSelector
 	if len(defaultNodeSelector) > 0 {
 		if err := unstructured.SetNestedField(observedConfig, defaultNodeSelector, defaultNodeSelectorPath...); err != nil {
-			errs = append(errs, err)
+			return existingConfig, append(errs, err)
 		}
-		if defaultNodeSelector != currentdefaultNodeSelector {
+		currentDefaultNodeSelector, _, err := unstructured.NestedString(existingConfig, defaultNodeSelectorPath...)
+		if err != nil {
+			errs = append(errs, err)
+			// keep going on read error from existing config
+		}
+		if defaultNodeSelector != currentDefaultNodeSelector {
 			recorder.Eventf("ObserveDefaultNodeSelectorChanged", "default node selector changed to %q", defaultNodeSelector)
 		}
 	}
