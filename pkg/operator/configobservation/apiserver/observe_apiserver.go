@@ -21,8 +21,6 @@ import (
 )
 
 const (
-	userServingCertPublicCertFile          = "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.crt"
-	userServingCertPrivateKeyFile          = "/etc/kubernetes/static-pod-certs/secrets/user-serving-cert/tls.key"
 	namedUserServingCertResourceNameFormat = "user-serving-cert-%03d"
 )
 
