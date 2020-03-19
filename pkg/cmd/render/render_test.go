@@ -159,7 +159,7 @@ func TestRenderCommand(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to create assets input directory, error: %v", err)
 	}
-	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
+	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube", "manifests")
 
 	// tempDisabledFeatureGates lists feature gates that we temporarily disabled.
 	// TODO: Remove this once the IPv6DualStack feature can deal with old clients
