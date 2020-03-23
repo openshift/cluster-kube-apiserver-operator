@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -17,7 +18,7 @@ import (
 // status as active, not progressing, and not failing.
 func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *testing.T, client configclient.ConfigV1Interface) {
 	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
-		clusterOperator, err := client.ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
+		clusterOperator, err := client.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			fmt.Println("ClusterOperator/kube-apiserver does not yet exist.")
 			return false, nil

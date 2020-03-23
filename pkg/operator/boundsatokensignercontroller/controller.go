@@ -96,7 +96,7 @@ func (c *BoundSATokenSignerController) sync(ctx context.Context, syncCtx factory
 // account tokens.
 func (c *BoundSATokenSignerController) ensureNextOperatorSigningSecret(ctx context.Context, syncCtx factory.SyncContext) error {
 	// Attempt to retrieve the operator secret
-	secret, err := c.secretClient.Secrets(operatorNamespace).Get(NextSigningKeySecretName, metav1.GetOptions{})
+	secret, err := c.secretClient.Secrets(operatorNamespace).Get(ctx, NextSigningKeySecretName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -125,13 +125,13 @@ func (c *BoundSATokenSignerController) ensureNextOperatorSigningSecret(ctx conte
 // current public key, the key will be added.
 func (c *BoundSATokenSignerController) ensurePublicKeyConfigMap(ctx context.Context, syncCtx factory.SyncContext) error {
 	// Retrieve the operator secret that contains the current public key
-	operatorSecret, err := c.secretClient.Secrets(operatorNamespace).Get(NextSigningKeySecretName, metav1.GetOptions{})
+	operatorSecret, err := c.secretClient.Secrets(operatorNamespace).Get(ctx, NextSigningKeySecretName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	// Retrieve the configmap that needs to contain the current public key
-	cachedConfigMap, err := c.configMapClient.ConfigMaps(targetNamespace).Get(PublicKeyConfigMapName, metav1.GetOptions{})
+	cachedConfigMap, err := c.configMapClient.ConfigMaps(targetNamespace).Get(ctx, PublicKeyConfigMapName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -190,13 +190,13 @@ func (c *BoundSATokenSignerController) ensurePublicKeyConfigMap(ctx context.Cont
 // verified by all apiservers.
 func (c *BoundSATokenSignerController) ensureOperandSigningSecret(ctx context.Context, syncCtx factory.SyncContext) error {
 	// Retrieve the operator signing secret
-	operatorSecret, err := c.secretClient.Secrets(operatorNamespace).Get(NextSigningKeySecretName, metav1.GetOptions{})
+	operatorSecret, err := c.secretClient.Secrets(operatorNamespace).Get(ctx, NextSigningKeySecretName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
 	// Retrieve the operand signing secret
-	operandSecret, err := c.secretClient.Secrets(targetNamespace).Get(SigningKeySecretName, metav1.GetOptions{})
+	operandSecret, err := c.secretClient.Secrets(targetNamespace).Get(ctx, SigningKeySecretName, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
@@ -214,7 +214,7 @@ func (c *BoundSATokenSignerController) ensureOperandSigningSecret(ctx context.Co
 	// The current public key must be present in the configmap before ensuring that
 	// the operand secret matches the operator secret to avoid apiservers that can
 	// issue tokens that can't be validated.
-	configMap, err := c.configMapClient.ConfigMaps(targetNamespace).Get(PublicKeyConfigMapName, metav1.GetOptions{})
+	configMap, err := c.configMapClient.ConfigMaps(targetNamespace).Get(ctx, PublicKeyConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (c *BoundSATokenSignerController) ensureOperandSigningSecret(ctx context.Co
 	} else {
 		// Update the operand secret only if the current public key has been synced to
 		// all nodes.
-		syncAllowed, err = c.publicKeySyncedToAllNodes(currPublicKey)
+		syncAllowed, err = c.publicKeySyncedToAllNodes(ctx, currPublicKey)
 		if err != nil {
 			return err
 		}
@@ -254,7 +254,7 @@ func (c *BoundSATokenSignerController) ensureOperandSigningSecret(ctx context.Co
 // publicKeySyncedToAllNodes indicates whether the given public key is present on the
 // current revisions of the apiserver nodes by checking for the key with the
 // configmaps associated with those revisions.
-func (c *BoundSATokenSignerController) publicKeySyncedToAllNodes(publicKey string) (bool, error) {
+func (c *BoundSATokenSignerController) publicKeySyncedToAllNodes(ctx context.Context, publicKey string) (bool, error) {
 	_, operatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return false, err
@@ -276,7 +276,7 @@ func (c *BoundSATokenSignerController) publicKeySyncedToAllNodes(publicKey strin
 	// not contain the public key, assume the public key is not present on that node.
 	for _, revision := range uniqueRevisions {
 		configMapNameWithRevision := fmt.Sprintf("%s-%d", PublicKeyConfigMapName, revision)
-		configMap, err := c.configMapClient.ConfigMaps(operatorclient.TargetNamespace).Get(configMapNameWithRevision, metav1.GetOptions{})
+		configMap, err := c.configMapClient.ConfigMaps(operatorclient.TargetNamespace).Get(ctx, configMapNameWithRevision, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

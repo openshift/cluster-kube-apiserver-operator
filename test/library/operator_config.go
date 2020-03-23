@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 
 // GetKubeAPIServerOperatorConfigGeneration returns the current generation of the KubeApiServer/cluster resource.
 func GetKubeAPIServerOperatorConfigGeneration(t *testing.T, operatorClient *operatorclient.OperatorV1Client) int64 {
-	config, err := operatorClient.KubeAPIServers().Get("cluster", metav1.GetOptions{})
+	config, err := operatorClient.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return 0
 	}
@@ -36,7 +37,7 @@ func WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t *test
 
 	// wait for Available=true and Progressing=false to stop
 	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
-		config, err := client.KubeAPIServers().Get("cluster", metav1.GetOptions{})
+		config, err := client.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 		if err != nil {
 			t.Log(err)
 			return false, nil

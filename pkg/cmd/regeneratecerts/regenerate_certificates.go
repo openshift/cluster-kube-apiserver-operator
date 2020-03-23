@@ -207,7 +207,7 @@ func (o *Options) Run() error {
 	klog.Info("Refreshing derivative resources.")
 	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
 	time.Sleep(2 * time.Second)
-	if _, _, err = kcmtargetconfigcontroller.ManageCSRIntermediateCABundle(kubeControllerManagerInformersForNamespaces.SecretLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
+	if _, _, err = kcmtargetconfigcontroller.ManageCSRIntermediateCABundle(ctx, kubeControllerManagerInformersForNamespaces.SecretLister(), kubeClient.CoreV1(), eventRecorder); err != nil {
 		return err
 	}
 	// TODO make the method take clients which can be cached, just no time in 4.1; ugly, but this is lister driven and we want to be fairly sure we observe the change
@@ -326,7 +326,7 @@ func (o *Options) Run() error {
 		switch def.objectType {
 		case secretsType:
 			klog.V(2).Infof("Getting secret '%s/%s'", def.namespace, def.name)
-			secret, err := kubeClient.CoreV1().Secrets(def.namespace).Get(def.name, metav1.GetOptions{})
+			secret, err := kubeClient.CoreV1().Secrets(def.namespace).Get(ctx, def.name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -334,7 +334,7 @@ func (o *Options) Run() error {
 
 		case configmapsType:
 			klog.V(2).Infof("Getting configmap '%s/%s'", def.namespace, def.name)
-			configMap, err := kubeClient.CoreV1().ConfigMaps(def.namespace).Get(def.name, metav1.GetOptions{})
+			configMap, err := kubeClient.CoreV1().ConfigMaps(def.namespace).Get(ctx, def.name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}

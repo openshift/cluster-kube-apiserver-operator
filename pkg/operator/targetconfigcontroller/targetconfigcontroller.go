@@ -99,7 +99,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 		return err
 	}
 
-	requeue, err := createTargetConfig(c, syncContext.Recorder(), operatorSpec)
+	requeue, err := createTargetConfig(ctx, c, syncContext.Recorder(), operatorSpec)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func isRequiredConfigPresent(config []byte) error {
 
 // createTargetConfig takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func createTargetConfig(c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
+func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
 
 	_, _, err := manageKubeAPIServerConfig(c.kubeClient.CoreV1(), recorder, operatorSpec)
@@ -168,12 +168,12 @@ func createTargetConfig(c TargetConfigController, recorder events.Recorder, oper
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
 	}
 
-	err = ensureKubeAPIServerTrustedCA(c.kubeClient.CoreV1(), recorder)
+	err = ensureKubeAPIServerTrustedCA(ctx, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/trusted-ca-bundle", err))
 	}
 
-	err = ensureLocalhostRecoverySAToken(c.kubeClient.CoreV1(), recorder)
+	err = ensureLocalhostRecoverySAToken(ctx, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", err))
 	}
@@ -341,14 +341,14 @@ func manageKubeAPIServerCABundle(lister corev1listers.ConfigMapLister, client co
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func ensureKubeAPIServerTrustedCA(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
 	required := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/trusted-ca-cm.yaml"))
 	cmCLient := client.ConfigMaps(operatorclient.TargetNamespace)
 
-	cm, err := cmCLient.Get("trusted-ca-bundle", metav1.GetOptions{})
+	cm, err := cmCLient.Get(ctx, "trusted-ca-bundle", metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			_, err = cmCLient.Create(required)
+			_, err = cmCLient.Create(ctx, required, metav1.CreateOptions{})
 		}
 		return err
 	}
@@ -356,19 +356,19 @@ func ensureKubeAPIServerTrustedCA(client coreclientv1.CoreV1Interface, recorder 
 	// update if modified by the user
 	if val, ok := cm.Labels["config.openshift.io/inject-trusted-cabundle"]; !ok || val != "true" {
 		cm.Labels["config.openshift.io/inject-trusted-cabundle"] = "true"
-		_, err = cmCLient.Update(cm)
+		_, err = cmCLient.Update(ctx, cm, metav1.UpdateOptions{})
 		return err
 	}
 
 	return err
 }
 
-func ensureLocalhostRecoverySAToken(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+func ensureLocalhostRecoverySAToken(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
 	requiredSA := resourceread.ReadServiceAccountV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/localhost-recovery-sa.yaml"))
 	requiredToken := resourceread.ReadSecretV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/localhost-recovery-token.yaml"))
 
 	saClient := client.ServiceAccounts(operatorclient.TargetNamespace)
-	serviceAccount, err := saClient.Get(requiredSA.Name, metav1.GetOptions{})
+	serviceAccount, err := saClient.Get(ctx, requiredSA.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,7 @@ func ensureLocalhostRecoverySAToken(client coreclientv1.CoreV1Interface, recorde
 	// The default token secrets get random names so we have created a custom secret
 	// to be populated with SA token so we have a stable name.
 	secretsClient := client.Secrets(operatorclient.TargetNamespace)
-	token, err := secretsClient.Get(requiredToken.Name, metav1.GetOptions{})
+	token, err := secretsClient.Get(ctx, requiredToken.Name, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

@@ -50,13 +50,13 @@ func GetRawSecretOfLife(t testing.TB, clientSet library.ClientSet, namespace str
 func CreateAndStoreSecretOfLife(t testing.TB, clientSet library.ClientSet, namespace string) runtime.Object {
 	t.Helper()
 	{
-		oldSecretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Get("secret-of-life", metav1.GetOptions{})
+		oldSecretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(context.TODO(), "secret-of-life", metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			t.Errorf("Failed to check if the secret already exists, due to %v", err)
 		}
 		if len(oldSecretOfLife.Name) > 0 {
 			t.Log("The secret already exist, removing it first")
-			err := clientSet.Kube.CoreV1().Secrets(namespace).Delete(oldSecretOfLife.Name, &metav1.DeleteOptions{})
+			err := clientSet.Kube.CoreV1().Secrets(namespace).Delete(context.TODO(), oldSecretOfLife.Name, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("Failed to delete %s, err %v", oldSecretOfLife.Name, err)
 			}
@@ -64,7 +64,7 @@ func CreateAndStoreSecretOfLife(t testing.TB, clientSet library.ClientSet, names
 	}
 	t.Logf("Creating %q in %s namespace", "secret-of-life", namespace)
 	rawSecretOfLife := SecretOfLife(t, namespace)
-	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(rawSecretOfLife.(*corev1.Secret))
+	secretOfLife, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(context.TODO(), rawSecretOfLife.(*corev1.Secret), metav1.CreateOptions{})
 	require.NoError(t, err)
 	return secretOfLife
 }

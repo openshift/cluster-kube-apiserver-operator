@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -22,7 +23,7 @@ func TestOperatorNamespace(t *testing.T) {
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	_, err = kubeClient.CoreV1().Namespaces().Get("openshift-kube-apiserver-operator", metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), "openshift-kube-apiserver-operator", metav1.GetOptions{})
 	require.NoError(t, err)
 }
 
@@ -31,7 +32,7 @@ func TestOperandImageVersion(t *testing.T) {
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	operator, err := configClient.ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
+	operator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
 	require.NoError(t, err)
 	for _, operandVersion := range operator.Status.Versions {
 		if operandVersion.Name == "kube-apiserver" {
@@ -102,7 +103,7 @@ func TestRevisionLimits(t *testing.T) {
 }
 
 func getRevisionStatuses(kubeClient *kubernetes.Clientset) (map[string]string, error) {
-	configMaps, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).List(metav1.ListOptions{})
+	configMaps, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return map[string]string{}, err
 	}

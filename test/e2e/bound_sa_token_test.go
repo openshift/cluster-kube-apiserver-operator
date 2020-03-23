@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -51,7 +52,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// Retrieve the operator secret. The values in the secret and config map in the
 	// operand namespace should match the values in the operator secret.
-	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
+	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
 	require.NoError(t, err)
 	operatorPublicKey := operatorSecret.Data[tokenctl.PublicKeyKey]
 	operatorPrivateKey := operatorSecret.Data[tokenctl.PrivateKeyKey]
@@ -60,7 +61,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 	t.Run("operand-secret-deletion", func(t *testing.T) {
 		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
-		err := kubeClient.Secrets(targetNamespace).Delete(tokenctl.SigningKeySecretName, &metav1.DeleteOptions{})
+		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
 	})
@@ -69,7 +70,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 	t.Run("configmap-deletion", func(t *testing.T) {
 		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
-		err := kubeClient.ConfigMaps(targetNamespace).Delete(tokenctl.PublicKeyConfigMapName, &metav1.DeleteOptions{})
+		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
@@ -83,21 +84,21 @@ func TestBoundTokenSignerController(t *testing.T) {
 		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 		// Delete the operator secret
-		err := kubeClient.Secrets(operatorNamespace).Delete(tokenctl.NextSigningKeySecretName, &metav1.DeleteOptions{})
+		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 
 		// Ensure that the cert configmap is always removed at the end of the test
 		// to ensure it will contain only the current public key. This property is
 		// essential to allowing repeated invocations of the containing test.
 		defer func() {
-			err := kubeClient.ConfigMaps(targetNamespace).Delete(tokenctl.PublicKeyConfigMapName, &metav1.DeleteOptions{})
+			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
 		}()
 
 		// Wait for secret to be recreated with a new keypair
 		var newOperatorSecret *corev1.Secret
 		err = wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
-			newOperatorSecret, err = kubeClient.Secrets(operatorNamespace).Get(tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
+			newOperatorSecret, err = kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
 			if apierrors.IsNotFound(err) {
 				return false, nil
 			}
@@ -131,7 +132,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 // populated with the expected data.
 func checkBoundTokenOperandSecret(t *testing.T, kubeClient *clientcorev1.CoreV1Client, timeout time.Duration, expectedData map[string][]byte) {
 	err := wait.PollImmediate(interval, timeout, func() (done bool, err error) {
-		secret, err := kubeClient.Secrets(operatorclient.TargetNamespace).Get(tokenctl.SigningKeySecretName, metav1.GetOptions{})
+		secret, err := kubeClient.Secrets(operatorclient.TargetNamespace).Get(context.TODO(), tokenctl.SigningKeySecretName, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -152,7 +153,7 @@ func checkBoundTokenOperandSecret(t *testing.T, kubeClient *clientcorev1.CoreV1C
 // the expected data.
 func checkCertConfigMap(t *testing.T, kubeClient *clientcorev1.CoreV1Client, expectedData map[string]string) {
 	err := wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
-		configMap, err := kubeClient.ConfigMaps(operatorclient.TargetNamespace).Get(tokenctl.PublicKeyConfigMapName, metav1.GetOptions{})
+		configMap, err := kubeClient.ConfigMaps(operatorclient.TargetNamespace).Get(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -182,40 +183,40 @@ func TestTokenRequestAndReview(t *testing.T) {
 	// Create all test resources in a temp namespace that will be
 	// removed at the end of the test to avoid requiring explicit
 	// cleanup.
-	ns, err := corev1client.Namespaces().Create(&v1.Namespace{
+	ns, err := corev1client.Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "e2e-token-request-",
 		},
-	})
+	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	defer func() {
-		err := corev1client.Namespaces().Delete(ns.Name, nil)
+		err := corev1client.Namespaces().Delete(context.TODO(), ns.Name, metav1.DeleteOptions{})
 		require.NoError(t, err)
 	}()
 	namespace := ns.Name
 
-	sa, err := corev1client.ServiceAccounts(namespace).Create(&v1.ServiceAccount{
+	sa, err := corev1client.ServiceAccounts(namespace).Create(context.TODO(), &v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-service-account",
 		},
-	})
+	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	treq, err := corev1client.ServiceAccounts(sa.Namespace).CreateToken(
+	treq, err := corev1client.ServiceAccounts(sa.Namespace).CreateToken(context.TODO(),
 		sa.Name,
 		&authenticationv1.TokenRequest{
 			Spec: authenticationv1.TokenRequestSpec{
 				Audiences: []string{"auth.openshift.io"},
 			},
 		},
-	)
+		metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	trev, err := kubeClient.AuthenticationV1().TokenReviews().Create(&authenticationv1.TokenReview{
+	trev, err := kubeClient.AuthenticationV1().TokenReviews().Create(context.TODO(), &authenticationv1.TokenReview{
 		Spec: authenticationv1.TokenReviewSpec{
 			Token: treq.Status.Token,
 		},
-	})
+	}, metav1.CreateOptions{})
 	require.NoError(t, err)
 	require.Empty(t, trev.Status.Error)
 	require.True(t, trev.Status.Authenticated)
@@ -255,7 +256,7 @@ func TestChangeServiceAccountIssuer(t *testing.T) {
 
 func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, expectedIssuer string) error {
 	return wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
-		configMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get("config", metav1.GetOptions{})
+		configMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(context.TODO(), "config", metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("failed to retrieve apiserver config configmap: %v", err)
 			return false, nil
@@ -286,9 +287,9 @@ func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, exp
 }
 
 func setServiceAccountIssuer(t *testing.T, client configclient.ConfigV1Interface, issuer string) {
-	auth, err := client.Authentications().Get("cluster", metav1.GetOptions{})
+	auth, err := client.Authentications().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 	auth.Spec.ServiceAccountIssuer = issuer
-	_, err = client.Authentications().Update(auth)
+	_, err = client.Authentications().Update(context.TODO(), auth, metav1.UpdateOptions{})
 	require.NoError(t, err)
 }
