@@ -183,8 +183,8 @@ authConfig:
 consolePublicURL: ""
 kubeletClientInfo:
   ca: /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
-  certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
-  keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
+  certFile: /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.crt
+  keyFile: /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.key
   port: 10250
 projectConfig:
   defaultNodeSelector: ""
