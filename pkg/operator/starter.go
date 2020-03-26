@@ -287,7 +287,6 @@ var RevisionConfigMaps = []revision.RevisionResource{
 var RevisionSecrets = []revision.RevisionResource{
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-client"},
-	{Name: "kubelet-client"},
 	// etcd encryption
 	{Name: "encryption-config", Optional: true},
 
