@@ -304,6 +304,7 @@ var CertConfigMaps = []revision.RevisionResource{
 }
 
 var CertSecrets = []revision.RevisionResource{
+	{Name: "kubelet-client"},
 	{Name: "aggregator-client"},
 	{Name: "localhost-serving-cert-certkey"},
 	{Name: "service-network-serving-certkey"},
