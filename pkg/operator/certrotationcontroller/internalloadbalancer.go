@@ -25,7 +25,7 @@ func (c *CertRotationController) syncInternalLoadBalancerHostnames() error {
 }
 
 func (c *CertRotationController) runInternalLoadBalancerHostnames() {
-	for c.processExternalLoadBalancerHostnames() {
+	for c.processInternalLoadBalancerHostnames() {
 	}
 }
 
