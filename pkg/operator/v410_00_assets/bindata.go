@@ -66,9 +66,9 @@ apiServerArguments:
   # tokens. This is only supported post-bootstrap so these
   # values must not appear in defaultconfig.yaml.
   service-account-issuer:
-  - auth.openshift.io
+  - https://kubernetes.default.svc
   api-audiences:
-  - auth.openshift.io
+  - https://kubernetes.default.svc
   service-account-signing-key-file:
   - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
 serviceAccountPublicKeyFiles:
