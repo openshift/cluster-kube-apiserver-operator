@@ -25,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
@@ -40,6 +41,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
+
+type encryptionProvider []schema.GroupResource
+
+var _ controllers.Provider = encryptionProvider{}
+
+func (p encryptionProvider) EncryptedGRs() []schema.GroupResource {
+	return p
+}
+
+func (p encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
+	return true, nil
+}
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
@@ -178,8 +191,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
-	encryptionControllers, err := encryption.NewControllers(
+	encryptionControllers := encryption.NewControllers(
 		operatorclient.TargetNamespace,
+		encryptionProvider{
+			schema.GroupResource{Group: "", Resource: "secrets"},
+			schema.GroupResource{Group: "", Resource: "configmaps"},
+		},
 		deployer,
 		migrator,
 		operatorClient,
@@ -188,12 +205,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
-		schema.GroupResource{Group: "", Resource: "secrets"},
-		schema.GroupResource{Group: "", Resource: "configmaps"},
 	)
-	if err != nil {
-		return err
-	}
 
 	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
 		operatorClient,
@@ -249,7 +261,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
-	go encryptionControllers.Run(ctx.Done())
+	go encryptionControllers.Run(ctx, 1)
 	go featureUpgradeableController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
