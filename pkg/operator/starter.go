@@ -178,8 +178,16 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
-	encryptionControllers, err := encryption.NewControllers(
+	provider := NewEncryptionProvider(
+		[]schema.GroupResource{
+			{Group: "", Resource: "secrets"},
+			{Group: "", Resource: "configmaps"},
+		},
+	)
+
+	encryptionControllers := encryption.NewControllers(
 		operatorclient.TargetNamespace,
+		provider,
 		deployer,
 		migrator,
 		operatorClient,
@@ -188,8 +196,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
-		schema.GroupResource{Group: "", Resource: "secrets"},
-		schema.GroupResource{Group: "", Resource: "configmaps"},
 	)
 	if err != nil {
 		return err
@@ -249,7 +255,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
-	go encryptionControllers.Run(ctx.Done())
+	go encryptionControllers.Run(ctx, 1)
 	go featureUpgradeableController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
@@ -258,6 +264,24 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	<-ctx.Done()
 	return nil
+}
+
+type encryptionProvider struct {
+	gvrs []schema.GroupResource
+}
+
+func NewEncryptionProvider(gvrs []schema.GroupResource) *encryptionProvider {
+	return &encryptionProvider{
+		gvrs: gvrs,
+	}
+}
+
+func (p *encryptionProvider) EncryptedGRs() []schema.GroupResource {
+	return p.gvrs
+}
+
+func (p *encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
+	return true, nil
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
