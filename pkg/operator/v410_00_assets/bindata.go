@@ -128,6 +128,9 @@ apiServerArguments:
   # value should logically scale with max-requests-inflight
   max-mutating-requests-inflight:
   - "1000"
+  # need to enable alpha APIs for the priority and fairness feature
+  runtime-config:
+    - flowcontrol.apiserver.k8s.io/v1alpha1=true
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
