@@ -134,6 +134,25 @@ func (OAuthAPIServerStatus) SwaggerDoc() map[string]string {
 	return map_OAuthAPIServerStatus
 }
 
+var map_Config = map[string]string{
+	"":       "Config provides information to configure the config operator.",
+	"spec":   "spec is the specification of the desired behavior of the Config Operator.",
+	"status": "status defines the observed status of the Config Operator.",
+}
+
+func (Config) SwaggerDoc() map[string]string {
+	return map_Config
+}
+
+var map_ConfigList = map[string]string{
+	"":      "ConfigList is a collection of items",
+	"items": "Items contains the items",
+}
+
+func (ConfigList) SwaggerDoc() map[string]string {
+	return map_ConfigList
+}
+
 var map_Console = map[string]string{
 	"": "Console provides a means to configure an operator to manage the console.",
 }
@@ -747,7 +766,7 @@ func (ServiceCAList) SwaggerDoc() map[string]string {
 }
 
 var map_ServiceCatalogAPIServer = map[string]string{
-	"": "ServiceCatalogAPIServer provides information to configure an operator to manage Service Catalog API Server",
+	"": "ServiceCatalogAPIServer provides information to configure an operator to manage Service Catalog API Server DEPRECATED: will be removed in 4.6",
 }
 
 func (ServiceCatalogAPIServer) SwaggerDoc() map[string]string {
@@ -755,7 +774,7 @@ func (ServiceCatalogAPIServer) SwaggerDoc() map[string]string {
 }
 
 var map_ServiceCatalogAPIServerList = map[string]string{
-	"":      "ServiceCatalogAPIServerList is a collection of items",
+	"":      "ServiceCatalogAPIServerList is a collection of items DEPRECATED: will be removed in 4.6",
 	"items": "Items contains the items",
 }
 
@@ -764,7 +783,7 @@ func (ServiceCatalogAPIServerList) SwaggerDoc() map[string]string {
 }
 
 var map_ServiceCatalogControllerManager = map[string]string{
-	"": "ServiceCatalogControllerManager provides information to configure an operator to manage Service Catalog Controller Manager",
+	"": "ServiceCatalogControllerManager provides information to configure an operator to manage Service Catalog Controller Manager DEPRECATED: will be removed in 4.6",
 }
 
 func (ServiceCatalogControllerManager) SwaggerDoc() map[string]string {
@@ -772,7 +791,7 @@ func (ServiceCatalogControllerManager) SwaggerDoc() map[string]string {
 }
 
 var map_ServiceCatalogControllerManagerList = map[string]string{
-	"":      "ServiceCatalogControllerManagerList is a collection of items",
+	"":      "ServiceCatalogControllerManagerList is a collection of items DEPRECATED: will be removed in 4.6",
 	"items": "Items contains the items",
 }
 
