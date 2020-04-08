@@ -150,7 +150,7 @@ func (c *DefaultSCCController) Sync(key types.NamespacedName) error {
 	}
 
 	if len(mutated) > 0 {
-		klog.Infof("[%s] default scc has been mutated %s", ControllerName, mutated)
+		klog.Infof("[%s] default scc has been mutated %s, please visit https://bugzilla.redhat.com/show_bug.cgi?id=1821905#c22 to resolve the issue", ControllerName, mutated)
 	}
 
 	condition := NewCondition(mutated)
