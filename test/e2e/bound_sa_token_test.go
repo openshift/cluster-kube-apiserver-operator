@@ -206,7 +206,8 @@ func TestTokenRequestAndReview(t *testing.T) {
 		sa.Name,
 		&authenticationv1.TokenRequest{
 			Spec: authenticationv1.TokenRequestSpec{
-				Audiences: []string{"auth.openshift.io"},
+				// Avoid specifying any audiences so that the token will be
+				// issued for the default audience of the issuer.
 			},
 		},
 		metav1.CreateOptions{})
@@ -237,7 +238,7 @@ func TestChangeServiceAccountIssuer(t *testing.T) {
 	// Wait for operator readiness
 	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
-	defaultIssuer := "auth.openshift.io"
+	defaultIssuer := "https://kubernetes.default.svc"
 
 	// Check that the default issuer is set in the operand config
 	require.NoError(t, pollForOperandIssuer(t, coreClient, defaultIssuer))
