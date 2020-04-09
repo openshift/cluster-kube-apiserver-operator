@@ -58,6 +58,7 @@ admission:
     {{end}}
 apiServerArguments:
   feature-gates:
+    - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
     - "SupportPodPidsLimit=true"
     - "NodeDisruptionExclusion=true"
