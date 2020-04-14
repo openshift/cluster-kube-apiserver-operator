@@ -1,9 +1,6 @@
 package version
 
 import (
-	"k8s.io/component-base/metrics"
-	"k8s.io/component-base/metrics/legacyregistry"
-
 	"k8s.io/apimachinery/pkg/version"
 )
 
@@ -20,29 +17,25 @@ var (
 	minorFromGit string
 	// build date in ISO8601 format, output of $(date -u +'%Y-%m-%dT%H:%M:%SZ')
 	buildDate string
+
+	gitTreeState string
+	goVersion    string
+	compiler     string
+	platform     string
 )
 
 // Get returns the overall codebase version. It's for detecting
 // what code a binary was built from.
 func Get() version.Info {
 	return version.Info{
-		Major:      majorFromGit,
-		Minor:      minorFromGit,
-		GitCommit:  commitFromGit,
-		GitVersion: versionFromGit,
-		BuildDate:  buildDate,
+		Major:        majorFromGit,
+		Minor:        minorFromGit,
+		GitVersion:   versionFromGit,
+		GitCommit:    commitFromGit,
+		GitTreeState: gitTreeState,
+		BuildDate:    buildDate,
+		GoVersion:    goVersion,
+		Compiler:     compiler,
+		Platform:     platform,
 	}
-}
-
-func init() {
-	buildInfo := metrics.NewGaugeVec(
-		&metrics.GaugeOpts{
-			Name: "openshift_cluster_kube_apiserver_operator_build_info",
-			Help: "A metric with a constant '1' value labeled by major, minor, git commit & git version from which OpenShift Cluster Kube-API-Server Operator was built.",
-		},
-		[]string{"major", "minor", "gitCommit", "gitVersion"},
-	)
-	buildInfo.WithLabelValues(majorFromGit, minorFromGit, commitFromGit, versionFromGit).Set(1)
-
-	legacyregistry.MustRegister(buildInfo)
 }
