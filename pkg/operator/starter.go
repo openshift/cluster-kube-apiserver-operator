@@ -15,8 +15,6 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
-	securityclientset "github.com/openshift/client-go/security/clientset/versioned"
-	security1informers "github.com/openshift/client-go/security/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
@@ -32,7 +30,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/defaultscccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -56,12 +53,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-
-	securityClient, err := securityclientset.NewForConfig(ctx.KubeConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create client for security/v1 - %s", err.Error())
-	}
-
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -76,8 +67,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-
-	securityInformerFactory := security1informers.NewSharedInformerFactory(securityClient, 6*time.Hour)
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
@@ -199,22 +188,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
-	defaultSCCController, err := defaultscccontroller.NewDefaultSCCController(&defaultscccontroller.Options{
-		Factory:        securityInformerFactory,
-		OperatorClient: operatorClient,
-		Recorder:       ctx.EventRecorder,
-	})
-	if err != nil {
-		return err
-	}
-
 	// register config metrics
 	configmetrics.Register(configInformers)
 
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
-	securityInformerFactory.Start(ctx.Done())
 
 	go staticPodControllers.Run(ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())
@@ -225,7 +204,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go encryptionControllers.Run(ctx.Done())
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
-	go defaultSCCController.Run(ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
