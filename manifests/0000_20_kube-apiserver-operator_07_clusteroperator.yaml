@@ -13,3 +13,25 @@ status:
     version: "0.0.1-snapshot"
   - name: kube-apiserver
     version: "0.0.1-snapshot-kubernetes"
+  relatedObjects:
+    - group: operator.openshift.io
+      name: cluster
+      resource: kubeapiservers
+    - group: apiextensions.k8s.io
+      name: ""
+      resource: customresourcedefinitions
+    - group: security.openshift.io
+      name: ""
+      resource: securitycontextconstraints
+    - group: ""
+      name: openshift-config
+      resource: namespaces
+    - group: ""
+      name: openshift-config-managed
+      resource: namespaces
+    - group: ""
+      name: openshift-kube-apiserver-operator
+      resource: namespaces
+    - group: ""
+      name: openshift-kube-apiserver
+      resource: namespaces
