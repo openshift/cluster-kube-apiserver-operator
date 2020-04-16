@@ -2,7 +2,6 @@ package library
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,40 +37,4 @@ func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-type ClusterOperatorConditionFunc func(co *configv1.ClusterOperator) bool
-
-func WaitForKubeAPIServerClusterOperatorStatus(t *testing.T, client configclient.ConfigV1Interface, f ClusterOperatorConditionFunc) (current *configv1.ClusterOperator) {
-	return WaitForClusterOperatorStatus(t, "kube-apiserver", client, f)
-}
-
-func WaitForClusterOperatorStatus(t *testing.T, name string, client configclient.ConfigV1Interface, f ClusterOperatorConditionFunc) (current *configv1.ClusterOperator) {
-	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (done bool, pollErr error) {
-		current, pollErr = client.ClusterOperators().Get(name, metav1.GetOptions{})
-		if pollErr != nil {
-			return
-		}
-
-		if current == nil || !f(current) {
-			return
-		}
-
-		done = true
-		return
-	})
-
-	require.NoErrorf(t, err, "[WaitForClusterOperatorStatus] wait.Poll returned error - %v", err)
-	require.NotNil(t, current)
-	return
-}
-
-func FindClusterOperatorCondition(co *configv1.ClusterOperator, conditionType configv1.ClusterStatusConditionType) *configv1.ClusterOperatorStatusCondition {
-	for i := range co.Status.Conditions {
-		if co.Status.Conditions[i].Type == conditionType {
-			return &co.Status.Conditions[i]
-		}
-	}
-
-	return nil
 }
