@@ -15,6 +15,7 @@ groups:
 kind: SecurityContextConstraints
 metadata:
   annotations:
+    release.openshift.io/create-only: "true"
     kubernetes.io/description: anyuid provides all features of the restricted SCC
       but allows users to run with any UID and any GID.
   name: anyuid

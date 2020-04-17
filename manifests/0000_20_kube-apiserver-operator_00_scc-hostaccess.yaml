@@ -14,6 +14,7 @@ groups: []
 kind: SecurityContextConstraints
 metadata:
   annotations:
+    release.openshift.io/create-only: "true"
     kubernetes.io/description: 'hostaccess allows access to all host namespaces but
       still requires pods to be run with a UID and SELinux context that are allocated
       to the namespace. WARNING: this SCC allows host access to namespaces, file systems,
