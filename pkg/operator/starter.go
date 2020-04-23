@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -188,6 +189,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	staleConditionsController := staleconditions.NewRemoveStaleConditions(
+		[]string{
+			// We removed the controller that sets the condition `DefaultSecurityContextConstraintsUpgradeable` if any
+			// default SCC has been mutated.
+			// A cluster that already has user-modified default SCCs will have the above condition set. We need to
+			// remove the stale condition.
+			"DefaultSecurityContextConstraintsUpgradeable",
+		},
+		operatorClient,
+		ctx.EventRecorder,
+	)
+
 	// register config metrics
 	configmetrics.Register(configInformers)
 
@@ -204,6 +217,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go encryptionControllers.Run(ctx.Done())
 	go featureUpgradeableController.Run(1, ctx.Done())
 	go certRotationTimeUpgradeableController.Run(1, ctx.Done())
+	go staleConditionsController.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
