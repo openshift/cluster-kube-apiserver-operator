@@ -226,6 +226,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
 			// these can be removed in 4.5
 			"Available", "Progressing",
+
+			// We removed the controller that sets the condition `DefaultSecurityContextConstraintsUpgradeable` if any
+			// default SCC has been mutated.
+			// A cluster that already has user-modified default SCCs will have the above condition set. We need to
+			// remove the stale condition.
+			"DefaultSecurityContextConstraintsUpgradeable",
 		},
 		operatorClient,
 		controllerContext.EventRecorder,
