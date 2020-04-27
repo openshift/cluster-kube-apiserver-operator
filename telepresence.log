@@ -1,0 +1,448 @@
+   0.0 TEL | Telepresence 0.104-22-gd3c6b0e launched at Thu Apr 23 17:46:40 2020
+   0.0 TEL |   /home/maru/src/telepresence/virtualenv/bin/telepresence --namespace=openshift-kube-apiserver-operator --swap-deployment kube-apiserver-operator --also-proxy=10.0.140.118 --also-proxy=10.0.157.26 --also-proxy=10.0.133.133 --also-proxy=10.0.143.6 --also-proxy=10.0.143.240 --also-proxy=10.0.158.241 --mount=/tmp/tel_root --run bash /home/maru/src/shist/cluster-kube-apiserver-operator/vendor/github.com/openshift/build-machinery-go/scripts/run-telepresence.sh
+   0.0 TEL |   Using images version 0.104 (dev)
+   0.0 TEL | uname: uname_result(system='Linux', node='obs', release='5.5.9-200.fc31.x86_64', version='#1 SMP Thu Mar 12 13:55:19 UTC 2020', machine='x86_64', processor='x86_64')
+   0.0 TEL | Platform: linux
+   0.0 TEL | WSL: False
+   0.0 TEL | Python 3.7.6 (default, Jan 30 2020, 09:44:41)
+   0.0 TEL | [GCC 9.2.1 20190827 (Red Hat 9.2.1-1)]
+   0.0 TEL | BEGIN SPAN main.py:40(main)
+   0.0 TEL | BEGIN SPAN startup.py:83(set_kube_command)
+   0.0 TEL | Found kubectl -> /home/maru/bin/kubectl
+   0.0 TEL | Found oc -> /home/maru/bin/oc
+   0.0 TEL | [1] Capturing: kubectl config current-context
+   0.0 TEL | [1] captured in 0.04 secs.
+   0.0 TEL | [2] Capturing: kubectl --context admin version --short
+   0.2 TEL | [2] captured in 0.13 secs.
+   0.2 TEL | [3] Capturing: kubectl --context admin config view -o json
+   0.2 TEL | [3] captured in 0.04 secs.
+   0.2 TEL | [4] Capturing: kubectl --context admin get ns openshift-kube-apiserver-operator
+   0.3 TEL | [4] captured in 0.10 secs.
+   0.3 TEL | [5] Capturing: kubectl --context admin api-versions
+   0.4 TEL | [5] captured in 0.13 secs.
+   0.4 TEL | Command: oc 1.17.1
+   0.4 TEL | Context: admin, namespace: openshift-kube-apiserver-operator, version: 1.18.0-rc.1
+   0.4 TEL | [6] Capturing: minishift ip
+   0.4 TEL | [6] [Errno 2] No such file or directory: 'minishift': 'minishift'
+   0.4 TEL | END SPAN startup.py:83(set_kube_command)    0.4s
+   0.4 TEL | [7] Running: oc --context admin --namespace openshift-kube-apiserver-operator get dc/kube-apiserver-operator
+   0.6   7 | Error from server (NotFound): deploymentconfigs.apps.openshift.io "kube-apiserver-operator" not found
+   0.6 TEL | [7] exit 1 in 0.14 secs.
+   0.6 >>> | Failed to find OpenShift deploymentconfig kube-apiserver-operator:
+   0.6 >>> |   Error from server (NotFound): deploymentconfigs.apps.openshift.io "kube-apiserver-operator" not found
+   0.6 >>> | Will try regular Kubernetes Deployment.
+   0.6 TEL | Found ssh -> /usr/bin/ssh
+   0.6 TEL | [8] Capturing: ssh -V
+   0.6 TEL | [8] captured in 0.00 secs.
+   0.6 TEL | Found bash -> /usr/bin/bash
+   0.6 TEL | Found sshuttle-telepresence -> /home/maru/src/telepresence/virtualenv/bin/sshuttle-telepresence
+   0.6 TEL | Found conntrack -> /usr/sbin/conntrack
+   0.6 TEL | Found iptables -> /usr/sbin/iptables
+   0.6 TEL | Found sudo -> /usr/bin/sudo
+   0.6 TEL | [9] Running: sudo -n echo -n
+   0.6 TEL | [9] ran in 0.01 secs.
+   0.6 TEL | [10] Capturing: sudo iptables --list
+   0.7 TEL | [10] captured in 0.09 secs.
+   0.7 >>> | Starting proxy with method 'vpn-tcp', which has the following limitations: All processes are affected, only one telepresence can run per machine, and you can't use other VPNs. You may need to add cloud hosts and headless services with --also-proxy. For a full list of method limitations see https://telepresence.io/reference/methods.html
+   0.7 TEL | Found sshfs -> /usr/bin/sshfs
+   0.7 TEL | Found fusermount -> /usr/bin/fusermount
+   0.7 >>> | Volumes are rooted at $TELEPRESENCE_ROOT. See https://telepresence.io/howto/volumes.html for details.
+   0.7 TEL | [11] Running: oc --context admin --namespace openshift-kube-apiserver-operator get pods telepresence-connectivity-check --ignore-not-found
+   0.8 TEL | [11] ran in 0.14 secs.
+   1.1 TEL | Scout info: {'latest_version': '0.104', 'application': 'telepresence', 'notices': []}
+   1.1 TEL | BEGIN SPAN deployment.py:193(supplant_deployment)
+   1.1 >>> | Starting network proxy to cluster by swapping out Deployment kube-apiserver-operator with a proxy
+   1.1 TEL | BEGIN SPAN remote.py:75(get_deployment_json)
+   1.1 TEL | [12] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get deployment -o json kube-apiserver-operator
+   1.3 TEL | [12] captured in 0.13 secs.
+   1.3 TEL | END SPAN remote.py:75(get_deployment_json)    0.1s
+   1.3 TEL | [13] Running: oc --context admin --namespace openshift-kube-apiserver-operator delete deployment kube-apiserver-op-45888f3972594901844da35e66eb377f --ignore-not-found
+   1.4 TEL | [13] ran in 0.15 secs.
+   1.4 TEL | [14] Running: oc --context admin --namespace openshift-kube-apiserver-operator apply -f -
+   1.8  14 | deployment.apps/kube-apiserver-op-45888f3972594901844da35e66eb377f created
+   1.9 TEL | [14] ran in 0.43 secs.
+   1.9 TEL | [15] Running: oc --context admin --namespace openshift-kube-apiserver-operator scale deployment kube-apiserver-operator --replicas=0
+   2.0  15 | deployment.apps/kube-apiserver-operator scaled
+   2.0 TEL | [15] ran in 0.15 secs.
+   2.0 TEL | END SPAN deployment.py:193(supplant_deployment)    0.9s
+   2.0 TEL | BEGIN SPAN remote.py:142(get_remote_info)
+   2.0 TEL | BEGIN SPAN remote.py:75(get_deployment_json)
+   2.0 TEL | [16] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get deployment -o json --selector=telepresence=45888f3972594901844da35e66eb377f
+   2.1 TEL | [16] captured in 0.13 secs.
+   2.1 TEL | END SPAN remote.py:75(get_deployment_json)    0.1s
+   2.1 TEL | Searching for Telepresence pod:
+   2.1 TEL |   with name kube-apiserver-op-45888f3972594901844da35e66eb377f-*
+   2.1 TEL |   with labels {'app': 'kube-apiserver-operator', 'telepresence': '45888f3972594901844da35e66eb377f'}
+   2.1 TEL | [17] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod -o json --selector=telepresence=45888f3972594901844da35e66eb377f
+   2.3 TEL | [17] captured in 0.15 secs.
+   2.3 TEL | Checking kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9
+   2.3 TEL | Looks like we've found our pod!
+   2.3 TEL | BEGIN SPAN remote.py:104(wait_for_pod)
+   2.3 TEL | [18] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   2.4 TEL | [18] captured in 0.13 secs.
+   2.7 TEL | [19] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   2.8 TEL | [19] captured in 0.14 secs.
+   3.1 TEL | [20] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   3.2 TEL | [20] captured in 0.12 secs.
+   3.4 TEL | [21] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   3.6 TEL | [21] captured in 0.12 secs.
+   3.8 TEL | [22] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   3.9 TEL | [22] captured in 0.12 secs.
+   4.2 TEL | [23] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   4.3 TEL | [23] captured in 0.12 secs.
+   4.5 TEL | [24] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   4.7 TEL | [24] captured in 0.14 secs.
+   4.9 TEL | [25] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator get pod kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 -o json
+   5.1 TEL | [25] captured in 0.14 secs.
+   5.1 TEL | END SPAN remote.py:104(wait_for_pod)    2.8s
+   5.1 TEL | END SPAN remote.py:142(get_remote_info)    3.1s
+   5.1 TEL | BEGIN SPAN connect.py:37(connect)
+   5.1 TEL | [26] Launching kubectl logs: oc --context admin --namespace openshift-kube-apiserver-operator logs -f kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 --container kube-apiserver-operator --tail=10
+   5.1 TEL | [27] Launching kubectl port-forward: oc --context admin --namespace openshift-kube-apiserver-operator port-forward kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 43653:8022
+   5.1 TEL | [28] Running: ssh -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -q -p 43653 telepresence@127.0.0.1 /bin/true
+   5.1 TEL | [28] exit 255 in 0.01 secs.
+   5.3  27 | Forwarding from 127.0.0.1:43653 -> 8022
+   5.3  27 | Forwarding from [::1]:43653 -> 8022
+   5.3 TEL | [29] Running: ssh -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -q -p 43653 telepresence@127.0.0.1 /bin/true
+   5.3  27 | Handling connection for 43653
+   5.7 TEL | [29] ran in 0.32 secs.
+   5.7 >>> | Forwarding remote port 8443 to local port 8443.
+   5.7 TEL | [30] Launching SSH port forward (exposed ports): ssh -N -oServerAliveInterval=1 -oServerAliveCountMax=10 -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -q -p 43653 telepresence@127.0.0.1 -R '*:8443:127.0.0.1:8443'
+   5.7 >>> | 
+   5.7 TEL | Launching Web server for proxy poll
+   5.7 TEL | [31] Launching SSH port forward (socks and proxy poll): ssh -N -oServerAliveInterval=1 -oServerAliveCountMax=10 -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null -q -p 43653 telepresence@127.0.0.1 -L127.0.0.1:42751:127.0.0.1:9050 -R9055:127.0.0.1:34223
+   5.7  27 | Handling connection for 43653
+   5.7 TEL | END SPAN connect.py:37(connect)    0.6s
+   5.7 TEL | BEGIN SPAN remote_env.py:29(get_remote_env)
+   5.7 TEL | [32] Capturing: oc --context admin --namespace openshift-kube-apiserver-operator exec kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 --container kube-apiserver-operator -- python3 podinfo.py
+   5.7  27 | Handling connection for 43653
+   5.7  26 | Retrieving this pod's namespace from the process environment
+   5.7  26 | Pod's namespace is 'openshift-kube-apiserver-operator'
+   5.7  26 | Listening...
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] Loading ./forwarder.py...
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] /etc/resolv.conf changed, reparsing
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] Resolver added ('172.30.0.10', 53) to server list
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] SOCKSv5Factory starting on 9050
+   5.7  26 | 2020-04-24T00:46:45+0000 [socks.SOCKSv5Factory#info] Starting factory <socks.SOCKSv5Factory object at 0x7f898299fbe0>
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] DNSDatagramProtocol starting on 9053
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] Starting protocol <twisted.names.dns.DNSDatagramProtocol object at 0x7f898299ff60>
+   5.7  26 | 2020-04-24T00:46:45+0000 [-] Loaded.
+   5.7  26 | 2020-04-24T00:46:45+0000 [twisted.scripts._twistd_unix.UnixAppLogger#info] twistd 19.10.0 (/usr/bin/python3.6 3.6.8) starting up.
+   5.7  26 | 2020-04-24T00:46:45+0000 [twisted.scripts._twistd_unix.UnixAppLogger#info] reactor class: twisted.internet.epollreactor.EPollReactor.
+   6.1 TEL | [32] captured in 0.40 secs.
+   6.1 TEL | END SPAN remote_env.py:29(get_remote_env)    0.4s
+   6.1 TEL | BEGIN SPAN mount.py:30(mount_remote_volumes)
+   6.1 TEL | [33] Running: sshfs -p 43653 -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null telepresence@127.0.0.1:/ /tmp/tel_root
+   6.1  27 | Handling connection for 43653
+   6.3 TEL | [33] ran in 0.29 secs.
+   6.3 TEL | END SPAN mount.py:30(mount_remote_volumes)    0.3s
+   6.3 TEL | BEGIN SPAN vpn.py:275(connect_sshuttle)
+   6.3 TEL | BEGIN SPAN vpn.py:77(get_proxy_cidrs)
+   6.3 TEL | END SPAN vpn.py:77(get_proxy_cidrs)    0.0s
+   6.3 TEL | [34] Launching sshuttle: sshuttle-telepresence -v --dns --method nat -e 'ssh -F /dev/null -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null' -r telepresence@127.0.0.1:43653 --to-ns 127.0.0.1:9053 10.0.133.133/32 10.0.143.6/32 172.30.0.0/16 10.0.140.118/32 10.0.143.240/32 10.0.158.241/32 10.0.0.0/8 10.0.157.26/32
+   6.4 TEL | BEGIN SPAN vpn.py:298(connect_sshuttle,sshuttle-wait)
+   6.4 TEL | Wait for vpn-tcp connection: hellotelepresence-0
+   6.4 TEL | [35] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-0")'
+   6.4 TEL | [35] exit 1 in 0.03 secs.
+   6.4 TEL | [36] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-0.a.sanity.check.telepresence.io")'
+   6.4 TEL | [36] exit 1 in 0.03 secs.
+   6.4  34 | Starting sshuttle proxy.
+   6.5 TEL | Wait for vpn-tcp connection: hellotelepresence-1
+   6.5 TEL | [37] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-1")'
+   6.5  34 | firewall manager: Starting firewall with Python version 3.7.6
+   6.5  34 | firewall manager: ready method name nat.
+   6.5  34 | IPv6 enabled: False
+   6.5  34 | UDP enabled: False
+   6.5  34 | DNS enabled: True
+   6.5  34 | TCP redirector listening on ('127.0.0.1', 12300).
+   6.5  34 | DNS listening on ('127.0.0.1', 12300).
+   6.5  34 | Starting client with Python version 3.7.6
+   6.5  34 | c : connecting to server...
+   6.5  27 | Handling connection for 43653
+   6.6 TEL | [37] exit 1 in 0.07 secs.
+   6.6 TEL | [38] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-1.a.sanity.check.telepresence.io")'
+   6.6  34 | Warning: Permanently added '[127.0.0.1]:43653' (ECDSA) to the list of known hosts.
+   6.6 TEL | [38] exit 1 in 0.03 secs.
+   6.7 TEL | Wait for vpn-tcp connection: hellotelepresence-2
+   6.7 TEL | [39] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-2")'
+   6.8 TEL | [39] exit 1 in 0.07 secs.
+   6.8 TEL | [40] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-2.a.sanity.check.telepresence.io")'
+   6.8 TEL | [40] exit 1 in 0.03 secs.
+   6.9 TEL | Wait for vpn-tcp connection: hellotelepresence-3
+   6.9 TEL | [41] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-3")'
+   7.0 TEL | [41] exit 1 in 0.03 secs.
+   7.0 TEL | [42] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-3.a.sanity.check.telepresence.io")'
+   7.0  34 | Starting server with Python version 3.6.8
+   7.0  34 |  s: latency control setting = True
+   7.0  34 |  s: available routes:
+   7.0  34 |  s:   2/10.128.0.0/23
+   7.0  34 |  s:   2/10.128.0.0/14
+   7.0  34 |  s:   2/172.30.0.0/16
+   7.0  34 |  s:   2/224.0.0.0/4
+   7.0  34 | c : Connected.
+   7.0  34 | firewall manager: setting up.
+   7.0  34 | >> iptables -t nat -N sshuttle-12300
+   7.0  34 | >> iptables -t nat -F sshuttle-12300
+   7.0  34 | >> iptables -t nat -I OUTPUT 1 -j sshuttle-12300
+   7.0  34 | >> iptables -t nat -I PREROUTING 1 -j sshuttle-12300
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j RETURN --dest 127.0.0.1/32 -p tcp
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.133.133/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.143.6/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.140.118/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.143.240/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.158.241/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.157.26/32 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 172.30.0.0/16 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 10.0.0.0/8 -p tcp --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 127.0.0.1/32 -p udp --dport 53 --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | >> iptables -t nat -A sshuttle-12300 -j REDIRECT --dest 224.0.0.252/32 -p udp --dport 5355 --to-ports 12300 -m ttl ! --ttl 42
+   7.0  34 | conntrack v1.4.5 (conntrack-tools): 0 flow entries have been deleted.
+   7.0 TEL | [42] exit 1 in 0.07 secs.
+   7.1 TEL | Wait for vpn-tcp connection: hellotelepresence-4
+   7.1 TEL | [43] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-4")'
+   7.1  34 | c : DNS request from ('127.0.0.1', 36178) to None: 37 bytes
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] Set DNS suffix we filter out to: [()]
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] Result for b'hellotelepresence-4' is ['127.0.0.1']
+   7.2 TEL | [43] captured in 0.07 secs.
+   7.2 TEL | Resolved hellotelepresence-4. 2 more...
+   7.2 TEL | [44] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-4.a.sanity.check.telepresence.io")'
+   7.2  34 | c : DNS request from ('127.0.0.1', 56506) to None: 47 bytes
+   7.2  34 | c : DNS request from ('127.0.0.1', 52543) to None: 47 bytes
+   7.2  34 | c : DNS request from ('127.0.0.1', 51857) to None: 68 bytes
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   7.2  26 | 2020-04-24T00:46:47+0000 [stdout#info] Sanity check: b'hellotelepresence-4.a.sanity.check.telepresence.io'
+   7.2 TEL | [44] exit 1 in 0.07 secs.
+   7.3  26 | 2020-04-24T00:46:47+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   7.3 TEL | Wait for vpn-tcp connection: hellotelepresence-5
+   7.3 TEL | [45] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-5")'
+   7.4  34 | c : DNS request from ('127.0.0.1', 54815) to None: 37 bytes
+   7.4  26 | 2020-04-24T00:46:47+0000 [stdout#info] Result for b'hellotelepresence-5' is ['127.0.0.1']
+   7.4 TEL | [45] captured in 0.07 secs.
+   7.4 TEL | Resolved hellotelepresence-5. 1 more...
+   7.4 TEL | [46] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-5.a.sanity.check.telepresence.io")'
+   7.4  34 | c : DNS request from ('127.0.0.1', 56053) to None: 68 bytes
+   7.4  26 | 2020-04-24T00:46:47+0000 [stdout#info] Sanity check: b'hellotelepresence-5.a.sanity.check.telepresence.io'
+   7.5 TEL | [46] exit 1 in 0.07 secs.
+   7.6 TEL | Wait for vpn-tcp connection: hellotelepresence-6
+   7.6 TEL | [47] Capturing: python3 -c 'import socket; socket.gethostbyname("hellotelepresence-6")'
+   7.6  34 | c : DNS request from ('127.0.0.1', 40835) to None: 37 bytes
+   7.6  26 | 2020-04-24T00:46:47+0000 [stdout#info] Result for b'hellotelepresence-6' is ['127.0.0.1']
+   7.6 TEL | [47] captured in 0.07 secs.
+   7.6 TEL | Resolved hellotelepresence-6. 0 more...
+   7.6 TEL | END SPAN vpn.py:298(connect_sshuttle,sshuttle-wait)    1.3s
+   7.6 TEL | END SPAN vpn.py:275(connect_sshuttle)    1.3s
+   7.6 >>> | Setup complete. Launching your command.
+   7.6 TEL | Everything launched. Waiting to exit...
+   7.6 TEL | BEGIN SPAN runner.py:726(wait_for_exit)
+   7.7  34 | c : DNS request from ('127.0.0.1', 56226) to None: 47 bytes
+   7.7  34 | c : DNS request from ('127.0.0.1', 36351) to None: 47 bytes
+   7.7  26 | 2020-04-24T00:46:47+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   7.7  26 | 2020-04-24T00:46:47+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   7.7  26 | 2020-04-24T00:46:47+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   7.7  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   7.7  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.1  34 | c : DNS request from ('127.0.0.1', 36218) to None: 47 bytes
+   8.1  34 | c : DNS request from ('127.0.0.1', 60861) to None: 47 bytes
+   8.1  26 | 2020-04-24T00:46:48+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   8.1  26 | 2020-04-24T00:46:48+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.1  26 | 2020-04-24T00:46:48+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.1  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.1  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.5  34 | c : DNS request from ('127.0.0.1', 36975) to None: 47 bytes
+   8.5  34 | c : DNS request from ('127.0.0.1', 47133) to None: 47 bytes
+   8.5  26 | 2020-04-24T00:46:48+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   8.5  26 | 2020-04-24T00:46:48+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.5  26 | 2020-04-24T00:46:48+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.6  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.6  26 | 2020-04-24T00:46:48+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.9  34 | c : DNS request from ('127.0.0.1', 43415) to None: 47 bytes
+   8.9  34 | c : DNS request from ('127.0.0.1', 52920) to None: 47 bytes
+   8.9  26 | 2020-04-24T00:46:49+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   8.9  26 | 2020-04-24T00:46:49+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.9  26 | 2020-04-24T00:46:49+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   8.9  26 | 2020-04-24T00:46:49+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   8.9  26 | 2020-04-24T00:46:49+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   9.3  34 | c : DNS request from ('127.0.0.1', 32967) to None: 47 bytes
+   9.3  34 | c : DNS request from ('127.0.0.1', 44963) to None: 47 bytes
+   9.3  26 | 2020-04-24T00:46:49+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   9.3  26 | 2020-04-24T00:46:49+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   9.3  26 | 2020-04-24T00:46:49+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   9.4  26 | 2020-04-24T00:46:49+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   9.4  26 | 2020-04-24T00:46:49+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   9.7  34 | c : DNS request from ('127.0.0.1', 39189) to None: 47 bytes
+   9.7  34 | c : DNS request from ('127.0.0.1', 37338) to None: 47 bytes
+   9.7  26 | 2020-04-24T00:46:50+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+   9.7  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   9.7  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+   9.7  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+   9.7  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  10.1  34 | c : DNS request from ('127.0.0.1', 42212) to None: 47 bytes
+  10.1  34 | c : DNS request from ('127.0.0.1', 35201) to None: 47 bytes
+  10.2  26 | 2020-04-24T00:46:50+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  10.2  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  10.2  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  10.2  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  10.2  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  10.5  34 | c : DNS request from ('127.0.0.1', 43342) to None: 47 bytes
+  10.5  34 | c : DNS request from ('127.0.0.1', 46571) to None: 47 bytes
+  10.6  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  10.6  26 | 2020-04-24T00:46:50+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  10.6  26 | 2020-04-24T00:46:50+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  10.6  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  10.6  26 | 2020-04-24T00:46:50+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.0  34 | c : DNS request from ('127.0.0.1', 34027) to None: 47 bytes
+  11.0  34 | c : DNS request from ('127.0.0.1', 34235) to None: 47 bytes
+  11.0  26 | 2020-04-24T00:46:51+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  11.0  26 | 2020-04-24T00:46:51+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.0  26 | 2020-04-24T00:46:51+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.0  26 | 2020-04-24T00:46:51+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.1  26 | 2020-04-24T00:46:51+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.4  34 | c : DNS request from ('127.0.0.1', 39167) to None: 47 bytes
+  11.4  34 | c : DNS request from ('127.0.0.1', 34607) to None: 47 bytes
+  11.4  26 | 2020-04-24T00:46:51+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  11.4  26 | 2020-04-24T00:46:51+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.4  26 | 2020-04-24T00:46:51+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.4  26 | 2020-04-24T00:46:51+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.5  26 | 2020-04-24T00:46:51+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.9  34 | c : DNS request from ('127.0.0.1', 60754) to None: 47 bytes
+  11.9  34 | c : DNS request from ('127.0.0.1', 60117) to None: 47 bytes
+  11.9  26 | 2020-04-24T00:46:52+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  11.9  26 | 2020-04-24T00:46:52+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.9  26 | 2020-04-24T00:46:52+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  11.9  26 | 2020-04-24T00:46:52+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  11.9  26 | 2020-04-24T00:46:52+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  12.2  34 | c : DNS request from ('127.0.0.1', 57070) to None: 47 bytes
+  12.2  34 | c : DNS request from ('127.0.0.1', 47345) to None: 47 bytes
+  12.3  26 | 2020-04-24T00:46:52+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  12.3  26 | 2020-04-24T00:46:52+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  12.3  26 | 2020-04-24T00:46:52+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  12.3  26 | 2020-04-24T00:46:52+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  12.3  26 | 2020-04-24T00:46:52+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  12.4  34 | c : Accept TCP: 192.168.77.76:32790 -> 172.30.0.1:443.
+  12.7  34 | c : DNS request from ('127.0.0.1', 42658) to None: 47 bytes
+  12.7  34 | c : DNS request from ('127.0.0.1', 52382) to None: 47 bytes
+  12.7  26 | 2020-04-24T00:46:52+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  12.7  26 | 2020-04-24T00:46:52+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  12.7  26 | 2020-04-24T00:46:53+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  12.7  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  12.7  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.1  34 | c : DNS request from ('127.0.0.1', 42002) to None: 47 bytes
+  13.1  34 | c : DNS request from ('127.0.0.1', 40328) to None: 47 bytes
+  13.1  26 | 2020-04-24T00:46:53+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  13.1  26 | 2020-04-24T00:46:53+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.1  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.1  26 | 2020-04-24T00:46:53+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.1  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.5  34 | c : DNS request from ('127.0.0.1', 34299) to None: 47 bytes
+  13.5  34 | c : DNS request from ('127.0.0.1', 45197) to None: 47 bytes
+  13.5  26 | 2020-04-24T00:46:53+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  13.5  26 | 2020-04-24T00:46:53+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.5  26 | 2020-04-24T00:46:53+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.5  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.5  26 | 2020-04-24T00:46:53+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.9  34 | c : DNS request from ('127.0.0.1', 36122) to None: 47 bytes
+  13.9  34 | c : DNS request from ('127.0.0.1', 39700) to None: 47 bytes
+  13.9  26 | 2020-04-24T00:46:54+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  13.9  26 | 2020-04-24T00:46:54+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.9  26 | 2020-04-24T00:46:54+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  13.9  26 | 2020-04-24T00:46:54+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  13.9  26 | 2020-04-24T00:46:54+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  14.3  34 | c : DNS request from ('127.0.0.1', 33610) to None: 47 bytes
+  14.3  34 | c : DNS request from ('127.0.0.1', 42938) to None: 47 bytes
+  14.4  26 | 2020-04-24T00:46:54+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  14.4  26 | 2020-04-24T00:46:54+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  14.4  26 | 2020-04-24T00:46:54+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  14.4  26 | 2020-04-24T00:46:54+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  14.4  26 | 2020-04-24T00:46:54+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  14.7  34 | c : DNS request from ('127.0.0.1', 50550) to None: 47 bytes
+  14.7  34 | c : DNS request from ('127.0.0.1', 60514) to None: 47 bytes
+  14.7  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  14.7  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  14.7  26 | 2020-04-24T00:46:55+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  14.7  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  14.7  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  15.2  34 | c : DNS request from ('127.0.0.1', 48161) to None: 47 bytes
+  15.2  34 | c : DNS request from ('127.0.0.1', 37899) to None: 47 bytes
+  15.2  26 | 2020-04-24T00:46:55+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  15.2  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  15.2  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  15.2  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  15.2  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  15.6  34 | c : DNS request from ('127.0.0.1', 59808) to None: 47 bytes
+  15.6  34 | c : DNS request from ('127.0.0.1', 51605) to None: 47 bytes
+  15.6  26 | 2020-04-24T00:46:55+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  15.6  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  15.6  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  15.6  26 | 2020-04-24T00:46:55+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  15.6  26 | 2020-04-24T00:46:55+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.0  34 | c : DNS request from ('127.0.0.1', 59282) to None: 47 bytes
+  16.0  34 | c : DNS request from ('127.0.0.1', 50573) to None: 47 bytes
+  16.0  26 | 2020-04-24T00:46:56+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  16.0  26 | 2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.0  26 | 2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.1  26 | 2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.1  26 | 2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.4  34 | c : DNS request from ('127.0.0.1', 47230) to None: 47 bytes
+  16.4  34 | c : DNS request from ('127.0.0.1', 49630) to None: 47 bytes
+  16.4  26 | 2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.4  26 | 2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.4  26 | 2020-04-24T00:46:56+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  16.4  26 | 2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.5  26 | 2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.5 >>> | Keyboard interrupt (Ctrl-C/Ctrl-Break) pressed
+  16.5 >>> | Exit cleanup in progress
+  16.5 TEL | (Cleanup) Terminate local process
+  16.5 TEL | Killing local process...
+  16.5 TEL | Main process (bash /home/maru/src/shist/cluster-kube-apiserver-operator/vendor/github.com/openshift/build-machinery-go/scripts/run-telepresence.sh)
+  16.5 TEL |  exited with code -15.
+  16.5 TEL | (Cleanup) Kill BG process [34] sshuttle
+  16.5  34 | >> iptables -t nat -D OUTPUT -j sshuttle-12300
+  16.5  34 | >> iptables -t nat -D PREROUTING -j sshuttle-12300
+  16.5 TEL | (Cleanup) Unmount remote filesystem
+  16.5 TEL | [48] Running: fusermount -z -u /tmp/tel_root
+  16.5  34 | >> iptables -t nat -F sshuttle-12300
+  16.5  27 | E0423 17:46:56.784295 1675194 portforward.go:372] error copying from remote stream to local connection: readfrom tcp4 127.0.0.1:43653->127.0.0.1:36796: write tcp4 127.0.0.1:43653->127.0.0.1:36796: write: broken pipe
+  16.5 TEL | [48] ran in 0.00 secs.
+  16.5 TEL | (Cleanup) Kill BG process [31] SSH port forward (socks and proxy poll)
+  16.5  34 | >> iptables -t nat -X sshuttle-12300
+  16.5 TEL | [31] SSH port forward (socks and proxy poll): exit 0
+  16.5 TEL | (Cleanup) Kill Web server for proxy poll
+  16.5 TEL | [34] sshuttle: exit -15
+  16.7 TEL | (Cleanup) Kill BG process [30] SSH port forward (exposed ports)
+  16.7 TEL | [30] SSH port forward (exposed ports): exit 0
+  16.7 TEL | (Cleanup) Kill BG process [27] kubectl port-forward
+  16.7 TEL | [27] kubectl port-forward: exit -15
+  16.7 TEL | (Cleanup) Kill BG process [26] kubectl logs
+  16.7 TEL | [26] kubectl logs: exit -15
+  16.7 TEL | Background process (kubectl logs) exited with return code -15. Command was:
+  16.7 TEL |   oc --context admin --namespace openshift-kube-apiserver-operator logs -f kube-apiserver-op-45888f3972594901844da35e66eb377f-75bc457tn6f9 --container kube-apiserver-operator --tail=10
+  16.7 TEL | 
+  16.7 TEL | Recent output was:
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] AAAA query, sending back A instead: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] A query: b'registry.svc.ci.openshift.org'
+  16.7 TEL |   2020-04-24T00:46:56+0000 [stdout#info] Result for b'registry.svc.ci.openshift.org' is ['35.196.103.194']
+  16.7 TEL | (Cleanup) Re-scale original deployment
+  16.7 TEL | [49] Running: oc --context admin --namespace openshift-kube-apiserver-operator scale deployment kube-apiserver-operator --replicas=1
+  16.8  49 | deployment.apps/kube-apiserver-operator scaled
+  16.8 TEL | [49] ran in 0.15 secs.
+  16.8 TEL | (Cleanup) Delete new deployment
+  16.8 >>> | Swapping Deployment kube-apiserver-operator back to its original state
+  16.8 TEL | [50] Running: oc --context admin --namespace openshift-kube-apiserver-operator delete deployment kube-apiserver-op-45888f3972594901844da35e66eb377f
+  17.0  50 | deployment.apps "kube-apiserver-op-45888f3972594901844da35e66eb377f" deleted
+  17.0 TEL | [50] ran in 0.14 secs.
+  17.0 TEL | (Cleanup) Kill sudo privileges holder
+  17.0 TEL | (Cleanup) Stop time tracking
+  17.0 TEL | END SPAN main.py:40(main)   17.0s
+  17.0 TEL | (Cleanup) Remove temporary directory
+  17.0 TEL | (Cleanup) Save caches
+  17.6 TEL | (sudo privileges holder thread exiting)
