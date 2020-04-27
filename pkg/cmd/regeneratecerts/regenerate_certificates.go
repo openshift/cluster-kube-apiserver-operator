@@ -150,7 +150,7 @@ func (o *Options) Run() error {
 		kubecontrollermanageroperatorclient.OperatorNamespace,
 		"kube-system",
 	)
-	eventRecorder := events.NewKubeRecorder(kubeClient.CoreV1().Events(""), "fix-certs (CLI)", &corev1.ObjectReference{
+	eventRecorder := events.NewKubeRecorderWithOptions(kubeClient.CoreV1().Events(""), events.RecommendedClusterSingletonCorrelatorOptions(), "fix-certs (CLI)", &corev1.ObjectReference{
 		APIVersion: "v1",
 		Kind:       "namespace",
 		Name:       "openshift-kube-apiserver-operator",
