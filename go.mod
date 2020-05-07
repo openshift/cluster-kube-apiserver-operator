@@ -15,10 +15,10 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200521101457-60c476765272
+	github.com/openshift/api v0.0.0-20200605231317-fb2a6ca106ae
 	github.com/openshift/build-machinery-go v0.0.0-20200512074546-3744767c4131
-	github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	github.com/openshift/library-go v0.0.0-20200605143902-624654711602
+	github.com/openshift/client-go v0.0.0-20200608144219-584632b8fc73
+	github.com/openshift/library-go v0.0.0-20200608183210-c10453af58ac
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
