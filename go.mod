@@ -17,8 +17,8 @@ require (
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/openshift/api v0.0.0-20200609191024-dca637550e8c
 	github.com/openshift/build-machinery-go v0.0.0-20200512074546-3744767c4131
-	github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	github.com/openshift/library-go v0.0.0-20200605143902-624654711602
+	github.com/openshift/client-go v0.0.0-20200608144219-584632b8fc73
+	github.com/openshift/library-go v0.0.0-20200615120640-a506fa41d3fb
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
