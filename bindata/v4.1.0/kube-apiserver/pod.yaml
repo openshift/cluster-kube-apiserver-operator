@@ -161,30 +161,28 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
-  - name: check-endpoint
+  - name: kube-apiserver-check-endpoints
     image: ${OPERATOR_IMAGE}
-    imagePullPolicy: Always
+    imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command:
       - cluster-kube-apiserver-operator
-      - check-endpoint
+      - check-endpoints
     args:
-      - '10.0.131.20:2379'
-      - '10.0.137.180:2379'
-      - '10.0.159.144:2379'
-      - '172.30.0.1:443'
-      - 'apiserver:443'
-      - 'apiserver.openshift-kube-apiserver.local:443'
-      - 'localhost:2379'
+      - --kubeconfig
+      - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --namespace
+      - openshift-kube-apiserver
+      - --v
+      - '4'
     env:
       - name: POD_NAME
         valueFrom:
           fieldRef:
             fieldPath: metadata.name
-      - name: POD_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
+    volumeMounts:
+      - mountPath: /etc/kubernetes/static-pod-resources
+        name: resource-dir
     resources:
       requests:
         memory: 50Mi

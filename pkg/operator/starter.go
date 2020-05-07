@@ -11,6 +11,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -64,6 +65,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -72,6 +77,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorclient.TargetNamespace,
 		operatorclient.OperatorNamespace,
 		"openshift-etcd",
+		"openshift-apiserver",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
@@ -120,6 +126,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
 		kubeClient,
+		operatorcontrolplaneClient,
 		controllerContext.EventRecorder,
 	)
 
