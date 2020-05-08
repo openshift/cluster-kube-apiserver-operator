@@ -9,11 +9,28 @@ admission:
         externalIPNetworkCIDRs: null
         kind: ExternalIPRangerAdmissionConfig
       location: ""
-aggregatorConfig:
-  proxyClientInfo:
-    certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
-    keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
+  allow-privileged:
+    - "true"
+  anonymous-auth:
+    - "true"
+  authorization-mode:
+    - Scope
+    - SystemMasters
+    - RBAC
+    - Node
+  audit-log-format:
+    - json
+  audit-log-maxbackup:
+    - "10"
+  audit-log-maxsize:
+    - "100"
+  audit-log-path:
+    - /var/log/kube-apiserver/audit.log
+  audit-policy-file: # this matches where .auditConfig.policyConfiguration is currently written.  We should update this.
+    - openshift.local.audit/policy.yaml
+  client-ca-file:
+    - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
   enable-admission-plugins:
     - CertificateApproval
     - CertificateSigning
@@ -62,33 +79,86 @@ apiServerArguments:
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
     - "true"
+  enable-logs-handler:
+    - "false"
+  enable-swagger-ui:
+    - "true"
+  endpoint-reconciler-type:
+    - "lease"
+  etcd-cafile:
+    - /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
+  etcd-certfile:
+    - /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
+  etcd-keyfile:
+    - /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
+  etcd-prefix:
+    - kubernetes.io
+  event-ttl:
+    - 3h
   goaway-chance:
     - "0"
   http2-max-streams-per-connection:
     - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
+  insecure-port:
+    - "0"
+  kubelet-certificate-authority:
+    - /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
+  kubelet-client-certificate:
+    - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
+  kubelet-client-key:
+    - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
+  kubelet-https:
+    - "true"
   kubelet-preferred-address-types:
     - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
+  kubelet-read-only-port:
+    - "0"
+  kubernetes-service-node-port:
+    - "0"
   # value should logically scale with max-requests-inflight
   max-mutating-requests-inflight:
     - "1000"
   # value needed to be bumped for scale tests.  The kube-apiserver did ok here
   max-requests-inflight:
     - "3000"
+  min-request-timeout:
+    - "3600"
+  proxy-client-cert-file:
+    - /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
+  proxy-client-key-file:
+    - /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
+  requestheader-allowed-names:
+    - kube-apiserver-proxy
+    - system:kube-apiserver-proxy
+    - system:openshift-aggregator
+  requestheader-client-ca-file:
+    - /etc/kubernetes/static-pod-certs/configmaps/aggregator-client-ca/ca-bundle.crt
+  requestheader-extra-headers-prefix:
+    - X-Remote-Extra-
+  requestheader-group-headers:
+    - X-Remote-Group
+  requestheader-username-headers:
+    - X-Remote-User
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  service-account-lookup:
+    - "true"
+  service-account-key-file:
+    - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  service-node-port-range:
+    - 30000-32767
   shutdown-delay-duration:
     - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   storage-backend:
     - etcd3
   storage-media-type:
     - application/vnd.kubernetes.protobuf
+  tls-cert-file:
+    - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt
+  tls-private-key-file:
+    - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key
 auditConfig:
-  auditFilePath: "/var/log/kube-apiserver/audit.log"
-  enabled: true
-  logFormat: "json"
-  maximumFileSizeMegabytes: 100
-  maximumRetainedFiles: 10
   policyConfiguration:
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
@@ -122,46 +192,13 @@ auditConfig:
       - "RequestReceived"
 authConfig:
   oauthMetadataFile: ""
-  requestHeader:
-    clientCA: /etc/kubernetes/static-pod-certs/configmaps/aggregator-client-ca/ca-bundle.crt
-    clientCommonNames:
-    - kube-apiserver-proxy
-    - system:kube-apiserver-proxy
-    - system:openshift-aggregator
-    extraHeaderPrefixes:
-    - X-Remote-Extra-
-    groupHeaders:
-    - X-Remote-Group
-    usernameHeaders:
-    - X-Remote-User
-  webhookTokenAuthenticators: null
 consolePublicURL: ""
-kubeletClientInfo:
-  ca: /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
-  certFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
-  keyFile: /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
-  port: 10250
 projectConfig:
   defaultNodeSelector: ""
-servicesNodePortRange: 30000-32767
-servicesSubnet: 10.3.0.0/16 # ServiceCIDR
+servicesSubnet: 10.3.0.0/16 # ServiceCIDR # set by observe_network.go
 servingInfo:
-  bindAddress: 0.0.0.0:6443
-  bindNetwork: tcp4
-  certFile: /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt
-  clientCA: /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
-  keyFile: /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key
-  maxRequestsInFlight: 1200
-  namedCertificates: null
-  requestTimeoutSeconds: 3600
-serviceAccountPublicKeyFiles:
-  - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  bindAddress: 0.0.0.0:6443 # set by observe_network.go
+  bindNetwork: tcp4 # set by observe_network.go
+  namedCertificates: null # set by observe_apiserver.go
 storageConfig:
-  ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
-  certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
-  keyFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
   urls: null
-userAgentMatchingConfig:
-  defaultRejectionMessage: ""
-  deniedClients: null
-  requiredClients: null
