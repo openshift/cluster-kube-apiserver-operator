@@ -182,7 +182,7 @@ func (r *renderOpts) Run() error {
 	if err := r.generic.ApplyTo(
 		&renderConfig.FileConfig,
 		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v410_00_assets.MustAsset(filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml"))},
-		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
+		genericrenderoptions.Template{FileName: "config-overrides.yaml", Content: []byte{}},
 		&renderConfig,
 		nil,
 	); err != nil {

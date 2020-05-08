@@ -14,6 +14,9 @@ aggregatorConfig:
     certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
     keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
+  # The following arguments are required to enable bound sa tokens
+  api-audiences:
+    - https://kubernetes.default.svc
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
     - "true"
@@ -30,6 +33,12 @@ apiServerArguments:
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  # The following arguments are required to enable bound sa tokens
+  service-account-issuer:
+    - https://kubernetes.default.svc
+  # The following arguments are required to enable bound sa tokens
+  service-account-signing-key-file:
+    - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
   shutdown-delay-duration:
     - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   storage-backend:
@@ -109,6 +118,9 @@ servingInfo:
   requestTimeoutSeconds: 3600
 serviceAccountPublicKeyFiles:
   - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  # The following path contains the public keys needed to verify bound sa
+  # tokens. This is only supported post-bootstrap.
+  - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
 storageConfig:
   ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt

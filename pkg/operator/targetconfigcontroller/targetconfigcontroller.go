@@ -205,7 +205,6 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig.yaml")
-	configOverrides := v410_00_assets.MustAsset("v4.1.0/config/config-overrides.yaml")
 	specialMergeRules := map[string]resourcemerge.MergeFunc{
 		".oauthConfig": RemoveConfig,
 	}
@@ -216,7 +215,6 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 		"config.yaml",
 		specialMergeRules,
 		defaultConfig,
-		configOverrides,
 		operatorSpec.ObservedConfig.Raw,
 		operatorSpec.UnsupportedConfigOverrides.Raw,
 	)

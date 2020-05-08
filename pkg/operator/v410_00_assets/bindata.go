@@ -1,6 +1,5 @@
 // Code generated for package v410_00_assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
-// bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
@@ -68,40 +67,6 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _v410ConfigConfigOverridesYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
-kind: KubeAPIServerConfig
-apiServerArguments:
-  # The following arguments are required to enable bound sa
-  # tokens. This is only supported post-bootstrap so these
-  # values must not appear in defaultconfig.yaml.
-  service-account-issuer:
-  - https://kubernetes.default.svc
-  api-audiences:
-  - https://kubernetes.default.svc
-  service-account-signing-key-file:
-  - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
-serviceAccountPublicKeyFiles:
-  - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
-  # The following path contains the public keys needed to verify bound sa
-  # tokens. This is only supported post-bootstrap.
-  - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
-`)
-
-func v410ConfigConfigOverridesYamlBytes() ([]byte, error) {
-	return _v410ConfigConfigOverridesYaml, nil
-}
-
-func v410ConfigConfigOverridesYaml() (*asset, error) {
-	bytes, err := v410ConfigConfigOverridesYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v4.1.0/config/config-overrides.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v410ConfigDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
 admission:
@@ -118,6 +83,9 @@ aggregatorConfig:
     certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
     keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
+  # The following arguments are required to enable bound sa tokens
+  api-audiences:
+    - https://kubernetes.default.svc
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
     - "true"
@@ -134,6 +102,12 @@ apiServerArguments:
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  # The following arguments are required to enable bound sa tokens
+  service-account-issuer:
+    - https://kubernetes.default.svc
+  # The following arguments are required to enable bound sa tokens
+  service-account-signing-key-file:
+    - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
   shutdown-delay-duration:
     - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   storage-backend:
@@ -213,6 +187,9 @@ servingInfo:
   requestTimeoutSeconds: 3600
 serviceAccountPublicKeyFiles:
   - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  # The following path contains the public keys needed to verify bound sa
+  # tokens. This is only supported post-bootstrap.
+  - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
 storageConfig:
   ca: /etc/kubernetes/static-pod-resources/configmaps/etcd-serving-ca/ca-bundle.crt
   certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
@@ -852,7 +829,6 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v4.1.0/config/config-overrides.yaml":                      v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                         v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/cm.yaml":                            v410KubeApiserverCmYaml,
 	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                 v410KubeApiserverKubeconfigCmYaml,
@@ -912,8 +888,7 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v4.1.0": {nil, map[string]*bintree{
 		"config": {nil, map[string]*bintree{
-			"config-overrides.yaml": {v410ConfigConfigOverridesYaml, map[string]*bintree{}},
-			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
+			"defaultconfig.yaml": {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
 			"cm.yaml":                            {v410KubeApiserverCmYaml, map[string]*bintree{}},
