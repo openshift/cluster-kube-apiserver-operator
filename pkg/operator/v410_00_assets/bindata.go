@@ -118,28 +118,28 @@ aggregatorConfig:
     certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
     keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
-  storage-backend:
-  - etcd3
-  storage-media-type:
-  - application/vnd.kubernetes.protobuf
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
-  - "true"
-  shutdown-delay-duration:
-  - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
+    - "true"
   http2-max-streams-per-connection:
-  - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
+    - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
   kubelet-preferred-address-types:
-  - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
-  # value needed to be bumped for scale tests.  The kube-apiserver did ok here
-  max-requests-inflight:
-  - "3000"
+    - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
   # value should logically scale with max-requests-inflight
   max-mutating-requests-inflight:
-  - "1000"
+    - "1000"
+  # value needed to be bumped for scale tests.  The kube-apiserver did ok here
+  max-requests-inflight:
+    - "3000"
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  shutdown-delay-duration:
+    - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
+  storage-backend:
+    - etcd3
+  storage-media-type:
+    - application/vnd.kubernetes.protobuf
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
