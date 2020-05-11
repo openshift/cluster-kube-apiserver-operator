@@ -263,6 +263,7 @@ apiServerArguments:
   tls-private-key-file:
     - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key
 auditConfig:
+  enabled: true
   policyConfiguration:
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
