@@ -80,11 +80,14 @@ apiServerArguments:
     - https://kubernetes.default.svc
   service-account-signing-key-file:
     - /etc/kubernetes/static-pod-certs/secrets/bound-service-account-signing-key/service-account.key
-  service-account-key-file:
-    - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
-      # The following path contains the public keys needed to verify bound sa
-      # tokens. This is only supported post-bootstrap.
-    - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
+serviceAccountPublicKeyFiles:
+  # this being a directory means we cannot directly use the upstream flags.
+  # TODO make a configobserver that writes the individual values that we need.
+  - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
+  # The following path contains the public keys needed to verify bound sa
+  # tokens. This is only supported post-bootstrap.
+  - /etc/kubernetes/static-pod-resources/configmaps/bound-sa-token-signing-certs
+
 `)
 
 func v410ConfigConfigOverridesYamlBytes() ([]byte, error) {
@@ -248,8 +251,6 @@ apiServerArguments:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
   service-account-lookup:
     - "true"
-  service-account-key-file:
-    - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
   service-node-port-range:
     - 30000-32767
   shutdown-delay-duration:

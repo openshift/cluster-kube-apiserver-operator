@@ -144,8 +144,6 @@ apiServerArguments:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
   service-account-lookup:
     - "true"
-  service-account-key-file:
-    - /etc/kubernetes/static-pod-resources/configmaps/sa-token-signing-certs
   service-node-port-range:
     - 30000-32767
   shutdown-delay-duration:
