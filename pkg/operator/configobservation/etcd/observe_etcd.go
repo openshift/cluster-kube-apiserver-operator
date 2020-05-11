@@ -24,18 +24,30 @@ const (
 // then the previously observed storage config URLs will be re-used.
 func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
-	storageConfigURLsPath := []string{"storageConfig", "urls"}
+	oldstorageConfigURLsPath := []string{"storageConfig", "urls"}
+	newStorageConfigURLsPath := []string{"apiServerArguments", "etcd-servers"}
 	var errs []error
 
 	previouslyObservedConfig := map[string]interface{}{}
-	currentEtcdURLs, found, err := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...)
+	oldCurrentEtcdURLs, oldFound, err := unstructured.NestedStringSlice(currentConfig, oldstorageConfigURLsPath...)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	if found {
-		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, currentEtcdURLs, storageConfigURLsPath...); err != nil {
+	newCurrentEtcdURLs, newFound, err := unstructured.NestedStringSlice(currentConfig, newStorageConfigURLsPath...)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	var currentEtcdURLs []string
+	if newFound {
+		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, newCurrentEtcdURLs, newStorageConfigURLsPath...); err != nil {
 			errs = append(errs, err)
 		}
+		currentEtcdURLs = newCurrentEtcdURLs
+	} else if oldFound {
+		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, oldCurrentEtcdURLs, newStorageConfigURLsPath...); err != nil {
+			errs = append(errs, err)
+		}
+		currentEtcdURLs = oldCurrentEtcdURLs
 	}
 
 	var etcdURLs []string
@@ -87,7 +99,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	sort.Strings(etcdURLs)
 
 	observedConfig := map[string]interface{}{}
-	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
+	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, newStorageConfigURLsPath...); err != nil {
 		return previouslyObservedConfig, append(errs, err)
 	}
 

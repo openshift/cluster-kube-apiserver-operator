@@ -27,19 +27,25 @@ func TestObserveStorageURLs(t *testing.T) {
 	}{
 		{
 			name:          "NoEtcdHosts",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			expected:      observedConfig(withStorageURL("https://previous.url:2379")),
 			expectErrors:  true,
 		},
 		{
 			name:          "ValidIPv4",
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
+			endpoint:      endpoints(withAddress("10.0.0.1")),
+			expected:      observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
+		},
+		{
+			name:          "ValidIPv4New",
 			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
 			endpoint:      endpoints(withAddress("10.0.0.1")),
 			expected:      observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
 		},
 		{
 			name:          "InvalidIPv4",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("10.0.0.1"),
 				withAddress("192.192.0.2.1"),
@@ -49,13 +55,13 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "ValidIPv6",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint:      endpoints(withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C")),
 			expected:      observedConfig(withStorageURL("https://[fe80:cd00:0:cde:1257:0:211e:729c]:2379"), withLocalhostStorageURLs()),
 		},
 		{
 			name:          "InvalidIPv6",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"),
 				withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C:invalid"),
@@ -65,7 +71,7 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "FakeIPv4",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("10.0.0.1"),
 				withAddress("192.0.2.1"),
@@ -74,7 +80,7 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "FakeIPv6",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"),
 				withAddress("2001:0DB8:0000:0CDE:1257:0000:211E:729C"),
@@ -83,13 +89,13 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "ValidIPv4AsIPv6Literal",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint:      endpoints(withAddress("::ffff:a00:1")),
 			expected:      observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
 		},
 		{
 			name:          "FakeIPv4AsIPv6Literal",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("FE80:CD00:0000:0CDE:1257:0000:211E:729C"),
 				withAddress("::ffff:c000:201"),
@@ -98,14 +104,14 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "NoAddressesFound",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint:      endpoints(),
 			expected:      observedConfig(withLocalhostStorageURLs()),
 			expectErrors:  true,
 		},
 		{
 			name:          "OnlyFakeAddressesFound",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withAddress("192.0.2.1"),
 				withAddress("::ffff:c000:201"),
@@ -115,7 +121,7 @@ func TestObserveStorageURLs(t *testing.T) {
 		},
 		{
 			name:          "IgnoreBootstrap",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint: endpoints(
 				withBootstrap("10.0.0.2"),
 				withAddress("10.0.0.1"),
@@ -162,7 +168,7 @@ func observedConfig(configs ...func(map[string]interface{})) map[string]interfac
 	return observedConfig
 }
 
-func withStorageURL(url string) func(map[string]interface{}) {
+func withOldStorageURL(url string) func(map[string]interface{}) {
 	return func(observedConfig map[string]interface{}) {
 		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "storageConfig", "urls")
 		urls = append(urls, url)
@@ -170,11 +176,27 @@ func withStorageURL(url string) func(map[string]interface{}) {
 	}
 }
 
-func withLocalhostStorageURLs() func(map[string]interface{}) {
+func withStorageURL(url string) func(map[string]interface{}) {
+	return func(observedConfig map[string]interface{}) {
+		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "apiServerArguments", "etcd-servers")
+		urls = append(urls, url)
+		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "apiServerArguments", "etcd-servers")
+	}
+}
+
+func withOldLocalhostStorageURLs() func(map[string]interface{}) {
 	return func(observedConfig map[string]interface{}) {
 		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "storageConfig", "urls")
 		urls = append(urls, "https://localhost:2379")
 		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "storageConfig", "urls")
+	}
+}
+
+func withLocalhostStorageURLs() func(map[string]interface{}) {
+	return func(observedConfig map[string]interface{}) {
+		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "apiServerArguments", "etcd-servers")
+		urls = append(urls, "https://localhost:2379")
+		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "apiServerArguments", "etcd-servers")
 	}
 }
 

@@ -306,8 +306,6 @@ servingInfo:
   bindAddress: 0.0.0.0:6443 # set by observe_network.go
   bindNetwork: tcp4 # set by observe_network.go
   namedCertificates: null # set by observe_apiserver.go
-storageConfig:
-  urls: null
 `)
 
 func v410ConfigDefaultconfigYamlBytes() ([]byte, error) {
