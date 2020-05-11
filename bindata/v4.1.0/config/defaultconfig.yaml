@@ -14,6 +14,51 @@ aggregatorConfig:
     certFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.crt
     keyFile: /etc/kubernetes/static-pod-certs/secrets/aggregator-client/tls.key
 apiServerArguments:
+  enable-admission-plugins:
+    - CertificateApproval
+    - CertificateSigning
+    - CertificateSubjectRestriction
+    - DefaultIngressClass
+    - DefaultStorageClass
+    - DefaultTolerationSeconds
+    - LimitRanger
+    - MutatingAdmissionWebhook
+    - NamespaceLifecycle
+    - NodeRestriction
+    - OwnerReferencesPermissionEnforcement
+    - PersistentVolumeClaimResize
+    - PersistentVolumeLabel
+    - PodNodeSelector
+    - PodTolerationRestriction
+    - Priority
+    - ResourceQuota
+    - RuntimeClass
+    - ServiceAccount
+    - StorageObjectInUseProtection
+    - TaintNodesByCondition
+    - ValidatingAdmissionWebhook
+    - authorization.openshift.io/RestrictSubjectBindings
+    - authorization.openshift.io/ValidateRoleBindingRestriction
+    - config.openshift.io/DenyDeleteClusterConfiguration
+    - config.openshift.io/ValidateAPIServer
+    - config.openshift.io/ValidateAuthentication
+    - config.openshift.io/ValidateConsole
+    - config.openshift.io/ValidateFeatureGate
+    - config.openshift.io/ValidateImage
+    - config.openshift.io/ValidateOAuth
+    - config.openshift.io/ValidateProject
+    - config.openshift.io/ValidateScheduler
+    - image.openshift.io/ImagePolicy
+    - network.openshift.io/ExternalIPRanger
+    - network.openshift.io/RestrictedEndpointsAdmission
+    - quota.openshift.io/ClusterResourceQuota
+    - quota.openshift.io/ValidateClusterResourceQuota
+    - route.openshift.io/IngressAdmission
+    - scheduling.openshift.io/OriginPodNodeEnvironment
+    - security.openshift.io/DefaultSecurityContextConstraints
+    - security.openshift.io/SCCExecRestrictions
+    - security.openshift.io/SecurityContextConstraint
+    - security.openshift.io/ValidateSecurityContextConstraints
   storage-backend:
   - etcd3
   storage-media-type:
