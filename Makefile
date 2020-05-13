@@ -8,6 +8,7 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/images.mk \
 	targets/openshift/crd-schema-gen.mk \
 	targets/openshift/deps.mk \
+	targets/openshift/operator/telepresence.mk \
 )
 
 # Set crd-schema-gen variables
@@ -45,7 +46,7 @@ $(call add-bindata,v4.1.0,./bindata/v4.1.0/...,bindata,v410_00_assets,pkg/operat
 # $4 - output
 $(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 
-# these are extremely slow serial e2e encryption tests that modify the cluster's global state 
+# these are extremely slow serial e2e encryption tests that modify the cluster's global state
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
 test-e2e-encryption: GO_TEST_FLAGS += -timeout 4h
@@ -76,3 +77,8 @@ test-e2e: test-unit
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
+
+# Configure the 'telepresence' target
+# See vendor/github.com/openshift/build-machinery-go/scripts/run-telepresence.sh for usage and configuration details
+export TP_DEPLOYMENT_YAML ?=./manifests/0000_20_kube-apiserver-operator_06_deployment.yaml
+export TP_CMD_PATH ?=./cmd/cluster-kube-apiserver-operator

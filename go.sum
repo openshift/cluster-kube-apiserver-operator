@@ -269,6 +269,8 @@ github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.0 h1:aizVhC/NAAcKWb+5QsU1iNOZb4Yws5UO2I+aIprQITM=
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
+github.com/marun/build-machinery-go v0.0.0-20200424210328-043c94998366 h1:IPmRNbFe7Opnz8tLe1x2o+w0V074rXecylaC0Dekw/4=
+github.com/marun/build-machinery-go v0.0.0-20200424210328-043c94998366/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
@@ -303,10 +305,6 @@ github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5X
 github.com/openshift/api v0.0.0-20200326152221-912866ddb162/go.mod h1:RKMJ5CBnljLfnej+BJ/xnOWc3kZDvJUaIAEq2oKSPtE=
 github.com/openshift/api v0.0.0-20200424083944-0422dc17083e h1:VDcwVyMEVbLyekLmtob1TEf8GfP454Afc2hO3FkgBps=
 github.com/openshift/api v0.0.0-20200424083944-0422dc17083e/go.mod h1:VnbEzX8SAaRj7Yfl836NykdQIlbEjfL6/CD+AaJQg5Q=
-github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160 h1:V4E6yt4XWiBEPKnJbs/E8pgUq9AjZqzQfsL3eeT84Qs=
-github.com/openshift/build-machinery-go v0.0.0-20200211121458-5e3d6e570160/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
-github.com/openshift/build-machinery-go v0.0.0-20200424080330-082bf86082cc h1:Bu1p7+ItPqhJhmMve7sVluKCYV+o+x1Ede0WY2/BI8Q=
-github.com/openshift/build-machinery-go v0.0.0-20200424080330-082bf86082cc/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
 github.com/openshift/client-go v0.0.0-20200326155132-2a6cd50aedd0 h1:kMiuiZXH1GdfbiMwsuAQOqGaMxlo9NCUk0wT4XAdfNM=
 github.com/openshift/client-go v0.0.0-20200326155132-2a6cd50aedd0/go.mod h1:uUQ4LClRO+fg5MF/P6QxjMCb1C9f7Oh4RKepftDnEJE=
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca h1:YNtyJnE53QuEUSjl7L1AARocI021o7cU2bvh4prDtiE=
