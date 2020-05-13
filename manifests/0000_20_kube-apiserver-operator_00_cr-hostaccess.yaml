@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: system:openshift:scc:hostaccess
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - hostaccess
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
