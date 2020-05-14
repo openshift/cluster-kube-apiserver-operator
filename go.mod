@@ -31,8 +31,4 @@ require (
 	k8s.io/klog v1.0.0
 )
 
-replace github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
-
 replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
-
-replace github.com/openshift/build-machinery-go => github.com/marun/build-machinery-go v0.0.0-20200424210328-043c94998366
