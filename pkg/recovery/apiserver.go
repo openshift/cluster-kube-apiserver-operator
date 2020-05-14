@@ -28,13 +28,15 @@ import (
 )
 
 const (
-	KubeApiserverStaticPodFileName = "kube-apiserver-pod.yaml"
-	RecoveryPodFileName            = "recovery-kube-apiserver-pod.yaml"
-	RecoveryCofigFileName          = "config.yaml"
-	AdminKubeconfigFileName        = "admin.kubeconfig"
+	KubeApiserverStaticPodFileName  = "kube-apiserver-pod.yaml"
+	RecoveryPodFileName             = "recovery-kube-apiserver-pod.yaml"
+	RecoveryCofigFileName           = "config.yaml"
+	RecoveryEncryptionCofigFileName = "encryption-config"
+	AdminKubeconfigFileName         = "admin.kubeconfig"
 
-	RecoveryPodAsset    = "v4.1.0/kube-apiserver/recovery-pod.yaml"
-	RecoveryConfigAsset = "v4.1.0/kube-apiserver/recovery-config.yaml"
+	RecoveryPodAsset              = "v4.1.0/kube-apiserver/recovery-pod.yaml"
+	RecoveryConfigAsset           = "v4.1.0/kube-apiserver/recovery-config.yaml"
+	RecoveryEncryptionConfigAsset = "v4.1.0/kube-apiserver/recovery-encryption-config.yaml"
 )
 
 type Apiserver struct {
@@ -238,6 +240,30 @@ func (s *Apiserver) Create() error {
 		return fmt.Errorf("failed to write recovery config %q: %v", recoveryConfigPath, err)
 	}
 
+	// always create a default (empty) encryption config to simplify the deployment
+	// only copy the real one if it exists
+	encryptionConfigExists, err := fileExists(filepath.Join(s.ResourceDirPath, "secrets/encryption-config/encryption-config"))
+	if err != nil {
+		return fmt.Errorf("failed to check if encryption config exists: %v", err)
+	}
+	if encryptionConfigExists {
+		err = copyFile(filepath.Join(s.ResourceDirPath, "secrets/encryption-config/encryption-config"), filepath.Join(s.recoveryResourcesDir, RecoveryEncryptionCofigFileName))
+		if err != nil {
+			return err
+		}
+	} else {
+		recoveryEncryptionConfigBytes, err := v410_00_assets.Asset(RecoveryEncryptionConfigAsset)
+		if err != nil {
+			return fmt.Errorf("fail to find recovery encryption config asset %q: %v", RecoveryEncryptionConfigAsset, err)
+		}
+
+		recoveryEncryptionConfigPath := filepath.Join(s.recoveryResourcesDir, RecoveryEncryptionCofigFileName)
+		err = ioutil.WriteFile(recoveryEncryptionConfigPath, recoveryEncryptionConfigBytes, 644)
+		if err != nil {
+			return fmt.Errorf("failed to write recovery encryption config %q: %v", recoveryEncryptionConfigPath, err)
+		}
+	}
+
 	recoveryPod, err := s.recoveryPod()
 	if err != nil {
 		return fmt.Errorf("failed to create recovery pod: %v", err)
@@ -361,4 +387,17 @@ func copyFile(src, dest string) error {
 	}
 
 	return nil
+}
+
+func fileExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if err == nil {
+		return !info.IsDir(), nil
+	}
+
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, err
 }
