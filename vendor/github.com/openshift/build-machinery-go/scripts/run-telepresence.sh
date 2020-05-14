@@ -13,24 +13,9 @@ set -o pipefail
 # Dependencies:
 #
 # - oc
-# - yq (pip install yq)
 # - jq (fedora: dnf install jq; macos: brew install jq)
-# - telepresence
-#    - fedora:
-#      - curl -s https://packagecloud.io/install/repositories/datawireio/telepresence/script.rpm.sh | sudo bash
-#      - sudo dnf install telepresence
-#    - macos:
-#      - brew cask install osxfuse # reboot required
-#      - brew install datawire/blackbird/telepresence
-#    - Current release (0.104) not compatible with ocp.
-#      - Workaround: Install dependencies via package but telepresence from source
-#        - git clone https://github.com/telepresenceio/telepresence
-#        - cd telepresence
-#        - git remote add marun https://github.com/marun/telepresence
-#        - git fetch marun
-#        - git checkout -t marun/ocp-compatible
-#        - make virtualenv
-#        - . virtualenv/bin/activate
+# - telepresence (https://www.telepresence.io/reference/install)
+#   - >= 0.105 is compatible with OCP
 # - delve (go get github.com/go-delve/delve/cmd/dlv)
 
 KUBECONFIG="${KUBECONFIG:-}"
@@ -98,10 +83,16 @@ _TP_INTERNAL_RUN="${_TP_INTERNAL_RUN:-}"
 # different binaries for ocp or okd.
 TP_BUILD_FLAGS="${TP_BUILD_FLAGS:-}"
 
-YQ_ARGS="${TP_DEPLOYMENT_YAML} -r"
+# Simplify querying the deployment yaml with jq
+function jq_deployment () {
+  local jq_arg="${1}"
+  cat "${TP_DEPLOYMENT_YAML}"\
+    | python -c 'import json, sys, yaml ; y=yaml.safe_load(sys.stdin.read()) ; print(json.dumps(y))'\
+    | jq -r "${jq_arg}"
+}
 
-NAMESPACE="$(yq '.metadata.namespace' ${YQ_ARGS})"
-NAME="$(yq '.metadata.name' ${YQ_ARGS})"
+NAMESPACE="$(jq_deployment '.metadata.namespace')"
+NAME="$(jq_deployment '.metadata.name')"
 
 # If not provided, the lock configmap will be defaulted to the name of
 # the deployment suffixed by `-lock`.
@@ -114,8 +105,8 @@ if [ "${_TP_INTERNAL_RUN}" ]; then
 
   if [[ ! "${TP_CMD_ARGS}" ]]; then
     # Parse the arguments from the deployment
-    TP_CMD_ARGS="$(yq '.spec.template.spec.containers[0].command[1:] | join(" ")' ${YQ_ARGS})"
-    TP_CMD_ARGS+=" $(yq '.spec.template.spec.containers[0].args | join(" ")' ${YQ_ARGS})"
+    TP_CMD_ARGS="$(jq_deployment '.spec.template.spec.containers[0].command[1:] | join(" ")' )"
+    TP_CMD_ARGS+=" $(jq_deployment '.spec.template.spec.containers[0].args | join(" ")' )"
   fi
 
   if [[ "${TP_VERBOSITY}" ]]; then
@@ -165,8 +156,8 @@ else
     sudo ln -s /tmp/tel_root/var/run/secrets /var/run/secrets
   fi
 
-  KIND="$(yq '.kind' ${YQ_ARGS})"
-  GROUP="$(yq '.apiVersion' ${YQ_ARGS})"
+  KIND="$(jq_deployment '.kind')"
+  GROUP="$(jq_deployment '.apiVersion')"
 
   # Ensure the operator is not managed by CVO
   oc patch clusterversion/version --type='merge' -p "$(cat <<- EOF
@@ -199,6 +190,6 @@ EOF
   # proxied so that the local operator will be able to access them.
   ALSO_PROXY="$(oc get machines -A -o json | jq -jr '.items[] | .status.addresses[0].address | @text "--also-proxy=\(.) "')"
 
-  TELEPRESENCE_OCP_USE_DEFAULT_IMAGE=y _TP_INTERNAL_RUN=y telepresence --namespace="${NAMESPACE}"\
+  TELEPRESENCE_USE_OCP_IMAGE=NO _TP_INTERNAL_RUN=y telepresence --namespace="${NAMESPACE}"\
     --swap-deployment "${NAME}" ${ALSO_PROXY} --mount=/tmp/tel_root --run ${TP_RUN_CMD}
 fi
