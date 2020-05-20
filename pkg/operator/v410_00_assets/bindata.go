@@ -140,6 +140,8 @@ apiServerArguments:
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  goaway-chance:
+    - "0"
 auditConfig:
   auditFilePath: "/var/log/kube-apiserver/audit.log"
   enabled: true
