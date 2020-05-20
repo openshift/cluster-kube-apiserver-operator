@@ -461,7 +461,7 @@ spec:
         echo -n "Fixing audit permissions."
         chmod 0700 /var/log/kube-apiserver
         echo -n "Waiting for port :6443 and :6080 to be released."
-        while [ -n "$(lsof -ni :6443)$(lsof -ni :6080)" ]; do
+        while [ -n "$(ss -Htan '( sport = 6443 or sport = 6080 )')" ]; do
           echo -n "."
           sleep 1
         done
@@ -479,6 +479,18 @@ spec:
             echo "Copying system trust bundle"
             cp -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           fi
+          echo -n "Waiting for port :6443 and :6080 to be released."
+          tries=0
+          while [ -n "$(ss -Htan '( sport = 6443 or sport = 6080 )')" ]; do
+            echo -n "."
+            sleep 1
+            (( tries += 1 ))
+            if [[ "${tries}" -gt 105 ]]; then
+              echo "timed out waiting for port :6443 and :6080 to be released"
+              exit 1
+            fi
+          done
+          echo
           exec hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP}
     resources:
       requests:
