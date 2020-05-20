@@ -12,6 +12,21 @@ metadata:
 spec:
   restartPolicy: Always
   hostNetwork: true
+  initContainers:
+  - name: setup
+    terminationMessagePolicy: FallbackToLogsOnError
+    image: {{ .Image }}
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - mountPath: /var/log/kube-apiserver
+      name: audit-dir
+    command: ['/bin/bash', '-ec']
+    args:
+    - |
+      echo -n "Fixing audit permissions."
+      chmod 0700 /var/log/kube-apiserver
+    securityContext:
+      privileged: true
   containers:
   - name: kube-apiserver
     image: {{ .Image }}
@@ -39,6 +54,8 @@ spec:
       readOnly: true
     - mountPath: /var/log/bootstrap-control-plane
       name: logs
+    - mountPath: /var/log/kube-apiserver
+      name: audit-dir
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -82,3 +99,6 @@ spec:
   - hostPath:
       path: /var/log/bootstrap-control-plane
     name: logs
+  - hostPath:
+      path: /var/log/kube-apiserver
+    name: audit-dir
