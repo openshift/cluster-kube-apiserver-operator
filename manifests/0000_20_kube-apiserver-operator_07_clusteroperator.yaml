@@ -35,3 +35,7 @@ status:
     - group: ""
       name: openshift-kube-apiserver
       resource: namespaces
+    - group: admissionregistration.k8s.io
+      resource: mutatingwebhookconfigurations
+    - group: admissionregistration.k8s.io
+      resource: validatingwebhookconfigurations

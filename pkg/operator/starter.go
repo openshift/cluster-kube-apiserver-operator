@@ -156,7 +156,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
+			{Group: "admissionregistration.k8s.io", Resource: "mutatingwebhookconfigurations"},
+			{Group: "admissionregistration.k8s.io", Resource: "validatingwebhookconfigurations"},
 		},
+
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
 		operatorClient,
