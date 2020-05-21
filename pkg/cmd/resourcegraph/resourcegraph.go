@@ -14,7 +14,7 @@ import (
 func NewResourceChainCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resource-graph",
-		Short: "Where do resources come from? Ask your mother.",
+		Short: "Provides an often out-dated snapshot of where resources come from.",
 		Run: func(cmd *cobra.Command, args []string) {
 			resources := Resources()
 			g := resources.NewGraph()
