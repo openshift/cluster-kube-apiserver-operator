@@ -17,7 +17,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
@@ -53,6 +53,7 @@ func NewConfigObserver(
 	infomers := []factory.Informer{
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer(),
+		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer(),
 		configInformer.Config().V1().Images().Informer(),
 		configInformer.Config().V1().Infrastructures().Informer(),
 		configInformer.Config().V1().Authentications().Informer(),
@@ -79,15 +80,16 @@ func NewConfigObserver(
 				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
-				ConfigmapLister:              kubeInformersForNamespaces.ConfigMapLister(),
 				SecretLister_:                kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
+				ConfigmapLister:              kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Lister(),
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(preRunCacheSynced,
 					operatorClient.Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
+					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer().HasSynced,
 					kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer().HasSynced,
 
 					configInformer.Config().V1().APIServers().Informer().HasSynced,
@@ -115,7 +117,7 @@ func NewConfigObserver(
 				// static path at which we expect to find the encryption config secret
 				"/etc/kubernetes/static-pod-resources/secrets/encryption-config/encryption-config",
 			),
-			etcd.ObserveStorageURLs,
+			etcdendpoints.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
 				"openshift-kube-apiserver",
 				[]string{"apiServerArguments", "cloud-provider"},
