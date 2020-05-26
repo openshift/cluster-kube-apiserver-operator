@@ -15,19 +15,19 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200424083944-0422dc17083e
+	github.com/openshift/api v0.0.0-20200521101457-60c476765272
 	github.com/openshift/build-machinery-go v0.0.0-20200512074546-3744767c4131
-	github.com/openshift/client-go v0.0.0-20200326155132-2a6cd50aedd0
-	github.com/openshift/library-go v0.0.0-20200518140451-8b2ad0d4eeef
+	github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
+	github.com/openshift/library-go v0.0.0-20200526124911-cd27f9384ffc
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
-	k8s.io/api v0.18.2
-	k8s.io/apimachinery v0.18.2
-	k8s.io/apiserver v0.18.2
-	k8s.io/client-go v0.18.2
-	k8s.io/component-base v0.18.2
+	k8s.io/api v0.18.3
+	k8s.io/apimachinery v0.18.3
+	k8s.io/apiserver v0.18.3
+	k8s.io/client-go v0.18.3
+	k8s.io/component-base v0.18.3
 	k8s.io/klog v1.0.0
 )
 
