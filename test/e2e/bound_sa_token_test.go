@@ -34,7 +34,7 @@ const (
 	// Need a long time for promotion to account for the delay in
 	// nodes being updated to a revision of the configmap that
 	// contains the latest public key.
-	promotionTimeout = 10 * time.Minute
+	promotionTimeout = 40 * time.Minute
 )
 
 // TestBoundTokenSignerController verifies the expected behavior of the controller
