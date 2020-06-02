@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/maxinflighttunercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
@@ -45,6 +46,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
 type encryptionProvider []schema.GroupResource
@@ -73,6 +75,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	metricsClient, err := metricsclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -277,6 +284,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	maxInFlightTunerController, err := maxinflighttunercontroller.NewMaxInflightTunerController(
+		operatorClient, kubeClient, metricsClient, controllerContext.EventRecorder)
+	if err != nil {
+		return err
+	}
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -303,6 +316,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go boundSATokenSignerController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
+	go maxInFlightTunerController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
