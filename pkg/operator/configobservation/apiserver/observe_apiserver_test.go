@@ -171,7 +171,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			name: "NamedCertificateWithName",
 			config: newAPIServerConfig(
 				withCertificate(
-					withName("*.foo.org"),
+					withNames("*.foo.org"),
 					withSecret("foo"),
 				),
 			),
@@ -219,6 +219,26 @@ func TestObserveNamedCertificates(t *testing.T) {
 				"secret/user-serving-cert-008.openshift-kube-apiserver": "DELETE",
 				"secret/user-serving-cert-009.openshift-kube-apiserver": "DELETE",
 			},
+		},
+		{
+			name: "NamedCertificateWithOverlappingNames",
+			config: newAPIServerConfig(
+				withCertificate(
+					withNames("*.foo.org", "something.com", "colliding.com"),
+					withSecret("foo"),
+				),
+				withCertificate(
+					withNames("safe.com"),
+					withSecret("bar"),
+				),
+				withCertificate(
+					withNames("non-collision.io", "colliding.com"),
+					withSecret("third"),
+				),
+			),
+			existing:   existingConfig,
+			expected:   existingConfig,
+			expectErrs: true,
 		},
 		{
 			name: "NamedCertificateWithoutName",
@@ -275,9 +295,9 @@ func TestObserveNamedCertificates(t *testing.T) {
 			name: "NamedCertificateWithNames",
 			config: newAPIServerConfig(
 				withCertificate(
-					withName("*.foo.org"),
-					withName("foo.org"),
-					withName("*.bar.org"),
+					withNames("*.foo.org"),
+					withNames("foo.org"),
+					withNames("*.bar.org"),
 					withSecret("foo"),
 				),
 			),
@@ -330,15 +350,15 @@ func TestObserveNamedCertificates(t *testing.T) {
 			name: "NamedCertificates",
 			config: newAPIServerConfig(
 				withCertificate(
-					withName("one"),
+					withNames("one"),
 					withSecret("one"),
 				),
 				withCertificate(
 					withSecret("two"),
 				),
 				withCertificate(
-					withName("three"),
-					withName("tři"),
+					withNames("three"),
+					withNames("tři"),
 					withSecret("three"),
 				),
 			),
@@ -400,7 +420,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 			name: "NamedCertificateNoSecretRef",
 			config: newAPIServerConfig(
 				withCertificate(
-					withName("*.foo.org"),
+					withNames("*.foo.org"),
 				),
 			),
 			existing:   existingConfig,
@@ -410,17 +430,17 @@ func TestObserveNamedCertificates(t *testing.T) {
 		{
 			name: "TooManyNamedCertificates",
 			config: newAPIServerConfig(
-				withCertificate(withName("000"), withSecret("000")),
-				withCertificate(withName("001"), withSecret("001")),
-				withCertificate(withName("002"), withSecret("002")),
-				withCertificate(withName("003"), withSecret("003")),
-				withCertificate(withName("004"), withSecret("004")),
-				withCertificate(withName("005"), withSecret("005")),
-				withCertificate(withName("006"), withSecret("006")),
-				withCertificate(withName("007"), withSecret("007")),
-				withCertificate(withName("008"), withSecret("008")),
-				withCertificate(withName("009"), withSecret("009")),
-				withCertificate(withName("010"), withSecret("010")),
+				withCertificate(withNames("000"), withSecret("000")),
+				withCertificate(withNames("001"), withSecret("001")),
+				withCertificate(withNames("002"), withSecret("002")),
+				withCertificate(withNames("003"), withSecret("003")),
+				withCertificate(withNames("004"), withSecret("004")),
+				withCertificate(withNames("005"), withSecret("005")),
+				withCertificate(withNames("006"), withSecret("006")),
+				withCertificate(withNames("007"), withSecret("007")),
+				withCertificate(withNames("008"), withSecret("008")),
+				withCertificate(withNames("009"), withSecret("009")),
+				withCertificate(withNames("010"), withSecret("010")),
 			),
 			existing:   existingConfig,
 			expected:   existingConfig,
@@ -520,9 +540,9 @@ func withCertificate(builders ...func(*configv1.APIServerNamedServingCert)) func
 	}
 }
 
-func withName(name string) func(*configv1.APIServerNamedServingCert) {
+func withNames(names ...string) func(*configv1.APIServerNamedServingCert) {
 	return func(cert *configv1.APIServerNamedServingCert) {
-		cert.Names = append(cert.Names, name)
+		cert.Names = append(cert.Names, names...)
 	}
 }
 

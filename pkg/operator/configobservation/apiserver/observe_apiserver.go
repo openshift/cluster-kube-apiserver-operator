@@ -2,6 +2,7 @@ package apiserver
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/imdario/mergo"
 	"k8s.io/klog"
@@ -121,6 +122,9 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		"certFile": "/etc/kubernetes/static-pod-resources/secrets/localhost-recovery-serving-certkey/tls.crt",
 		"keyFile":  "/etc/kubernetes/static-pod-resources/secrets/localhost-recovery-serving-certkey/tls.key"})
 
+	// specifiedNameToIndex has keys that are namedCertificate.Names and values that are the index they are used in.
+	// we use this to detect if the same name is specified multiple times and fail.
+	specifiedNameToIndex := map[string][]string{}
 	for index, namedCertificate := range namedCertificates {
 		observedNamedCertificate := map[string]interface{}{}
 		if len(namedCertificate.Names) > 0 {
@@ -128,6 +132,10 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 				return previouslyObservedConfig, nil, append(errs, err)
 			}
 		}
+		for _, name := range namedCertificate.Names {
+			specifiedNameToIndex[name] = append(specifiedNameToIndex[name], fmt.Sprintf("%d", index))
+		}
+
 		sourceSecretName := namedCertificate.ServingCertificate.Name
 		if len(sourceSecretName) == 0 {
 			err := fmt.Errorf("spec.servingCerts.namedCertificates[%d].servingCertificate.name cannot be empty", index)
@@ -152,6 +160,13 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		}
 
 		observedNamedCertificates = append(observedNamedCertificates, observedNamedCertificate)
+	}
+
+	for name, indexes := range specifiedNameToIndex {
+		if len(indexes) == 1 {
+			continue
+		}
+		errs = append(errs, fmt.Errorf("spec.servingCerts.namedCertificates[...].servingCertificate.name %q is used by other indexes: [%s]", name, strings.Join(indexes, ",")))
 	}
 
 	if len(observedNamedCertificates) > 0 {
@@ -199,7 +214,7 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 	// if we get error during observation, skip the merging and return previous config and errors.
 	if len(errs) > 0 {
 		klog.Warningf("errors during apiservers.%s/cluster processing: %+v", configv1.GroupName, errs)
-		return previouslyObservedConfig, append(errs, errs...)
+		return previouslyObservedConfig, errs
 	}
 
 	// default to deleting previous resources, and then merge in observed resources rules
