@@ -104,7 +104,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 		return err
 	}
 	if requeue {
-		return fmt.Errorf("synthetic requeue request")
+		return factory.SyntheticRequeueError
 	}
 
 	return nil
