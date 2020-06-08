@@ -165,13 +165,16 @@ auditConfig:
       resources:
       - group: "oauth.openshift.io"
         resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
+    # Don't log requests to /healthz from kubelets
     - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
+      userGroups: ["system:nodes"]
+      nonResourceURLs:
+        - "/healthz"
+    # Don't log requests to certain non-resource URL paths.
+    - level: None
       nonResourceURLs:
       - "/api*" # Wildcard matching.
       - "/version"
-      - "/healthz"
       - "/readyz"
     # A catch-all rule to log all other requests at the Metadata level.
     - level: Metadata
