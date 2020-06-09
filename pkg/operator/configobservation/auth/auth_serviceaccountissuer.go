@@ -113,7 +113,7 @@ func unstructuredConfigForIssuer(issuer string) map[string]interface{} {
 	}
 	return map[string]interface{}{
 		"apiServerArguments": map[string]interface{}{
-			"service-account-issuer": []string{
+			"service-account-issuer": []interface{}{
 				issuer,
 			},
 		},
