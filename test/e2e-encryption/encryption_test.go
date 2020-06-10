@@ -3,6 +3,7 @@ package e2e_encryption
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,13 @@ import (
 )
 
 func TestEncryptionTypeIdentity(t *testing.T) {
+	for _, e := range os.Environ() {
+		t.Logf("env var is %v", e)
+	}
+	t.Logf("PROW_JOB_ID = %v ", os.Getenv("PROW_JOB_ID"))
+	t.Logf("CI = %v ", os.Getenv("CI"))
+	t.Fatal("FAILING TO SEE THE ENV VAR")
+
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
