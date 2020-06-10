@@ -39,7 +39,7 @@ type controller struct {
 	checkLister  v1alpha1.PodNetworkConnectivityCheckNamespaceLister
 	recorder     events.Recorder
 	// each PodNetworkConnectivityCheck gets its own PodNetworkConnectivityCheckStatusUpdater
-	updaters map[string]PodNetworkConnectivityCheckStatusUpdater
+	updaters map[string]ConnectionChecker
 }
 
 // Returns a new PodNetworkConnectivityCheckController that performs network connectivity checks
@@ -51,7 +51,7 @@ func NewPodNetworkConnectivityCheckController(podName, podNamespace string, chec
 		checksGetter: checksGetter.PodNetworkConnectivityChecks(podNamespace),
 		checkLister:  checkInformer.Lister().PodNetworkConnectivityChecks(podNamespace),
 		recorder:     recorder,
-		updaters:     map[string]PodNetworkConnectivityCheckStatusUpdater{},
+		updaters:     map[string]ConnectionChecker{},
 	}
 	c.Controller = factory.New().
 		WithSync(c.Sync).
@@ -80,8 +80,8 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 	// create & start status updaters if needed
 	for _, check := range checks {
 		if updater := c.updaters[check.Name]; updater == nil {
-			c.updaters[check.Name] = NewPodNetworkConnectivityCheckStatusUpdater(c, check.Name, c.recorder)
-			c.updaters[check.Name].Start(ctx)
+			c.updaters[check.Name] = NewConnectionChecker(check, c, c.recorder)
+			c.updaters[check.Name].Run(ctx)
 		}
 	}
 
@@ -100,10 +100,6 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 		}
 	}
 
-	// perform checks
-	for _, check := range checks {
-		c.checkEndpoint(ctx, check)
-	}
 	return nil
 }
 
@@ -115,32 +111,6 @@ func (c *controller) Get(name string) (*operatorcontrolplanev1alpha1.PodNetworkC
 // UpdateStatus implements v1alpha1helpers.PodNetworkConnectivityCheckClient
 func (c *controller) UpdateStatus(ctx context.Context, check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, opts metav1.UpdateOptions) (*operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, error) {
 	return c.checksGetter.UpdateStatus(ctx, check, opts)
-}
-
-// checkEndpoint performs the check and manages the PodNetworkConnectivityCheck.Status changes that result.
-func (c *controller) checkEndpoint(ctx context.Context, check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck) {
-	latencyInfo, err := getTCPConnectLatency(ctx, check.Spec.TargetEndpoint)
-	statusUpdates := manageStatusLogs(check.Spec.TargetEndpoint, err, latencyInfo)
-	if len(statusUpdates) > 0 {
-		statusUpdates = append(statusUpdates, manageStatusOutage(c.recorder))
-	}
-	if len(statusUpdates) > 0 {
-		statusUpdates = append(statusUpdates, manageStatusConditions)
-	}
-	c.updaters[check.Name].Add(statusUpdates...)
-}
-
-// getTCPConnectLatency connects to a tcp endpoint and collects latency info
-func getTCPConnectLatency(ctx context.Context, address string) (*trace.LatencyInfo, error) {
-	klog.V(3).Infof("Check BEGIN: %v", address)
-	defer klog.V(3).Infof("Check END  : %v", address)
-	ctx, latencyInfo := trace.WithLatencyInfoCapture(ctx)
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", address)
-	if err == nil {
-		conn.Close()
-	}
-	return latencyInfo, err
 }
 
 // isDNSError returns true if the cause of the net operation error is a DNS error
