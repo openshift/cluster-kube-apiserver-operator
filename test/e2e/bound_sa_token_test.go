@@ -30,21 +30,17 @@ import (
 const (
 	interval       = 1 * time.Second
 	regularTimeout = 30 * time.Second
-
-	// Need a long time for promotion to account for the delay in
-	// nodes being updated to a revision of the configmap that
-	// contains the latest public key.
-	promotionTimeout = 40 * time.Minute
 )
 
 // TestBoundTokenSignerController verifies the expected behavior of the controller
 // with respect to the resources it manages.
+//
+// Note: this test will roll out a new version - multiple times
 func TestBoundTokenSignerController(t *testing.T) {
 	kubeConfig, err := testlibrary.NewClientConfigForTest()
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
 	targetNamespace := operatorclient.TargetNamespace
@@ -59,7 +55,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
@@ -67,25 +62,30 @@ func TestBoundTokenSignerController(t *testing.T) {
 	})
 
 	// The operand config map should be recreated after deletion.
+	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
-
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
 		})
+
+		// deletion triggers a roll-out - wait until a new version has been rolled out
+		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 	})
 
 	// The secret in the operator namespace should be recreated with a new keypair
 	// after deletion. The configmap in the operand namespace should be updated
 	// immediately, and the secret once the configmap is present on all nodes.
+	//
+	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
-
 		// Delete the operator secret
 		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
+
+		// deletion triggers a roll-out - wait until a new version has been rolled out
+		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 
 		// Ensure that the cert configmap is always removed at the end of the test
 		// to ensure it will contain only the current public key. This property is
@@ -124,7 +124,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 		})
 
 		// Check that the operand secret is updated within the promotion timeout
-		checkBoundTokenOperandSecret(t, kubeClient, promotionTimeout, newOperatorSecret.Data)
+		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, newOperatorSecret.Data)
 	})
 }
 
@@ -221,38 +221,6 @@ func TestTokenRequestAndReview(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, trev.Status.Error)
 	require.True(t, trev.Status.Authenticated)
-}
-
-// TestChangeServiceAccountIssuer checks that the operator considers
-// the value set for Authentication.ServiceAccountIssuer when setting
-// the configuration configmap for the apiserver pods.
-func TestChangeServiceAccountIssuer(t *testing.T) {
-	kubeConfig, err := testlibrary.NewClientConfigForTest()
-	require.NoError(t, err)
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	require.NoError(t, err)
-	coreClient := kubeClient.CoreV1()
-	configClient, err := configclient.NewForConfig(kubeConfig)
-	require.NoError(t, err)
-
-	// Wait for operator readiness
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
-
-	defaultIssuer := "https://kubernetes.default.svc"
-
-	// Check that the default issuer is set in the operand config
-	require.NoError(t, pollForOperandIssuer(t, coreClient, defaultIssuer))
-
-	nonDefaultIssuer := "https://my-custom-issuer.com"
-	// Update the issuer to a valid value (corner cases are unit tested)
-	setServiceAccountIssuer(t, configClient, nonDefaultIssuer)
-	// Check that the issuer has changed to the non-default value
-	require.NoError(t, pollForOperandIssuer(t, coreClient, nonDefaultIssuer))
-
-	// Clear the issuer
-	setServiceAccountIssuer(t, configClient, "")
-	// Check that the issuer has changed back to the default
-	require.NoError(t, pollForOperandIssuer(t, coreClient, defaultIssuer))
 }
 
 func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, expectedIssuer string) error {
