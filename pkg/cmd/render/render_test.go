@@ -15,6 +15,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 )
 
 var (
@@ -161,9 +162,10 @@ func TestRenderCommand(t *testing.T) {
 	}
 	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
 
-	// tempDisabledFeatureGates lists feature gates that we temporarily disabled.
-	// TODO: Remove this once the IPv6DualStack feature can deal with old clients
-	tempDisabledFeatureGates := sets.NewString("IPv6DualStack") // IPv6DualStack is bugged, don't turn it on
+	tempDisabledFeatureGates := configobservercontroller.FeatureBlacklist
+	if tempDisabledFeatureGates == nil {
+		tempDisabledFeatureGates = sets.NewString()
+	}
 
 	tests := []struct {
 		// note the name is used as a name for a temporary directory

@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -24,6 +25,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
 )
+
+var FeatureBlacklist sets.String
 
 type ConfigObserver struct {
 	factory.Controller
@@ -124,7 +127,7 @@ func NewConfigObserver(
 				[]string{"apiServerArguments", "cloud-config"}),
 			featuregates.NewObserveFeatureFlagsFunc(
 				nil,
-				nil,
+				FeatureBlacklist,
 				[]string{"apiServerArguments", "feature-gates"},
 			),
 			network.ObserveRestrictedCIDRs,
