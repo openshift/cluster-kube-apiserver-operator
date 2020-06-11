@@ -18,7 +18,7 @@ var (
 	featureGatesAllowingUpgrade = sets.NewString("")
 )
 
-// FeatureUpgradeableController is a controller that sets upgradeable=false if anything outside the whitelist is the specified featuregates.
+// FeatureUpgradeableController is a controller that sets upgradeable=false if anything outside the allowed list is the specified featuregates.
 type FeatureUpgradeableController struct {
 	operatorClient    v1helpers.OperatorClient
 	featureGateLister configlistersv1.FeatureGateLister
