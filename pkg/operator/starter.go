@@ -11,11 +11,13 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -64,6 +66,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -72,6 +78,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorclient.TargetNamespace,
 		operatorclient.OperatorNamespace,
 		"openshift-etcd",
+		"openshift-apiserver",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
@@ -123,6 +130,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
+		kubeClient,
+		operatorClient,
+		kubeInformersForNamespaces,
+		operatorcontrolplaneClient,
+		controllerContext.EventRecorder,
+	)
+
 	// don't change any versions until we sync
 	versionRecorder := status.NewVersionGetter()
 	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get(ctx, "kube-apiserver", metav1.GetOptions{})
@@ -158,6 +173,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 			{Group: "admissionregistration.k8s.io", Resource: "mutatingwebhookconfigurations"},
 			{Group: "admissionregistration.k8s.io", Resource: "validatingwebhookconfigurations"},
+			{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-kube-apiserver"},
 		},
 
 		configClient.ConfigV1(),
@@ -270,6 +286,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go terminationObserver.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
+	go connectivityCheckController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil

@@ -15,6 +15,7 @@ import (
 	"k8s.io/component-base/logs"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/recoveryapiserver"
@@ -70,6 +71,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
+	cmd.AddCommand(checkendpoints.New())
 
 	return cmd
 }

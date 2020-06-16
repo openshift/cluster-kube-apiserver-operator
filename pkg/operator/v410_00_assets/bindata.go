@@ -598,6 +598,32 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
+  - name: kube-apiserver-check-endpoints
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command:
+      - cluster-kube-apiserver-operator
+      - check-endpoints
+    args:
+      - --kubeconfig
+      - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --namespace
+      - openshift-kube-apiserver
+      - --v
+      - '2'
+    env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+    volumeMounts:
+      - mountPath: /etc/kubernetes/static-pod-resources
+        name: resource-dir
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 10m
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
   priorityClassName: system-node-critical

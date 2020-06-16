@@ -39,3 +39,6 @@ status:
       resource: mutatingwebhookconfigurations
     - group: admissionregistration.k8s.io
       resource: validatingwebhookconfigurations
+    - group: controlplane.operator.openshift.io
+      resource: podnetworkconnectivitychecks
+      namespace: openshift-kube-apiserver
