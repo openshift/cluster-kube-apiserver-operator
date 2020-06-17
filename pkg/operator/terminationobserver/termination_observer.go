@@ -70,6 +70,7 @@ func RegisterMetrics() {
 	registerMetrics.Do(func() {
 		legacyregistry.MustRegister(apiServerTerminationEventGauge)
 		legacyregistry.MustRegister(apiServerTerminationCounter)
+		legacyregistry.MustRegister(apiServerLateConnectionsCounter)
 	})
 }
 
