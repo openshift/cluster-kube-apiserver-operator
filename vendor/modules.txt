@@ -224,7 +224,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20200615120640-a506fa41d3fb
+# github.com/openshift/library-go v0.0.0-20200617100204-823c70af3f78
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client
@@ -257,6 +257,7 @@ github.com/openshift/library-go/pkg/operator/encryption/secrets
 github.com/openshift/library-go/pkg/operator/encryption/state
 github.com/openshift/library-go/pkg/operator/encryption/statemachine
 github.com/openshift/library-go/pkg/operator/events
+github.com/openshift/library-go/pkg/operator/eventwatch
 github.com/openshift/library-go/pkg/operator/genericoperatorclient
 github.com/openshift/library-go/pkg/operator/loglevel
 github.com/openshift/library-go/pkg/operator/management
