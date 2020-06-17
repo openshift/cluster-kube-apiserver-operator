@@ -24,6 +24,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/library-go/pkg/operator/eventwatch"
+
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
@@ -103,6 +105,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		resourceSyncController,
 		controllerContext.EventRecorder,
 	)
+
+	eventWatcher := eventwatch.New().
+		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
+		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
@@ -284,6 +290,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go featureUpgradeableController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
+	go eventWatcher.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
