@@ -116,6 +116,7 @@ storageConfig:
   certFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.crt
   keyFile: /etc/kubernetes/static-pod-resources/secrets/etcd-client/tls.key
   urls: null
+  compactionInterval: 0
 userAgentMatchingConfig:
   defaultRejectionMessage: ""
   deniedClients: null
