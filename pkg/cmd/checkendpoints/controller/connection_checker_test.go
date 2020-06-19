@@ -115,7 +115,14 @@ func TestManageStatusLogs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := tc.initial
-			updateStatusFuncs := manageStatusLogs("host:port", tc.err, tc.trace)
+			updateStatusFuncs := manageStatusLogs(&v1alpha1.PodNetworkConnectivityCheck{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-to-target-endpoint",
+				},
+				Spec: v1alpha1.PodNetworkConnectivityCheckSpec{
+					TargetEndpoint: "host:port",
+				},
+			}, tc.err, tc.trace)
 			for _, updateStatusFunc := range updateStatusFuncs {
 				updateStatusFunc(status)
 			}
@@ -238,19 +245,19 @@ func podNetworkConnectivityCheckStatus(options ...func(status *v1alpha1.PodNetwo
 }
 
 func withTCPConnectErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withFailureEntry(start, v1alpha1.LogEntryReasonTCPConnectError, "Failed to establish a TCP connection to host:port: connect tcp: test error", options...)
+	return withFailureEntry(start, v1alpha1.LogEntryReasonTCPConnectError, "target-endpoint: failed to establish a TCP connection to host:port: connect tcp: test error", options...)
 }
 
 func withDNSErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withFailureEntry(start, v1alpha1.LogEntryReasonDNSError, "Failure looking up host host: connect tcp: lookup host: test error", options...)
+	return withFailureEntry(start, v1alpha1.LogEntryReasonDNSError, "target-endpoint: failure looking up host host: connect tcp: lookup host: test error", options...)
 }
 
 func withDNSResolveEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withSuccessEntry(start, v1alpha1.LogEntryReasonDNSResolve, "Resolved host name host successfully", options...)
+	return withSuccessEntry(start, v1alpha1.LogEntryReasonDNSResolve, "target-endpoint: resolved host name host successfully", options...)
 }
 
 func withTCPConnectEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withSuccessEntry(start, v1alpha1.LogEntryReasonTCPConnect, "TCP connection to host:port succeeded", options...)
+	return withSuccessEntry(start, v1alpha1.LogEntryReasonTCPConnect, "target-endpoint: tcp connection to host:port succeeded", options...)
 }
 
 func withSuccessEntry(start int, reason, message string, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {

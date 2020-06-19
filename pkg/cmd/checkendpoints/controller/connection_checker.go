@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
 	"sync"
 	"time"
 
@@ -110,7 +111,7 @@ func (c *connectionChecker) updateStatus(ctx context.Context) {
 // checkEndpoint performs the check and manages the PodNetworkConnectivityCheck.Status changes that result.
 func (c *connectionChecker) checkEndpoint(ctx context.Context, check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck) {
 	latencyInfo, err := getTCPConnectLatency(ctx, check.Spec.TargetEndpoint)
-	statusUpdates := manageStatusLogs(check.Spec.TargetEndpoint, err, latencyInfo)
+	statusUpdates := manageStatusLogs(check, err, latencyInfo)
 	if len(statusUpdates) > 0 {
 		statusUpdates = append(statusUpdates, manageStatusOutage(c.recorder))
 	}
@@ -145,16 +146,17 @@ func isDNSError(err error) bool {
 
 // manageStatusLogs returns a status update function that updates the PodNetworkConnectivityCheck.Status's
 // Successes/Failures logs reflect the results of the check.
-func manageStatusLogs(address string, checkErr error, latency *trace.LatencyInfo) []v1alpha1helpers.UpdateStatusFunc {
+func manageStatusLogs(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, checkErr error, latency *trace.LatencyInfo) []v1alpha1helpers.UpdateStatusFunc {
 	var statusUpdates []v1alpha1helpers.UpdateStatusFunc
-	host, _, _ := net.SplitHostPort(address)
+	description := regexp.MustCompile(".*-to-").ReplaceAllString(check.Name, "")
+	host, _, _ := net.SplitHostPort(check.Spec.TargetEndpoint)
 	if isDNSError(checkErr) {
 		klog.V(2).Infof("%7s | %-15s | %10s | Failure looking up host %s: %v", "Failure", "DNSError", latency.DNS, host, checkErr)
 		return append(statusUpdates, v1alpha1helpers.AddFailureLogEntry(operatorcontrolplanev1alpha1.LogEntry{
 			Start:   metav1.NewTime(latency.DNSStart),
 			Success: false,
 			Reason:  operatorcontrolplanev1alpha1.LogEntryReasonDNSError,
-			Message: fmt.Sprintf("Failure looking up host %s: %v", host, checkErr),
+			Message: fmt.Sprintf("%s: failure looking up host %s: %v", description, host, checkErr),
 			Latency: metav1.Duration{Duration: latency.DNS},
 		}))
 	}
@@ -164,26 +166,26 @@ func manageStatusLogs(address string, checkErr error, latency *trace.LatencyInfo
 			Start:   metav1.NewTime(latency.DNSStart),
 			Success: true,
 			Reason:  operatorcontrolplanev1alpha1.LogEntryReasonDNSResolve,
-			Message: fmt.Sprintf("Resolved host name %s successfully", host),
+			Message: fmt.Sprintf("%s: resolved host name %s successfully", description, host),
 			Latency: metav1.Duration{Duration: latency.DNS},
 		}))
 	}
 	if checkErr != nil {
-		klog.V(2).Infof("%7s | %-15s | %10s | Failed to establish a TCP connection to %s: %v", "Failure", "TCPConnectError", latency.Connect, address, checkErr)
+		klog.V(2).Infof("%7s | %-15s | %10s | Failed to establish a TCP connection to %s: %v", "Failure", "TCPConnectError", latency.Connect, check.Spec.TargetEndpoint, checkErr)
 		return append(statusUpdates, v1alpha1helpers.AddFailureLogEntry(operatorcontrolplanev1alpha1.LogEntry{
 			Start:   metav1.NewTime(latency.ConnectStart),
 			Success: false,
 			Reason:  operatorcontrolplanev1alpha1.LogEntryReasonTCPConnectError,
-			Message: fmt.Sprintf("Failed to establish a TCP connection to %s: %v", address, checkErr),
+			Message: fmt.Sprintf("%s: failed to establish a TCP connection to %s: %v", description, check.Spec.TargetEndpoint, checkErr),
 			Latency: metav1.Duration{Duration: latency.Connect},
 		}))
 	}
-	klog.V(2).Infof("%7s | %-15s | %10s | TCP connection to %v succeeded", "Success", "TCPConnect", latency.Connect, address)
+	klog.V(2).Infof("%7s | %-15s | %10s | TCP connection to %v succeeded", "Success", "TCPConnect", latency.Connect, check.Spec.TargetEndpoint)
 	return append(statusUpdates, v1alpha1helpers.AddSuccessLogEntry(operatorcontrolplanev1alpha1.LogEntry{
 		Start:   metav1.NewTime(latency.ConnectStart),
 		Success: true,
 		Reason:  operatorcontrolplanev1alpha1.LogEntryReasonTCPConnect,
-		Message: fmt.Sprintf("TCP connection to %s succeeded", address),
+		Message: fmt.Sprintf("%s: tcp connection to %s succeeded", description, check.Spec.TargetEndpoint),
 		Latency: metav1.Duration{Duration: latency.Connect},
 	}))
 }

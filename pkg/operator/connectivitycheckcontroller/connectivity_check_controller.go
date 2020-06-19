@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -86,13 +87,13 @@ func managePodNetworkConnectivityChecks(ctx context.Context, client kubernetes.I
 	operatorSpec *operatorv1.StaticPodOperatorSpec, endpointsLister corev1listers.EndpointsLister,
 	serviceLister corev1listers.ServiceLister, recorder events.Recorder) {
 
-	var addresses []string
-	// each etcd
-	addresses = append(addresses, listAddressesForEtcd(operatorSpec, recorder)...)
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	// each storage endpoint
+	templates = append(templates, getTemplatesForStorageEndpoints(operatorSpec, recorder)...)
 	// oas service IP
-	addresses = append(addresses, listAddressesForOpenShiftAPIServerService(serviceLister, recorder)...)
+	templates = append(templates, getTemplatesForOpenShiftAPIServerService(serviceLister, recorder)...)
 	// each oas endpoint
-	addresses = append(addresses, listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister, recorder)...)
+	templates = append(templates, getTemplatesForOpenShiftAPIServerServiceEndpoints(endpointsLister, recorder)...)
 
 	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.Set{"node-role.kubernetes.io/master": ""}.AsSelector().String(),
@@ -104,18 +105,11 @@ func managePodNetworkConnectivityChecks(ctx context.Context, client kubernetes.I
 	var checks []*v1alpha1.PodNetworkConnectivityCheck
 	for _, node := range nodes.Items {
 		staticPodName := "kube-apiserver-" + node.Name
-		for _, address := range addresses {
-			checkName := staticPodName + "-" + regexp.MustCompile(`[.:\[\]]+`).ReplaceAllLiteralString(address, "-")
-			checks = append(checks, &v1alpha1.PodNetworkConnectivityCheck{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      checkName,
-					Namespace: operatorclient.TargetNamespace,
-				},
-				Spec: v1alpha1.PodNetworkConnectivityCheckSpec{
-					SourcePod:      staticPodName,
-					TargetEndpoint: address,
-				},
-			})
+		for _, template := range templates {
+			check := template.DeepCopy()
+			check.Name = strings.Replace(check.Name, "$(SOURCE)", staticPodName, -1)
+			check.Spec.SourcePod = staticPodName
+			checks = append(checks, check)
 		}
 	}
 
@@ -137,6 +131,14 @@ func managePodNetworkConnectivityChecks(ctx context.Context, client kubernetes.I
 	}
 }
 
+func getTemplatesForOpenShiftAPIServerService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listAddressesForOpenShiftAPIServerService(serviceLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("openshift-apiserver-service", address))
+	}
+	return templates
+}
+
 func listAddressesForOpenShiftAPIServerService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []string {
 	service, err := serviceLister.Services("openshift-apiserver").Get("api")
 	if err != nil {
@@ -149,10 +151,18 @@ func listAddressesForOpenShiftAPIServerService(serviceLister corev1listers.Servi
 	return []string{fmt.Sprintf("%s:%d", service.Spec.ClusterIP, service.Spec.Ports[0].Port)}
 }
 
+func getTemplatesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("openshift-apiserver-service-endpoint", address))
+	}
+	return templates
+}
+
 // listAddressesForOpenShiftAPIServerServiceEndpoints returns oas api service endpoints ip
 func listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []string {
 	var results []string
-	endpoints, err := endpointsLister.Endpoints("openshift-apiserver").Get("api")
+	endpoints, err := endpointsLister.Endpoints("openshift-apiserver-service").Get("api")
 	if err != nil {
 		recorder.Warningf("EndpointDetectionFailure", "unable to determine openshift-apiserver endpoints: %v", err)
 		return nil
@@ -167,7 +177,15 @@ func listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1li
 	return results
 }
 
-func listAddressesForEtcd(operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) []string {
+func getTemplatesForStorageEndpoints(operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listAddressesForStorageEndpoints(operatorSpec, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address))
+	}
+	return templates
+}
+
+func listAddressesForStorageEndpoints(operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) []string {
 	var results []string
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorSpec.ObservedConfig.Raw, &observedConfig); err != nil {
@@ -188,4 +206,16 @@ func listAddressesForEtcd(operatorSpec *operatorv1.StaticPodOperatorSpec, record
 		results = append(results, storageConfigURL.Host)
 	}
 	return results
+}
+
+func newPodNetworkProductivityCheck(label, address string) *v1alpha1.PodNetworkConnectivityCheck {
+	return &v1alpha1.PodNetworkConnectivityCheck{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "$(SOURCE)-to-" + label + "-" + regexp.MustCompile(`[.:\[\]]+`).ReplaceAllLiteralString(address, "-"),
+			Namespace: operatorclient.TargetNamespace,
+		},
+		Spec: v1alpha1.PodNetworkConnectivityCheckSpec{
+			TargetEndpoint: address,
+		},
+	}
 }
