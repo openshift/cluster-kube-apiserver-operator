@@ -50,6 +50,7 @@ func NewConfigObserver(
 	for _, ns := range interestingNamespaces {
 		preRunCacheSynced = append(preRunCacheSynced,
 			kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer().HasSynced,
+			kubeInformersForNamespaces.InformersFor(ns).Core().V1().Secrets().Informer().HasSynced,
 		)
 	}
 
@@ -84,6 +85,7 @@ func NewConfigObserver(
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
 				SecretLister_:                kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+				ConfigSecretLister_:          kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
 				ConfigmapLister:              kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Lister(),
 
@@ -115,6 +117,7 @@ func NewConfigObserver(
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
+			auth.ObserveWebhookTokenAuthenticator,
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
 				// static path at which we expect to find the encryption config secret

@@ -333,6 +333,8 @@ var RevisionSecrets = []revision.RevisionResource{
 	// this needs to be revisioned as certsyncer's kubeconfig isn't wired to be live reloaded, nor will be autorecovery
 	{Name: "localhost-recovery-serving-certkey"},
 	{Name: "localhost-recovery-client-token"},
+
+	{Name: "webhook-authenticator", Optional: true},
 }
 
 var CertConfigMaps = []revision.RevisionResource{
