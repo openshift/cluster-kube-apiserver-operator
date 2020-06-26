@@ -66,3 +66,35 @@ func WaitForNextKubeAPIServerOperatorConfigGenerationToFinishProgressing(t *test
 	})
 	require.NoError(t, err)
 }
+
+type KubeAPIServerOperatorStatusFunc func(cluster *operatorv1.KubeAPIServer) bool
+
+func WaitForKubeAPIServerOperatorStatus(t *testing.T, client operatorclient.OperatorV1Interface, f KubeAPIServerOperatorStatusFunc) (cluster *operatorv1.KubeAPIServer) {
+	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (done bool, pollErr error) {
+		cluster, pollErr = client.KubeAPIServers().Get("cluster", metav1.GetOptions{})
+		if pollErr != nil {
+			return
+		}
+
+		if cluster == nil || !f(cluster) {
+			return
+		}
+
+		done = true
+		return
+	})
+
+	require.NoErrorf(t, err, "[WaitForKubeAPIServerOperatorStatus] wait.Poll returned error - %v", err)
+	require.NotNil(t, cluster)
+	return
+}
+
+func FindOperatorStatusCondition(conditions []operatorv1.OperatorCondition, conditionType string) *operatorv1.OperatorCondition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
+}
