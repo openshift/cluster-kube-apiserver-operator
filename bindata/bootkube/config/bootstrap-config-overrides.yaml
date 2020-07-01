@@ -1,24 +1,8 @@
 apiVersion: kubecontrolplane.config.openshift.io/v1
 kind: KubeAPIServerConfig
-aggregatorConfig:
-  proxyClientInfo:
-    certFile: /etc/kubernetes/secrets/apiserver-proxy.crt
-    keyFile: /etc/kubernetes/secrets/apiserver-proxy.key
-authConfig:
-  requestHeader:
-    clientCA: /etc/kubernetes/secrets/aggregator-signer.crt
-kubeletClientInfo:
-  ca: /etc/kubernetes/secrets/kubelet-client-ca-bundle.crt # this is wired to the KCM CSR, which signs serving and client certs for kubelet
-  certFile: /etc/kubernetes/secrets/kube-apiserver-to-kubelet-client.crt
-  keyFile: /etc/kubernetes/secrets/kube-apiserver-to-kubelet-client.key
-serviceAccountPublicKeyFiles:
-- /etc/kubernetes/secrets/service-account.pub
 servingInfo:
   bindAddress: "{{.BindAddress}}"
   bindNetwork: {{.BindNetwork}}
-  certFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
-  clientCA: /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
-  keyFile: /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
   namedCertificates:
     - names:
       - "kubernetes"
@@ -38,9 +22,6 @@ servingInfo:
     - certFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.crt
       keyFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.key
 storageConfig:
-  ca: /etc/kubernetes/secrets/{{.EtcdServingCA}}
-  certFile: /etc/kubernetes/secrets/etcd-client.crt
-  keyFile: /etc/kubernetes/secrets/etcd-client.key
   urls: {{range .EtcdServerURLs}}
   - {{.}}{{end}}
 {{if .ServiceCIDR | len | ne 0}}
@@ -57,6 +38,14 @@ admission:
         - {{.}}{{end}}
     {{end}}
 apiServerArguments:
+  client-ca-file:
+    - /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
+  etcd-cafile:
+    - /etc/kubernetes/secrets/{{.EtcdServingCA}}
+  etcd-certfile:
+    - /etc/kubernetes/secrets/etcd-client.crt
+  etcd-keyfile:
+    - /etc/kubernetes/secrets/etcd-client.key
   feature-gates:
     - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
@@ -65,3 +54,21 @@ apiServerArguments:
     - "ServiceNodeExclusion=true"
     - "SCTPSupport=true"
     - "LegacyNodeRoleBehavior=false"
+  kubelet-certificate-authority:
+    - /etc/kubernetes/secrets/kubelet-client-ca-bundle.crt # this is wired to the KCM CSR, which signs serving and client certs for kubelet
+  kubelet-client-certificate:
+    - /etc/kubernetes/secrets/kube-apiserver-to-kubelet-client.crt
+  kubelet-client-key:
+    - /etc/kubernetes/secrets/kube-apiserver-to-kubelet-client.key
+  proxy-client-cert-file:
+    - /etc/kubernetes/secrets/apiserver-proxy.crt
+  proxy-client-key-file:
+    - /etc/kubernetes/secrets/apiserver-proxy.key
+  requestheader-client-ca-file:
+    - /etc/kubernetes/secrets/aggregator-signer.crt
+  service-account-key-file:
+    - /etc/kubernetes/secrets/service-account.pub
+  tls-cert-file:
+    - /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
+  tls-private-key-file:
+    - /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
