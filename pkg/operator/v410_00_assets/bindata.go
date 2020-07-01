@@ -669,8 +669,19 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
+  - name: atop
+    image: docker.io/sttts/atop:latest
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["atop", "-w", "/var/log/kube-apiserver/atop", "1"]
+    volumeMounts:
+    - mountPath: /var/log/kube-apiserver
+      name: audit-dir
+    securityContext:
+      privileged: true
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
+  hostPID: true
   priorityClassName: system-node-critical
   tolerations:
   - operator: "Exists"
