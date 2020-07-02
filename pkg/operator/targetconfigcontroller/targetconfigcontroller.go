@@ -122,7 +122,7 @@ func isRequiredConfigPresent(config []byte) error {
 
 	requiredPaths := [][]string{
 		{"servingInfo", "namedCertificates"},
-		{"storageConfig", "urls"},
+		{"apiServerArguments", "etcd-servers"},
 		{"admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission"},
 	}
 	for _, requiredPath := range requiredPaths {

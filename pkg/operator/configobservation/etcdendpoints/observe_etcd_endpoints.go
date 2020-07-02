@@ -9,11 +9,9 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	endpointsobserver "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 )
 
 const (
@@ -21,40 +19,38 @@ const (
 	etcdEndpointName      = "etcd-endpoints"
 )
 
-var fallbackObserver configobserver.ObserveConfigFunc = endpointsobserver.ObserveStorageURLs
-
 // ObserveStorageURLs observes the storage config URLs. If there is a problem observing the current storage config URLs,
 // then the previously observed storage config URLs will be re-used.
 func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.Recorder, currentConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
-	storageConfigURLsPath := []string{"storageConfig", "urls"}
+	oldStorageConfigURLsPath := []string{"storageConfig", "urls"}
+	newStorageConfigURLsPath := []string{"apiServerArguments", "etcd-servers"}
 	var errs []error
 
 	previouslyObservedConfig := map[string]interface{}{}
-	currentEtcdURLs, found, err := unstructured.NestedStringSlice(currentConfig, storageConfigURLsPath...)
+	oldCurrentEtcdURLs, oldFound, err := unstructured.NestedStringSlice(currentConfig, oldStorageConfigURLsPath...)
 	if err != nil {
 		errs = append(errs, err)
 	}
-	if found {
-		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, currentEtcdURLs, storageConfigURLsPath...); err != nil {
+	newCurrentEtcdURLs, newFound, err := unstructured.NestedStringSlice(currentConfig, newStorageConfigURLsPath...)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	var currentEtcdURLs []string
+	if newFound {
+		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, newCurrentEtcdURLs, newStorageConfigURLsPath...); err != nil {
 			errs = append(errs, err)
 		}
+		currentEtcdURLs = newCurrentEtcdURLs
+	} else if oldFound {
+		if err := unstructured.SetNestedStringSlice(previouslyObservedConfig, oldCurrentEtcdURLs, newStorageConfigURLsPath...); err != nil {
+			errs = append(errs, err)
+		}
+		currentEtcdURLs = oldCurrentEtcdURLs
 	}
 
 	var etcdURLs []string
 	etcdEndpoints, err := listers.ConfigmapLister.ConfigMaps(etcdEndpointNamespace).Get(etcdEndpointName)
-	if errors.IsNotFound(err) {
-		// In clusters prior to 4.5, fall back to reading the old host-etcd-2 endpoint
-		// resource, if possible. In 4.6 we can assume consumers have been updated to
-		// use the configmap, delete the fallback code, and throw an error if the
-		// configmap doesn't exist.
-		observedConfig, fallbackErrors := fallbackObserver(listers, recorder, currentConfig)
-		if len(fallbackErrors) > 0 {
-			errs = append(errs, fallbackErrors...)
-			return previouslyObservedConfig, append(errs, fmt.Errorf("configmap %s/%s not found, and fallback observer failed", etcdEndpointNamespace, etcdEndpointName))
-		}
-		return observedConfig, errs
-	}
 	if err != nil {
 		recorder.Warningf("ObserveStorageFailed", "Error getting %s/%s configmap: %v", etcdEndpointNamespace, etcdEndpointName, err)
 		return previouslyObservedConfig, append(errs, err)
@@ -97,7 +93,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	sort.Strings(etcdURLs)
 
 	observedConfig := map[string]interface{}{}
-	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
+	if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, newStorageConfigURLsPath...); err != nil {
 		return previouslyObservedConfig, append(errs, err)
 	}
 

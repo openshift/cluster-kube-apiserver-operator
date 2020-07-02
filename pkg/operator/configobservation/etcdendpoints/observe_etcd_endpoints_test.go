@@ -2,7 +2,6 @@ package etcdendpoints
 
 import (
 	"encoding/base64"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -16,7 +15,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	endpointsobserver "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcd"
 )
 
 func TestObserveStorageURLs(t *testing.T) {
@@ -29,22 +27,8 @@ func TestObserveStorageURLs(t *testing.T) {
 		endpoint      *v1.ConfigMap
 	}{
 		{
-			name:          "NoConfigMapSuccessfulFallback",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
-			fallback:      fallback(observedConfig(withStorageURL("https://10.0.0.1:2379"))),
-			expected:      observedConfig(withStorageURL("https://10.0.0.1:2379")),
-			expectErrors:  false,
-		},
-		{
-			name:          "NoConfigMapFailedFallback",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
-			fallback:      fallback(observedConfig(withStorageURL("https://10.0.0.1:2379")), fmt.Errorf("endpoint not found")),
-			expected:      observedConfig(withStorageURL("https://previous.url:2379")),
-			expectErrors:  true,
-		},
-		{
 			name:          "ValidIPv4",
-			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
+			currentConfig: observedConfig(withOldStorageURL("https://previous.url:2379")),
 			endpoint:      endpoints(withAddress("10.0.0.1")),
 			expected:      observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
 		},
@@ -145,9 +129,7 @@ func TestObserveStorageURLs(t *testing.T) {
 					t.Fatalf("error adding endpoint to store: %#v", err)
 				}
 			}
-			fallbackObserver = tt.fallback
 			actual, errs := ObserveStorageURLs(lister, events.NewInMemoryRecorder("test"), tt.currentConfig)
-			fallbackObserver = endpointsobserver.ObserveStorageURLs
 			if tt.expectErrors && len(errs) == 0 {
 				t.Errorf("errors expected")
 			}
@@ -175,7 +157,7 @@ func observedConfig(configs ...func(map[string]interface{})) map[string]interfac
 	return observedConfig
 }
 
-func withStorageURL(url string) func(map[string]interface{}) {
+func withOldStorageURL(url string) func(map[string]interface{}) {
 	return func(observedConfig map[string]interface{}) {
 		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "storageConfig", "urls")
 		urls = append(urls, url)
@@ -183,11 +165,27 @@ func withStorageURL(url string) func(map[string]interface{}) {
 	}
 }
 
-func withLocalhostStorageURLs() func(map[string]interface{}) {
+func withStorageURL(url string) func(map[string]interface{}) {
+	return func(observedConfig map[string]interface{}) {
+		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "apiServerArguments", "etcd-servers")
+		urls = append(urls, url)
+		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "apiServerArguments", "etcd-servers")
+	}
+}
+
+func withOldLocalhostStorageURLs() func(map[string]interface{}) {
 	return func(observedConfig map[string]interface{}) {
 		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "storageConfig", "urls")
 		urls = append(urls, "https://localhost:2379")
 		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "storageConfig", "urls")
+	}
+}
+
+func withLocalhostStorageURLs() func(map[string]interface{}) {
+	return func(observedConfig map[string]interface{}) {
+		urls, _, _ := unstructured.NestedStringSlice(observedConfig, "apiServerArguments", "etcd-servers")
+		urls = append(urls, "https://localhost:2379")
+		_ = unstructured.SetNestedStringSlice(observedConfig, urls, "apiServerArguments", "etcd-servers")
 	}
 }
 

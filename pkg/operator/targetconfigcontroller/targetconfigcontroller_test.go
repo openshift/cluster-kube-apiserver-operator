@@ -36,12 +36,12 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		   ]
 		 },
 		 "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
-		 "storageConfig": {
-		   "urls": null
+		 "apiServerArguments": {
+		   "etcd-servers": null
 		 }
 		}
 		`,
-			expectedError: "storageConfig.urls null in config",
+			expectedError: "apiServerArguments.etcd-servers null in config",
 		},
 		{
 			name: "missing-storage-urls",
@@ -55,12 +55,12 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		   ]
 		 },
         "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
-		 "storageConfig": {
-		   "urls": []
+		 "apiServerArguments": {
+		   "etcd-servers": []
 		 }
 		}
 		`,
-			expectedError: "storageConfig.urls empty in config",
+			expectedError: "apiServerArguments.etcd-servers empty in config",
 		},
 		{
 			name: "empty-string-storage-urls",
@@ -74,12 +74,12 @@ func TestIsRequiredConfigPresent(t *testing.T) {
     ]
   },
   "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
-  "storageConfig": {
-    "urls": ""
+  "apiServerArguments": {
+    "etcd-servers": ""
   }
 }
 `,
-			expectedError: "storageConfig.urls empty in config",
+			expectedError: "apiServerArguments.etcd-servers empty in config",
 		},
 		{
 			name: "good",
@@ -93,8 +93,8 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		   ]
 		 },
          "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
-		 "storageConfig": {
-		   "urls": [ "val" ]
+		 "apiServerArguments": {
+		   "etcd-servers": [ "val" ]
 		 }
 		}
 		`,

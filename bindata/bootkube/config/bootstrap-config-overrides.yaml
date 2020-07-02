@@ -21,9 +21,6 @@ servingInfo:
       keyFile: /etc/kubernetes/secrets/kube-apiserver-lb-server.key
     - certFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.crt
       keyFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.key
-storageConfig:
-  urls: {{range .EtcdServerURLs}}
-  - {{.}}{{end}}
 {{if .ServiceCIDR | len | ne 0}}
 servicesSubnet: {{index .ServiceCIDR 0}}{{end}}
 admission:
@@ -46,6 +43,8 @@ apiServerArguments:
     - /etc/kubernetes/secrets/etcd-client.crt
   etcd-keyfile:
     - /etc/kubernetes/secrets/etcd-client.key
+  etcd-servers: {{range .EtcdServerURLs}}
+    - {{.}}{{end}}
   feature-gates:
     - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
