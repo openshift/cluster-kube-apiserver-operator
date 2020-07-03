@@ -2,9 +2,10 @@ package connectivitycheckcontroller
 
 import (
 	"context"
-	"fmt"
+	"net"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -145,10 +146,12 @@ func listAddressesForOpenShiftAPIServerService(serviceLister corev1listers.Servi
 		recorder.Warningf("EndpointDetectionFailure", "unable to determine openshift-apiserver service endpoint: %v", err)
 		return nil
 	}
-	if len(service.Spec.Ports) == 0 {
-		return []string{fmt.Sprintf("%s:443", service.Spec.ClusterIP)}
+	for _, port := range service.Spec.Ports {
+		if port.TargetPort.IntValue() == 6443 {
+			return []string{net.JoinHostPort(service.Spec.ClusterIP, strconv.Itoa(int(port.Port)))}
+		}
 	}
-	return []string{fmt.Sprintf("%s:%d", service.Spec.ClusterIP, service.Spec.Ports[0].Port)}
+	return []string{net.JoinHostPort(service.Spec.ClusterIP, "443")}
 }
 
 func getTemplatesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
@@ -162,15 +165,15 @@ func getTemplatesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1lis
 // listAddressesForOpenShiftAPIServerServiceEndpoints returns oas api service endpoints ip
 func listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []string {
 	var results []string
-	endpoints, err := endpointsLister.Endpoints("openshift-apiserver-service").Get("api")
+	endpoints, err := endpointsLister.Endpoints("openshift-apiserver").Get("api")
 	if err != nil {
-		recorder.Warningf("EndpointDetectionFailure", "unable to determine openshift-apiserver endpoints: %v", err)
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine openshift-apiserver service endpoints endpoint: %v", err)
 		return nil
 	}
 	for _, subset := range endpoints.Subsets {
 		for _, address := range subset.Addresses {
 			for _, port := range subset.Ports {
-				results = append(results, fmt.Sprintf("%s:%d", address.IP, port.Port))
+				results = append(results, net.JoinHostPort(address.IP, strconv.Itoa(int(port.Port))))
 			}
 		}
 	}
@@ -181,6 +184,9 @@ func getTemplatesForStorageEndpoints(operatorSpec *operatorv1.StaticPodOperatorS
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	for _, address := range listAddressesForStorageEndpoints(operatorSpec, recorder) {
 		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address))
+	}
+	for _, address := range listAddressesForEtcdServerEndpoints(operatorSpec, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("etcd-server", address))
 	}
 	return templates
 }
@@ -201,6 +207,29 @@ func listAddressesForStorageEndpoints(operatorSpec *operatorv1.StaticPodOperator
 		storageConfigURL, err := url.Parse(rawStorageConfigURL)
 		if err != nil {
 			recorder.Warningf("EndpointDetectionFailure", "couldn't parse a storage config url from observedConfig: %v", err)
+			continue
+		}
+		results = append(results, storageConfigURL.Host)
+	}
+	return results
+}
+
+func listAddressesForEtcdServerEndpoints(operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) []string {
+	var results []string
+	var observedConfig map[string]interface{}
+	if err := yaml.Unmarshal(operatorSpec.ObservedConfig.Raw, &observedConfig); err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "failed to unmarshal the observedConfig: %v", err)
+		return nil
+	}
+	urls, _, err := unstructured.NestedStringSlice(observedConfig, "apiServerArguments", "etcd-servers")
+	if err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "couldn't get the etcd server urls from observedConfig: %v", err)
+		return nil
+	}
+	for _, rawStorageConfigURL := range urls {
+		storageConfigURL, err := url.Parse(rawStorageConfigURL)
+		if err != nil {
+			recorder.Warningf("EndpointDetectionFailure", "couldn't parse an etcd server url from observedConfig: %v", err)
 			continue
 		}
 		results = append(results, storageConfigURL.Host)
