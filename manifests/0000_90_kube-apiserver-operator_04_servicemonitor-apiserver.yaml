@@ -44,7 +44,7 @@ spec:
     interval: 30s
     metricRelabelings:
     - action: drop
-      regex: etcd_(debugging|disk|request|server).*
+      regex: etcd_(debugging|disk|server).*
       sourceLabels:
       - __name__
     - action: drop
