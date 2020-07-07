@@ -13,13 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func New() *cobra.Command {
+func NewCheckEndpointsCommand() *cobra.Command {
 	config := controllercmd.NewControllerCommandConfig("check-endpoints", version.Get(), func(ctx context.Context, cctx *controllercmd.ControllerContext) error {
+		namespace := os.Getenv("POD_NAMESPACE")
 		operatorcontrolplaneClient := operatorcontrolplaneclient.NewForConfigOrDie(cctx.KubeConfig)
-		operatorcontrolplaneInformers := operatorcontrolplaneinformers.NewSharedInformerFactoryWithOptions(operatorcontrolplaneClient, 10*time.Minute, operatorcontrolplaneinformers.WithNamespace("openshift-kube-apiserver"))
+		operatorcontrolplaneInformers := operatorcontrolplaneinformers.NewSharedInformerFactoryWithOptions(operatorcontrolplaneClient, 10*time.Minute, operatorcontrolplaneinformers.WithNamespace(namespace))
 		check := controller.NewPodNetworkConnectivityCheckController(
 			os.Getenv("POD_NAME"),
-			"openshift-kube-apiserver",
+			namespace,
 			operatorcontrolplaneClient.ControlplaneV1alpha1(),
 			operatorcontrolplaneInformers.Controlplane().V1alpha1().PodNetworkConnectivityChecks(),
 			cctx.EventRecorder,

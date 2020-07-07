@@ -71,7 +71,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
-	cmd.AddCommand(checkendpoints.New())
+	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
 
 	return cmd
 }

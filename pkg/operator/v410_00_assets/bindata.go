@@ -691,7 +691,7 @@ spec:
       - --kubeconfig
       - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace
-      - openshift-kube-apiserver
+      - $(POD_NAMESPACE)
       - --v
       - '2'
     env:
@@ -699,6 +699,10 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
     volumeMounts:
       - mountPath: /etc/kubernetes/static-pod-resources
         name: resource-dir
