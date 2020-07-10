@@ -24,6 +24,7 @@ type Listers struct {
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
 	SecretLister_                corelistersv1.SecretLister
+	ConfigSecretLister_          corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
@@ -47,6 +48,10 @@ func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 
 func (l Listers) SecretLister() corelistersv1.SecretLister {
 	return l.SecretLister_
+}
+
+func (l Listers) ConfigSecretLister() corelistersv1.SecretLister {
+	return l.ConfigSecretLister_
 }
 
 func (l Listers) ProxyLister() configlistersv1.ProxyLister {
