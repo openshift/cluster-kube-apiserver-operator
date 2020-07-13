@@ -1,5 +1,5 @@
 hash: 5d5b0e5e37092f0c2aca978ea99f6ce71f905561e72f0f9dd86d6df43e0cba72
-updated: 2020-02-17T11:37:55.794329+01:00
+updated: 2020-07-13T10:03:29.456885-04:00
 imports:
 - name: github.com/apparentlymart/go-cidr
   version: b1115bf8e14a60131a196f908223e4506b0ddc35
@@ -143,7 +143,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: d4a64ec2cbd86f11ea74dfdcf6520d5833d0c6cd
+  version: 8ce0047d664fc92a53ded23caef9ede2dc4468c6
   subpackages:
   - apps
   - apps/v1
@@ -202,7 +202,7 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
 - name: github.com/openshift/library-go
-  version: bb09df855673a08dfdb10c05430109724560418a
+  version: c27670c64634202911c0f9b3f946bf4658d27d71
   subpackages:
   - pkg/assets
   - pkg/certs
