@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	v1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
@@ -183,10 +184,10 @@ func listAddressesForOpenShiftAPIServerServiceEndpoints(endpointsLister corev1li
 func getTemplatesForStorageEndpoints(operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	for _, address := range listAddressesForStorageEndpoints(operatorSpec, recorder) {
-		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address))
+		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address, withTlsClientCert("etcd-client")))
 	}
 	for _, address := range listAddressesForEtcdServerEndpoints(operatorSpec, recorder) {
-		templates = append(templates, newPodNetworkProductivityCheck("etcd-server", address))
+		templates = append(templates, newPodNetworkProductivityCheck("etcd-server", address, withTlsClientCert("etcd-client")))
 	}
 	return templates
 }
@@ -237,14 +238,28 @@ func listAddressesForEtcdServerEndpoints(operatorSpec *operatorv1.StaticPodOpera
 	return results
 }
 
-func newPodNetworkProductivityCheck(label, address string) *v1alpha1.PodNetworkConnectivityCheck {
-	return &v1alpha1.PodNetworkConnectivityCheck{
+var checkNameRegex = regexp.MustCompile(`[.:\[\]]+`)
+
+func newPodNetworkProductivityCheck(label, address string, options ...func(*v1alpha1.PodNetworkConnectivityCheck)) *v1alpha1.PodNetworkConnectivityCheck {
+	check := &v1alpha1.PodNetworkConnectivityCheck{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "$(SOURCE)-to-" + label + "-" + regexp.MustCompile(`[.:\[\]]+`).ReplaceAllLiteralString(address, "-"),
+			Name:      "$(SOURCE)-to-" + label + "-" + checkNameRegex.ReplaceAllLiteralString(address, "-"),
 			Namespace: operatorclient.TargetNamespace,
 		},
 		Spec: v1alpha1.PodNetworkConnectivityCheckSpec{
 			TargetEndpoint: address,
 		},
+	}
+	for _, option := range options {
+		option(check)
+	}
+	return check
+}
+
+func withTlsClientCert(secretName string) func(*v1alpha1.PodNetworkConnectivityCheck) {
+	return func(check *v1alpha1.PodNetworkConnectivityCheck) {
+		if len(secretName) > 0 {
+			check.Spec.TLSClientCert = v1.SecretNameReference{Name: secretName}
+		}
 	}
 }
