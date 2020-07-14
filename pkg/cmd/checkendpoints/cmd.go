@@ -11,18 +11,23 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 )
 
 func NewCheckEndpointsCommand() *cobra.Command {
 	config := controllercmd.NewControllerCommandConfig("check-endpoints", version.Get(), func(ctx context.Context, cctx *controllercmd.ControllerContext) error {
 		namespace := os.Getenv("POD_NAMESPACE")
+		kubeClient := kubernetes.NewForConfigOrDie(cctx.ProtoKubeConfig)
 		operatorcontrolplaneClient := operatorcontrolplaneclient.NewForConfigOrDie(cctx.KubeConfig)
+		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(namespace))
 		operatorcontrolplaneInformers := operatorcontrolplaneinformers.NewSharedInformerFactoryWithOptions(operatorcontrolplaneClient, 10*time.Minute, operatorcontrolplaneinformers.WithNamespace(namespace))
 		check := controller.NewPodNetworkConnectivityCheckController(
 			os.Getenv("POD_NAME"),
 			namespace,
 			operatorcontrolplaneClient.ControlplaneV1alpha1(),
 			operatorcontrolplaneInformers.Controlplane().V1alpha1().PodNetworkConnectivityChecks(),
+			kubeInformers.Core().V1().Secrets(),
 			cctx.EventRecorder,
 		)
 		operatorcontrolplaneInformers.Start(ctx.Done())

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"regexp"
@@ -25,22 +26,27 @@ type ConnectionChecker interface {
 }
 
 // NewConnectionChecker returns a ConnectionChecker.
-func NewConnectionChecker(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, client v1alpha1helpers.PodNetworkConnectivityCheckClient, recorder events.Recorder) ConnectionChecker {
-	return &connectionChecker{
-		check:    check,
-		client:   client,
-		recorder: recorder,
-		stop:     make(chan interface{}),
+func NewConnectionChecker(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
+	c := &connectionChecker{
+		check:            check,
+		client:           client,
+		clientCertGetter: clientCertGetter,
+		recorder:         recorder,
+		stop:             make(chan interface{}),
 	}
+	return c
 }
 
+type CertificatesGetter func() []tls.Certificate
+
 type connectionChecker struct {
-	check       *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
-	client      v1alpha1helpers.PodNetworkConnectivityCheckClient
-	recorder    events.Recorder
-	updatesLock sync.Mutex
-	updates     []v1alpha1helpers.UpdateStatusFunc
-	stop        chan interface{}
+	check            *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
+	client           v1alpha1helpers.PodNetworkConnectivityCheckClient
+	clientCertGetter CertificatesGetter
+	recorder         events.Recorder
+	updatesLock      sync.Mutex
+	updates          []v1alpha1helpers.UpdateStatusFunc
+	stop             chan interface{}
 }
 
 // add queues status updates in a queue.
@@ -110,7 +116,7 @@ func (c *connectionChecker) updateStatus(ctx context.Context) {
 
 // checkEndpoint performs the check and manages the PodNetworkConnectivityCheck.Status changes that result.
 func (c *connectionChecker) checkEndpoint(ctx context.Context, check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck) {
-	latencyInfo, err := getTCPConnectLatency(ctx, check.Spec.TargetEndpoint)
+	latencyInfo, err := c.getTCPConnectLatency(ctx, check.Spec.TargetEndpoint)
 	statusUpdates := manageStatusLogs(check, err, latencyInfo)
 	if len(statusUpdates) > 0 {
 		statusUpdates = append(statusUpdates, manageStatusOutage(c.recorder))
@@ -122,15 +128,33 @@ func (c *connectionChecker) checkEndpoint(ctx context.Context, check *operatorco
 }
 
 // getTCPConnectLatency connects to a tcp endpoint and collects latency info
-func getTCPConnectLatency(ctx context.Context, address string) (*trace.LatencyInfo, error) {
+func (c *connectionChecker) getTCPConnectLatency(ctx context.Context, address string) (*trace.LatencyInfo, error) {
 	klog.V(4).Infof("Check BEGIN: %v", address)
 	defer klog.V(4).Infof("Check END  : %v", address)
 	ctx, latencyInfo := trace.WithLatencyInfoCapture(ctx)
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", address)
-	if err == nil {
-		conn.Close()
+
+	// tcp connection
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
 	}
+	tcpConn, err := dialer.DialContext(ctx, "tcp", address)
+	if err != nil {
+		return latencyInfo, err
+	}
+
+	// perform tls handshake to avoid spamming the logs of tls endpoints
+	host, _, _ := net.SplitHostPort(address)
+	tlsConn := tls.Client(tcpConn, &tls.Config{Certificates: c.clientCertGetter(), ServerName: host, InsecureSkipVerify: true})
+	if err = tlsConn.Handshake(); err != nil {
+		// ignore any error. most likely non-tls connection, plus we're not really testing tls
+		klog.V(4).Infof("%s: tls error ignored: %v", address, err)
+		tcpConn.Close()
+		return latencyInfo, nil
+	}
+
+	// gracefully close connection (ignore error)
+	_ = tlsConn.Close()
+
 	return latencyInfo, err
 }
 

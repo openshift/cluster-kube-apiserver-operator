@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	operatorcontrolplanev1alpha1 "github.com/openshift/api/operatorcontrolplane/v1alpha1"
@@ -12,6 +13,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	coreinformersv1 "k8s.io/client-go/informers/core/v1"
+	v1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog"
 )
 
 // PodNetworkConnectivityCheckController continuously performs network connectivity
@@ -31,6 +35,7 @@ type controller struct {
 	podNamespace string
 	checksGetter operatorcontrolplaneclientv1alpha1.PodNetworkConnectivityCheckInterface
 	checkLister  v1alpha1.PodNetworkConnectivityCheckNamespaceLister
+	secretLister v1.SecretLister
 	recorder     events.Recorder
 	// each PodNetworkConnectivityCheck gets its own ConnectionChecker
 	updaters map[string]ConnectionChecker
@@ -38,17 +43,22 @@ type controller struct {
 
 // Returns a new PodNetworkConnectivityCheckController that performs network connectivity checks
 // as specified in the PodNetworkConnectivityChecks defined in the specified namespace, for the specified pod.
-func NewPodNetworkConnectivityCheckController(podName, podNamespace string, checksGetter operatorcontrolplaneclientv1alpha1.PodNetworkConnectivityChecksGetter, checkInformer alpha1.PodNetworkConnectivityCheckInformer, recorder events.Recorder) PodNetworkConnectivityCheckController {
+func NewPodNetworkConnectivityCheckController(podName, podNamespace string,
+	checksGetter operatorcontrolplaneclientv1alpha1.PodNetworkConnectivityChecksGetter,
+	checkInformer alpha1.PodNetworkConnectivityCheckInformer,
+	secretInformer coreinformersv1.SecretInformer, recorder events.Recorder) PodNetworkConnectivityCheckController {
 	c := &controller{
 		podName:      podName,
 		podNamespace: podNamespace,
 		checksGetter: checksGetter.PodNetworkConnectivityChecks(podNamespace),
 		checkLister:  checkInformer.Lister().PodNetworkConnectivityChecks(podNamespace),
+		secretLister: secretInformer.Lister(),
 		recorder:     recorder,
 		updaters:     map[string]ConnectionChecker{},
 	}
 	c.Controller = factory.New().
 		WithSync(c.Sync).
+		WithInformers(secretInformer.Informer()).
 		WithBareInformers(checkInformer.Informer()).
 		ResyncEvery(1*time.Minute).
 		ToController("check-endpoints", recorder)
@@ -74,7 +84,7 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 	// create & start status updaters if needed
 	for _, check := range checks {
 		if updater := c.updaters[check.Name]; updater == nil {
-			c.updaters[check.Name] = NewConnectionChecker(check, c, c.recorder)
+			c.updaters[check.Name] = NewConnectionChecker(check, c, c.getClientCerts(check), c.recorder)
 			go c.updaters[check.Name].Run(ctx)
 		}
 	}
@@ -95,6 +105,27 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 	}
 
 	return nil
+}
+
+// getClientCerts returns the client cert specified in the secret specified in the PodNetworkConnectivityCheck
+// or nil if not specified or there is an error retrieving the certs.
+func (c *controller) getClientCerts(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck) CertificatesGetter {
+	return func() []tls.Certificate {
+		if len(check.Spec.TLSClientCert.Name) > 0 {
+			secret, err := c.secretLister.Secrets(c.podNamespace).Get(check.Spec.TLSClientCert.Name)
+			if err != nil {
+				klog.V(2).Infof("secret/%s: %v", check.Spec.TLSClientCert.Name, err)
+				return nil
+			}
+			cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+			if err != nil {
+				klog.V(2).Infof("error loading tls client key pair: %v", err)
+				return nil
+			}
+			return []tls.Certificate{cert}
+		}
+		return nil
+	}
 }
 
 // Get implements PodNetworkConnectivityCheckClient
