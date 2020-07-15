@@ -214,8 +214,8 @@ func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFu
 			}
 		} else {
 			if latestSuccess.Start.After(latestFailure.Start.Time) {
-				recorder.Eventf("ConnectivityRestored", "Connectivity restored: %s", latestSuccess.Message)
 				currentOutage.End = latestSuccess.Start
+				recorder.Eventf("ConnectivityRestored", "Connectivity restored after %v: %s", currentOutage.End.Sub(currentOutage.Start.Time), latestSuccess.Message)
 			}
 		}
 	}
