@@ -12,6 +12,7 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -98,11 +99,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	auditPolicyPahGetter, err := audit.NewAuditPolicyPathGetter()
+	if err != nil {
+		return err
+	}
+
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		kubeInformersForNamespaces,
 		configInformers,
 		resourceSyncController,
+		auditPolicyPahGetter,
 		controllerContext.EventRecorder,
 	)
 
@@ -121,6 +128,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
+			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
 		},
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
 		operatorClient,
@@ -321,6 +329,8 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-server-ca", Optional: true},
 	{Name: "kubelet-serving-ca"},
 	{Name: "sa-token-signing-certs"},
+
+	{Name: "kube-apiserver-audit-policies"},
 }
 
 // RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
