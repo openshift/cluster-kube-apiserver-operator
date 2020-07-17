@@ -27,14 +27,13 @@ type ConnectionChecker interface {
 
 // NewConnectionChecker returns a ConnectionChecker.
 func NewConnectionChecker(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
-	c := &connectionChecker{
+	return &connectionChecker{
 		check:            check,
 		client:           client,
 		clientCertGetter: clientCertGetter,
 		recorder:         recorder,
 		stop:             make(chan interface{}),
 	}
-	return c
 }
 
 type CertificatesGetter func() []tls.Certificate
@@ -139,6 +138,7 @@ func (c *connectionChecker) getTCPConnectLatency(ctx context.Context, address st
 	}
 	tcpConn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
+		updateMetrics(address, latencyInfo, err)
 		return latencyInfo, err
 	}
 
@@ -148,13 +148,15 @@ func (c *connectionChecker) getTCPConnectLatency(ctx context.Context, address st
 	if err = tlsConn.Handshake(); err != nil {
 		// ignore any error. most likely non-tls connection, plus we're not really testing tls
 		klog.V(4).Infof("%s: tls error ignored: %v", address, err)
-		tcpConn.Close()
+		_ = tcpConn.Close()
+		updateMetrics(address, latencyInfo, nil)
 		return latencyInfo, nil
 	}
 
 	// gracefully close connection (ignore error)
 	_ = tlsConn.Close()
 
+	updateMetrics(address, latencyInfo, err)
 	return latencyInfo, err
 }
 

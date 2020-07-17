@@ -171,6 +171,8 @@ spec:
     args:
       - --kubeconfig
       - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --listen
+      - 0.0.0.0:17697
       - --namespace
       - $(POD_NAMESPACE)
       - --v
@@ -187,6 +189,25 @@ spec:
     volumeMounts:
       - mountPath: /etc/kubernetes/static-pod-resources
         name: resource-dir
+    ports:
+      - name: check-endpoints
+        hostPort: 17697
+        containerPort: 17697
+        protocol: TCP
+    livenessProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 17697
+        path: healthz
+      initialDelaySeconds: 10
+      timeoutSeconds: 10
+    readinessProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 17697
+        path: healthz
+      initialDelaySeconds: 10
+      timeoutSeconds: 10
     resources:
       requests:
         memory: 50Mi
