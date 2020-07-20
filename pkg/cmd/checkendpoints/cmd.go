@@ -33,7 +33,8 @@ func NewCheckEndpointsCommand() *cobra.Command {
 		)
 		controller.RegisterMetrics(strings.Replace(namespace, "-", "_", -1) + "_")
 		operatorcontrolplaneInformers.Start(ctx.Done())
-		check.Run(ctx, 1)
+		kubeInformers.Start(ctx.Done())
+		go check.Run(ctx, 1)
 		<-ctx.Done()
 		return nil
 	})
