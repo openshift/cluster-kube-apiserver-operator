@@ -12,6 +12,8 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned"
+	routeinformer "github.com/openshift/client-go/route/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -81,12 +83,19 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorclient.OperatorNamespace,
 		"openshift-etcd",
 		"openshift-apiserver",
+		"openshift-authentication",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
 	if err != nil {
 		return err
 	}
+
+	routeClient, err := routeclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+	routeInformersNamespaced := routeinformer.NewSharedInformerFactoryWithOptions(routeClient, 10*time.Minute, routeinformer.WithNamespace("openshift-authentication"))
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
@@ -139,6 +148,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
 		kubeClient,
+		routeInformersNamespaced,
 		operatorClient,
 		kubeInformersForNamespaces,
 		operatorcontrolplaneClient,
@@ -279,6 +289,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
+	routeInformersNamespaced.Start(ctx.Done())
 
 	go staticPodControllers.Start(ctx)
 	go resourceSyncController.Run(ctx, 1)

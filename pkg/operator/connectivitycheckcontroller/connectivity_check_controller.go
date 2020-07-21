@@ -13,6 +13,8 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	routeinformer "github.com/openshift/client-go/route/informers/externalversions"
+	routev1 "github.com/openshift/client-go/route/listers/route/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -33,17 +35,21 @@ type ConnectivityCheckController interface {
 
 func NewConnectivityCheckController(
 	kubeClient kubernetes.Interface,
+	routeInformer routeinformer.SharedInformerFactory,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
 	recorder events.Recorder,
 ) ConnectivityCheckController {
 	c := &connectivityCheckController{
-		kubeClient:                 kubeClient,
-		operatorClient:             operatorClient,
-		operatorcontrolplaneClient: operatorcontrolplaneClient,
-		endpointsLister:            kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Lister(),
-		serviceLister:              kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Lister(),
+		kubeClient:                        kubeClient,
+		operatorClient:                    operatorClient,
+		operatorcontrolplaneClient:        operatorcontrolplaneClient,
+		openshiftAPIServerEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Lister(),
+		openshiftAPIServerServiceLister:   kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Lister(),
+		oauthEndpointsLister:              kubeInformersForNamespaces.InformersFor("openshift-authentication").Core().V1().Endpoints().Lister(),
+		oauthServiceLister:                kubeInformersForNamespaces.InformersFor("openshift-authentication").Core().V1().Services().Lister(),
+		oauthRoutesLister:                 routeInformer.Route().V1().Routes().Lister(),
 	}
 	c.Controller = factory.New().
 		WithSync(c.Sync).
@@ -51,6 +57,9 @@ func NewConnectivityCheckController(
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Informer(),
+			kubeInformersForNamespaces.InformersFor("openshift-authentication").Core().V1().Endpoints().Informer(),
+			kubeInformersForNamespaces.InformersFor("openshift-authentication").Core().V1().Services().Informer(),
+			routeInformer.Route().V1().Routes().Informer(),
 		).
 		ToController("ConnectivityCheckController", recorder.WithComponentSuffix("connectivity-check-controller"))
 	return c
@@ -58,11 +67,14 @@ func NewConnectivityCheckController(
 
 type connectivityCheckController struct {
 	factory.Controller
-	kubeClient                 kubernetes.Interface
-	operatorClient             v1helpers.StaticPodOperatorClient
-	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset
-	endpointsLister            corev1listers.EndpointsLister
-	serviceLister              corev1listers.ServiceLister
+	kubeClient                        kubernetes.Interface
+	operatorClient                    v1helpers.StaticPodOperatorClient
+	operatorcontrolplaneClient        *operatorcontrolplaneclient.Clientset
+	openshiftAPIServerEndpointsLister corev1listers.EndpointsLister
+	openshiftAPIServerServiceLister   corev1listers.ServiceLister
+	oauthRoutesLister                 routev1.RouteLister
+	oauthEndpointsLister              corev1listers.EndpointsLister
+	oauthServiceLister                corev1listers.ServiceLister
 }
 
 func (c *connectivityCheckController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
@@ -80,24 +92,28 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 		syncContext.Recorder().Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
 		return nil
 	}
-	managePodNetworkConnectivityChecks(ctx, c.kubeClient, c.operatorcontrolplaneClient, operatorSpec, c.endpointsLister, c.serviceLister, syncContext.Recorder())
+	c.managePodNetworkConnectivityChecks(ctx, operatorSpec, syncContext.Recorder())
 	return nil
 }
 
-func managePodNetworkConnectivityChecks(ctx context.Context, client kubernetes.Interface,
-	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
-	operatorSpec *operatorv1.StaticPodOperatorSpec, endpointsLister corev1listers.EndpointsLister,
-	serviceLister corev1listers.ServiceLister, recorder events.Recorder) {
+func (c *connectivityCheckController) managePodNetworkConnectivityChecks(ctx context.Context,
+	operatorSpec *operatorv1.StaticPodOperatorSpec, recorder events.Recorder) {
 
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	// each storage endpoint
 	templates = append(templates, getTemplatesForStorageEndpoints(operatorSpec, recorder)...)
 	// oas service IP
-	templates = append(templates, getTemplatesForOpenShiftAPIServerService(serviceLister, recorder)...)
+	templates = append(templates, getTemplatesForOpenShiftAPIServerService(c.openshiftAPIServerServiceLister, recorder)...)
 	// each oas endpoint
-	templates = append(templates, getTemplatesForOpenShiftAPIServerServiceEndpoints(endpointsLister, recorder)...)
+	templates = append(templates, getTemplatesForOpenShiftAPIServerServiceEndpoints(c.openshiftAPIServerEndpointsLister, recorder)...)
+	// oauth-server route
+	templates = append(templates, getTemplatesForOAuthServerRoute(c.oauthRoutesLister, recorder)...)
+	// oauth-server service
+	templates = append(templates, getTemplatesForOAuthServerService(c.oauthServiceLister, recorder)...)
+	// oauth-server endpoints
+	templates = append(templates, getTemplatesForOAuthServerEndpoints(c.oauthEndpointsLister, recorder)...)
 
-	nodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+	nodes, err := c.kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.Set{"node-role.kubernetes.io/master": ""}.AsSelector().String(),
 	})
 	if err != nil {
@@ -115,7 +131,7 @@ func managePodNetworkConnectivityChecks(ctx context.Context, client kubernetes.I
 		}
 	}
 
-	pnccClient := operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(operatorclient.TargetNamespace)
+	pnccClient := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(operatorclient.TargetNamespace)
 	for _, check := range checks {
 		_, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
 		if err == nil {
@@ -234,6 +250,70 @@ func listAddressesForEtcdServerEndpoints(operatorSpec *operatorv1.StaticPodOpera
 			continue
 		}
 		results = append(results, storageConfigURL.Host)
+	}
+	return results
+}
+
+func getTemplatesForOAuthServerRoute(routeLister routev1.RouteLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listRoutesForOAuthServer(routeLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("oauth-server-route", address))
+	}
+	return templates
+}
+
+func listRoutesForOAuthServer(routeLister routev1.RouteLister, recorder events.Recorder) []string {
+	route, err := routeLister.Routes("openshift-authentication").Get("oauth-openshift")
+	if err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine oauth-server route: %v", err)
+		return nil
+	}
+	return []string{net.JoinHostPort(route.Spec.Host, "443")}
+}
+
+func getTemplatesForOAuthServerService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listServicesForOAuthServer(serviceLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("oauth-server-services", address))
+	}
+	return templates
+}
+
+func listServicesForOAuthServer(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []string {
+	service, err := serviceLister.Services("openshift-authentication").Get("oauth-openshift")
+	if err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine oauth-server service: %v", err)
+		return nil
+	}
+	for _, port := range service.Spec.Ports {
+		if port.TargetPort.IntValue() == 6443 {
+			return []string{net.JoinHostPort(service.Spec.ClusterIP, strconv.Itoa(int(port.Port)))}
+		}
+	}
+	return []string{net.JoinHostPort(service.Spec.ClusterIP, "443")}
+}
+
+func getTemplatesForOAuthServerEndpoints(endpointLister corev1listers.EndpointsLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	for _, address := range listEndpointsForOAuthServer(endpointLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("oauth-server-endpoints", address))
+	}
+	return templates
+}
+
+func listEndpointsForOAuthServer(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []string {
+	var results []string
+	endpoints, err := endpointsLister.Endpoints("openshift-authentication").Get("oauth-openshift")
+	if err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine oauth-server service endpoints: %v", err)
+		return nil
+	}
+	for _, subset := range endpoints.Subsets {
+		for _, address := range subset.Addresses {
+			for _, port := range subset.Ports {
+				results = append(results, net.JoinHostPort(address.IP, strconv.Itoa(int(port.Port))))
+			}
+		}
 	}
 	return results
 }
