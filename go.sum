@@ -303,8 +303,8 @@ github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5X
 github.com/openshift/api v0.0.0-20200521101457-60c476765272/go.mod h1:TkhafijfTiRi1Q3120/ZSE4oIWKQ4DGRh3byPywv4Mw=
 github.com/openshift/api v0.0.0-20200605231317-fb2a6ca106ae/go.mod h1:l6TGeqJ92DrZBuWMNKcot1iZUHfbYSJyBWHGgg6Dn6s=
 github.com/openshift/api v0.0.0-20200619200343-6cafd5cd116b/go.mod h1:l6TGeqJ92DrZBuWMNKcot1iZUHfbYSJyBWHGgg6Dn6s=
-github.com/openshift/api v0.0.0-20200714125145-93040c6967eb h1:pmoSPRqZ6IPFa+kFA98cqWsnP7TiPdFUYteSuK/DDzU=
-github.com/openshift/api v0.0.0-20200714125145-93040c6967eb/go.mod h1:vWmWTm4y7XR3wkLR+bDDjRbvkBfx2yP7yve6kfb7+Ts=
+github.com/openshift/api v0.0.0-20200720083901-0c4b3ae5f5df h1:I/N74BP8e9RqzzGzOp5VobATA8DNuL25jD8GGk3qvKY=
+github.com/openshift/api v0.0.0-20200720083901-0c4b3ae5f5df/go.mod h1:vWmWTm4y7XR3wkLR+bDDjRbvkBfx2yP7yve6kfb7+Ts=
 github.com/openshift/build-machinery-go v0.0.0-20200424080330-082bf86082cc/go.mod h1:1CkcsT3aVebzRBzVTSbiKSkJMsC/CASqxesfqEMfJEc=
 github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7 h1:iP7TOaN+tEVNUQ0ODEbN1ukjLz918lsIt7Czf8giWlM=
 github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
@@ -315,7 +315,6 @@ github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.202003121
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca/go.mod h1:unEnEWccGeVxaXSRsWTjRsNxMqYXmuQjzjcPFQ91H9M=
 github.com/openshift/library-go v0.0.0-20200630145007-34ebc8778b33 h1:b5RP11252J39kHguNzDtsxuXfkFdfcGiyWk1TAW6W/I=
 github.com/openshift/library-go v0.0.0-20200630145007-34ebc8778b33/go.mod h1:wSK2uzh8YB+2SByXnzgK5i49W5FZLEF5jDAm7AKoiSw=
-github.com/pborman/uuid v1.2.0 h1:J7Q5mO4ysT1dv8hyrUGHb9+ooztCXu1D8MY8DZYsu3g=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=

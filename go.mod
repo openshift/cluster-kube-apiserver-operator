@@ -15,7 +15,7 @@ require (
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200714125145-93040c6967eb
+	github.com/openshift/api v0.0.0-20200720083901-0c4b3ae5f5df
 	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
 	github.com/openshift/client-go v0.0.0-20200608144219-584632b8fc73
 	github.com/openshift/library-go v0.0.0-20200630145007-34ebc8778b33
