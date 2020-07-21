@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-apiserver-check-endpoints
+  namespace: openshift-kube-apiserver
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  endpoints:
+    - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+      interval: 30s
+      port: https
+      scheme: https
+      path: /debug/openshift/check-endpoints-metrics
+      tlsConfig:
+        caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+  jobLabel: component
+  namespaceSelector:
+    matchNames:
+      - openshift-kube-apiserver
+  selector:
+    matchLabels: {}
