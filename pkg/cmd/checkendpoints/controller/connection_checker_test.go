@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestManageStatusLogs(t *testing.T) {
 			},
 			initial: podNetworkConnectivityCheckStatus(),
 			expected: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(0),
+				withSuccessEntry(tcpConnectEntry(0)),
 			),
 		},
 		{
@@ -47,8 +48,8 @@ func TestManageStatusLogs(t *testing.T) {
 			},
 			initial: podNetworkConnectivityCheckStatus(),
 			expected: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(1),
-				withDNSResolveEntry(0),
+				withSuccessEntry(tcpConnectEntry(1)),
+				withSuccessEntry(dnsResolveEntry(0)),
 			),
 		},
 		{
@@ -60,7 +61,7 @@ func TestManageStatusLogs(t *testing.T) {
 			},
 			initial: podNetworkConnectivityCheckStatus(),
 			expected: podNetworkConnectivityCheckStatus(
-				withDNSErrorEntry(0),
+				withFailureEntry(dnsErrorEntry(0)),
 			),
 		},
 		{
@@ -72,7 +73,7 @@ func TestManageStatusLogs(t *testing.T) {
 			},
 			initial: podNetworkConnectivityCheckStatus(),
 			expected: podNetworkConnectivityCheckStatus(
-				withTCPConnectErrorEntry(0),
+				withFailureEntry(tcpConnectErrorEntry(0)),
 			),
 		},
 		{
@@ -86,8 +87,8 @@ func TestManageStatusLogs(t *testing.T) {
 			},
 			initial: podNetworkConnectivityCheckStatus(),
 			expected: podNetworkConnectivityCheckStatus(
-				withTCPConnectErrorEntry(1),
-				withDNSResolveEntry(0),
+				withFailureEntry(tcpConnectErrorEntry(1)),
+				withSuccessEntry(dnsResolveEntry(0)),
 			),
 		},
 		{
@@ -99,16 +100,16 @@ func TestManageStatusLogs(t *testing.T) {
 				Connect:      1 * time.Millisecond,
 			},
 			initial: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(2),
-				withTCPConnectEntry(1),
-				withTCPConnectEntry(0),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withSuccessEntry(tcpConnectEntry(1)),
+				withSuccessEntry(tcpConnectEntry(0)),
 			),
 			expected: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(4),
-				withDNSResolveEntry(3),
-				withTCPConnectEntry(2),
-				withTCPConnectEntry(1),
-				withTCPConnectEntry(0),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withSuccessEntry(dnsResolveEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withSuccessEntry(tcpConnectEntry(1)),
+				withSuccessEntry(tcpConnectEntry(0)),
 			),
 		},
 	}
@@ -144,6 +145,24 @@ func TestManageStatusOutage(t *testing.T) {
 			initial: podNetworkConnectivityCheckStatus(),
 		},
 		{
+			name: "FirstEntryIsSuccess",
+			initial: podNetworkConnectivityCheckStatus(
+				withSuccessEntry(tcpConnectEntry(1)),
+			),
+		},
+		{
+			name: "FirstEntryIsFailure",
+			initial: podNetworkConnectivityCheckStatus(
+				withFailureEntry(tcpConnectErrorEntry(1)),
+			),
+			expected: []v1alpha1.OutageEntry{
+				*outageEntry(1, withOutageDetectedMessage(1),
+					withStartLogEntry(tcpConnectErrorEntry(1)),
+					withEndLogEntry(tcpConnectErrorEntry(1)),
+				),
+			},
+		},
+		{
 			name: "NoLogsStartedOutage",
 			initial: podNetworkConnectivityCheckStatus(
 				withOutageEntry(0),
@@ -164,57 +183,175 @@ func TestManageStatusOutage(t *testing.T) {
 		{
 			name: "FailureLogNoOutage",
 			initial: podNetworkConnectivityCheckStatus(
-				withTCPConnectErrorEntry(3),
-				withTCPConnectEntry(2),
-				withTCPConnectEntry(1),
-				withTCPConnectEntry(0),
+				withFailureEntry(tcpConnectErrorEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withSuccessEntry(tcpConnectEntry(1)),
+				withSuccessEntry(tcpConnectEntry(0)),
 			),
 			expected: []v1alpha1.OutageEntry{
-				*outageEntry(3),
+				*outageEntry(3, withOutageDetectedMessage(3),
+					withStartLogEntry(tcpConnectErrorEntry(3)),
+					withEndLogEntry(tcpConnectErrorEntry(3)),
+				),
 			},
 		},
 		{
 			name: "SuccessLogStartedOutage",
 			initial: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(4),
-				withTCPConnectErrorEntry(3),
-				withTCPConnectEntry(2),
-				withTCPConnectEntry(1),
-				withTCPConnectEntry(0),
-				withOutageEntry(3),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withFailureEntry(tcpConnectErrorEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withSuccessEntry(tcpConnectEntry(1)),
+				withSuccessEntry(tcpConnectEntry(0)),
+				withOutageEntry(3, withStartLogEntry(tcpConnectErrorEntry(3))),
 			),
 			expected: []v1alpha1.OutageEntry{
-				*outageEntry(3, withEnd(4)),
+				*outageEntry(3, withEnd(4), withConnectivityRestoredMessage(3, 4),
+					withStartLogEntry(tcpConnectErrorEntry(3)),
+					withEndLogEntry(tcpConnectEntry(4)),
+				),
 			},
 		},
 		{
 			name: "ErrorLogEndedOutage",
 			initial: podNetworkConnectivityCheckStatus(
-				withTCPConnectErrorEntry(5),
-				withTCPConnectEntry(4),
-				withTCPConnectEntry(3),
-				withTCPConnectEntry(2),
+				withFailureEntry(tcpConnectErrorEntry(5)),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withSuccessEntry(tcpConnectEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
 				withOutageEntry(0, withEnd(1)),
 			),
 			expected: []v1alpha1.OutageEntry{
-				*outageEntry(5),
+				*outageEntry(5, withOutageDetectedMessage(5),
+					withStartLogEntry(tcpConnectErrorEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(5)),
+				),
 				*outageEntry(0, withEnd(1)),
+			},
+		},
+		{
+			name: "ErrorLogDuplicateStartedOutage",
+			initial: podNetworkConnectivityCheckStatus(
+				withFailureEntry(tcpConnectErrorEntry(6)),
+				withFailureEntry(tcpConnectErrorEntry(5)),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withSuccessEntry(tcpConnectEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withOutageEntry(5, withOutageDetectedMessage(5),
+					withStartLogEntry(tcpConnectErrorEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(5)),
+				),
+			),
+			expected: []v1alpha1.OutageEntry{
+				*outageEntry(5, withOutageDetectedMessage(5),
+					withStartLogEntry(tcpConnectErrorEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(6)),
+					withEndLogEntry(tcpConnectErrorEntry(5)),
+				),
+			},
+		},
+		{
+			name: "ErrorLogChangedStartedOutage",
+			initial: podNetworkConnectivityCheckStatus(
+				withFailureEntry(tcpConnectErrorEntry(6, withLogMessage("no route to host"))),
+				withFailureEntry(tcpConnectErrorEntry(5)),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withSuccessEntry(tcpConnectEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
+				withOutageEntry(5, withOutageDetectedMessage(5),
+					withStartLogEntry(tcpConnectErrorEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(5)),
+				),
+			),
+			expected: []v1alpha1.OutageEntry{
+				*outageEntry(5, withOutageDetectedMessage(5),
+					withStartLogEntry(tcpConnectErrorEntry(6, withLogMessage("no route to host"))),
+					withStartLogEntry(tcpConnectErrorEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(6, withLogMessage("no route to host"))),
+					withEndLogEntry(tcpConnectErrorEntry(5)),
+				),
 			},
 		},
 		{
 			name: "SuccessLogEndedOutageStartedOutage",
 			initial: podNetworkConnectivityCheckStatus(
-				withTCPConnectEntry(6),
-				withTCPConnectErrorEntry(5),
-				withTCPConnectEntry(4),
-				withTCPConnectEntry(3),
-				withTCPConnectEntry(2),
+				withSuccessEntry(tcpConnectEntry(6)),
+				withFailureEntry(tcpConnectErrorEntry(5)),
+				withSuccessEntry(tcpConnectEntry(4)),
+				withSuccessEntry(tcpConnectEntry(3)),
+				withSuccessEntry(tcpConnectEntry(2)),
 				withOutageEntry(5),
 				withOutageEntry(0, withEnd(1)),
 			),
 			expected: []v1alpha1.OutageEntry{
-				*outageEntry(5, withEnd(6)),
+				*outageEntry(5, withEnd(6), withConnectivityRestoredMessage(5, 6),
+					withEndLogEntry(tcpConnectEntry(6)),
+				),
 				*outageEntry(0, withEnd(1)),
+			},
+		},
+		{
+			name: "ErrorLogOngoingOutageMaxLogs",
+			initial: podNetworkConnectivityCheckStatus(
+				withFailureEntry(tcpConnectErrorEntry(5, withLogMessage("five"))),
+				withOutageEntry(0,
+					withStartLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withStartLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withStartLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withStartLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withStartLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+					withEndLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withEndLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withEndLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withEndLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withEndLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+				),
+			),
+			expected: []v1alpha1.OutageEntry{
+				*outageEntry(0,
+					withStartLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withStartLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withStartLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withStartLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withStartLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+					withEndLogEntry(tcpConnectErrorEntry(5, withLogMessage("five"))),
+					withEndLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withEndLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withEndLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withEndLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+				),
+			},
+		},
+		{
+			name: "SuccessLogOngoingOutageMaxLogs",
+			initial: podNetworkConnectivityCheckStatus(
+				withSuccessEntry(tcpConnectEntry(5)),
+				withOutageEntry(0,
+					withStartLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withStartLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withStartLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withStartLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withStartLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+					withEndLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withEndLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withEndLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withEndLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withEndLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+				),
+			),
+			expected: []v1alpha1.OutageEntry{
+				*outageEntry(0, withEnd(5), withConnectivityRestoredMessage(0, 5),
+					withStartLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withStartLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withStartLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withStartLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+					withStartLogEntry(tcpConnectErrorEntry(0, withLogMessage("zero"))),
+					withEndLogEntry(tcpConnectEntry(5)),
+					withEndLogEntry(tcpConnectErrorEntry(4, withLogMessage("four"))),
+					withEndLogEntry(tcpConnectErrorEntry(3, withLogMessage("three"))),
+					withEndLogEntry(tcpConnectErrorEntry(2, withLogMessage("two"))),
+					withEndLogEntry(tcpConnectErrorEntry(1, withLogMessage("one"))),
+				),
 			},
 		},
 	}
@@ -244,33 +381,43 @@ func podNetworkConnectivityCheckStatus(options ...func(status *v1alpha1.PodNetwo
 	return result
 }
 
-func withTCPConnectErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withFailureEntry(start, v1alpha1.LogEntryReasonTCPConnectError, "target-endpoint: failed to establish a TCP connection to host:port: connect tcp: test error", options...)
+func withSuccessEntry(entry v1alpha1.LogEntry) func(*v1alpha1.PodNetworkConnectivityCheckStatus) {
+	return func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
+		status.Successes = append(status.Successes, entry)
+	}
 }
 
-func withDNSErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withFailureEntry(start, v1alpha1.LogEntryReasonDNSError, "target-endpoint: failure looking up host host: connect tcp: lookup host: test error", options...)
+func withFailureEntry(entry v1alpha1.LogEntry) func(*v1alpha1.PodNetworkConnectivityCheckStatus) {
+	return func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
+		status.Failures = append(status.Failures, entry)
+	}
 }
 
-func withDNSResolveEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withSuccessEntry(start, v1alpha1.LogEntryReasonDNSResolve, "target-endpoint: resolved host name host successfully", options...)
+func tcpConnectErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) v1alpha1.LogEntry {
+	return logEntry(false, start, v1alpha1.LogEntryReasonTCPConnectError, "target-endpoint: failed to establish a TCP connection to host:port: connect tcp: test error", options...)
 }
 
-func withTCPConnectEntry(start int, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withSuccessEntry(start, v1alpha1.LogEntryReasonTCPConnect, "target-endpoint: tcp connection to host:port succeeded", options...)
+func dnsErrorEntry(start int, options ...func(entry *v1alpha1.LogEntry)) v1alpha1.LogEntry {
+	return logEntry(false, start, v1alpha1.LogEntryReasonDNSError, "target-endpoint: failure looking up host host: connect tcp: lookup host: test error", options...)
 }
 
-func withSuccessEntry(start int, reason, message string, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withLogEntry(true, start, reason, message, options...)
+func dnsResolveEntry(start int, options ...func(entry *v1alpha1.LogEntry)) v1alpha1.LogEntry {
+	return logEntry(true, start, v1alpha1.LogEntryReasonDNSResolve, "target-endpoint: resolved host name host successfully", options...)
 }
 
-func withFailureEntry(start int, reason, message string, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	return withLogEntry(false, start, reason, message, options...)
+func tcpConnectEntry(start int, options ...func(entry *v1alpha1.LogEntry)) v1alpha1.LogEntry {
+	return logEntry(true, start, v1alpha1.LogEntryReasonTCPConnect, "target-endpoint: tcp connection to host:port succeeded", options...)
 }
 
-func withLatency(latency time.Duration) func(entry *v1alpha1.LogEntry) {
+func withLatency(latency time.Duration) func(*v1alpha1.LogEntry) {
 	return func(entry *v1alpha1.LogEntry) {
 		entry.Latency = metav1.Duration{Duration: latency}
+	}
+}
+
+func withLogMessage(message string) func(*v1alpha1.LogEntry) {
+	return func(entry *v1alpha1.LogEntry) {
+		entry.Message = message
 	}
 }
 
@@ -282,9 +429,35 @@ func outageEntry(start int, options ...func(entry *v1alpha1.OutageEntry)) *v1alp
 	return result
 }
 
+func withStartLogEntry(entry v1alpha1.LogEntry) func(*v1alpha1.OutageEntry) {
+	return func(status *v1alpha1.OutageEntry) {
+		status.StartLogs = append(status.StartLogs, entry)
+	}
+}
+
+func withEndLogEntry(entry v1alpha1.LogEntry) func(*v1alpha1.OutageEntry) {
+	return func(status *v1alpha1.OutageEntry) {
+		status.EndLogs = append(status.EndLogs, entry)
+	}
+}
+
 func withEnd(end int) func(*v1alpha1.OutageEntry) {
 	return func(entry *v1alpha1.OutageEntry) {
 		entry.End = metav1.NewTime(testTime(end))
+	}
+}
+
+func withOutageDetectedMessage(start int) func(*v1alpha1.OutageEntry) {
+	return withOutageMessage("Connectivity outage detected at %v", testTime(start).Format(time.RFC3339Nano))
+}
+
+func withConnectivityRestoredMessage(start, end int) func(*v1alpha1.OutageEntry) {
+	return withOutageMessage("Connectivity restored after %v", testTime(end).Sub(testTime(start)))
+}
+
+func withOutageMessage(msg string, args ...interface{}) func(*v1alpha1.OutageEntry) {
+	return func(entry *v1alpha1.OutageEntry) {
+		entry.Message = fmt.Sprintf(msg, args...)
 	}
 }
 
@@ -294,8 +467,8 @@ func withOutageEntry(start int, options ...func(entry *v1alpha1.OutageEntry)) fu
 	}
 }
 
-func withLogEntry(success bool, start int, reason, message string, options ...func(entry *v1alpha1.LogEntry)) func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-	entry := &v1alpha1.LogEntry{
+func logEntry(success bool, start int, reason, message string, options ...func(entry *v1alpha1.LogEntry)) v1alpha1.LogEntry {
+	entry := v1alpha1.LogEntry{
 		Start:   metav1.NewTime(testTime(start)),
 		Success: success,
 		Reason:  reason,
@@ -303,14 +476,7 @@ func withLogEntry(success bool, start int, reason, message string, options ...fu
 		Latency: metav1.Duration{Duration: 1 * time.Millisecond},
 	}
 	for _, f := range options {
-		f(entry)
+		f(&entry)
 	}
-	if success {
-		return func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-			status.Successes = append(status.Successes, *entry)
-		}
-	}
-	return func(status *v1alpha1.PodNetworkConnectivityCheckStatus) {
-		status.Failures = append(status.Failures, *entry)
-	}
+	return entry
 }
