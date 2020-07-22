@@ -224,7 +224,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20200617100204-823c70af3f78
+# github.com/openshift/library-go v0.0.0-20200617100204-823c70af3f78 => /Users/lszaszki/go/src/github.com/openshift/library-go
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client
@@ -243,6 +243,7 @@ github.com/openshift/library-go/pkg/operator/condition
 github.com/openshift/library-go/pkg/operator/configobserver
 github.com/openshift/library-go/pkg/operator/configobserver/apiserver
 github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider
+github.com/openshift/library-go/pkg/operator/configobserver/etcd
 github.com/openshift/library-go/pkg/operator/configobserver/featuregates
 github.com/openshift/library-go/pkg/operator/configobserver/network
 github.com/openshift/library-go/pkg/operator/configobserver/proxy
@@ -315,8 +316,8 @@ github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/robfig/cron/v3 v3.0.1
-github.com/robfig/cron/v3
+# github.com/robfig/cron v1.1.0
+github.com/robfig/cron
 # github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
 # github.com/spf13/cobra v0.0.5

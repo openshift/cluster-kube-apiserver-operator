@@ -2,6 +2,7 @@ package eventwatch
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,7 @@ import (
 const (
 	// eventAckAnnotationName is an annotation we place on event that was processed by this controller.
 	// This is used to not process same event multiple times.
-	eventAckAnnotationName = "eventwatch.openshift.io/acknowledged"
+	eventAckAnnotationName = "eventwatch.openshift.io/last-seen-count"
 )
 
 // Controller observes the events in given informer namespaces and match them with configured event handlers.
@@ -32,9 +33,9 @@ type Controller struct {
 }
 
 type eventHandler struct {
-	reason    string
-	namespace string
-	process   func(event *corev1.Event) error
+	reasonPattern string
+	namespace     string
+	process       func(event *corev1.Event) error
 }
 
 type Builder struct {
@@ -46,13 +47,14 @@ func New() *Builder {
 	return &Builder{}
 }
 
-// WithEventHandler add handler for event matching the namespace and the reason.
+// WithEventHandler add handler for event matching the namespace and the reason pattern.
 // This can be called multiple times.
-func (b *Builder) WithEventHandler(namespace, reason string, processEvent func(event *corev1.Event) error) *Builder {
+// The reason pattern can contain glob ("*") as prefix or suffix. If no glob is used a strict match is required
+func (b *Builder) WithEventHandler(namespace, reasonPattern string, processEvent func(event *corev1.Event) error) *Builder {
 	b.eventConfig = append(b.eventConfig, eventHandler{
-		reason:    reason,
-		namespace: namespace,
-		process:   processEvent,
+		reasonPattern: reasonPattern,
+		namespace:     namespace,
+		process:       processEvent,
 	})
 	return b
 }
@@ -98,7 +100,7 @@ func (c *Controller) getEventHandler(eventKey string) *eventHandler {
 		return nil
 	}
 	for i := range c.events {
-		if c.events[i].namespace == namespace && c.events[i].reason == reason {
+		if c.events[i].namespace == namespace && reasonMatch(c.events[i].reasonPattern, reason) {
 			return &c.events[i]
 		}
 	}
@@ -109,8 +111,11 @@ func isAcknowledgedEvent(e *corev1.Event) bool {
 	if e.Annotations == nil {
 		return false
 	}
-	_, ok := e.Annotations[eventAckAnnotationName]
-	return ok
+	lastSeenCount, ok := e.Annotations[eventAckAnnotationName]
+	if !ok {
+		return false
+	}
+	return fmt.Sprintf("%d", e.Count) == lastSeenCount
 }
 
 func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) error {
@@ -143,10 +148,10 @@ func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) erro
 	if seenEvent.Annotations == nil {
 		seenEvent.Annotations = map[string]string{}
 	}
-	seenEvent.Annotations[eventAckAnnotationName] = "true"
+	seenEvent.Annotations[eventAckAnnotationName] = fmt.Sprintf("%d", seenEvent.Count)
 	if _, err := c.eventClient.Events(namespace).Update(ctx, seenEvent, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 
-	return eventHandler.process(event)
+	return eventHandler.process(seenEvent)
 }

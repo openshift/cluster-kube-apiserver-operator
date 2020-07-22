@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/robfig/cron/v3"
+	"github.com/robfig/cron"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -89,7 +89,7 @@ func (c *baseController) Run(ctx context.Context, workers int) {
 
 	// if scheduled run is requested, run the cron scheduler
 	if c.resyncSchedules != nil {
-		scheduler := cron.New(cron.WithSeconds())
+		scheduler := cron.New()
 		for _, s := range c.resyncSchedules {
 			scheduler.Schedule(s, newScheduledJob(c.name, c.syncContext.Queue()))
 		}
@@ -156,6 +156,7 @@ func (c *baseController) runWorker(queueCtx context.Context) {
 	var workerWaitGroup sync.WaitGroup
 	workerWaitGroup.Add(1)
 	go func() {
+		defer utilruntime.HandleCrash()
 		defer workerWaitGroup.Done()
 		for {
 			select {
@@ -214,7 +215,7 @@ func (c *baseController) processNextWorkItem(queueCtx context.Context) {
 	if err := c.reconcile(queueCtx, syncCtx); err != nil {
 		if err == SyntheticRequeueError {
 			// logging this helps detecting wedged controllers with missing pre-requirements
-			klog.Infof("%q controller requested synthetic requeue with key %q", c.name, key)
+			klog.V(5).Infof("%q controller requested synthetic requeue with key %q", c.name, key)
 		} else {
 			utilruntime.HandleError(fmt.Errorf("%q controller failed to sync %q, err: %w", c.name, key, err))
 		}
