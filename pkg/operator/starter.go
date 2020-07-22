@@ -137,7 +137,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
-	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
+	connectivityCheckController := connectivitycheckcontroller.NewKubeAPIServerConnectivityCheckController(
 		kubeClient,
 		operatorClient,
 		kubeInformersForNamespaces,
