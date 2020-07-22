@@ -117,12 +117,23 @@ func TestObserveStorageURLs(t *testing.T) {
 			),
 			expected: observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
 		},
+		{
+			name:     "ValidIPv4NoCurrentConfig",
+			endpoint: endpoints(withAddress("10.0.0.1")),
+			expected: observedConfig(withStorageURL("https://10.0.0.1:2379"), withLocalhostStorageURLs()),
+		},
+		{
+			name:         "NoCurrentConfigNoEndPoints",
+			endpoint:     endpoints(),
+			expected:     observedConfig(withLocalhostStorageURLs()),
+			expectErrors: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			lister := configobservation.Listers{
-				ConfigmapLister: corev1listers.NewConfigMapLister(indexer),
+				ConfigmapLister_: corev1listers.NewConfigMapLister(indexer),
 			}
 			if tt.endpoint != nil {
 				if err := indexer.Add(tt.endpoint); err != nil {
