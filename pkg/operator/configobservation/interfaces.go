@@ -7,9 +7,11 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 )
 
 var _ cloudprovider.InfrastructureLister = Listers{}
+var _ libgoetcd.ConfigMapLister = Listers{}
 
 type Listers struct {
 	APIServerLister_      configlistersv1.APIServerLister
@@ -22,7 +24,7 @@ type Listers struct {
 	SchedulerLister       configlistersv1.SchedulerLister
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
-	ConfigmapLister              corelistersv1.ConfigMapLister
+	ConfigmapLister_             corelistersv1.ConfigMapLister
 	SecretLister_                corelistersv1.SecretLister
 	ConfigSecretLister_          corelistersv1.SecretLister
 
@@ -56,6 +58,10 @@ func (l Listers) ConfigSecretLister() corelistersv1.SecretLister {
 
 func (l Listers) ProxyLister() configlistersv1.ProxyLister {
 	return l.ProxyLister_
+}
+
+func (l Listers) ConfigMapLister() corelistersv1.ConfigMapLister {
+	return l.ConfigmapLister_
 }
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
