@@ -733,7 +733,7 @@ spec:
       - check-endpoints
     args:
       - --kubeconfig
-      - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - /etc/kubernetes/static-pod-certs/configmaps/control-plane-node-kubeconfig/kubeconfig
       - --listen
       - 0.0.0.0:17697
       - --namespace
@@ -752,6 +752,8 @@ spec:
     volumeMounts:
       - mountPath: /etc/kubernetes/static-pod-resources
         name: resource-dir
+      - mountPath: /etc/kubernetes/static-pod-certs
+        name: cert-dir
     ports:
       - name: check-endpoints
         hostPort: 17697
