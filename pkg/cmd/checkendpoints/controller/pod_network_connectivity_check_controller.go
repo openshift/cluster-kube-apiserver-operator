@@ -58,8 +58,7 @@ func NewPodNetworkConnectivityCheckController(podName, podNamespace string,
 	}
 	c.Controller = factory.New().
 		WithSync(c.Sync).
-		WithInformers(secretInformer.Informer()).
-		WithBareInformers(checkInformer.Informer()).
+		WithInformers(secretInformer.Informer(), checkInformer.Informer()).
 		ResyncEvery(1*time.Minute).
 		ToController("check-endpoints", recorder)
 	return c
@@ -84,7 +83,7 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 	// create & start status updaters if needed
 	for _, check := range checks {
 		if updater := c.updaters[check.Name]; updater == nil {
-			c.updaters[check.Name] = NewConnectionChecker(check, c, c.getClientCerts(check), c.recorder)
+			c.updaters[check.Name] = NewConnectionChecker(check.Name, c.podName, c.newCheckFunc(check.Name), c, c.getClientCerts(check), c.recorder)
 			go c.updaters[check.Name].Run(ctx)
 		}
 	}
@@ -105,6 +104,13 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 	}
 
 	return nil
+}
+
+func (c *controller) newCheckFunc(name string) GetCheckFunc {
+	return func() *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck {
+		check, _ := c.checkLister.Get(name)
+		return check
+	}
 }
 
 // getClientCerts returns the client cert specified in the secret specified in the PodNetworkConnectivityCheck

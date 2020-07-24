@@ -25,10 +25,14 @@ type ConnectionChecker interface {
 	Stop()
 }
 
+type GetCheckFunc func() *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
+
 // NewConnectionChecker returns a ConnectionChecker.
-func NewConnectionChecker(check *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
+func NewConnectionChecker(name, podName string, getCheck GetCheckFunc, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
 	return &connectionChecker{
-		check:            check,
+		name:             name,
+		podName:          podName,
+		getCheck:         getCheck,
 		client:           client,
 		clientCertGetter: clientCertGetter,
 		recorder:         recorder,
@@ -39,7 +43,10 @@ func NewConnectionChecker(check *operatorcontrolplanev1alpha1.PodNetworkConnecti
 type CertificatesGetter func() []tls.Certificate
 
 type connectionChecker struct {
-	check            *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
+	name     string
+	podName  string
+	getCheck GetCheckFunc
+
 	client           v1alpha1helpers.PodNetworkConnectivityCheckClient
 	clientCertGetter CertificatesGetter
 	recorder         events.Recorder
@@ -59,7 +66,7 @@ func (c *connectionChecker) add(updates ...v1alpha1helpers.UpdateStatusFunc) {
 func (c *connectionChecker) checkConnection(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	defer klog.V(1).Infof("Stopped connectivity check %s.", c.check.Name)
+	defer klog.V(1).Infof("Stopped connectivity check %s.", c.name)
 	for {
 		select {
 		case <-c.stop:
@@ -69,7 +76,13 @@ func (c *connectionChecker) checkConnection(ctx context.Context) {
 
 		case <-ticker.C:
 			go func() {
-				c.checkEndpoint(ctx, c.check)
+				currCheck := c.getCheck()
+				// if we have no check or the check isn't for us or the check has no target, report status if needed, but nothing else
+				if currCheck == nil || currCheck.Spec.SourcePod != c.podName || len(currCheck.Spec.TargetEndpoint) == 0 {
+					c.updateStatus(ctx)
+					return
+				}
+				c.checkEndpoint(ctx, currCheck)
 				c.updateStatus(ctx)
 			}()
 		}
@@ -89,12 +102,13 @@ func (c *connectionChecker) Run(ctx context.Context) {
 	go wait.UntilWithContext(ctx2, func(ctx context.Context) {
 		c.checkConnection(ctx2)
 	}, 1*time.Second)
-	klog.V(1).Infof("Started connectivity check %s.", c.check.Name)
+	klog.V(1).Infof("Started connectivity check %s.", c.name)
 	<-ctx2.Done()
 }
 
 // Stop
 func (c *connectionChecker) Stop() {
+	c.updateStatus(context.TODO())
 	close(c.stop)
 }
 
@@ -104,9 +118,9 @@ func (c *connectionChecker) updateStatus(ctx context.Context) {
 	c.updatesLock.Lock()
 	defer c.updatesLock.Unlock()
 	if len(c.updates) > 20 {
-		_, _, err := v1alpha1helpers.UpdateStatus(ctx, c.client, c.check.Name, c.updates...)
+		_, _, err := v1alpha1helpers.UpdateStatus(ctx, c.client, c.name, c.updates...)
 		if err != nil {
-			klog.Warningf("Unable to update %s: %v", c.check.Name, err)
+			klog.Warningf("Unable to update %s: %v", c.name, err)
 			return
 		}
 		c.updates = nil
