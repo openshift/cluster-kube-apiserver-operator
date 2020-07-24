@@ -2,6 +2,7 @@
 // sources:
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
+// bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
@@ -135,8 +136,8 @@ apiServerArguments:
     - "100"
   audit-log-path:
     - /var/log/kube-apiserver/audit.log
-  audit-policy-file: # this matches where .auditConfig.policyConfiguration is currently written.  We should update this.
-    - openshift.local.audit/policy.yaml
+  audit-policy-file:
+    - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/default.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
   enable-admission-plugins:
@@ -264,11 +265,44 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt
   tls-private-key-file:
     - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key
-auditConfig:
-  enabled: true
-  policyConfiguration:
+authConfig:
+  oauthMetadataFile: ""
+consolePublicURL: ""
+projectConfig:
+  defaultNodeSelector: ""
+servicesSubnet: 10.3.0.0/16 # ServiceCIDR # set by observe_network.go
+servingInfo:
+  bindAddress: 0.0.0.0:6443 # set by observe_network.go
+  bindNetwork: tcp4 # set by observe_network.go
+  namedCertificates: null # set by observe_apiserver.go
+`)
+
+func v410ConfigDefaultconfigYamlBytes() ([]byte, error) {
+	return _v410ConfigDefaultconfigYaml, nil
+}
+
+func v410ConfigDefaultconfigYaml() (*asset, error) {
+	bytes, err := v410ConfigDefaultconfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/config/defaultconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverAuditPoliciesCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-apiserver-audit-policies
+  namespace: openshift-kube-apiserver
+data:
+  default.yaml: |
     apiVersion: audit.k8s.io/v1beta1
     kind: Policy
+    metadata:
+      name: Default
     # Don't generate audit events for all requests in RequestReceived stage.
     omitStages:
     - "RequestReceived"
@@ -297,29 +331,111 @@ auditConfig:
       # generate an audit event in RequestReceived.
       omitStages:
       - "RequestReceived"
-authConfig:
-  oauthMetadataFile: ""
-consolePublicURL: ""
-projectConfig:
-  defaultNodeSelector: ""
-servicesSubnet: 10.3.0.0/16 # ServiceCIDR # set by observe_network.go
-servingInfo:
-  bindAddress: 0.0.0.0:6443 # set by observe_network.go
-  bindNetwork: tcp4 # set by observe_network.go
-  namedCertificates: null # set by observe_apiserver.go
+
+  writerequestbodies.yaml: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    metadata:
+      name: WriteRequestBodies
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Don't log requests for events
+    - level: None
+      resources:
+      - group: ""
+        resources: ["events"]
+    # Don't log oauth tokens as metadata.name is the secret
+    - level: None
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
+    # Don't log authenticated requests to certain non-resource URL paths.
+    - level: None
+      userGroups: ["system:authenticated", "system:unauthenticated"]
+      nonResourceURLs:
+      - "/api*" # Wildcard matching.
+      - "/version"
+      - "/healthz"
+      - "/readyz"
+    # exclude resources where the body is security-sensitive
+    - level: Metadata
+      resources:
+      - group: "route.openshift.io"
+        resources: ["routes"]
+      - resources: ["secrets"]
+    - level: Metadata
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthclients"]
+    # log request and response payloads for all write requests
+    - level: RequestResponse
+      verbs:
+      - update
+      - patch
+      - create
+      - delete
+      - deletecollection
+    # catch-all rule to log all other requests at the Metadata level.
+    - level: Metadata
+      # Long-running requests like watches that fall under this rule will not
+      # generate an audit event in RequestReceived.
+      omitStages:
+      - RequestReceived
+
+  allrequestbodies.yaml: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    metadata:
+      name: AllRequestBodies
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+    - "RequestReceived"
+    rules:
+    # Don't log requests for events
+    - level: None
+      resources:
+      - group: ""
+        resources: ["events"]
+    # Don't log oauth tokens as metadata.name is the secret
+    - level: None
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
+    # Don't log authenticated requests to certain non-resource URL paths.
+    - level: None
+      userGroups: ["system:authenticated", "system:unauthenticated"]
+      nonResourceURLs:
+      - "/api*" # Wildcard matching.
+      - "/version"
+      - "/healthz"
+      - "/readyz"
+    # exclude resources where the body is security-sensitive
+    - level: Metadata
+      resources:
+      - group: "route.openshift.io"
+        resources: ["routes"]
+      - resources: ["secrets"]
+    - level: Metadata
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthclients"]
+    # catch-all rule to log all other requests with request and response payloads
+    - level: RequestResponse
 `)
 
-func v410ConfigDefaultconfigYamlBytes() ([]byte, error) {
-	return _v410ConfigDefaultconfigYaml, nil
+func v410KubeApiserverAuditPoliciesCmYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverAuditPoliciesCmYaml, nil
 }
 
-func v410ConfigDefaultconfigYaml() (*asset, error) {
-	bytes, err := v410ConfigDefaultconfigYamlBytes()
+func v410KubeApiserverAuditPoliciesCmYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverAuditPoliciesCmYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v4.1.0/config/defaultconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/audit-policies-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1045,6 +1161,7 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/config/config-overrides.yaml":                         v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                            v410ConfigDefaultconfigYaml,
+	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                v410KubeApiserverAuditPoliciesCmYaml,
 	"v4.1.0/kube-apiserver/cm.yaml":                               v410KubeApiserverCmYaml,
 	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml": v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                    v410KubeApiserverKubeconfigCmYaml,
@@ -1108,6 +1225,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
+			"audit-policies-cm.yaml":                {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
 			"cm.yaml":                               {v410KubeApiserverCmYaml, map[string]*bintree{}},
 			"control-plane-node-kubeconfig-cm.yaml": {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
 			"kubeconfig-cm.yaml":                    {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},

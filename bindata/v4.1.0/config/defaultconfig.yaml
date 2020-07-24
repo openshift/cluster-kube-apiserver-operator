@@ -27,8 +27,8 @@ apiServerArguments:
     - "100"
   audit-log-path:
     - /var/log/kube-apiserver/audit.log
-  audit-policy-file: # this matches where .auditConfig.policyConfiguration is currently written.  We should update this.
-    - openshift.local.audit/policy.yaml
+  audit-policy-file:
+    - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/default.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
   enable-admission-plugins:
@@ -156,39 +156,6 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.crt
   tls-private-key-file:
     - /etc/kubernetes/static-pod-certs/secrets/service-network-serving-certkey/tls.key
-auditConfig:
-  enabled: true
-  policyConfiguration:
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # A catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - "RequestReceived"
 authConfig:
   oauthMetadataFile: ""
 consolePublicURL: ""
