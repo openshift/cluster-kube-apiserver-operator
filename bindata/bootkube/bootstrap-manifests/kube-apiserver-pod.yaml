@@ -37,7 +37,7 @@ spec:
     - --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
     - --logtostderr=false
     - --alsologtostderr
-    - --v=2
+    - --v=5
     - --log-file=/var/log/bootstrap-control-plane/kube-apiserver.log
     volumeMounts:
     - mountPath: /etc/ssl/certs
