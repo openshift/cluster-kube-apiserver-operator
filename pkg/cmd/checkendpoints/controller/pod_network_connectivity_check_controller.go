@@ -98,7 +98,7 @@ func (c *controller) Sync(ctx context.Context, syncContext factory.SyncContext) 
 			}
 		}
 		if !keep {
-			updater.Stop()
+			updater.Stop(ctx)
 			delete(c.updaters, name)
 		}
 	}
