@@ -30,6 +30,10 @@ type Listers struct {
 	PreRunCachesSynced []cache.InformerSynced
 }
 
+func (l Listers) ConfigMapLister() corelistersv1.ConfigMapLister {
+	return l.ConfigmapLister
+}
+
 func (l Listers) APIServerLister() configlistersv1.APIServerLister {
 	return l.APIServerLister_
 }
