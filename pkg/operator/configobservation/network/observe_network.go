@@ -190,6 +190,42 @@ func ObserveExternalIPPolicy(genericListers configobserver.Listers, recorder eve
 	return observedConfig, errs
 }
 
+// ObserveServiceNodePortRange watches the network configuration and generates the
+// serviceNodePortRange
+func ObserveServicesNodePortRange(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	listers := genericListers.(configobservation.Listers)
+
+	out := map[string]interface{}{}
+	servicesNodePortRangeConfigPath := []string{"apiServerArguments", "service-node-port-range"}
+
+	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesNodePortRangeConfigPath)
+
+	serviceNodePortRange, err := network.GetServiceNodePortRange(listers.NetworkLister, recorder)
+	if err != nil {
+		errs = append(errs, err)
+		return previouslyObservedConfig, errs
+	}
+	// We want to make sure that a range user sets doesn't shrink. This
+	// is handled by a custom resource validator in openshift-api-server code.
+	// If the user setting for this field goes from
+	//      1) not being set to
+	//      2) set to 30000-36000 to
+	//      3) not being set
+	// The third change should fail customresourcevalidation. So once the field
+	// is set in the yaml, it should never come here for anything other than the
+	// default case of never being set.
+
+	if serviceNodePortRange == "" {
+		return map[string]interface{}{}, errs
+	}
+	snpr := []string{serviceNodePortRange}
+	if err := unstructured.SetNestedStringSlice(out, snpr, servicesNodePortRangeConfigPath...); err != nil {
+		errs = append(errs, err)
+		return previouslyObservedConfig, errs
+	}
+	return out, errs
+}
+
 // extractPreviouslyObservedConfig extracts the previously observed config from the existing config.
 func extractPreviouslyObservedConfig(existing map[string]interface{}, paths ...[]string) (map[string]interface{}, []error) {
 	var errs []error

@@ -136,6 +136,7 @@ func NewConfigObserver(
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,
 			network.ObserveExternalIPPolicy,
+			network.ObserveServicesNodePortRange,
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,

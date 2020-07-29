@@ -311,6 +311,77 @@ admission:
 `)
 }
 
+// test service node port range changes
+func TestObserveServiceNodePortRange(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+
+	listers := configobservation.Listers{
+		NetworkLister: configlistersv1.NewNetworkLister(indexer),
+	}
+
+	// With no network configured, check that a rump configuration is returned
+	result, errors := ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
+	if result == nil {
+		t.Errorf("expected result != nil")
+	}
+
+	// Next, add the network config and see that it reacts
+	servicesNodePortRangeConfigPath := []string{"apiServerArguments", "service-node-port-range"}
+
+	if err := indexer.Add(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.NetworkSpec{
+			ServiceNodePortRange: "40000-42200",
+		},
+	}); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
+	conf, ok, err := unstructured.NestedStringSlice(result, servicesNodePortRangeConfigPath...)
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if len(conf) == 0 {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	if conf[0] != "40000-42200" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+
+	// Change the config and see that it is updated.
+	if err := indexer.Update(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.NetworkSpec{
+			ServiceNodePortRange: "40000-43333",
+		},
+	}); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), result)
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
+	conf, ok, err = unstructured.NestedStringSlice(result, servicesNodePortRangeConfigPath...)
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if len(conf) == 0 {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+
+	if conf[0] != "40000-43333" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+}
+
 func shouldMatchYaml(t *testing.T, obj map[string]interface{}, expected string) {
 	t.Helper()
 	exp := map[string]interface{}{}
