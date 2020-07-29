@@ -96,7 +96,7 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 				syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(check), err)
 				continue
 			}
-			syncContext.Recorder().Eventf("EndpointCheckCreated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
+			syncContext.Recorder().Eventf("EndpointCheckUpdated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
 		}
 		if apierrors.IsNotFound(err) {
 			_, err = pnccClient.Create(ctx, check, metav1.CreateOptions{})
