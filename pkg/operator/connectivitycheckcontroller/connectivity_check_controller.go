@@ -2,7 +2,7 @@ package connectivitycheckcontroller
 
 import (
 	"context"
-	"regexp"
+	"strings"
 
 	v1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -82,10 +83,20 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 
 	pnccClient := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(operatorclient.TargetNamespace)
 	for _, check := range checks {
-		_, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
+		existing, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
 		if err == nil {
-			// already exists, skip
-			continue
+			if equality.Semantic.DeepEqual(existing.Spec, check.Spec) {
+				// already exists, no changes, skip
+				continue
+			}
+			updated := existing.DeepCopy()
+			updated.Spec = *check.Spec.DeepCopy()
+			_, err := pnccClient.Update(ctx, updated, metav1.UpdateOptions{})
+			if err != nil {
+				syncContext.Recorder().Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(check), err)
+				continue
+			}
+			syncContext.Recorder().Eventf("EndpointCheckCreated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
 		}
 		if apierrors.IsNotFound(err) {
 			_, err = pnccClient.Create(ctx, check, metav1.CreateOptions{})
@@ -104,12 +115,10 @@ func (c *connectivityCheckController) Sync(ctx context.Context, syncContext fact
 	return nil
 }
 
-var checkNameRegex = regexp.MustCompile(`[.:\[\]]+`)
-
-func NewPodNetworkProductivityCheckTemplate(label, address string, options ...func(*v1alpha1.PodNetworkConnectivityCheck)) *v1alpha1.PodNetworkConnectivityCheck {
+func NewPodNetworkProductivityCheckTemplate(address string, options ...func(*v1alpha1.PodNetworkConnectivityCheck)) *v1alpha1.PodNetworkConnectivityCheck {
 	check := &v1alpha1.PodNetworkConnectivityCheck{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "$(SOURCE)-to-" + label + "-" + checkNameRegex.ReplaceAllLiteralString(address, "-"),
+			Name:      "$(SOURCE)-to-$(TARGET)",
 			Namespace: operatorclient.TargetNamespace,
 		},
 		Spec: v1alpha1.PodNetworkConnectivityCheckSpec{
@@ -127,5 +136,17 @@ func WithTlsClientCert(secretName string) func(*v1alpha1.PodNetworkConnectivityC
 		if len(secretName) > 0 {
 			check.Spec.TLSClientCert = v1.SecretNameReference{Name: secretName}
 		}
+	}
+}
+
+func WithSource(source string) func(*v1alpha1.PodNetworkConnectivityCheck) {
+	return func(check *v1alpha1.PodNetworkConnectivityCheck) {
+		check.Name = strings.Replace(check.Name, "$(SOURCE)", source, -1)
+	}
+}
+
+func WithTarget(target string) func(*v1alpha1.PodNetworkConnectivityCheck) {
+	return func(check *v1alpha1.PodNetworkConnectivityCheck) {
+		check.Name = strings.Replace(check.Name, "$(TARGET)", target, -1)
 	}
 }
