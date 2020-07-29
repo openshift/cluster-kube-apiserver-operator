@@ -234,7 +234,7 @@ func manageStatusLogs(check *operatorcontrolplanev1alpha1.PodNetworkConnectivity
 // PodNetworkConnectivityCheck.Status entries based on Successes/Failures log entries.
 func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFunc {
 	return func(status *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheckStatus) {
-		// This func is kept simple by assuming that only on log entry has been
+		// This func is kept simple by assuming that only one log entry has been
 		// added since the last time this method was invoked. See checkEndpoint func.
 		var currentOutage *operatorcontrolplanev1alpha1.OutageEntry
 		if len(status.Outages) > 0 && status.Outages[0].End.IsZero() {
@@ -247,16 +247,45 @@ func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFu
 		if len(status.Successes) > 0 {
 			latestSuccess = status.Successes[0]
 		}
-		if currentOutage == nil {
-			if latestFailure.Start.After(latestSuccess.Start.Time) {
-				recorder.Warningf("ConnectivityOutageDetected", "Connectivity outage detected: %s", latestFailure.Message)
-				status.Outages = append([]operatorcontrolplanev1alpha1.OutageEntry{{Start: latestFailure.Start}}, status.Outages...)
+		switch {
+		case currentOutage == nil && latestFailure.Start.After(latestSuccess.Start.Time):
+			// outage started
+			newOutage := operatorcontrolplanev1alpha1.OutageEntry{
+				Start:     latestFailure.Start,
+				StartLogs: []operatorcontrolplanev1alpha1.LogEntry{latestFailure},
+				EndLogs:   []operatorcontrolplanev1alpha1.LogEntry{latestFailure},
+				Message:   fmt.Sprintf("Connectivity outage detected at %v", latestFailure.Start.Format(time.RFC3339Nano)),
 			}
-		} else {
-			if latestSuccess.Start.After(latestFailure.Start.Time) {
-				currentOutage.End = latestSuccess.Start
-				recorder.Eventf("ConnectivityRestored", "Connectivity restored after %v: %s", currentOutage.End.Sub(currentOutage.Start.Time), latestSuccess.Message)
+			status.Outages = append([]operatorcontrolplanev1alpha1.OutageEntry{newOutage}, status.Outages...)
+			recorder.Warningf("ConnectivityOutageDetected", "Connectivity outage detected: %s", latestFailure.Message)
+		case currentOutage != nil && latestFailure.Start.After(latestSuccess.Start.Time):
+			// outage ongoing, add failure to start and end logs
+			switch {
+			case len(currentOutage.StartLogs) == 0:
+				// not expected since new outages should always have at least one start log entry.
+				fallthrough
+			case len(currentOutage.StartLogs) < 5 && currentOutage.StartLogs[0].Message != latestFailure.Message:
+				// append (up to 5) failure log entry to start log if failure reason/message has changed
+				currentOutage.StartLogs = append([]operatorcontrolplanev1alpha1.LogEntry{latestFailure}, currentOutage.StartLogs...)
 			}
+			// append failure log entry to end log
+			currentOutage.EndLogs = append([]operatorcontrolplanev1alpha1.LogEntry{latestFailure}, currentOutage.EndLogs...)
+			if len(currentOutage.EndLogs) > 5 {
+				// limit end log to 5 latest entries
+				currentOutage.EndLogs = currentOutage.EndLogs[:5]
+			}
+		case currentOutage != nil && latestSuccess.Start.After(latestFailure.Start.Time):
+			// outage ended
+			currentOutage.End = latestSuccess.Start
+			outageDuration := currentOutage.End.Sub(currentOutage.Start.Time)
+			currentOutage.EndLogs = append([]operatorcontrolplanev1alpha1.LogEntry{latestSuccess}, currentOutage.EndLogs...)
+			if len(currentOutage.EndLogs) > 5 {
+				currentOutage.EndLogs = currentOutage.EndLogs[:5]
+			}
+			currentOutage.Message = fmt.Sprintf("Connectivity restored after %v", outageDuration)
+			recorder.Eventf("ConnectivityRestored", "Connectivity restored after %v: %s", outageDuration, latestSuccess.Message)
+		default:
+			// no outage in progress
 		}
 	}
 }
