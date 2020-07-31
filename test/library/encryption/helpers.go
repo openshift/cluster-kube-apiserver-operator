@@ -11,8 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/etcd/clientv3"
 
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	operatorlibrary "github.com/openshift/cluster-kube-apiserver-operator/test/library"

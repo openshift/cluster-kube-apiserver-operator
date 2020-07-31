@@ -1,6 +1,7 @@
 package render
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,11 +12,15 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -309,6 +314,37 @@ func TestRenderCommand(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
+	raw, err := getDefaultConfigWithAuditPolicy()
+	require.NoError(t, err)
+	require.True(t, len(raw) > 0)
+
+	decoder := json.NewDecoder(bytes.NewBuffer(raw))
+	config := map[string]interface{}{}
+	err = decoder.Decode(&config)
+	require.NoError(t, err)
+
+	auditPolicyPathGot, _, err := unstructured.NestedStringSlice(config, "apiServerArguments", "audit-policy-file")
+	require.NoError(t, err)
+	require.Equal(t, []string{"openshift.local.audit/policy.yaml"}, auditPolicyPathGot)
+
+	auditConfigEnabledGot, _, err := unstructured.NestedBool(config, "auditConfig", "enabled")
+	require.NoError(t, err)
+	require.True(t, auditConfigEnabledGot)
+
+	auditConfigPolicyGot, _, err := unstructured.NestedMap(config, "auditConfig", "policyConfiguration")
+	require.NoError(t, err)
+	require.NotNil(t, auditConfigPolicyGot)
+
+	defaultPolicy, err := audit.DefaultPolicy()
+	require.NoError(t, err)
+	policyExpected, err := convertToUnstructured(defaultPolicy)
+	require.NoError(t, err)
+
+	isEqual := equality.Semantic.DeepEqual(policyExpected, auditConfigPolicyGot)
+	require.True(t, isEqual)
 }
 
 func setupAssetOutputDir(testName string) (teardown func(), outputDir string, err error) {

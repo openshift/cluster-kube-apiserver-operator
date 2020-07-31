@@ -61,3 +61,7 @@ func (l Listers) ProxyLister() configlistersv1.ProxyLister {
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
 	return l.PreRunCachesSynced
 }
+
+func (l Listers) ConfigMapLister() corelistersv1.ConfigMapLister {
+	return l.ConfigmapLister
+}

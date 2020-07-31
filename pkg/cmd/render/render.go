@@ -1,23 +1,28 @@
 package render
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"path/filepath"
 
-	"github.com/ghodss/yaml"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+
+	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const (
@@ -179,9 +184,14 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
+	defaultConfig, err := getDefaultConfigWithAuditPolicy()
+	if err != nil {
+		return fmt.Errorf("failed to get default config with audit policy - %s", err)
+	}
+
 	if err := r.generic.ApplyTo(
 		&renderConfig.FileConfig,
-		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: v410_00_assets.MustAsset(filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml"))},
+		genericrenderoptions.Template{FileName: "defaultconfig.yaml", Content: defaultConfig},
 		mustReadTemplateFile(filepath.Join(r.generic.TemplatesDir, "config", "bootstrap-config-overrides.yaml")),
 		&renderConfig,
 		nil,
@@ -190,6 +200,79 @@ func (r *renderOpts) Run() error {
 	}
 
 	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig)
+}
+
+func getDefaultConfigWithAuditPolicy() ([]byte, error) {
+	defaultPolicy, err := audit.DefaultPolicy()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
+	}
+
+	policy, err := convertToUnstructured(defaultPolicy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode audit policy into unstructured - %s", err)
+	}
+
+	asset := filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml")
+	raw, err := v410_00_assets.Asset(asset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default config asset asset=%s - %s", asset, err)
+	}
+
+	rawJSON, err := kyaml.ToJSON(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert asset yaml to JSON asset=%s - %s", asset, err)
+	}
+
+	defaultConfig, err := convertToUnstructured(rawJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode default config into unstructured - %s", err)
+	}
+
+	if err := addAuditPolicyToConfig(defaultConfig, policy); err != nil {
+		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
+	}
+
+	defaultConfigRaw, err := json.Marshal(defaultConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal default config - %s", err)
+	}
+
+	return defaultConfigRaw, nil
+}
+
+func addAuditPolicyToConfig(config, policy map[string]interface{}) error {
+	const (
+		auditConfigPath  = "auditConfig"
+		localAuditPolicy = "openshift.local.audit/policy.yaml"
+	)
+
+	auditConfigEnabledPath := []string{auditConfigPath, "enabled"}
+	if err := unstructured.SetNestedField(config, true, auditConfigEnabledPath...); err != nil {
+		return fmt.Errorf("failed to set audit configuration field=%s - %s", auditConfigEnabledPath, err)
+	}
+
+	auditConfigPolicyConfigurationPath := []string{auditConfigPath, "policyConfiguration"}
+	if err := unstructured.SetNestedMap(config, policy, auditConfigPolicyConfigurationPath...); err != nil {
+		return fmt.Errorf("failed to set audit configuration field=%s - %s", auditConfigPolicyConfigurationPath, err)
+	}
+
+	apiServerArgumentsAuditPath := []string{"apiServerArguments", "audit-policy-file"}
+	if err := unstructured.SetNestedStringSlice(config, []string{localAuditPolicy}, apiServerArgumentsAuditPath...); err != nil {
+		return fmt.Errorf("failed to set audit configuration field=%s - %s", apiServerArgumentsAuditPath, err)
+	}
+
+	return nil
+}
+
+func convertToUnstructured(raw []byte) (map[string]interface{}, error) {
+	decoder := json.NewDecoder(bytes.NewBuffer(raw))
+	u := map[string]interface{}{}
+	if err := decoder.Decode(&u); err != nil {
+		return nil, err
+	}
+
+	return u, nil
 }
 
 func mustReadTemplateFile(fname string) genericrenderoptions.Template {
