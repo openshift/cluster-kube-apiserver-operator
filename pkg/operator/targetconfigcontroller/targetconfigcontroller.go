@@ -206,9 +206,7 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/cm.yaml"))
 	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig.yaml")
 	configOverrides := v410_00_assets.MustAsset("v4.1.0/config/config-overrides.yaml")
-	specialMergeRules := map[string]resourcemerge.MergeFunc{
-		".oauthConfig": RemoveConfig,
-	}
+	specialMergeRules := map[string]resourcemerge.MergeFunc{}
 
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&kubecontrolplanev1.KubeAPIServerConfig{},

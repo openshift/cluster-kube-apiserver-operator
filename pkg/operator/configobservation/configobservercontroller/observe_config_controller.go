@@ -5,10 +5,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	configobserveroauth "github.com/openshift/library-go/pkg/operator/configobserver/oauth"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	encryption "github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -23,7 +25,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/controller/factory"
 )
 
 var FeatureBlacklist sets.String
@@ -62,6 +63,7 @@ func NewConfigObserver(
 		configInformer.Config().V1().Images().Informer(),
 		configInformer.Config().V1().Infrastructures().Informer(),
 		configInformer.Config().V1().Authentications().Informer(),
+		configInformer.Config().V1().OAuths().Informer(),
 		configInformer.Config().V1().APIServers().Informer(),
 		configInformer.Config().V1().Networks().Informer(),
 		configInformer.Config().V1().Proxies().Informer(),
@@ -82,6 +84,7 @@ func NewConfigObserver(
 				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
 				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
 				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
+				OAuthLister_:          configInformer.Config().V1().OAuths().Lister(),
 				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
@@ -104,6 +107,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
+					configInformer.Config().V1().OAuths().Informer().HasSynced,
 					configInformer.Config().V1().Proxies().Informer().HasSynced,
 					configInformer.Config().V1().Schedulers().Informer().HasSynced,
 				),
@@ -139,6 +143,7 @@ func NewConfigObserver(
 			network.ObserveServicesSubnet,
 			network.ObserveExternalIPPolicy,
 			network.ObserveServicesNodePortRange,
+			configobserveroauth.ObserveAccessTokenInactivityTimeout,
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,

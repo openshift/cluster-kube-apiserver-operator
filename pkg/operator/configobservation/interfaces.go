@@ -18,6 +18,7 @@ type Listers struct {
 	InfrastructureLister_ configlistersv1.InfrastructureLister
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
+	OAuthLister_          configlistersv1.OAuthLister
 	ProxyLister_          configlistersv1.ProxyLister
 	SchedulerLister       configlistersv1.SchedulerLister
 
@@ -44,6 +45,10 @@ func (l Listers) InfrastructureLister() configlistersv1.InfrastructureLister {
 
 func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 	return l.ResourceSync
+}
+
+func (l Listers) OAuthLister() configlistersv1.OAuthLister {
+	return l.OAuthLister_
 }
 
 func (l Listers) SecretLister() corelistersv1.SecretLister {
