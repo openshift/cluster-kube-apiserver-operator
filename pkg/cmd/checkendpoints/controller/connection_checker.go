@@ -40,7 +40,7 @@ func NewConnectionChecker(name, podName string, getCheck GetCheckFunc, client v1
 		client:           client,
 		clientCertGetter: clientCertGetter,
 		recorder:         recorder,
-		updates:          NewUpdatesManager(checkTimeout+checkPeriod, newUpdatesProcessor(client, name)),
+		updates:          NewUpdatesManager(checkPeriod, checkTimeout, newUpdatesProcessor(client, name)),
 		stop:             make(chan interface{}),
 	}
 }
