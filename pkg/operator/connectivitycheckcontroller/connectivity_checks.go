@@ -212,6 +212,10 @@ func (c *connectivityCheckTemplateProvider) listAddressesForEtcdServerEndpoints(
 }
 
 func (c *connectivityCheckTemplateProvider) findNodeForInternalIP(internalIP string) (*v1.Node, error) {
+	switch internalIP {
+	case "localhost", "127.0.0.1", "::1":
+		return &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "localhost"}}, nil
+	}
 	nodes, err := c.nodeLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
