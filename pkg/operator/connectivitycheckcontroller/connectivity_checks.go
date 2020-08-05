@@ -9,6 +9,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -21,19 +23,14 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-func NewKubeAPIServerConnectivityCheckController(
-	kubeClient kubernetes.Interface,
-	operatorClient v1helpers.StaticPodOperatorClient,
-	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
-	recorder events.Recorder,
-) ConnectivityCheckController {
+func NewKubeAPIServerConnectivityCheckController(kubeClient kubernetes.Interface, operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset, configInformers configinformers.SharedInformerFactory, recorder events.Recorder) ConnectivityCheckController {
 	templateProvider := &connectivityCheckTemplateProvider{
-		kubeClient:      kubeClient,
-		operatorClient:  operatorClient,
-		endpointsLister: kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Lister(),
-		serviceLister:   kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Lister(),
-		nodeLister:      kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		kubeClient:           kubeClient,
+		operatorClient:       operatorClient,
+		endpointsLister:      kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Lister(),
+		serviceLister:        kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Lister(),
+		nodeLister:           kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		infrastructureLister: configInformers.Config().V1().Infrastructures().Lister(),
 	}
 
 	c := NewConnectivityCheckController(
@@ -42,6 +39,7 @@ func NewKubeAPIServerConnectivityCheckController(
 		[]factory.Informer{
 			kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Informer(),
+			configInformers.Config().V1().Infrastructures().Informer(),
 		},
 		recorder).
 		WithPodNetworkConnectivityCheckFn(templateProvider.getPodNetworkConnectivityChecks)
@@ -50,11 +48,12 @@ func NewKubeAPIServerConnectivityCheckController(
 }
 
 type connectivityCheckTemplateProvider struct {
-	kubeClient      kubernetes.Interface
-	operatorClient  v1helpers.OperatorClient
-	endpointsLister corev1listers.EndpointsLister
-	serviceLister   corev1listers.ServiceLister
-	nodeLister      corev1listers.NodeLister
+	kubeClient           kubernetes.Interface
+	operatorClient       v1helpers.OperatorClient
+	endpointsLister      corev1listers.EndpointsLister
+	serviceLister        corev1listers.ServiceLister
+	nodeLister           corev1listers.NodeLister
+	infrastructureLister configv1listers.InfrastructureLister
 }
 
 func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx context.Context, syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error) {
@@ -62,23 +61,30 @@ func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx 
 	// each storage endpoint
 	etcdEndpoints, err := c.getTemplatesForEtcdEndpoints(syncContext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list etcd IPs: %w", err)
+		syncContext.Recorder().Warningf("EndpointDetectionFailure", "error detecting etcd server endpoints: %v", err)
 	}
 	templates = append(templates, etcdEndpoints...)
 
 	// oas service IP
 	oasServiceIP, err := c.getTemplatesForOpenShiftAPIServerService(syncContext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list openshift-apiserver service IP: %w", err)
+		syncContext.Recorder().Warningf("EndpointDetectionFailure", "error detecting openshift-apiserver service: %v", err)
 	}
 	templates = append(templates, oasServiceIP...)
 
 	// each oas endpoint
 	oasEndpointIPs, err := c.getTemplatesForOpenShiftAPIServerEndpoints(syncContext)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list openshift-apiserver endpoint IPs: %w", err)
+		syncContext.Recorder().Warningf("EndpointDetectionFailure", "error detecting openshift-apiserver service endpoints: %v", err)
 	}
 	templates = append(templates, oasEndpointIPs...)
+
+	// api load balancer endpoints
+	loadBalancerEndpoints, err := c.getTemplatesForApiLoadBalancerEndpoints(syncContext)
+	if err != nil {
+		syncContext.Recorder().Warningf("EndpointDetectionFailure", "error detecting api load balancer endpoints: %v", err)
+	}
+	templates = append(templates, loadBalancerEndpoints...)
 
 	nodes, err := c.kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: labels.Set{"node-role.kubernetes.io/master": ""}.AsSelector().String(),
@@ -131,7 +137,6 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForOpenShiftAPIServerEnd
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	addresses, err := c.listAddressesForOpenShiftAPIServerServiceEndpoints(syncContext)
 	if err != nil {
-		syncContext.Recorder().Warningf("EndpointDetectionFailure", "error detecting openshift-apiserver service endpoints: %v", err)
 		return nil, err
 	}
 	for _, address := range addresses {
@@ -209,6 +214,25 @@ func (c *connectivityCheckTemplateProvider) listAddressesForEtcdServerEndpoints(
 		})
 	}
 	return results, nil
+}
+
+func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerEndpoints(syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error) {
+	var templates []*v1alpha1.PodNetworkConnectivityCheck
+	infrastructure, err := c.infrastructureLister.Get("cluster")
+	if err != nil {
+		return nil, err
+	}
+	apiUrl, err := url.Parse(infrastructure.Status.APIServerURL)
+	if err != nil {
+		return nil, err
+	}
+	templates = append(templates, NewPodNetworkProductivityCheckTemplate(apiUrl.Host, withTarget("load-balancer", "api")))
+	apiInternalUrl, err := url.Parse(infrastructure.Status.APIServerInternalURL)
+	if err != nil {
+		return nil, err
+	}
+	templates = append(templates, NewPodNetworkProductivityCheckTemplate(apiInternalUrl.Host, withTarget("load-balancer", "api-internal")))
+	return templates, err
 }
 
 func (c *connectivityCheckTemplateProvider) findNodeForInternalIP(internalIP string) (*v1.Node, error) {
