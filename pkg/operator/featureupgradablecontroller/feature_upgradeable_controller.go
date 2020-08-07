@@ -22,7 +22,7 @@ import (
 var (
 	featureUpgradeableControllerWorkQueueKey = "key"
 
-	featureGatesAllowingUpgrade = sets.NewString("")
+	featureGatesAllowingUpgrade = sets.NewString("", string(configv1.LatencySensitive))
 )
 
 // FeatureUpgradeableController is a controller that sets upgradeable=false if anything outside the whitelist is the specified featuregates.

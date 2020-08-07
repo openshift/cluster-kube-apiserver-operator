@@ -45,6 +45,16 @@ func TestNewUpgradeableCondition(t *testing.T) {
 				Message: "\"TechPreviewNoUpgrade\" does not allow updates",
 			},
 		},
+		{
+			name:     "latencysensitive",
+			features: string(configv1.LatencySensitive),
+			expected: operatorv1.OperatorCondition{
+				Reason:  "AllowedFeatureGates_LatencySensitive",
+				Status:  "True",
+				Type:    "FeatureGatesUpgradeable",
+				Message: "",
+			},
+		},
 	}
 
 	for _, test := range tests {
