@@ -226,7 +226,7 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerEndpoi
 	if err != nil {
 		return nil, err
 	}
-	templates = append(templates, NewPodNetworkProductivityCheckTemplate(apiUrl.Host, withTarget("load-balancer", "api")))
+	templates = append(templates, NewPodNetworkProductivityCheckTemplate(apiUrl.Host, withTarget("load-balancer", "api-external")))
 	apiInternalUrl, err := url.Parse(infrastructure.Status.APIServerInternalURL)
 	if err != nil {
 		return nil, err
