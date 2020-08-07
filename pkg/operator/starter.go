@@ -103,7 +103,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
-
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		kubeInformersForNamespaces,
@@ -150,6 +149,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorClient,
 		kubeInformersForNamespaces,
 		operatorcontrolplaneClient,
+		configInformers,
 		controllerContext.EventRecorder,
 	)
 
