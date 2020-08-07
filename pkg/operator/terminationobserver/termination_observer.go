@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 )

@@ -15,7 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	coreinformersv1 "k8s.io/client-go/informers/core/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // PodNetworkConnectivityCheckController continuously performs network connectivity
