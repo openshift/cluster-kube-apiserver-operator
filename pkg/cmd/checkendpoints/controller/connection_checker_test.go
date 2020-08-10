@@ -21,11 +21,12 @@ func TestManageStatusLogs(t *testing.T) {
 	testDNSErr := &net.OpError{Op: "connect", Net: "tcp", Err: &net.DNSError{Err: "test error", Name: "host"}}
 
 	testCases := []struct {
-		name     string
-		err      error
-		trace    *trace.LatencyInfo
-		initial  *v1alpha1.PodNetworkConnectivityCheckStatus
-		expected *v1alpha1.PodNetworkConnectivityCheckStatus
+		name              string
+		err               error
+		trace             *trace.LatencyInfo
+		initial           *v1alpha1.PodNetworkConnectivityCheckStatus
+		expected          *v1alpha1.PodNetworkConnectivityCheckStatus
+		expectedTimestamp time.Time
 	}{
 		{
 			name: "TCPConnect",
@@ -37,6 +38,7 @@ func TestManageStatusLogs(t *testing.T) {
 			expected: podNetworkConnectivityCheckStatus(
 				withSuccessEntry(tcpConnectEntry(0)),
 			),
+			expectedTimestamp: testTime(0),
 		},
 		{
 			name: "DNSResolve",
@@ -51,6 +53,7 @@ func TestManageStatusLogs(t *testing.T) {
 				withSuccessEntry(tcpConnectEntry(1)),
 				withSuccessEntry(dnsResolveEntry(0)),
 			),
+			expectedTimestamp: testTime(0),
 		},
 		{
 			name: "DNSError",
@@ -63,6 +66,7 @@ func TestManageStatusLogs(t *testing.T) {
 			expected: podNetworkConnectivityCheckStatus(
 				withFailureEntry(dnsErrorEntry(0)),
 			),
+			expectedTimestamp: testTime(0),
 		},
 		{
 			name: "TCPConnectError",
@@ -75,6 +79,7 @@ func TestManageStatusLogs(t *testing.T) {
 			expected: podNetworkConnectivityCheckStatus(
 				withFailureEntry(tcpConnectErrorEntry(0)),
 			),
+			expectedTimestamp: testTime(0),
 		},
 		{
 			name: "DNSResolveTCPConnectError",
@@ -90,6 +95,7 @@ func TestManageStatusLogs(t *testing.T) {
 				withFailureEntry(tcpConnectErrorEntry(1)),
 				withSuccessEntry(dnsResolveEntry(0)),
 			),
+			expectedTimestamp: testTime(0),
 		},
 		{
 			name: "SuccessSort",
@@ -111,12 +117,13 @@ func TestManageStatusLogs(t *testing.T) {
 				withSuccessEntry(tcpConnectEntry(1)),
 				withSuccessEntry(tcpConnectEntry(0)),
 			),
+			expectedTimestamp: testTime(3),
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			status := tc.initial
-			updateStatusFuncs := manageStatusLogs(&v1alpha1.PodNetworkConnectivityCheck{
+			updateStatusFuncs, timestamp := manageStatusLogs(&v1alpha1.PodNetworkConnectivityCheck{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-to-target-endpoint",
 				},
@@ -128,6 +135,7 @@ func TestManageStatusLogs(t *testing.T) {
 				updateStatusFunc(status)
 			}
 			assert.Equal(t, tc.expected, status)
+			assert.Equal(t, tc.expectedTimestamp, timestamp)
 		})
 	}
 }
