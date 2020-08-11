@@ -5,7 +5,7 @@ import (
 	"net/http/httptrace"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type LatencyInfo struct {

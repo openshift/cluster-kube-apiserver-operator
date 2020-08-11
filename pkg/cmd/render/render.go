@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"

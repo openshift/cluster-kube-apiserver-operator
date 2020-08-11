@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/recovery"
 )

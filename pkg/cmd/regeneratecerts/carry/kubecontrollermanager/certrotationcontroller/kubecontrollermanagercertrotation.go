@@ -12,7 +12,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts/carry/kubecontrollermanager/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"

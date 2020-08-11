@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/watch"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configexternalinformers "github.com/openshift/client-go/config/informers/externalversions"

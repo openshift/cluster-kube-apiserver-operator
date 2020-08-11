@@ -27,7 +27,7 @@ require (
 	k8s.io/apiserver v0.19.0-rc.2
 	k8s.io/client-go v0.19.0-rc.2
 	k8s.io/component-base v0.19.0-rc.2
-	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.2.0
 )
 
 replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca

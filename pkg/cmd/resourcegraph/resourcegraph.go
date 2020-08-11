@@ -5,7 +5,7 @@ import (
 
 	"github.com/gonum/graph/encoding/dot"
 	"github.com/spf13/cobra"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcegraph"
