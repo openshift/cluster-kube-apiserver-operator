@@ -3,6 +3,7 @@
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
@@ -436,6 +437,49 @@ func v410KubeApiserverAuditPoliciesCmYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/audit-policies-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverCheckEndpointsKubeconfigCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: check-endpoints-kubeconfig
+  namespace: openshift-kube-apiserver
+data:
+  kubeconfig: |
+    apiVersion: v1
+    clusters:
+      - cluster:
+          certificate-authority: /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-server-ca/ca-bundle.crt
+          server: https://localhost:6443
+        name: loopback
+    contexts:
+      - context:
+          cluster: loopback
+          user: check-endpoints
+        name: check-endpoints
+    current-context: check-endpoints
+    kind: Config
+    preferences: {}
+    users:
+      - name: check-endpoints
+        user:
+          client-certificate: /etc/kubernetes/static-pod-certs/secrets/check-endpoints-client-cert-key/tls.crt
+          client-key: /etc/kubernetes/static-pod-certs/secrets/check-endpoints-client-cert-key/tls.key
+`)
+
+func v410KubeApiserverCheckEndpointsKubeconfigCmYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsKubeconfigCmYaml, nil
+}
+
+func v410KubeApiserverCheckEndpointsKubeconfigCmYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsKubeconfigCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1162,6 +1206,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/config/config-overrides.yaml":                         v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                            v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                v410KubeApiserverAuditPoliciesCmYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml":    v410KubeApiserverCheckEndpointsKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/cm.yaml":                               v410KubeApiserverCmYaml,
 	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml": v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                    v410KubeApiserverKubeconfigCmYaml,
@@ -1226,6 +1271,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
 			"audit-policies-cm.yaml":                {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
+			"check-endpoints-kubeconfig-cm.yaml":    {v410KubeApiserverCheckEndpointsKubeconfigCmYaml, map[string]*bintree{}},
 			"cm.yaml":                               {v410KubeApiserverCmYaml, map[string]*bintree{}},
 			"control-plane-node-kubeconfig-cm.yaml": {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
 			"kubeconfig-cm.yaml":                    {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},

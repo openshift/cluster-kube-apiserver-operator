@@ -529,6 +529,46 @@ func newCertRotationController(
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
+	certRotator = certrotation.NewCertRotationController(
+		"CheckEndpointsClient",
+		certrotation.SigningRotation{
+			Namespace:              operatorclient.OperatorNamespace,
+			Name:                   "kube-control-plane-signer",
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:                 kubeClient.CoreV1(),
+			EventRecorder:          eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "kube-control-plane-signer-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace:              operatorclient.TargetNamespace,
+			Name:                   "check-endpoints-client-cert-key",
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertCreator: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+		eventRecorder,
+	)
+	ret.certRotators = append(ret.certRotators, certRotator)
+
 	return ret, nil
 }
 
