@@ -32,7 +32,7 @@ type ConnectionChecker interface {
 type GetCheckFunc func() *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
 
 // NewConnectionChecker returns a ConnectionChecker.
-func NewConnectionChecker(name, podName string, getCheck GetCheckFunc, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
+func NewConnectionChecker(name, podName, podNamespace string, getCheck GetCheckFunc, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
 	return &connectionChecker{
 		name:             name,
 		podName:          podName,
@@ -42,6 +42,7 @@ func NewConnectionChecker(name, podName string, getCheck GetCheckFunc, client v1
 		recorder:         recorder,
 		updates:          NewUpdatesManager(checkPeriod, checkTimeout, newUpdatesProcessor(client, name)),
 		stop:             make(chan interface{}),
+		metrics:          NewMetricsContext(podNamespace, name),
 	}
 }
 
@@ -64,6 +65,7 @@ type connectionChecker struct {
 	recorder         events.Recorder
 	updates          UpdatesManager
 	stop             chan interface{}
+	metrics          MetricsContext
 }
 
 // checkConnection checks the connection periodically, updating status as needed
@@ -149,7 +151,7 @@ func (c *connectionChecker) getTCPConnectLatency(ctx context.Context, address st
 	}
 	tcpConn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
-		updateMetrics(address, latencyInfo, err)
+		c.metrics.Update(address, latencyInfo, err)
 		return latencyInfo, err
 	}
 
@@ -160,14 +162,14 @@ func (c *connectionChecker) getTCPConnectLatency(ctx context.Context, address st
 		// ignore any error. most likely non-tls connection, plus we're not really testing tls
 		klog.V(4).Infof("%s: tls error ignored: %v", address, err)
 		_ = tcpConn.Close()
-		updateMetrics(address, latencyInfo, nil)
+		c.metrics.Update(address, latencyInfo, nil)
 		return latencyInfo, nil
 	}
 
 	// gracefully close connection (ignore error)
 	_ = tlsConn.Close()
 
-	updateMetrics(address, latencyInfo, err)
+	c.metrics.Update(address, latencyInfo, err)
 	return latencyInfo, err
 }
 

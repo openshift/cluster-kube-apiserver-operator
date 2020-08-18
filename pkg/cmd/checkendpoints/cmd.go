@@ -3,7 +3,6 @@ package checkendpoints
 import (
 	"context"
 	"os"
-	"strings"
 	"time"
 
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
@@ -31,7 +30,7 @@ func NewCheckEndpointsCommand() *cobra.Command {
 			kubeInformers.Core().V1().Secrets(),
 			cctx.EventRecorder,
 		)
-		controller.RegisterMetrics(strings.Replace(namespace, "-", "_", -1) + "_")
+		controller.RegisterMetrics()
 		operatorcontrolplaneInformers.Start(ctx.Done())
 		kubeInformers.Start(ctx.Done())
 		go check.Run(ctx, 1)
