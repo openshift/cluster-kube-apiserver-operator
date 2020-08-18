@@ -105,12 +105,11 @@ func TestTokenInactivityTimeout(t *testing.T) {
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testTokenTimeouts)
 	})
 
-	updateOAuthConfigInactivityTimeout(t, configClient, &metav1.Duration{Duration: time.Duration(configInactivityTimeout) * time.Second})
-	test.WaitForKubeAPIServerStartProgressing(t, configClient)
-	test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
-
 	// With only OAuth config timeout.
 	t.Run("with-inactivity-timeout", func(t *testing.T) {
+		updateOAuthConfigInactivityTimeout(t, configClient, &metav1.Duration{Duration: time.Duration(configInactivityTimeout) * time.Second})
+		test.WaitForKubeAPIServerStartProgressing(t, configClient)
+		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testInactivityTimeoutScenarios)
 	})
 
@@ -119,12 +118,11 @@ func TestTokenInactivityTimeout(t *testing.T) {
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, &oauthClientTimeout, testInactivityTimeoutScenarios)
 	})
 
-	updateOAuthConfigInactivityTimeout(t, configClient, nil)
-	test.WaitForKubeAPIServerStartProgressing(t, configClient)
-	test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
-
 	// No OAuthClient timeout and no OAuth config timeout.
 	t.Run("unset-inactivity-timeout-client-timeout", func(t *testing.T) {
+		updateOAuthConfigInactivityTimeout(t, configClient, nil)
+		test.WaitForKubeAPIServerStartProgressing(t, configClient)
+		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testTokenTimeouts)
 	})
 
