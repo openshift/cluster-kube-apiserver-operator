@@ -720,7 +720,11 @@ spec:
                     allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
                   additionalProperties:
-                    type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
                 requests:
                   description: 'Requests describes the minimum amount of compute resources
                     required. If Requests is omitted for a container, it defaults
@@ -728,7 +732,11 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
                   additionalProperties:
-                    type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
             rolloutStrategy:
               description: rolloutStrategy defines rollout strategy for the image
                 registry deployment.
@@ -811,6 +819,12 @@ spec:
                       description: region is the GCS location in which your bucket
                         exists. Optional, will be set based on the installed GCS Region.
                       type: string
+                managementState:
+                  description: managementState indicates if the operator manages the
+                    underlying storage unit. If Managed the operator will remove the
+                    storage when this operator gets Removed.
+                  type: string
+                  pattern: ^(Managed|Unmanaged)$
                 pvc:
                   description: pvc represents configuration that uses a PersistentVolumeClaim.
                   type: object
@@ -1089,6 +1103,12 @@ spec:
                       description: region is the GCS location in which your bucket
                         exists. Optional, will be set based on the installed GCS Region.
                       type: string
+                managementState:
+                  description: managementState indicates if the operator manages the
+                    underlying storage unit. If Managed the operator will remove the
+                    storage when this operator gets Removed.
+                  type: string
+                  pattern: ^(Managed|Unmanaged)$
                 pvc:
                   description: pvc represents configuration that uses a PersistentVolumeClaim.
                   type: object
@@ -1206,8 +1226,7 @@ spec:
                         registry.
                       type: string
             storageManaged:
-              description: storageManaged is a boolean which denotes whether or not
-                we created the registry storage medium (such as an S3 bucket).
+              description: storageManaged is deprecated, please refer to Storage.managementState
               type: boolean
             version:
               description: version is the level this availability applies to
