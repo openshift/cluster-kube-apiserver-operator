@@ -120,7 +120,7 @@ func (c *connectionChecker) Stop(ctx context.Context) {
 // updateStatus applies updates. If an error occurs applying an update,
 // it remain on the queue and retried on the next call to updateStatus.
 func (c *connectionChecker) updateStatus(ctx context.Context, flush bool) {
-	if err := c.updates.Process(ctx, false); err != nil {
+	if err := c.updates.Process(ctx, flush); err != nil {
 		klog.Warningf("Unable to update status of %s: %v", c.name, err)
 	}
 }
