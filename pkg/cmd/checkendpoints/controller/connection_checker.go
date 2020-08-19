@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"sync"
 	"time"
 
 	operatorcontrolplanev1alpha1 "github.com/openshift/api/operatorcontrolplane/v1alpha1"
@@ -235,6 +236,8 @@ func manageStatusLogs(check *operatorcontrolplanev1alpha1.PodNetworkConnectivity
 // manageStatusOutage returns a status update function that manages the
 // PodNetworkConnectivityCheck.Status.Outage entries based on Successes/Failures log entries.
 func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFunc {
+	// events should only be emitted the first time the update func is invoked
+	var once sync.Once
 	return func(status *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheckStatus) {
 		// This func is kept simple by assuming that only one log entry has been
 		// added since the last time this method was invoked. See checkEndpoint func.
@@ -259,7 +262,9 @@ func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFu
 				Message:   fmt.Sprintf("Connectivity outage detected at %v", latestFailure.Start.Format(time.RFC3339Nano)),
 			}
 			status.Outages = append([]operatorcontrolplanev1alpha1.OutageEntry{newOutage}, status.Outages...)
-			recorder.Warningf("ConnectivityOutageDetected", "Connectivity outage detected: %s", latestFailure.Message)
+			once.Do(func() {
+				recorder.Warningf("ConnectivityOutageDetected", "Connectivity outage detected: %s", latestFailure.Message)
+			})
 		case currentOutage != nil && latestFailure.Start.After(latestSuccess.Start.Time):
 			// outage ongoing, add failure to start and end logs
 			switch {
@@ -285,7 +290,9 @@ func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFu
 				currentOutage.EndLogs = currentOutage.EndLogs[:5]
 			}
 			currentOutage.Message = fmt.Sprintf("Connectivity restored after %v", outageDuration)
-			recorder.Eventf("ConnectivityRestored", "Connectivity restored after %v: %s", outageDuration, latestSuccess.Message)
+			once.Do(func() {
+				recorder.Eventf("ConnectivityRestored", "Connectivity restored after %v: %s", outageDuration, latestSuccess.Message)
+			})
 		default:
 			// no outage in progress
 		}

@@ -377,6 +377,42 @@ func TestManageStatusOutage(t *testing.T) {
 
 }
 
+func TestManageStatusOutageEvents(t *testing.T) {
+
+	initialStatus := podNetworkConnectivityCheckStatus(withFailureEntry(tcpConnectErrorEntry(1)))
+
+	// outage update 1
+	recorder := events.NewInMemoryRecorder(t.Name())
+	update1 := manageStatusOutage(recorder)
+	status := initialStatus.DeepCopy()
+	update1(status)
+	assert.Len(t, recorder.Events(), 1)
+
+	// outage update 1 retry
+	status = initialStatus.DeepCopy()
+	update1(status)
+	assert.Len(t, recorder.Events(), 1)
+
+	// outage update 2
+	initialStatus = podNetworkConnectivityCheckStatus(
+		withFailureEntry(tcpConnectErrorEntry(1)),
+		withSuccessEntry(tcpConnectEntry(2)),
+		withOutageEntry(1),
+	)
+	update2 := manageStatusOutage(recorder)
+	status = initialStatus.DeepCopy()
+	update2(status)
+	assert.Len(t, recorder.Events(), 2)
+
+	// outage update 1 retry
+	status = initialStatus.DeepCopy()
+	update2(status)
+	assert.Len(t, recorder.Events(), 2)
+
+	t.Log(mergepatch.ToYAMLOrError(recorder.Events()))
+
+}
+
 func testTime(sec int) time.Time {
 	return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC)
 }
