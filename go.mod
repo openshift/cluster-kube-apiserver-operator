@@ -13,8 +13,8 @@ require (
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200728200559-811027b63048
-	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
+	github.com/openshift/api v0.0.0-20200821103244-f9a461848172
+	github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7
 	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15
 	github.com/openshift/library-go v0.0.0-20200817190841-5e77ffd3a44f
 	github.com/prometheus/client_golang v1.7.1

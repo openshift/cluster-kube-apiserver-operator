@@ -367,10 +367,12 @@ github.com/opencontainers/image-spec v1.0.1/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zM
 github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
 github.com/openshift/api v0.0.0-20200722170803-0ba2c3658da6/go.mod h1:IXsT3F4NjLtRzfnQvwU+g/oPWpoNsVV5vd5aaOMO8eU=
 github.com/openshift/api v0.0.0-20200723134351-89de68875e7c/go.mod h1:IXsT3F4NjLtRzfnQvwU+g/oPWpoNsVV5vd5aaOMO8eU=
-github.com/openshift/api v0.0.0-20200728200559-811027b63048 h1:SiPbt+6AootApzihJmk6/VYpSTPzvJrh02fFx50lUCM=
-github.com/openshift/api v0.0.0-20200728200559-811027b63048/go.mod h1:IXsT3F4NjLtRzfnQvwU+g/oPWpoNsVV5vd5aaOMO8eU=
+github.com/openshift/api v0.0.0-20200821103244-f9a461848172 h1:8mEDyaXxvp6SH5a1sr+x1Vfr0oagxxuA9mxrKuem5VM=
+github.com/openshift/api v0.0.0-20200821103244-f9a461848172/go.mod h1:VxlbNnMs63PHurw9hgy1DKQKWmTmhRf3PULl7KwA5Kg=
 github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7 h1:iP7TOaN+tEVNUQ0ODEbN1ukjLz918lsIt7Czf8giWlM=
 github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
+github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7 h1:mOq7Mg1Q9d7nIDxe1SJ6pluMBQsbVxa6olyAGmfYWTg=
+github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15 h1:b2QkHrmaYtY6kzy2VrYLc+KBmCuTpJjgvBahPqpt6V0=
 github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15/go.mod h1:yd4Zpcdk+8JyMWi6v+h78jPqK0FvXbJY41Wq3SZxl+c=
 github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca h1:YNtyJnE53QuEUSjl7L1AARocI021o7cU2bvh4prDtiE=
