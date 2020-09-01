@@ -16,44 +16,63 @@ var (
 	dnsResolveLatencyGauge *metrics.GaugeVec
 )
 
-func RegisterMetrics(prefix string) {
+// RegisterMetrics in the global registry
+func RegisterMetrics() {
 	registerMetrics.Do(func() {
 		endpointCheckCounter = metrics.NewCounterVec(&metrics.CounterOpts{
-			Name: prefix + "endpoint_check_count",
-			Help: "Report status of endpoint checks for each pod over time.",
-		}, []string{"endpoint", "tcpConnect", "dnsResolve"})
+			Name: "pod_network_connectivity_check_count",
+			Help: "Report status of pod network connectivity checks over time.",
+		}, []string{"component", "checkName", "targetEndpoint", "tcpConnect", "dnsResolve"})
 
 		tcpConnectLatencyGauge = metrics.NewGaugeVec(&metrics.GaugeOpts{
-			Name: prefix + "endpoint_check_tcp_connect_latency_gauge",
-			Help: "Report latency of TCP connect to endpoint for each pod over time.",
-		}, []string{"endpoint"})
+			Name: "pod_network_connectivity_check_tcp_connect_latency_gauge",
+			Help: "Report latency of TCP connect to target endpoint over time.",
+		}, []string{"component", "checkName", "targetEndpoint"})
 
 		dnsResolveLatencyGauge = metrics.NewGaugeVec(&metrics.GaugeOpts{
-			Name: prefix + "endpoint_check_dns_resolve_latency_gauge",
-			Help: "Report latency of DNS resolve of endpoint for each pod over time.",
-		}, []string{"endpoint"})
+			Name: "pod_network_connectivity_check_dns_resolve_latency_gauge",
+			Help: "Report latency of DNS resolve of target endpoint over time.",
+		}, []string{"component", "checkName", "targetEndpoint"})
 		legacyregistry.MustRegister(endpointCheckCounter)
 		legacyregistry.MustRegister(tcpConnectLatencyGauge)
 		legacyregistry.MustRegister(dnsResolveLatencyGauge)
 	})
 }
 
-func updateMetrics(address string, latency *trace.LatencyInfo, checkErr error) {
-	endpointCheckCounter.With(getCounterMetricLabels(address, latency, checkErr)).Inc()
+// MetricsContext updates connectivity check metrics
+type MetricsContext interface {
+	Update(targetEndpoint string, latency *trace.LatencyInfo, checkErr error)
+}
+
+type metricsContext struct {
+	componentName string
+	checkName     string
+}
+
+func NewMetricsContext(componentName, checkName string) *metricsContext {
+	RegisterMetrics()
+	return &metricsContext{
+		componentName: componentName,
+		checkName:     checkName,
+	}
+
+}
+
+// Update the pod network connectivity check metrics for the given check results.
+func (m *metricsContext) Update(targetEndpoint string, latency *trace.LatencyInfo, checkErr error) {
+	endpointCheckCounter.With(m.getCounterMetricLabels(targetEndpoint, latency, checkErr)).Inc()
 	if latency.Connect > 0 {
-		tcpConnectLatencyGauge.WithLabelValues(address).Set(float64(latency.Connect.Nanoseconds()))
+		tcpConnectLatencyGauge.With(m.getMetricLabels(targetEndpoint)).Set(float64(latency.Connect.Nanoseconds()))
 	}
 	if latency.DNS > 0 {
-		dnsResolveLatencyGauge.WithLabelValues(address).Set(float64(latency.DNS.Nanoseconds()))
+		dnsResolveLatencyGauge.With(m.getMetricLabels(targetEndpoint)).Set(float64(latency.DNS.Nanoseconds()))
 	}
 }
 
-func getCounterMetricLabels(address string, latency *trace.LatencyInfo, checkErr error) map[string]string {
-	labels := map[string]string{
-		"endpoint":   address,
-		"dnsResolve": "",
-		"tcpConnect": "",
-	}
+func (m *metricsContext) getCounterMetricLabels(targetEndpoint string, latency *trace.LatencyInfo, checkErr error) map[string]string {
+	labels := m.getMetricLabels(targetEndpoint)
+	labels["dnsResolve"] = ""
+	labels["tcpConnect"] = ""
 	if isDNSError(checkErr) {
 		labels["dnsResolve"] = "failure"
 		return labels
@@ -67,4 +86,12 @@ func getCounterMetricLabels(address string, latency *trace.LatencyInfo, checkErr
 	}
 	labels["tcpConnect"] = "success"
 	return labels
+}
+
+func (m *metricsContext) getMetricLabels(targetEndpoint string) map[string]string {
+	return map[string]string{
+		"component":      m.componentName,
+		"checkName":      m.checkName,
+		"targetEndpoint": targetEndpoint,
+	}
 }
