@@ -54,6 +54,8 @@ spec:
             fi
           done
           echo
+          export GRPC_GO_LOG_VERBOSITY_LEVEL=99
+          export GRPC_GO_LOG_SEVERITY_LEVEL=info
           exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} ${VERBOSITY}
     resources:
       requests:
