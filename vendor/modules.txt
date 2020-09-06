@@ -232,6 +232,7 @@ github.com/openshift/library-go/pkg/operator/configobserver/featuregates
 github.com/openshift/library-go/pkg/operator/configobserver/network
 github.com/openshift/library-go/pkg/operator/configobserver/oauth
 github.com/openshift/library-go/pkg/operator/configobserver/proxy
+github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller
 github.com/openshift/library-go/pkg/operator/encryption
 github.com/openshift/library-go/pkg/operator/encryption/controllers
 github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
