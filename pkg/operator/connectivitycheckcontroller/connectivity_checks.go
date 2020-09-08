@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/ghodss/yaml"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
@@ -222,6 +223,11 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerEndpoi
 	if err != nil {
 		return nil, err
 	}
+	// TODO re-enable on azure, but right now it's super buggy: https://bugzilla.redhat.com/show_bug.cgi?id=1868158
+	if infrastructure.Status.PlatformStatus.Type == configv1.AzurePlatformType {
+		return []*v1alpha1.PodNetworkConnectivityCheck{}, nil
+	}
+
 	apiUrl, err := url.Parse(infrastructure.Status.APIServerURL)
 	if err != nil {
 		return nil, err
