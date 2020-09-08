@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: system:openshift:controller:check-endpoints
+  namespace: openshift-kube-apiserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:controller:check-endpoints
+subjects:
+  - kind: User
+    name: system:serviceaccount:openshift-kube-apiserver:check-endpoints

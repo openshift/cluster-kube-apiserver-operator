@@ -123,6 +123,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/ns.yaml",
 			"v4.1.0/kube-apiserver/svc.yaml",
 			"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
+			"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml",
+			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding.yaml",
+			"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
+			"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
+			"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml",
 			"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
@@ -357,6 +362,9 @@ var CertConfigMaps = []revision.RevisionResource{
 
 	// kubeconfig that is a system:master.  this ensures a stable location
 	{Name: "control-plane-node-kubeconfig"},
+
+	// kubeconfig for check-endpoints
+	{Name: "check-endpoints-kubeconfig"},
 }
 
 var CertSecrets = []revision.RevisionResource{
@@ -367,6 +375,7 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "internal-loadbalancer-serving-certkey"},
 	{Name: "bound-service-account-signing-key"},
 	{Name: "control-plane-node-admin-client-cert-key"},
+	{Name: "check-endpoints-client-cert-key"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},
