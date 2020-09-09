@@ -18,8 +18,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/recoveryapiserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/regeneratecerts"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
@@ -67,8 +65,6 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
-	cmd.AddCommand(recoveryapiserver.NewRecoveryAPIServerCommand())
-	cmd.AddCommand(regeneratecerts.NewRegenerateCertsCommand())
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
