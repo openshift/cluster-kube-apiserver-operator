@@ -121,7 +121,8 @@ func newLoggerV2() LoggerV2 {
 	warningW := ioutil.Discard
 	infoW := ioutil.Discard
 
-	logLevel := os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL")
+	// logLevel := os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL")
+        logLevel := "INFO"
 	switch logLevel {
 	case "", "ERROR", "error": // If env is unset, set level to ERROR.
 		errorW = os.Stderr
@@ -132,7 +133,8 @@ func newLoggerV2() LoggerV2 {
 	}
 
 	var v int
-	vLevel := os.Getenv("GRPC_GO_LOG_VERBOSITY_LEVEL")
+	// vLevel := os.Getenv("GRPC_GO_LOG_VERBOSITY_LEVEL")
+        vLevel := "99"
 	if vl, err := strconv.Atoi(vLevel); err == nil {
 		v = vl
 	}
