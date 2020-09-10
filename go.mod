@@ -12,7 +12,6 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/imdario/mergo v0.3.8
-	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/openshift/api v0.0.0-20200827090112-c05698d102cf
 	github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
@@ -28,7 +27,8 @@ require (
 	k8s.io/client-go v0.19.0
 	k8s.io/component-base v0.19.0
 	k8s.io/klog/v2 v2.3.0
+	sigs.k8s.io/kube-storage-version-migrator v0.0.3
 )
 
 replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
-replace	github.com/openshift/library-go => github.com/sanchezl/library-go migrator-fork
+replace github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20200910145915-cc75ddff4c07

@@ -114,16 +114,6 @@ github.com/inconshreveable/mousetrap
 github.com/json-iterator/go
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17 => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/scheme
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
-github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
 # github.com/mailru/easyjson v0.7.0
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
@@ -219,7 +209,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/o
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/user/clientset/versioned/scheme
 github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
-# github.com/openshift/library-go v0.0.0-20200908182125-bdfa309a0a1d
+# github.com/openshift/library-go v0.0.0-20200908182125-bdfa309a0a1d => github.com/sanchezl/library-go v0.0.0-20200910145915-cc75ddff4c07
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client
@@ -915,6 +905,16 @@ k8s.io/utils/trace
 # sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.9
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
+# sigs.k8s.io/kube-storage-version-migrator v0.0.3
+sigs.k8s.io/kube-storage-version-migrator/pkg/apis/migration/v1alpha1
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/scheme
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset/typed/migration/v1alpha1
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/internalinterfaces
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/migration
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer/migration/v1alpha1
+sigs.k8s.io/kube-storage-version-migrator/pkg/clients/lister/migration/v1alpha1
 # sigs.k8s.io/structured-merge-diff/v4 v4.0.1
 sigs.k8s.io/structured-merge-diff/v4/fieldpath
 sigs.k8s.io/structured-merge-diff/v4/merge
