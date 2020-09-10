@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
-	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -26,6 +24,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
+	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
