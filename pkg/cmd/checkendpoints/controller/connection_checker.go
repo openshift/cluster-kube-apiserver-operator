@@ -9,7 +9,6 @@ import (
 	"time"
 
 	operatorcontrolplanev1alpha1 "github.com/openshift/api/operatorcontrolplane/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
@@ -32,7 +31,7 @@ type ConnectionChecker interface {
 type GetCheckFunc func() *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheck
 
 // NewConnectionChecker returns a ConnectionChecker.
-func NewConnectionChecker(name, podName, podNamespace string, getCheck GetCheckFunc, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder events.Recorder) ConnectionChecker {
+func NewConnectionChecker(name, podName, podNamespace string, getCheck GetCheckFunc, client v1alpha1helpers.PodNetworkConnectivityCheckClient, clientCertGetter CertificatesGetter, recorder Recorder) ConnectionChecker {
 	return &connectionChecker{
 		name:             name,
 		podName:          podName,
@@ -62,7 +61,7 @@ type connectionChecker struct {
 
 	client           v1alpha1helpers.PodNetworkConnectivityCheckClient
 	clientCertGetter CertificatesGetter
-	recorder         events.Recorder
+	recorder         Recorder
 	updates          UpdatesManager
 	stop             chan interface{}
 	metrics          MetricsContext
@@ -236,7 +235,7 @@ func manageStatusLogs(check *operatorcontrolplanev1alpha1.PodNetworkConnectivity
 
 // manageStatusOutage returns a status update function that manages the
 // PodNetworkConnectivityCheck.Status.Outage entries based on Successes/Failures log entries.
-func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFunc {
+func manageStatusOutage(recorder Recorder) v1alpha1helpers.UpdateStatusFunc {
 	return func(status *operatorcontrolplanev1alpha1.PodNetworkConnectivityCheckStatus) {
 		// This func is kept simple by assuming that only one log entry has been
 		// added since the last time this method was invoked. See checkEndpoint func.

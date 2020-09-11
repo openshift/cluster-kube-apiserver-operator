@@ -36,7 +36,7 @@ type controller struct {
 	checksGetter operatorcontrolplaneclientv1alpha1.PodNetworkConnectivityCheckInterface
 	checkLister  v1alpha1.PodNetworkConnectivityCheckNamespaceLister
 	secretLister v1.SecretLister
-	recorder     events.Recorder
+	recorder     Recorder
 	// each PodNetworkConnectivityCheck gets its own ConnectionChecker
 	updaters map[string]ConnectionChecker
 }
@@ -53,7 +53,7 @@ func NewPodNetworkConnectivityCheckController(podName, podNamespace string,
 		checksGetter: checksGetter.PodNetworkConnectivityChecks(podNamespace),
 		checkLister:  checkInformer.Lister().PodNetworkConnectivityChecks(podNamespace),
 		secretLister: secretInformer.Lister(),
-		recorder:     recorder,
+		recorder:     NewBackoffEventRecorder(recorder),
 		updaters:     map[string]ConnectionChecker{},
 	}
 	c.Controller = factory.New().
