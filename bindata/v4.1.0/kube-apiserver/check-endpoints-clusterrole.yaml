@@ -30,3 +30,14 @@ rules:
       - get
       - list
       - watch
+  - resources:
+      - events
+    apiGroups:
+      - ""
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
