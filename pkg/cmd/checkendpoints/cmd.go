@@ -10,25 +10,55 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints/controller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/retry"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
 
 func NewCheckEndpointsCommand() *cobra.Command {
 	config := controllercmd.NewControllerCommandConfig("check-endpoints", version.Get(), func(ctx context.Context, cctx *controllercmd.ControllerContext) error {
+		podName := os.Getenv("POD_NAME")
 		namespace := os.Getenv("POD_NAMESPACE")
 		kubeClient := kubernetes.NewForConfigOrDie(cctx.ProtoKubeConfig)
 		operatorcontrolplaneClient := operatorcontrolplaneclient.NewForConfigOrDie(cctx.KubeConfig)
 		kubeInformers := informers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, informers.WithNamespace(namespace))
 		operatorcontrolplaneInformers := operatorcontrolplaneinformers.NewSharedInformerFactoryWithOptions(operatorcontrolplaneClient, 10*time.Minute, operatorcontrolplaneinformers.WithNamespace(namespace))
+
+		var involvedObjectRef *corev1.ObjectReference
+		err := retry.RetryOnConnectionErrors(ctx, func(context.Context) (bool, error) {
+			pod, err := kubeClient.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			node, err := kubeClient.CoreV1().Nodes().Get(ctx, pod.Spec.NodeName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+			involvedObjectRef = &corev1.ObjectReference{
+				Kind:       "Node",
+				Namespace:  namespace,
+				Name:       node.Name,
+				UID:        node.UID,
+				APIVersion: node.APIVersion,
+			}
+			return true, nil
+		})
+		if err != nil {
+			return err
+		}
+		recorder := events.NewRecorder(kubeClient.CoreV1().Events(namespace), "check-endpoint", involvedObjectRef)
+
 		check := controller.NewPodNetworkConnectivityCheckController(
-			os.Getenv("POD_NAME"),
+			podName,
 			namespace,
 			operatorcontrolplaneClient.ControlplaneV1alpha1(),
 			operatorcontrolplaneInformers.Controlplane().V1alpha1().PodNetworkConnectivityChecks(),
 			kubeInformers.Core().V1().Secrets(),
-			cctx.EventRecorder,
+			recorder,
 		)
 		controller.RegisterMetrics()
 		operatorcontrolplaneInformers.Start(ctx.Done())
