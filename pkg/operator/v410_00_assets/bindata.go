@@ -14,6 +14,7 @@
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-sa.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-token.yaml
+// bindata/v4.1.0/kube-apiserver/node-kubeconfigs.yaml
 // bindata/v4.1.0/kube-apiserver/ns.yaml
 // bindata/v4.1.0/kube-apiserver/pod-cm.yaml
 // bindata/v4.1.0/kube-apiserver/pod.yaml
@@ -808,6 +809,106 @@ func v410KubeApiserverLocalhostRecoveryTokenYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverNodeKubeconfigsYaml = []byte(`apiVersion: v1
+kind: Secret
+metadata:
+  name: node-kubeconfigs
+  namespace: openshift-kube-apiserver
+stringData:
+  localhost.kubeconfig: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority-data: $CA_DATA
+        server: https://localhost:6443
+      name: localhost
+    contexts:
+    - context:
+        cluster: localhost
+        user: system:admin
+      name: system:admin
+    current-context: system:admin
+    users:
+    - name: system:admin
+      user:
+        client-certificate-data: $SYSTEM_ADMIN_CERT_DATA
+        client-key-data: $SYSTEM_ADMIN_KEY_DATA
+  localhost-recovery.kubeconfig: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority-data: $CA_DATA
+        server: https://localhost:6443
+        tls-server-name: localhost-recovery
+      name: localhost-recovery
+    contexts:
+    - context:
+        cluster: localhost-recovery
+        user: system:admin
+      name: system:admin
+    current-context: system:admin
+    users:
+    - name: system:admin
+      user:
+        client-certificate-data: $SYSTEM_ADMIN_CERT_DATA
+        client-key-data: $SYSTEM_ADMIN_KEY_DATA
+  lb-ext.kubeconfig: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority-data: $CA_DATA
+        server: $LB-EXT
+      name: lb-ext
+    contexts:
+    - context:
+        cluster: lb-ext
+        user: system:admin
+      name: system:admin
+    current-context: system:admin
+    users:
+    - name: system:admin
+      user:
+        client-certificate-data: $SYSTEM_ADMIN_CERT_DATA
+        client-key-data: $SYSTEM_ADMIN_KEY_DATA
+  lb-int.kubeconfig: |
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - cluster:
+        certificate-authority-data: $CA_DATA
+        server: $LB-INT
+      name: lb-int
+    contexts:
+    - context:
+        cluster: lb-int
+        user: system:admin
+      name: system:admin
+    current-context: system:admin
+    users:
+    - name: system:admin
+      user:
+        client-certificate-data: $SYSTEM_ADMIN_CERT_DATA
+        client-key-data: $SYSTEM_ADMIN_KEY_DATA
+`)
+
+func v410KubeApiserverNodeKubeconfigsYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverNodeKubeconfigsYaml, nil
+}
+
+func v410KubeApiserverNodeKubeconfigsYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverNodeKubeconfigsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/node-kubeconfigs.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
@@ -1358,6 +1459,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml":           v410KubeApiserverLocalhostRecoveryClientCrbYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":                   v410KubeApiserverLocalhostRecoverySaYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-token.yaml":                v410KubeApiserverLocalhostRecoveryTokenYaml,
+	"v4.1.0/kube-apiserver/node-kubeconfigs.yaml":                        v410KubeApiserverNodeKubeconfigsYaml,
 	"v4.1.0/kube-apiserver/ns.yaml":                                      v410KubeApiserverNsYaml,
 	"v4.1.0/kube-apiserver/pod-cm.yaml":                                  v410KubeApiserverPodCmYaml,
 	"v4.1.0/kube-apiserver/pod.yaml":                                     v410KubeApiserverPodYaml,
@@ -1427,6 +1529,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"localhost-recovery-client-crb.yaml":           {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
 			"localhost-recovery-sa.yaml":                   {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},
 			"localhost-recovery-token.yaml":                {v410KubeApiserverLocalhostRecoveryTokenYaml, map[string]*bintree{}},
+			"node-kubeconfigs.yaml":                        {v410KubeApiserverNodeKubeconfigsYaml, map[string]*bintree{}},
 			"ns.yaml":                                      {v410KubeApiserverNsYaml, map[string]*bintree{}},
 			"pod-cm.yaml":                                  {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
 			"pod.yaml":                                     {v410KubeApiserverPodYaml, map[string]*bintree{}},

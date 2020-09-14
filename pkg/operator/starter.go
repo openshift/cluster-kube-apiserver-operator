@@ -20,19 +20,19 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
-	"github.com/openshift/library-go/pkg/operator/eventwatch"
-
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
@@ -146,6 +146,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
 		kubeClient,
+		controllerContext.EventRecorder,
+	)
+
+	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		kubeClient,
+		configInformers.Config().V1().Infrastructures(),
 		controllerContext.EventRecorder,
 	)
 
@@ -297,6 +305,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go resourceSyncController.Run(ctx, 1)
 	go staticResourceController.Run(ctx, 1)
 	go targetConfigReconciler.Run(ctx, 1)
+	go nodeKubeconfigController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
@@ -376,6 +385,8 @@ var CertSecrets = []revision.RevisionResource{
 	{Name: "bound-service-account-signing-key"},
 	{Name: "control-plane-node-admin-client-cert-key"},
 	{Name: "check-endpoints-client-cert-key"},
+
+	{Name: "node-kubeconfigs"},
 
 	{Name: "user-serving-cert", Optional: true},
 	{Name: "user-serving-cert-000", Optional: true},

@@ -569,6 +569,53 @@ func newCertRotationController(
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
+	certRotator = certrotation.NewCertRotationController(
+		"NodeSystemAdminClient",
+		certrotation.SigningRotation{
+			Namespace:              operatorclient.OperatorNamespace,
+			Name:                   "node-system-admin-signer",
+			Validity:               1 * 365 * defaultRotationDay,
+			Refresh:                292 * defaultRotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:                 kubeClient.CoreV1(),
+			EventRecorder:          eventRecorder,
+		},
+		certrotation.CABundleRotation{
+			Namespace:     operatorclient.OperatorNamespace,
+			Name:          "node-system-admin-ca",
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.TargetRotation{
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "node-system-admin-client",
+			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
+			// because of expired certs these are still valid to use for collecting data using localhost-recovery
+			// endpoint with long lived serving certs for localhost.
+			Validity: 120 * defaultRotationDay,
+			// We rotate sooner so certs are always valid for 90 days (30 days more then kube-control-plane-signer)
+			Refresh:                30 * defaultRotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertCreator: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{
+					Name:   "system:admin",
+					Groups: []string{"system:masters"},
+				},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		operatorClient,
+		eventRecorder,
+	)
+	ret.certRotators = append(ret.certRotators, certRotator)
+
 	return ret, nil
 }
 
