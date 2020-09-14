@@ -72,7 +72,7 @@ func NewTargetConfigController(
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer(),
-	).WithSync(c.sync).ResyncEvery(time.Second).ToController("TargetConfigController", eventRecorder.WithComponentSuffix("target-config-controller"))
+	).WithSync(c.sync).ResyncEvery(5*time.Minute).ToController("TargetConfigController", eventRecorder.WithComponentSuffix("target-config-controller"))
 }
 
 func (c TargetConfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {

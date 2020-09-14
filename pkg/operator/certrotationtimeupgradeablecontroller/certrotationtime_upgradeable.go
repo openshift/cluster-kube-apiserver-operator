@@ -3,7 +3,6 @@ package certrotationtimeupgradeablecontroller
 import (
 	"context"
 	"fmt"
-	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -38,7 +37,7 @@ func NewCertRotationTimeUpgradeableController(
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
 		configMapInformer.Informer(),
-	).WithSync(c.sync).ResyncEvery(time.Second).ToController("CertRotationTimeUpgradeableController", eventRecorder.WithComponentSuffix("certRotationTime-upgradeable"))
+	).WithSync(c.sync).ToController("CertRotationTimeUpgradeableController", eventRecorder.WithComponentSuffix("certRotationTime-upgradeable"))
 }
 
 func (c *CertRotationTimeUpgradeableController) sync(ctx context.Context, syncContext factory.SyncContext) error {

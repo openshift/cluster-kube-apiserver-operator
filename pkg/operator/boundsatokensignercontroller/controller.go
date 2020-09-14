@@ -71,7 +71,7 @@ func NewBoundSATokenSignerController(
 		kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Secrets().Informer(),
 		kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().ConfigMaps().Informer(),
 		operatorClient.Informer(),
-	).ResyncEvery(time.Minute).WithSync(ret.sync).ToController("BoundSATokenSignerController", eventRecorder)
+	).ResyncEvery(1*time.Minute).WithSync(ret.sync).ToController("BoundSATokenSignerController", eventRecorder)
 }
 
 func (c *BoundSATokenSignerController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
