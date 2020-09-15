@@ -3,8 +3,10 @@
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml
-// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml
@@ -446,6 +448,36 @@ func v410KubeApiserverAuditPoliciesCmYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:openshift:controller:check-endpoints-node-reader
+rules:
+  - resources:
+      - nodes
+    apiGroups:
+      - ""
+    verbs:
+      - get
+      - list
+      - watch
+`)
+
+func v410KubeApiserverCheckEndpointsClusterroleNodeReaderYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml, nil
+}
+
+func v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsClusterroleNodeReaderYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverCheckEndpointsClusterroleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -478,6 +510,17 @@ rules:
       - get
       - list
       - watch
+  - resources:
+      - events
+    apiGroups:
+      - ""
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
 `)
 
 func v410KubeApiserverCheckEndpointsClusterroleYamlBytes() ([]byte, error) {
@@ -495,10 +538,10 @@ func v410KubeApiserverCheckEndpointsClusterroleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v410KubeApiserverCheckEndpointsClusterrolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: system:openshift:controller:kube-apiserver-check-endpoints
+  name: system:openshift:controller:kube-apiserver-check-endpoints-auth-delegator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -508,17 +551,45 @@ subjects:
     name: system:serviceaccount:openshift-kube-apiserver:check-endpoints
 `)
 
-func v410KubeApiserverCheckEndpointsClusterrolebindingYamlBytes() ([]byte, error) {
-	return _v410KubeApiserverCheckEndpointsClusterrolebindingYaml, nil
+func v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml, nil
 }
 
-func v410KubeApiserverCheckEndpointsClusterrolebindingYaml() (*asset, error) {
-	bytes, err := v410KubeApiserverCheckEndpointsClusterrolebindingYamlBytes()
+func v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:openshift:controller:kube-apiserver-check-endpoints-node-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:controller:check-endpoints-node-reader
+subjects:
+  - kind: User
+    name: system:serviceaccount:openshift-kube-apiserver:check-endpoints
+`)
+
+func v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml, nil
+}
+
+func v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1445,29 +1516,31 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v4.1.0/config/config-overrides.yaml":                                v410ConfigConfigOverridesYaml,
-	"v4.1.0/config/defaultconfig.yaml":                                   v410ConfigDefaultconfigYaml,
-	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                       v410KubeApiserverAuditPoliciesCmYaml,
-	"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml":             v410KubeApiserverCheckEndpointsClusterroleYaml,
-	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding.yaml":      v410KubeApiserverCheckEndpointsClusterrolebindingYaml,
-	"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml":           v410KubeApiserverCheckEndpointsKubeconfigCmYaml,
-	"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml": v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml,
-	"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml":             v410KubeApiserverCheckEndpointsRolebindingYaml,
-	"v4.1.0/kube-apiserver/cm.yaml":                                      v410KubeApiserverCmYaml,
-	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml":        v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
-	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                           v410KubeApiserverKubeconfigCmYaml,
-	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml":           v410KubeApiserverLocalhostRecoveryClientCrbYaml,
-	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":                   v410KubeApiserverLocalhostRecoverySaYaml,
-	"v4.1.0/kube-apiserver/localhost-recovery-token.yaml":                v410KubeApiserverLocalhostRecoveryTokenYaml,
-	"v4.1.0/kube-apiserver/node-kubeconfigs.yaml":                        v410KubeApiserverNodeKubeconfigsYaml,
-	"v4.1.0/kube-apiserver/ns.yaml":                                      v410KubeApiserverNsYaml,
-	"v4.1.0/kube-apiserver/pod-cm.yaml":                                  v410KubeApiserverPodCmYaml,
-	"v4.1.0/kube-apiserver/pod.yaml":                                     v410KubeApiserverPodYaml,
-	"v4.1.0/kube-apiserver/recovery-config.yaml":                         v410KubeApiserverRecoveryConfigYaml,
-	"v4.1.0/kube-apiserver/recovery-encryption-config.yaml":              v410KubeApiserverRecoveryEncryptionConfigYaml,
-	"v4.1.0/kube-apiserver/recovery-pod.yaml":                            v410KubeApiserverRecoveryPodYaml,
-	"v4.1.0/kube-apiserver/svc.yaml":                                     v410KubeApiserverSvcYaml,
-	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":                           v410KubeApiserverTrustedCaCmYaml,
+	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
+	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
+	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                                 v410KubeApiserverAuditPoliciesCmYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml":           v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml":                       v410KubeApiserverCheckEndpointsClusterroleYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml": v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml":    v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml":                     v410KubeApiserverCheckEndpointsKubeconfigCmYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml":           v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml":                       v410KubeApiserverCheckEndpointsRolebindingYaml,
+	"v4.1.0/kube-apiserver/cm.yaml":                                                v410KubeApiserverCmYaml,
+	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml":                  v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
+	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                                     v410KubeApiserverKubeconfigCmYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml":                     v410KubeApiserverLocalhostRecoveryClientCrbYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":                             v410KubeApiserverLocalhostRecoverySaYaml,
+	"v4.1.0/kube-apiserver/localhost-recovery-token.yaml":                          v410KubeApiserverLocalhostRecoveryTokenYaml,
+	"v4.1.0/kube-apiserver/node-kubeconfigs.yaml":                                  v410KubeApiserverNodeKubeconfigsYaml,
+	"v4.1.0/kube-apiserver/ns.yaml":                                                v410KubeApiserverNsYaml,
+	"v4.1.0/kube-apiserver/pod-cm.yaml":                                            v410KubeApiserverPodCmYaml,
+	"v4.1.0/kube-apiserver/pod.yaml":                                               v410KubeApiserverPodYaml,
+	"v4.1.0/kube-apiserver/recovery-config.yaml":                                   v410KubeApiserverRecoveryConfigYaml,
+	"v4.1.0/kube-apiserver/recovery-encryption-config.yaml":                        v410KubeApiserverRecoveryEncryptionConfigYaml,
+	"v4.1.0/kube-apiserver/recovery-pod.yaml":                                      v410KubeApiserverRecoveryPodYaml,
+	"v4.1.0/kube-apiserver/svc.yaml":                                               v410KubeApiserverSvcYaml,
+	"v4.1.0/kube-apiserver/trusted-ca-cm.yaml":                                     v410KubeApiserverTrustedCaCmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -1517,27 +1590,29 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
-			"audit-policies-cm.yaml":                       {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
-			"check-endpoints-clusterrole.yaml":             {v410KubeApiserverCheckEndpointsClusterroleYaml, map[string]*bintree{}},
-			"check-endpoints-clusterrolebinding.yaml":      {v410KubeApiserverCheckEndpointsClusterrolebindingYaml, map[string]*bintree{}},
-			"check-endpoints-kubeconfig-cm.yaml":           {v410KubeApiserverCheckEndpointsKubeconfigCmYaml, map[string]*bintree{}},
-			"check-endpoints-rolebinding-kube-system.yaml": {v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml, map[string]*bintree{}},
-			"check-endpoints-rolebinding.yaml":             {v410KubeApiserverCheckEndpointsRolebindingYaml, map[string]*bintree{}},
-			"cm.yaml":                                      {v410KubeApiserverCmYaml, map[string]*bintree{}},
-			"control-plane-node-kubeconfig-cm.yaml":        {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
-			"kubeconfig-cm.yaml":                           {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
-			"localhost-recovery-client-crb.yaml":           {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
-			"localhost-recovery-sa.yaml":                   {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},
-			"localhost-recovery-token.yaml":                {v410KubeApiserverLocalhostRecoveryTokenYaml, map[string]*bintree{}},
-			"node-kubeconfigs.yaml":                        {v410KubeApiserverNodeKubeconfigsYaml, map[string]*bintree{}},
-			"ns.yaml":                                      {v410KubeApiserverNsYaml, map[string]*bintree{}},
-			"pod-cm.yaml":                                  {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
-			"pod.yaml":                                     {v410KubeApiserverPodYaml, map[string]*bintree{}},
-			"recovery-config.yaml":                         {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
-			"recovery-encryption-config.yaml":              {v410KubeApiserverRecoveryEncryptionConfigYaml, map[string]*bintree{}},
-			"recovery-pod.yaml":                            {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
-			"svc.yaml":                                     {v410KubeApiserverSvcYaml, map[string]*bintree{}},
-			"trusted-ca-cm.yaml":                           {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
+			"audit-policies-cm.yaml":                                 {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrole-node-reader.yaml":           {v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrole.yaml":                       {v410KubeApiserverCheckEndpointsClusterroleYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrolebinding-auth-delegator.yaml": {v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrolebinding-node-reader.yaml":    {v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml, map[string]*bintree{}},
+			"check-endpoints-kubeconfig-cm.yaml":                     {v410KubeApiserverCheckEndpointsKubeconfigCmYaml, map[string]*bintree{}},
+			"check-endpoints-rolebinding-kube-system.yaml":           {v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml, map[string]*bintree{}},
+			"check-endpoints-rolebinding.yaml":                       {v410KubeApiserverCheckEndpointsRolebindingYaml, map[string]*bintree{}},
+			"cm.yaml":                                                {v410KubeApiserverCmYaml, map[string]*bintree{}},
+			"control-plane-node-kubeconfig-cm.yaml":                  {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
+			"kubeconfig-cm.yaml":                                     {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
+			"localhost-recovery-client-crb.yaml":                     {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
+			"localhost-recovery-sa.yaml":                             {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},
+			"localhost-recovery-token.yaml":                          {v410KubeApiserverLocalhostRecoveryTokenYaml, map[string]*bintree{}},
+			"node-kubeconfigs.yaml":                                  {v410KubeApiserverNodeKubeconfigsYaml, map[string]*bintree{}},
+			"ns.yaml":                                                {v410KubeApiserverNsYaml, map[string]*bintree{}},
+			"pod-cm.yaml":                                            {v410KubeApiserverPodCmYaml, map[string]*bintree{}},
+			"pod.yaml":                                               {v410KubeApiserverPodYaml, map[string]*bintree{}},
+			"recovery-config.yaml":                                   {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
+			"recovery-encryption-config.yaml":                        {v410KubeApiserverRecoveryEncryptionConfigYaml, map[string]*bintree{}},
+			"recovery-pod.yaml":                                      {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
+			"svc.yaml":                                               {v410KubeApiserverSvcYaml, map[string]*bintree{}},
+			"trusted-ca-cm.yaml":                                     {v410KubeApiserverTrustedCaCmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
