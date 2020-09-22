@@ -291,6 +291,9 @@ func manageStatusOutage(recorder events.Recorder) v1alpha1helpers.UpdateStatusFu
 		default:
 			// no outage in progress
 		}
+		if len(status.Outages) > 20 {
+			status.Outages = status.Outages[:20]
+		}
 	}
 }
 
