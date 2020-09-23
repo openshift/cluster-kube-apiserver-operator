@@ -3,9 +3,11 @@
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml
+// bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml
@@ -448,6 +450,36 @@ func v410KubeApiserverAuditPoliciesCmYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:openshift:controller:check-endpoints-crd-reader
+rules:
+  - resources:
+      - customresourcedefinitions
+    apiGroups:
+      - apiextensions.k8s.io
+    verbs:
+      - get
+      - list
+      - watch
+`)
+
+func v410KubeApiserverCheckEndpointsClusterroleCrdReaderYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml, nil
+}
+
+func v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsClusterroleCrdReaderYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -562,6 +594,34 @@ func v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml() (*asse
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:openshift:controller:kube-apiserver-check-endpoints-crd-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:controller:check-endpoints-crd-reader
+subjects:
+  - kind: User
+    name: system:serviceaccount:openshift-kube-apiserver:check-endpoints
+`)
+
+func v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYaml, nil
+}
+
+func v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1519,9 +1579,11 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                                 v410KubeApiserverAuditPoliciesCmYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml":            v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml":           v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml":                       v410KubeApiserverCheckEndpointsClusterroleYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml": v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml,
+	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml":     v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml":    v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml":                     v410KubeApiserverCheckEndpointsKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml":           v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml,
@@ -1591,9 +1653,11 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
 			"audit-policies-cm.yaml":                                 {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrole-crd-reader.yaml":            {v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole-node-reader.yaml":           {v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole.yaml":                       {v410KubeApiserverCheckEndpointsClusterroleYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrolebinding-auth-delegator.yaml": {v410KubeApiserverCheckEndpointsClusterrolebindingAuthDelegatorYaml, map[string]*bintree{}},
+			"check-endpoints-clusterrolebinding-crd-reader.yaml":     {v410KubeApiserverCheckEndpointsClusterrolebindingCrdReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrolebinding-node-reader.yaml":    {v410KubeApiserverCheckEndpointsClusterrolebindingNodeReaderYaml, map[string]*bintree{}},
 			"check-endpoints-kubeconfig-cm.yaml":                     {v410KubeApiserverCheckEndpointsKubeconfigCmYaml, map[string]*bintree{}},
 			"check-endpoints-rolebinding-kube-system.yaml":           {v410KubeApiserverCheckEndpointsRolebindingKubeSystemYaml, map[string]*bintree{}},
