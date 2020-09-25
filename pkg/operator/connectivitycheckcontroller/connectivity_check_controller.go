@@ -18,6 +18,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	v1 "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -32,9 +34,11 @@ type KubeAPIServerConnectivityCheckController interface {
 func NewKubeAPIServerConnectivityCheckController(
 	kubeClient kubernetes.Interface,
 	operatorClient v1helpers.StaticPodOperatorClient,
+	apiextensionsClient *apiextensionsclient.Clientset,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
 	configInformers configinformers.SharedInformerFactory,
+	apiextensionsInformers apiextensionsinformers.SharedInformerFactory,
 	recorder events.Recorder,
 ) KubeAPIServerConnectivityCheckController {
 	c := kubeAPIServerConnectivityCheckController{
@@ -42,12 +46,15 @@ func NewKubeAPIServerConnectivityCheckController(
 			operatorclient.TargetNamespace,
 			operatorClient,
 			operatorcontrolplaneClient,
+			apiextensionsClient,
+			apiextensionsInformers,
 			[]factory.Informer{
 				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Informer(),
 				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Informer(),
 				configInformers.Config().V1().Infrastructures().Informer(),
 			},
 			recorder,
+			true,
 		),
 	}
 	generator := &connectivityCheckTemplateProvider{
