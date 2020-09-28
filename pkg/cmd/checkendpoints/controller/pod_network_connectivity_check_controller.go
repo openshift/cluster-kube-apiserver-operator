@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	coreinformersv1 "k8s.io/client-go/informers/core/v1"
-	v1 "k8s.io/client-go/listers/core/v1"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -35,7 +35,7 @@ type controller struct {
 	podNamespace string
 	checksGetter operatorcontrolplaneclientv1alpha1.PodNetworkConnectivityCheckInterface
 	checkLister  v1alpha1.PodNetworkConnectivityCheckNamespaceLister
-	secretLister v1.SecretLister
+	secretLister corelistersv1.SecretLister
 	recorder     Recorder
 	// each PodNetworkConnectivityCheck gets its own ConnectionChecker
 	updaters map[string]ConnectionChecker
