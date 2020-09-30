@@ -13,7 +13,7 @@ require (
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/google/go-cmp v0.4.0
 	github.com/imdario/mergo v0.3.8
-	github.com/openshift/api v0.0.0-20200901182017-7ac89ba6b971
+	github.com/openshift/api v0.0.0-20200929165121-b7210d15c07d
 	github.com/openshift/build-machinery-go v0.0.0-20200819073603-48aa266c95f7
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/library-go v0.0.0-20200915114203-ee518dab897a
