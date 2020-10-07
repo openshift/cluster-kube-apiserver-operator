@@ -233,6 +233,33 @@ spec:
 apiVersion: flowcontrol.apiserver.k8s.io/v1alpha1
 kind: FlowSchema
 metadata:
+  name: openshift-oauth-server
+spec:
+  distinguisherMethod:
+    type: ByUser
+  matchingPrecedence: 1000
+  priorityLevelConfiguration:
+    name: workload-high
+  rules:
+  - resourceRules:
+    - apiGroups:
+      - '*'
+      clusterScope: true
+      namespaces:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - '*'
+    subjects:
+    - kind: ServiceAccount
+      serviceAccount:
+        name: oauth-openshift
+        namespace: openshift-authentication
+---
+apiVersion: flowcontrol.apiserver.k8s.io/v1alpha1
+kind: FlowSchema
+metadata:
   name: openshift-authentication-operator
 spec:
   distinguisherMethod:
