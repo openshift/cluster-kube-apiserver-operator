@@ -115,7 +115,7 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 		} else {
 			informer = kubeInformersByNamespace.InformersFor(metadata.GetNamespace())
 			if informer == nil {
-				utilruntime.HandleError(fmt.Errorf("missing informer for namespace %q; no dynamic wiring added, time-based only.", metadata.GetNamespace()))
+				utilruntime.HandleError(fmt.Errorf("missing informer for namespace %q (%+v); no dynamic wiring added, time-based only.", metadata.GetNamespace(), metadata.GetName()))
 				continue
 			}
 		}
