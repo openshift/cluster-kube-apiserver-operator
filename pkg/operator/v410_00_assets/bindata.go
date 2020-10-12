@@ -187,8 +187,6 @@ apiServerArguments:
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
     - "true"
-  enable-logs-handler:
-    - "false"
   enable-swagger-ui:
     - "true"
   endpoint-reconciler-type:
@@ -207,20 +205,14 @@ apiServerArguments:
     - "0"
   http2-max-streams-per-connection:
     - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
-  insecure-port:
-    - "0"
   kubelet-certificate-authority:
     - /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   kubelet-client-certificate:
     - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
   kubelet-client-key:
     - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
-  kubelet-https:
-    - "true"
   kubelet-preferred-address-types:
     - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
-  kubelet-read-only-port:
-    - "0"
   kubernetes-service-node-port:
     - "0"
   # value should logically scale with max-requests-inflight
