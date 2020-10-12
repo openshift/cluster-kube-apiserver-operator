@@ -9,14 +9,12 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -39,8 +37,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,14 +64,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 	configClient, err := configv1client.NewForConfig(controllerContext.KubeConfig)
-	if err != nil {
-		return err
-	}
-	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerContext.KubeConfig)
-	if err != nil {
-		return err
-	}
-	apiextensionsClient, err := apiextensionsclient.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -164,18 +152,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient,
 		configInformers.Config().V1().Infrastructures(),
-		controllerContext.EventRecorder,
-	)
-
-	apiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(apiextensionsClient, 10*time.Minute)
-	connectivityCheckController := connectivitycheckcontroller.NewKubeAPIServerConnectivityCheckController(
-		kubeClient,
-		operatorClient,
-		apiextensionsClient,
-		kubeInformersForNamespaces,
-		operatorcontrolplaneClient,
-		configInformers,
-		apiextensionsInformers,
 		controllerContext.EventRecorder,
 	)
 
@@ -313,7 +289,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
-	apiextensionsInformers.Start(ctx.Done())
 
 	go staticPodControllers.Start(ctx)
 	go resourceSyncController.Run(ctx, 1)
@@ -330,7 +305,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go eventWatcher.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
-	go connectivityCheckController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
