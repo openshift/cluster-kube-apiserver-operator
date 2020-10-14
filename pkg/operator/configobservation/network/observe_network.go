@@ -1,9 +1,10 @@
 package network
 
 import (
-	"net"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	utilnet "k8s.io/utils/net"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/network"
@@ -37,13 +38,13 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 		errs = append(errs, err)
 	}
 
-	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
+	serviceCIDRs, err := network.GetServiceCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
 	}
 
 	// If we weren't able to retrieve cidrs, then return the previous configuration
-	if len(errs) > 0 || len(clusterCIDRs) == 0 || len(serviceCIDR) == 0 {
+	if len(errs) > 0 || len(clusterCIDRs) == 0 || len(serviceCIDRs) == 0 {
 		previouslyObservedConfig := map[string]interface{}{}
 		unstructured.SetNestedMap(previouslyObservedConfig, admissionControllerConfig.Object, configPath...)
 		return previouslyObservedConfig, errs
@@ -59,10 +60,9 @@ func ObserveRestrictedCIDRs(genericListers configobserver.Listers, recorder even
 	//          restrictedCIDRs:
 	//            - 10.3.0.0/16 # ServiceCIDR
 	//            - 10.2.0.0/16 # ClusterCIDR
-	restrictedCIDRs := clusterCIDRs
-	if len(serviceCIDR) > 0 {
-		restrictedCIDRs = append(restrictedCIDRs, serviceCIDR)
-	}
+	var restrictedCIDRs []string
+	restrictedCIDRs = append(restrictedCIDRs, clusterCIDRs...)
+	restrictedCIDRs = append(restrictedCIDRs, serviceCIDRs...)
 
 	if err := unstructured.SetNestedStringSlice(admissionControllerConfig.Object, restrictedCIDRs, "restrictedCIDRs"); err != nil {
 		errs = append(errs, err)
@@ -86,26 +86,21 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 
 	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesSubnetConfigPath, bindAddressConfigPath, bindNetworkConfigPath)
 
-	serviceCIDR, err := network.GetServiceCIDR(listers.NetworkLister, recorder)
+	serviceCIDRs, err := network.GetServiceCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
 		errs = append(errs, err)
 		return previouslyObservedConfig, errs
 	}
+	servicesSubnet := strings.Join(serviceCIDRs, ",")
 
-	if err := unstructured.SetNestedField(out, serviceCIDR, servicesSubnetConfigPath...); err != nil {
+	if err := unstructured.SetNestedField(out, servicesSubnet, servicesSubnetConfigPath...); err != nil {
 		errs = append(errs, err)
 	}
 	bindAddress := "0.0.0.0:6443"
 	bindNetwork := "tcp4"
-	// TODO: only do this in the single-stack IPv6 case once network.GetServiceCIDR()
-	// supports dual-stack
-	if serviceCIDR != "" {
-		if ip, _, err := net.ParseCIDR(serviceCIDR); err != nil {
-			errs = append(errs, err)
-		} else if ip.To4() == nil {
-			bindAddress = "[::]:6443"
-			bindNetwork = "tcp6"
-		}
+	if len(serviceCIDRs) == 1 && utilnet.IsIPv6CIDRString(serviceCIDRs[0]) {
+		bindAddress = "[::]:6443"
+		bindNetwork = "tcp6"
 	}
 	if err := unstructured.SetNestedField(out, bindAddress, bindAddressConfigPath...); err != nil {
 		errs = append(errs, err)
