@@ -21,8 +21,10 @@ servingInfo:
       keyFile: /etc/kubernetes/secrets/kube-apiserver-lb-server.key
     - certFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.crt
       keyFile: /etc/kubernetes/secrets/kube-apiserver-internal-lb-server.key
-{{if .ServiceCIDR | len | ne 0}}
-servicesSubnet: {{index .ServiceCIDR 0}}{{end}}
+{{- if .ServiceCIDR | len}}
+servicesSubnet: {{index .ServiceCIDR 0 -}}
+{{- if .ServiceCIDR | len | eq 2}},{{index .ServiceCIDR 1}}{{end -}}
+{{- end}}
 admission:
   pluginConfig:
     {{if .ServiceCIDR }}
@@ -53,6 +55,9 @@ apiServerArguments:
     - "ServiceNodeExclusion=true"
     - "SCTPSupport=true"
     - "LegacyNodeRoleBehavior=false"
+{{- if .ServiceCIDR | len | eq 2}}
+    - "IPv6DualStack=true"
+{{- end}}
   kubelet-certificate-authority:
     - /etc/kubernetes/secrets/kubelet-client-ca-bundle.crt # this is wired to the KCM CSR, which signs serving and client certs for kubelet
   kubelet-client-certificate:

@@ -89,6 +89,7 @@ spec:
       hostPrefix: 23
   networkType: OpenShiftSDN
   serviceNetwork:
+    - fd02::/112
     - 172.30.0.0/16
 status: {}
 `
@@ -251,23 +252,26 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 3 checks BindAddress under dual IPv4-IPv6",
+			name: "scenario 3 checks BindAddress and ServicesSubnet under dual IPv4-IPv6",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
-				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-v4.yaml"),
+				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-dual.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
 			},
 			setupFunction: func() error {
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v4.yaml"), []byte(networkConfigDual), 0644)
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if cfg.ServingInfo.BindAddress != "0.0.0.0:6443" {
-					return fmt.Errorf("incorrect IPv4 BindAddress: %s", cfg.ServingInfo.BindAddress)
+					return fmt.Errorf("incorrect dual-stack BindAddress: %s", cfg.ServingInfo.BindAddress)
 				}
 				if cfg.ServingInfo.BindNetwork != "tcp4" {
-					return fmt.Errorf("incorrect IPv4 BindNetwork: %s", cfg.ServingInfo.BindNetwork)
+					return fmt.Errorf("incorrect dual-stack BindNetwork: %s", cfg.ServingInfo.BindNetwork)
+				}
+				if cfg.ServicesSubnet != "fd02::/112,172.30.0.0/16" {
+					return fmt.Errorf("incorrect dual-stack ServicesSubnet: %s", cfg.ServicesSubnet)
 				}
 				return nil
 			},
