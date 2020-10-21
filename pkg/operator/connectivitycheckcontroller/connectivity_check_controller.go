@@ -54,7 +54,7 @@ func NewKubeAPIServerConnectivityCheckController(
 				configInformers.Config().V1().Infrastructures().Informer(),
 			},
 			recorder,
-			true,
+			false,
 		),
 	}
 	generator := &connectivityCheckTemplateProvider{
