@@ -1116,7 +1116,7 @@ spec:
       args:
       - |
         echo -n "Fixing audit permissions."
-        chmod 0700 /var/log/kube-apiserver
+        chmod 0700 /var/log/kube-apiserver && touch /var/log/kube-apiserver/audit.log && chmod 0600 /var/log/kube-apiserver/*
         echo -n "Waiting for port :6443 and :6080 to be released."
         while [ -n "$(ss -Htan '( sport = 6443 or sport = 6080 )')" ]; do
           echo -n "."
