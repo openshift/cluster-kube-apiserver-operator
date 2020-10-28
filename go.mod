@@ -21,9 +21,9 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/jteeuwen/go-bindata v3.0.7+incompatible
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-00010101000000-000000000000 // indirect
-	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
-	github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
-	github.com/openshift/library-go v0.0.0-20200114152504-c6063f06a9cd
+	github.com/openshift/api v0.0.0-20200527184302-a843dc3262a0
+	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
+	github.com/openshift/library-go v0.0.0-20200917064228-204460295f3c
 	github.com/pkg/profile v1.3.0 // indirect
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/cobra v0.0.5
