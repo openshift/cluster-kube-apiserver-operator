@@ -25,7 +25,7 @@ spec:
     args:
     - |
       echo -n "Fixing audit permissions."
-      chmod 0700 /var/log/kube-apiserver
+      chmod 0700 /var/log/kube-apiserver && touch /var/log/kube-apiserver/audit.log && chmod 0600 /var/log/kube-apiserver/*
     securityContext:
       privileged: true
   containers:
