@@ -131,3 +131,26 @@ spec:
     - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
       expr: |
         max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+  name: deprecated-apis-use
+  namespace: openshift-kube-apiserver-operator
+spec:
+  groups:
+  - name: using-deprecated-apis
+    rules:
+    - alert: DeprecatedAPIUse
+      annotations:
+        message: |
+           "{{ $labels.client }}" has used a deprecated "{{ $labels.group }}"/"{{ $labels.version }}" API version of the "{{ $labels.resource }}" resource. This API version will be removed {{ $labels.removed_release }}; please migrate to the current version of this API.
+        summary: |
+            "{{ $labels.client }}" is using a deprecated "{{ $labels.group }}/{{ $labels.version }}" API version
+      expr: |
+        apiserver_requested_deprecated_apis == 1
+      labels:
+        severity: warning
