@@ -262,6 +262,8 @@ apiServerArguments:
   # need to enable alpha APIs for the priority and fairness feature
   runtime-config:
     - flowcontrol.apiserver.k8s.io/v1alpha1=true
+  secure-port:
+    - "6443"
   service-account-lookup:
     - "true"
   service-node-port-range:

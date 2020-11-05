@@ -1,6 +1,7 @@
 package network
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -132,11 +133,11 @@ func TestObserveServicesSubnet(t *testing.T) {
 		t.Errorf("expected result != nil")
 	}
 
-	conf, ok, err := unstructured.NestedString(result, "servicesSubnet")
+	conf, ok, err := unstructured.NestedStringSlice(result, "apiServerArguments", "service-cluster-ip-range")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "" {
+	if !reflect.DeepEqual(conf, []string{""}) {
 		t.Errorf("Unexpected value: %v", conf)
 	}
 
@@ -155,28 +156,20 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
-	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
+	conf, ok, err = unstructured.NestedStringSlice(result, "apiServerArguments", "service-cluster-ip-range")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "172.30.0.0/16" {
+	if !reflect.DeepEqual(conf, []string{"172.30.0.0/16"}) {
 		t.Errorf("Unexpected value: %v", conf)
 	}
-	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	conf, ok, err = unstructured.NestedStringSlice(result, "apiServerArguments", "bind-address")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "0.0.0.0:6443" {
+	if !reflect.DeepEqual(conf, []string{"0.0.0.0"}) {
 		t.Errorf("Unexpected value: %v", conf)
 	}
-	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
-	if err != nil || !ok {
-		t.Errorf("Unexpected configuration returned: %v", result)
-	}
-	if conf != "tcp4" {
-		t.Errorf("Unexpected value: %v", conf)
-	}
-
 	// Change the config and see that it is updated.
 	if err := indexer.Update(&configv1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -192,25 +185,18 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
-	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
+	conf, ok, err = unstructured.NestedStringSlice(result, "apiServerArguments", "service-cluster-ip-range")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "fd02::/112" {
+	if !reflect.DeepEqual(conf, []string{"fd02::/112"}) {
 		t.Errorf("Unexpected value: %v", conf)
 	}
-	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	conf, ok, err = unstructured.NestedStringSlice(result, "apiServerArguments", "bind-address")
 	if err != nil || !ok {
 		t.Errorf("Unexpected configuration returned: %v", result)
 	}
-	if conf != "[::]:6443" {
-		t.Errorf("Unexpected value: %v", conf)
-	}
-	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
-	if err != nil || !ok {
-		t.Errorf("Unexpected configuration returned: %v", result)
-	}
-	if conf != "tcp6" {
+	if !reflect.DeepEqual(conf, []string{"[::]"}) {
 		t.Errorf("Unexpected value: %v", conf)
 	}
 }

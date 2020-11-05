@@ -81,10 +81,9 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 
 	out := map[string]interface{}{}
 	servicesSubnetConfigPath := []string{"apiServerArguments", "service-cluster-ip-range"}
-	bindAddressConfigPath := []string{"servingInfo", "bindAddress"}
-	bindNetworkConfigPath := []string{"servingInfo", "bindNetwork"}
+	bindAddressConfigPath := []string{"apiServerArguments", "bind-address"}
 
-	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesSubnetConfigPath, bindAddressConfigPath, bindNetworkConfigPath)
+	previouslyObservedConfig, errs := extractPreviouslyObservedConfig(existingConfig, servicesSubnetConfigPath, bindAddressConfigPath)
 
 	serviceCIDRs, err := network.GetServiceCIDRs(listers.NetworkLister, recorder)
 	if err != nil {
@@ -93,19 +92,14 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 	}
 	servicesSubnet := strings.Join(serviceCIDRs, ",")
 
-	if err := unstructured.SetNestedField(out, servicesSubnet, servicesSubnetConfigPath...); err != nil {
+	if err := unstructured.SetNestedStringSlice(out, []string{servicesSubnet}, servicesSubnetConfigPath...); err != nil {
 		errs = append(errs, err)
 	}
-	bindAddress := "0.0.0.0:6443"
-	bindNetwork := "tcp4"
+	bindAddress := "0.0.0.0"
 	if len(serviceCIDRs) == 1 && utilnet.IsIPv6CIDRString(serviceCIDRs[0]) {
-		bindAddress = "[::]:6443"
-		bindNetwork = "tcp6"
+		bindAddress = "[::]"
 	}
-	if err := unstructured.SetNestedField(out, bindAddress, bindAddressConfigPath...); err != nil {
-		errs = append(errs, err)
-	}
-	if err := unstructured.SetNestedField(out, bindNetwork, bindNetworkConfigPath...); err != nil {
+	if err := unstructured.SetNestedStringSlice(out, []string{bindAddress}, bindAddressConfigPath...); err != nil {
 		errs = append(errs, err)
 	}
 
