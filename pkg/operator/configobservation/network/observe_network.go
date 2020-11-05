@@ -80,7 +80,7 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 	listers := genericListers.(configobservation.Listers)
 
 	out := map[string]interface{}{}
-	servicesSubnetConfigPath := []string{"servicesSubnet"}
+	servicesSubnetConfigPath := []string{"apiServerArguments", "service-cluster-ip-range"}
 	bindAddressConfigPath := []string{"servingInfo", "bindAddress"}
 	bindNetworkConfigPath := []string{"servingInfo", "bindNetwork"}
 
