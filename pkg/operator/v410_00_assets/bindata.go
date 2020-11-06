@@ -1310,7 +1310,6 @@ spec:
         cpu: 10m
   terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
   hostNetwork: true
-  dnsPolicy: ClusterFirstWithHostNet
   priorityClassName: system-node-critical
   tolerations:
   - operator: "Exists"

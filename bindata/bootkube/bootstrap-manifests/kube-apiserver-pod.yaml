@@ -12,7 +12,6 @@ metadata:
 spec:
   restartPolicy: Always
   hostNetwork: true
-  dnsPolicy: ClusterFirstWithHostNet
   initContainers:
   - name: setup
     terminationMessagePolicy: FallbackToLogsOnError
