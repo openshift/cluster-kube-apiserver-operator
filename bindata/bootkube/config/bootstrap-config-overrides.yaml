@@ -72,6 +72,8 @@ apiServerArguments:
     - /etc/kubernetes/secrets/aggregator-signer.crt
   service-account-key-file:
     - /etc/kubernetes/secrets/service-account.pub
+  service-account-issuer: {{if .ServiceAccountIssuer}}
+    - {{.ServiceAccountIssuer}}{{end}}
   tls-cert-file:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   tls-private-key-file:

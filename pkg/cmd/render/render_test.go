@@ -129,6 +129,43 @@ func TestDiscoverCIDRsFromClusterAPI(t *testing.T) {
 	}
 }
 
+func TestDiscoverServiceAccountIssuer(t *testing.T) {
+	tests := []struct {
+		config string
+
+		issuer string
+	}{{
+		config: `apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec: {}`,
+	}, {
+		config: `apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec:
+  serviceAccountIssuer: https://test.dummy.url`,
+		issuer: "https://test.dummy.url",
+	}}
+	for _, test := range tests {
+		t.Run("", func(t *testing.T) {
+			renderConfig := TemplateData{
+				LockHostPath:   "",
+				EtcdServerURLs: []string{""},
+				EtcdServingCA:  "",
+			}
+			if err := discoverServiceAccountIssuer([]byte(test.config), &renderConfig); err != nil {
+				t.Fatalf("failed to discoverServiceAccountIssuer: %v", err)
+			}
+			if !reflect.DeepEqual(renderConfig.ServiceAccountIssuer, test.issuer) {
+				t.Fatalf("Got: %s, expected: %v", renderConfig.ServiceAccountIssuer, test.issuer)
+			}
+		})
+	}
+}
+
 func TestDiscoverCIDRs(t *testing.T) {
 	testCase := []struct {
 		config []byte
@@ -272,6 +309,94 @@ func TestRenderCommand(t *testing.T) {
 				}
 				if cfg.ServicesSubnet != "fd02::/112,172.30.0.0/16" {
 					return fmt.Errorf("incorrect dual-stack ServicesSubnet: %s", cfg.ServicesSubnet)
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 4 checks service account issuer when authentication no exists",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 5 checks service account issuer when authentication exists but empty",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := ``
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 6 checks service account issuer when authentication exists but empty spec",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := `apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec: {}`
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 7 checks service account issuer when authentication spec has issuer set",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := `apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec:
+  serviceAccountIssuer: https://test.dummy.url`
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-issuer"]) == 0 {
+					return fmt.Errorf("expected the service-account-issuer to be set, but it was empty")
+				}
+				if !reflect.DeepEqual(cfg.APIServerArguments["service-account-issuer"], kubecontrolplanev1.Arguments([]string{"https://test.dummy.url"})) {
+					return fmt.Errorf("expected the service-account-issuer to be [ https://test.dummy.url ], but it was %s", cfg.APIServerArguments["service-account-issuer"])
 				}
 				return nil
 			},
