@@ -401,6 +401,102 @@ spec:
 				return nil
 			},
 		},
+		{
+			name: "scenario 8 no user provided bound-sa-signing-keys",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 9 user provided bound-sa-signing-key only no public part",
+			args: []string{
+				"--asset-input-dir=" + filepath.Join(assetsInputDir, "0"),
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "0"), 0700); err != nil {
+					return err
+				}
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 10 user provided bound-sa-signing-key only public part",
+			args: []string{
+				"--asset-input-dir=" + filepath.Join(assetsInputDir, "1"),
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "1"), 0700); err != nil {
+					return err
+				}
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
+					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "scenario 11 user provided bound-sa-signing-key and public part",
+			args: []string{
+				"--asset-input-dir=" + filepath.Join(assetsInputDir, "2"),
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "2"), 0700); err != nil {
+					return err
+				}
+				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0644); err != nil {
+					return err
+				}
+				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
+					return err
+				}
+				return nil
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["service-account-signing-key-file"]) == 0 {
+					return fmt.Errorf("expected the service-account-issuer to be set, but it was empty")
+				}
+				if !reflect.DeepEqual(cfg.APIServerArguments["service-account-signing-key-file"], kubecontrolplanev1.Arguments([]string{"/etc/kubernetes/secrets/bound-service-account-signing-key.key"})) {
+					return fmt.Errorf("expected the service-account-issuer to be [ /etc/kubernetes/secrets/bound-service-account-signing-key.key ], but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				}
+				if !reflect.DeepEqual(
+					cfg.APIServerArguments["service-account-key-file"],
+					kubecontrolplanev1.Arguments([]string{"/etc/kubernetes/secrets/service-account.pub", "/etc/kubernetes/secrets/bound-service-account-signing-key.pub"}),
+				) {
+					return fmt.Errorf("expected the service-account-issuer to be [ /etc/kubernetes/secrets/service-account.pub , /etc/kubernetes/secrets/bound-service-account-signing-key.pub ], but it was %s", cfg.APIServerArguments["service-account-key-file"])
+				}
+				return nil
+			},
+		},
 	}
 
 	for _, test := range tests {

@@ -147,6 +147,8 @@ type TemplateData struct {
 	BindNetwork string
 
 	ServiceAccountIssuer string
+
+	UserProvidedBoundSASigningKey bool
 }
 
 // Run contains the logic of the render command.
@@ -176,6 +178,11 @@ func (r *renderOpts) Run() error {
 			if err := discoverServiceAccountIssuer(clusterAuthFileData, &renderConfig); err != nil {
 				return fmt.Errorf("unable to parse service-account issuers from config %q: %v", r.clusterAuthFile, err)
 			}
+		}
+	}
+	if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.key")); err == nil {
+		if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.pub")); err == nil {
+			renderConfig.UserProvidedBoundSASigningKey = true
 		}
 	}
 	if len(renderConfig.ClusterCIDR) > 0 {
