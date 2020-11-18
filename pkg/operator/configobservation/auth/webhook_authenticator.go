@@ -20,8 +20,10 @@ import (
 )
 
 var (
-	webhookTokenAuthenticatorPath = []string{"apiServerArguments", "authentication-token-webhook-config-file"}
-	webhookTokenAuthenticatorFile = []interface{}{"/etc/kubernetes/static-pod-resources/secrets/webhook-authenticator/kubeConfig"}
+	webhookTokenAuthenticatorPath        = []string{"apiServerArguments", "authentication-token-webhook-config-file"}
+	webhookTokenAuthenticatorFile        = []interface{}{"/etc/kubernetes/static-pod-resources/secrets/webhook-authenticator/kubeConfig"}
+	webhookTokenAuthenticatorVersionPath = []string{"apiServerArguments", "authentication-token-webhook-version"}
+	webhookTokenAuthenticatorVersion     = []interface{}{"v1"}
 )
 
 // ObserveWebhookTokenAuthenticator observes the webhookTokenAuthenticator field of
@@ -70,6 +72,10 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 		if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
 			return existingConfig, append(errs,
 				fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
+		}
+
+		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
+			return existingConfig, append(errs, err)
 		}
 
 		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
