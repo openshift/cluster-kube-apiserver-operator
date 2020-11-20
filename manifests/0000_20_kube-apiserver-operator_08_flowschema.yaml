@@ -3,6 +3,7 @@ kind: PriorityLevelConfiguration
 metadata:
   name: openshift-aggregated-api-delegated-auth
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   limited:
@@ -20,6 +21,7 @@ kind: PriorityLevelConfiguration
 metadata:
   name: openshift-control-plane-operators
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   limited:
@@ -37,6 +39,7 @@ kind: FlowSchema
 metadata:
   name: openshift-monitoring-metrics
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   distinguisherMethod:
@@ -61,6 +64,7 @@ kind: FlowSchema
 metadata:
   name: openshift-kube-apiserver-operator
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   distinguisherMethod:
