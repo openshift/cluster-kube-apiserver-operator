@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,7 +38,6 @@ type renderOpts struct {
 	etcdServerURLs    []string
 	etcdServingCA     string
 	clusterConfigFile string
-	clusterAuthFile   string
 }
 
 // NewRenderCommand creates a render command.
@@ -81,7 +79,6 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVar(&r.etcdServerURLs, "manifest-etcd-server-urls", r.etcdServerURLs, "The etcd server URL, comma separated.")
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
-	fs.StringVar(&r.clusterAuthFile, "cluster-auth-file", r.clusterAuthFile, "Openshift Cluster Authentication API Config file.")
 }
 
 // Validate verifies the inputs.
@@ -145,10 +142,6 @@ type TemplateData struct {
 
 	// BindNetwork is the network (tcp4 or tcp6) to bind to
 	BindNetwork string
-
-	ServiceAccountIssuer string
-
-	UserProvidedBoundSASigningKey bool
 }
 
 // Run contains the logic of the render command.
@@ -167,22 +160,6 @@ func (r *renderOpts) Run() error {
 		}
 		if err = discoverCIDRs(clusterConfigFileData, &renderConfig); err != nil {
 			return fmt.Errorf("unable to parse restricted CIDRs from config %q: %v", r.clusterConfigFile, err)
-		}
-	}
-	if len(r.clusterAuthFile) > 0 {
-		clusterAuthFileData, err := ioutil.ReadFile(r.clusterAuthFile)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to load authentication config: %v", err)
-		}
-		if len(clusterAuthFileData) > 0 {
-			if err := discoverServiceAccountIssuer(clusterAuthFileData, &renderConfig); err != nil {
-				return fmt.Errorf("unable to parse service-account issuers from config %q: %v", r.clusterAuthFile, err)
-			}
-		}
-	}
-	if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.key")); err == nil {
-		if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.pub")); err == nil {
-			renderConfig.UserProvidedBoundSASigningKey = true
 		}
 	}
 	if len(renderConfig.ClusterCIDR) > 0 {
@@ -304,27 +281,6 @@ func mustReadTemplateFile(fname string) genericrenderoptions.Template {
 		panic(fmt.Sprintf("Failed to load %q: %v", fname, err))
 	}
 	return genericrenderoptions.Template{FileName: fname, Content: bs}
-}
-
-func discoverServiceAccountIssuer(clusterAuthFileData []byte, renderConfig *TemplateData) error {
-	configJson, err := yaml.YAMLToJSON(clusterAuthFileData)
-	if err != nil {
-		return err
-	}
-	clusterConfigObj, err := runtime.Decode(unstructured.UnstructuredJSONScheme, configJson)
-	if err != nil {
-		return err
-	}
-	clusterConfig, ok := clusterConfigObj.(*unstructured.Unstructured)
-	if !ok {
-		return fmt.Errorf("unexpected object in %t", clusterConfigObj)
-	}
-	issuer, found, err := unstructured.NestedString(
-		clusterConfig.Object, "spec", "serviceAccountIssuer")
-	if found && err == nil {
-		renderConfig.ServiceAccountIssuer = issuer
-	}
-	return err
 }
 
 func discoverCIDRs(clusterConfigFileData []byte, renderConfig *TemplateData) error {
