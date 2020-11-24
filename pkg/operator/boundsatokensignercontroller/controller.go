@@ -153,6 +153,9 @@ func (c *BoundSATokenSignerController) ensurePublicKeyConfigMap(ctx context.Cont
 	}
 
 	currPublicKey := string(operatorSecret.Data[PublicKeyKey])
+	if currPublicKey == "" {
+		return fmt.Errorf("no current %s found, one must be set in %s/%s secret", PublicKeyKey, operatorNamespace, NextSigningKeySecretName)
+	}
 	hasKey := configMapHasValue(configMap, currPublicKey)
 	if !hasKey {
 		// Increment until a unique name is found to ensure that the new public key
