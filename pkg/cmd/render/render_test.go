@@ -323,8 +323,10 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				issuer := cfg.APIServerArguments["service-account-issuer"]
+				expectedIssuer := kubecontrolplanev1.Arguments{"https://kubernetes.default.svc"}
+				if !reflect.DeepEqual(issuer, expectedIssuer) {
+					return fmt.Errorf("expected the service-account-issuer to be %q, but it was %q", expectedIssuer, issuer)
 				}
 				return nil
 			},
@@ -343,8 +345,10 @@ func TestRenderCommand(t *testing.T) {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				issuer := cfg.APIServerArguments["service-account-issuer"]
+				expectedIssuer := kubecontrolplanev1.Arguments{"https://kubernetes.default.svc"}
+				if !reflect.DeepEqual(issuer, expectedIssuer) {
+					return fmt.Errorf("expected the service-account-issuer to be %q, but it was %q", expectedIssuer, issuer)
 				}
 				return nil
 			},
@@ -367,8 +371,10 @@ spec: {}`
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-issuer"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				issuer := cfg.APIServerArguments["service-account-issuer"]
+				expectedIssuer := kubecontrolplanev1.Arguments{"https://kubernetes.default.svc"}
+				if !reflect.DeepEqual(issuer, expectedIssuer) {
+					return fmt.Errorf("expected the service-account-issuer to be %q, but it was %q", expectedIssuer, issuer)
 				}
 				return nil
 			},
@@ -410,8 +416,11 @@ spec:
 				"--config-output-file=",
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
+				// FIXME: Update when we wire a real default key
+				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
+				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
+					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
 				}
 				return nil
 			},
@@ -432,8 +441,11 @@ spec:
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
+				// FIXME: Update when we wire a real default key
+				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
+				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
+					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
 				}
 				return nil
 			},
@@ -454,8 +466,11 @@ spec:
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if len(cfg.APIServerArguments["service-account-signing-key-file"]) > 0 {
-					return fmt.Errorf("expected the service-account-issuer to be empty, but it was %s", cfg.APIServerArguments["service-account-signing-key-file"])
+				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
+				// FIXME: Update when we wire a real default key
+				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
+				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
+					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
 				}
 				return nil
 			},
