@@ -210,7 +210,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/o
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/user/clientset/versioned/scheme
 github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
-# github.com/openshift/library-go v0.0.0-20201102091359-c4fa0f5b3a08
+# github.com/openshift/library-go v0.0.0-20201130092750-8a855b632592
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client
@@ -284,6 +284,7 @@ github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontrolle
 github.com/openshift/library-go/pkg/operator/v1helpers
 github.com/openshift/library-go/pkg/serviceability
 github.com/openshift/library-go/test/library
+github.com/openshift/library-go/test/library/apiserver
 github.com/openshift/library-go/test/library/encryption
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
