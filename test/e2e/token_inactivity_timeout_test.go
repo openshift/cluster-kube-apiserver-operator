@@ -10,20 +10,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	oauthapi "github.com/openshift/api/oauth/v1"
 	userapi "github.com/openshift/api/user/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	oauthclient "github.com/openshift/client-go/oauth/clientset/versioned/typed/oauth/v1"
 	userclient "github.com/openshift/client-go/user/clientset/versioned/typed/user/v1"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
+	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -109,7 +110,7 @@ func TestTokenInactivityTimeout(t *testing.T) {
 	t.Run("with-inactivity-timeout", func(t *testing.T) {
 		updateOAuthConfigInactivityTimeout(t, configClient, &metav1.Duration{Duration: time.Duration(configInactivityTimeout) * time.Second})
 		test.WaitForKubeAPIServerStartProgressing(t, configClient)
-		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
+		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testInactivityTimeoutScenarios)
 	})
 
@@ -122,7 +123,7 @@ func TestTokenInactivityTimeout(t *testing.T) {
 	t.Run("unset-inactivity-timeout-client-timeout", func(t *testing.T) {
 		updateOAuthConfigInactivityTimeout(t, configClient, nil)
 		test.WaitForKubeAPIServerStartProgressing(t, configClient)
-		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
+		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testTokenTimeouts)
 	})
 
