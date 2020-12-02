@@ -23,8 +23,8 @@ import (
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	testlibrary "github.com/openshift/library-go/test/library"
+	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
 
 const (
@@ -71,7 +71,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 		})
 
 		// deletion triggers a roll-out - wait until a new version has been rolled out
-		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 	})
 
 	// The secret in the operator namespace should be recreated with a new keypair
@@ -85,7 +85,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 		require.NoError(t, err)
 
 		// deletion triggers a roll-out - wait until a new version has been rolled out
-		test.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 
 		// Ensure that the cert configmap is always removed at the end of the test
 		// to ensure it will contain only the current public key. This property is
