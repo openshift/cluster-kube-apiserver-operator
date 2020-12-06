@@ -6,6 +6,7 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     rbac.authorization.kubernetes.io/autoupdate: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
   name: system:openshift:scc:hostaccess
 rules:
 - apiGroups:

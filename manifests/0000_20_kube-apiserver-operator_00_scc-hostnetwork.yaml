@@ -18,9 +18,8 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     release.openshift.io/create-only: "true"
-    kubernetes.io/description: hostnetwork allows using host networking and host ports
-      but still requires pods to be run with a UID and SELinux context that are allocated
-      to the namespace.
+    kubernetes.io/description: hostnetwork allows using host networking and host ports but still requires pods to be run with a UID and SELinux context that are allocated to the namespace.
+    include.release.openshift.io/single-node-production-edge: "true"
   name: hostnetwork
 priority:
 readOnlyRootFilesystem: false

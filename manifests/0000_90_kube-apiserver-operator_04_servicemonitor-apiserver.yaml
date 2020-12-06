@@ -6,6 +6,7 @@ metadata:
   annotations:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 rules:
 - apiGroups:
   - ""
@@ -26,6 +27,7 @@ metadata:
   annotations:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -46,6 +48,7 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -123,6 +126,7 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 spec:
   groups:
   - name: apiserver-requests-in-flight

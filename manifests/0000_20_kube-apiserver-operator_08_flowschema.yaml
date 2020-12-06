@@ -6,6 +6,7 @@ metadata:
     include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 spec:
   limited:
     assuredConcurrencyShares: 10
@@ -25,6 +26,7 @@ metadata:
     include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 spec:
   distinguisherMethod:
     type: ByUser
@@ -51,6 +53,7 @@ metadata:
     include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
 spec:
   distinguisherMethod:
     type: ByUser

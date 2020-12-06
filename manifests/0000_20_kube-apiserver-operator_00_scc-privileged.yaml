@@ -24,10 +24,8 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     release.openshift.io/create-only: "true"
-    kubernetes.io/description: 'privileged allows access to all privileged and host
-      features and the ability to run as any user, any group, any fsGroup, and with
-      any SELinux context.  WARNING: this is the most relaxed SCC and should be used
-      only for cluster administration. Grant with caution.'
+    kubernetes.io/description: 'privileged allows access to all privileged and host features and the ability to run as any user, any group, any fsGroup, and with any SELinux context.  WARNING: this is the most relaxed SCC and should be used only for cluster administration. Grant with caution.'
+    include.release.openshift.io/single-node-production-edge: "true"
   name: privileged
 priority:
 readOnlyRootFilesystem: false

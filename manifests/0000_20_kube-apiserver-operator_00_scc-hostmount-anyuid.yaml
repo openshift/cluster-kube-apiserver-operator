@@ -23,6 +23,7 @@ metadata:
       restricted SCC but allows host mounts and any UID by a pod.  This is primarily
       used by the persistent volume recycler. WARNING: this SCC allows host file
       system access as any UID, including UID 0.  Grant with caution.
+    include.release.openshift.io/single-node-production-edge: "true"
   name: hostmount-anyuid
 priority:
 readOnlyRootFilesystem: false

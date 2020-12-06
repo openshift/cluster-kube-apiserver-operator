@@ -6,6 +6,7 @@ metadata:
     include.release.openshift.io/single-node-developer: "true"
     service.alpha.openshift.io/serving-cert-secret-name: kube-apiserver-operator-serving-cert
     exclude.release.openshift.io/internal-openshift-hosted: "true"
+    include.release.openshift.io/single-node-production-edge: "true"
   labels:
     app: kube-apiserver-operator
   name: metrics

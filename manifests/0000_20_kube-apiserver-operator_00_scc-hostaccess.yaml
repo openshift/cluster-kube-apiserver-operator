@@ -18,10 +18,8 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     release.openshift.io/create-only: "true"
-    kubernetes.io/description: 'hostaccess allows access to all host namespaces but
-      still requires pods to be run with a UID and SELinux context that are allocated
-      to the namespace. WARNING: this SCC allows host access to namespaces, file systems,
-      and PIDS.  It should only be used by trusted pods.  Grant with caution.'
+    kubernetes.io/description: 'hostaccess allows access to all host namespaces but still requires pods to be run with a UID and SELinux context that are allocated to the namespace. WARNING: this SCC allows host access to namespaces, file systems, and PIDS.  It should only be used by trusted pods.  Grant with caution.'
+    include.release.openshift.io/single-node-production-edge: "true"
   name: hostaccess
 priority:
 readOnlyRootFilesystem: false
