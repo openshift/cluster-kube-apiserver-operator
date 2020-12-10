@@ -5,14 +5,16 @@ import (
 	"net/url"
 	"strings"
 
-	v1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
 // ObserveServiceAccountIssuer changes apiServerArguments.service-account-issuer from
@@ -25,7 +27,7 @@ func ObserveServiceAccountIssuer(
 ) (map[string]interface{}, []error) {
 
 	listers := genericListers.(configobservation.Listers)
-	return observedConfig(existingConfig, listers.AuthConfigLister.Get)
+	return observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get)
 }
 
 // observedConfig returns an unstructured fragment of KubeAPIServerConfig that may
@@ -33,12 +35,43 @@ func ObserveServiceAccountIssuer(
 // Authentication resource.
 func observedConfig(
 	existingConfig map[string]interface{},
-	authConfigAccessor func(string) (*v1.Authentication, error),
+	authConfigAccessor func(string) (*configv1.Authentication, error),
+	infrastructureConfigAccessor func(string) (*configv1.Infrastructure, error),
 ) (map[string]interface{}, []error) {
 
 	issuer, errs := observedIssuer(existingConfig, authConfigAccessor)
-	config := unstructuredConfigForIssuer(issuer)
-	return config, errs
+
+	if len(issuer) != 0 {
+		// configure the issuer if set by the user
+		return map[string]interface{}{
+			"apiServerArguments": map[string]interface{}{
+				"service-account-issuer": []interface{}{
+					issuer,
+				},
+			},
+		}, errs
+	}
+
+	// if the issuer is not set, rely on the config-overrides.yaml to set it
+	// but configure the jwks-uri to point to the LB so that it does not default to
+	// KAS IP which is not included in the serving certs
+	infrastructureConfig, err := infrastructureConfigAccessor("cluster")
+	if err != nil {
+		return existingConfig, append(errs, err)
+	}
+	apiServerInternalURL := infrastructureConfig.Status.APIServerInternalURL
+	if len(apiServerInternalURL) == 0 {
+		return existingConfig, append(errs, fmt.Errorf("APIServerInternalURL missing from infrastructure/cluster"))
+	}
+
+	return map[string]interface{}{
+		"apiServerArguments": map[string]interface{}{
+			"service-account-jwks-uri": []interface{}{
+				apiServerInternalURL + "/openid/v1/jwks",
+			},
+		},
+	}, errs
+
 }
 
 // observedIssuer attempts to source the service account issuer defined in the
@@ -47,7 +80,7 @@ func observedConfig(
 // issuer. If that is not possible, then an empty string will be returned.
 func observedIssuer(
 	existingConfig map[string]interface{},
-	authConfigAccessor func(string) (*v1.Authentication, error),
+	authConfigAccessor func(string) (*configv1.Authentication, error),
 ) (string, []error) {
 	errs := []error{}
 
@@ -101,23 +134,6 @@ func issuerFromUnstructuredConfig(config map[string]interface{}) (string, []erro
 		}
 	}
 	return previousIssuer, errs
-}
-
-// unstructuredConfigForIssuer creates an unstructured KubeAPIServerConfig fragment
-// for the given issuer.
-func unstructuredConfigForIssuer(issuer string) map[string]interface{} {
-	// Returning an empty config when no value is provided for issuer ensures that
-	// the default value will not be overwritten by an empty value.
-	if len(issuer) == 0 {
-		return map[string]interface{}{}
-	}
-	return map[string]interface{}{
-		"apiServerArguments": map[string]interface{}{
-			"service-account-issuer": []interface{}{
-				issuer,
-			},
-		},
-	}
 }
 
 // checkIssuer validates the issuer in the same way that it will be validated by
