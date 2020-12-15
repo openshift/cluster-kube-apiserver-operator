@@ -218,7 +218,7 @@ func TestRenderCommand(t *testing.T) {
 		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
 	}{
 		{
-			name: "scenario 1 checks feature gates",
+			name: "checks feature gates",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -267,7 +267,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 2 checks BindAddress under IPv6",
+			name: "checks BindAddress under IPv6",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -289,7 +289,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 3 checks BindAddress and ServicesSubnet under dual IPv4-IPv6",
+			name: "checks BindAddress and ServicesSubnet under dual IPv4-IPv6",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -314,7 +314,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 4 checks service account issuer when authentication no exists",
+			name: "checks service account issuer when authentication no exists",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -332,7 +332,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 5 checks service account issuer when authentication exists but empty",
+			name: "checks service account issuer when authentication exists but empty",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -354,7 +354,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 6 checks service account issuer when authentication exists but empty spec",
+			name: "checks service account issuer when authentication exists but empty spec",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -380,7 +380,7 @@ spec: {}`
 			},
 		},
 		{
-			name: "scenario 7 checks service account issuer when authentication spec has issuer set",
+			name: "checks service account issuer when authentication spec has issuer set",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -408,7 +408,7 @@ spec:
 			},
 		},
 		{
-			name: "scenario 8 no user provided bound-sa-signing-keys",
+			name: "no user provided bound-sa-signing-keys",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -426,7 +426,7 @@ spec:
 			},
 		},
 		{
-			name: "scenario 9 user provided bound-sa-signing-key only no public part",
+			name: "user provided bound-sa-signing-key only no public part",
 			args: []string{
 				"--asset-input-dir=" + filepath.Join(assetsInputDir, "0"),
 				"--templates-input-dir=" + templateDir,
@@ -451,7 +451,7 @@ spec:
 			},
 		},
 		{
-			name: "scenario 10 user provided bound-sa-signing-key only public part",
+			name: " user provided bound-sa-signing-key only public part",
 			args: []string{
 				"--asset-input-dir=" + filepath.Join(assetsInputDir, "1"),
 				"--templates-input-dir=" + templateDir,
@@ -476,7 +476,7 @@ spec:
 			},
 		},
 		{
-			name: "scenario 11 user provided bound-sa-signing-key and public part",
+			name: " user provided bound-sa-signing-key and public part",
 			args: []string{
 				"--asset-input-dir=" + filepath.Join(assetsInputDir, "2"),
 				"--templates-input-dir=" + templateDir,
