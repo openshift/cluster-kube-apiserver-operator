@@ -101,7 +101,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "api request duration by verb - 99th quantile",
+          "title": "API Request Duration by Verb - 99th Quantile",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -209,7 +209,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "etcd request duration - 99th quantile",
+          "title": "etcd Request Duration - 99th Quantile",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -317,7 +317,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request duration by resource and verb - 99th quantile ",
+          "title": "Request Duration by Resource and Verb - 99th Quantile",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -414,7 +414,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request rate - by resource and verb",
+          "title": "Request Rate by Resource and Verb",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -528,7 +528,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request duration - read vs write",
+          "title": "Request Duration by Read vs Write",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -631,7 +631,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request rate - read vs write",
+          "title": "Request Rate by Read vs Write",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -728,7 +728,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "requests dropped rate",
+          "title": "Requests Dropped Rate",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -827,7 +827,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "requests terminated rate",
+          "title": "Requests Terminated Rate",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -924,7 +924,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request rate - by status",
+          "title": "Request Rate by Status",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1022,7 +1022,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request rate - by instance",
+          "title": "Request Rate by Instance",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1118,7 +1118,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "request in flight",
+          "title": "Requests in Flight",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1215,7 +1215,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "long running requests",
+          "title": "Long Running Requests",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1323,7 +1323,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "response bytes per second - by resource, verb",
+          "title": "Response Bytes per Second by Resource and Verb",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1431,7 +1431,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "response bytes per second - by instance",
+          "title": "Response Bytes per Second by Instance",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1530,7 +1530,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - request wait duration - 99th quantile",
+          "title": "Priority & Fairness: Request Wait Duration - 99th Quantile",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1629,7 +1629,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - requests rejected ",
+          "title": "Priority & Fairness: Requests Rejected",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1726,7 +1726,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - request dispatch rate ",
+          "title": "Priority & Fairness: Request Dispatch Rate",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1826,7 +1826,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - request queue length ",
+          "title": "Priority & Fairness: Request Queue Length",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -1923,7 +1923,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - currently executing requests",
+          "title": "Priority & Fairness: Currently Executing Requests",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -2020,7 +2020,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - request execution duration ",
+          "title": "Priority & Fairness: Request Execution Duration",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -2117,7 +2117,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - pending in queue ",
+          "title": "Priority & Fairness: Pending in Queue",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -2214,7 +2214,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "p&f - concurrency limit by priority level ",
+          "title": "Priority & Fairness: Concurrency Limit by Priority Level",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -2322,7 +2322,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "requests aborted rate - by instance",
+          "title": "Requests Aborted Rate by Instance",
           "tooltip": {
             "shared": true,
             "sort": 2,
@@ -2430,7 +2430,7 @@ data:
           "timeFrom": null,
           "timeRegions": [],
           "timeShift": null,
-          "title": "self-requests rate - by instance",
+          "title": "Self-requests Rate by Instance",
           "tooltip": {
             "shared": true,
             "sort": 2,
