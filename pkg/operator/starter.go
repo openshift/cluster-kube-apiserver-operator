@@ -255,6 +255,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	encryptionControllers := encryption.NewControllers(
 		operatorclient.TargetNamespace,
+		nil,
 		encryptionProvider{
 			schema.GroupResource{Group: "", Resource: "secrets"},
 			schema.GroupResource{Group: "", Resource: "configmaps"},
