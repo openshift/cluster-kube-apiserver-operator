@@ -74,17 +74,11 @@ apiServerArguments:
     - /etc/kubernetes/secrets/aggregator-signer.crt
   service-account-key-file:
     - /etc/kubernetes/secrets/service-account.pub
-  {{- if .UserProvidedBoundSASigningKey}}
     - /etc/kubernetes/secrets/bound-service-account-signing-key.pub
-  {{- end}}
   service-account-issuer:
     - {{ or .ServiceAccountIssuer "https://kubernetes.default.svc" }}
   service-account-signing-key-file:
-  {{- if .UserProvidedBoundSASigningKey }}
     - /etc/kubernetes/secrets/bound-service-account-signing-key.key
-  {{- else }}
-    - /etc/kubernetes/secrets/service-account.key # FIXME: wire a real default key
-  {{ end }}
   tls-cert-file:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   tls-private-key-file:

@@ -2,7 +2,11 @@ package render
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -107,6 +111,10 @@ func (r *renderOpts) Validate() error {
 		return errors.New("missing etcd serving CA: --manifest-etcd-serving-ca")
 	}
 
+	if err := validateBoundSATokensSigningKeys(r.generic.AssetInputDir); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -147,8 +155,6 @@ type TemplateData struct {
 	BindNetwork string
 
 	ServiceAccountIssuer string
-
-	UserProvidedBoundSASigningKey bool
 }
 
 // Run contains the logic of the render command.
@@ -180,11 +186,30 @@ func (r *renderOpts) Run() error {
 			}
 		}
 	}
-	if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.key")); err == nil {
-		if _, err := os.Stat(filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.pub")); err == nil {
-			renderConfig.UserProvidedBoundSASigningKey = true
+
+	boundSAPublicPath := filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.pub")
+	boundSAPrivatePath := filepath.Join(r.generic.AssetInputDir, "bound-service-account-signing-key.key")
+	_, privStatErr := os.Stat(boundSAPrivatePath)
+	if privStatErr != nil {
+		if !os.IsNotExist(privStatErr) {
+			return fmt.Errorf("failed to access %s: %v", boundSAPrivatePath, privStatErr)
+		}
+
+		// the private key is missing => generate the keypair
+		pubPEM, privPEM, err := generateKeyPairPEM()
+		if err != nil {
+			return fmt.Errorf("failed to generate an RSA keypair for bound SA token signing: %v", err)
+		}
+
+		if err := ioutil.WriteFile(boundSAPrivatePath, privPEM, os.FileMode(0600)); err != nil {
+			return fmt.Errorf("failed to write private key for bound SA token signing: %v", err)
+		}
+
+		if err := ioutil.WriteFile(boundSAPublicPath, pubPEM, os.FileMode(0644)); err != nil {
+			return fmt.Errorf("failed to write public key for bound SA token verification: %v", err)
 		}
 	}
+
 	if len(renderConfig.ClusterCIDR) > 0 {
 		anyIPv4 := false
 		for _, cidr := range renderConfig.ClusterCIDR {
@@ -406,4 +431,58 @@ func discoverCIDRsFromClusterAPI(clusterConfigFileData []byte, renderConfig *Tem
 		return err
 	}
 	return nil
+}
+
+func validateBoundSATokensSigningKeys(assetsDir string) error {
+	boundSAPublicPath := filepath.Join(assetsDir, "bound-service-account-signing-key.pub")
+	boundSAPrivatePath := filepath.Join(assetsDir, "bound-service-account-signing-key.key")
+	_, pubStatErr := os.Stat(boundSAPublicPath)
+	_, privStatErr := os.Stat(boundSAPrivatePath)
+
+	if pubStatErr != nil {
+		if !os.IsNotExist(pubStatErr) {
+			return fmt.Errorf("failed to access %s: %v", boundSAPublicPath, pubStatErr)
+		} else if privStatErr == nil {
+			return fmt.Errorf("%s was supplied, but the matching public key is missing", boundSAPrivatePath)
+		}
+	}
+
+	if privStatErr != nil {
+		if !os.IsNotExist(privStatErr) {
+			return fmt.Errorf("failed to access %s: %v", boundSAPrivatePath, privStatErr)
+		} else if pubStatErr == nil {
+			return fmt.Errorf("%s was supplied, but the matching private key is missing", boundSAPublicPath)
+		}
+	}
+
+	return nil
+}
+
+func generateKeyPairPEM() (pubKeyPEM []byte, privKeyPEM []byte, err error) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, nil, err
+	}
+	// convert the keys to PEM format
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode pub key: %v", err)
+	}
+
+	pubKeyPEM = pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PUBLIC KEY",
+			Bytes: pubKeyBytes,
+		},
+	)
+
+	privKeyBytes := x509.MarshalPKCS1PrivateKey(privKey)
+	privKeyPEM = pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privKeyBytes,
+		},
+	)
+
+	return pubKeyPEM, privKeyPEM, nil
 }

@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/stretchr/testify/require"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -20,7 +22,7 @@ import (
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/stretchr/testify/require"
+	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 )
 
 var (
@@ -218,7 +220,7 @@ func TestRenderCommand(t *testing.T) {
 		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
 	}{
 		{
-			name: "scenario 1 checks feature gates",
+			name: "checks feature gates",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -267,7 +269,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 2 checks BindAddress under IPv6",
+			name: "checks BindAddress under IPv6",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -289,7 +291,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 3 checks BindAddress and ServicesSubnet under dual IPv4-IPv6",
+			name: "checks BindAddress and ServicesSubnet under dual IPv4-IPv6",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -314,7 +316,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 4 checks service account issuer when authentication no exists",
+			name: "checks service account issuer when authentication no exists",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -332,7 +334,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 5 checks service account issuer when authentication exists but empty",
+			name: "checks service account issuer when authentication exists but empty",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -354,7 +356,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 		},
 		{
-			name: "scenario 6 checks service account issuer when authentication exists but empty spec",
+			name: "checks service account issuer when authentication exists but empty spec",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -380,7 +382,7 @@ spec: {}`
 			},
 		},
 		{
-			name: "scenario 7 checks service account issuer when authentication spec has issuer set",
+			name: "checks service account issuer when authentication spec has issuer set",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
@@ -408,75 +410,16 @@ spec:
 			},
 		},
 		{
-			name: "scenario 8 no user provided bound-sa-signing-keys",
+			name: "no user provided bound-sa-signing-keys -> generate the keys",
 			args: []string{
 				"--asset-input-dir=" + assetsInputDir,
 				"--templates-input-dir=" + templateDir,
 				"--asset-output-dir=",
 				"--config-output-file=",
 			},
-			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
-				// FIXME: Update when we wire a real default key
-				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
-				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
-					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
-				}
-				return nil
-			},
 		},
 		{
-			name: "scenario 9 user provided bound-sa-signing-key only no public part",
-			args: []string{
-				"--asset-input-dir=" + filepath.Join(assetsInputDir, "0"),
-				"--templates-input-dir=" + templateDir,
-				"--asset-output-dir=",
-				"--config-output-file=",
-			},
-			setupFunction: func() error {
-				data := `DUMMY DATA`
-				if err := os.Mkdir(filepath.Join(assetsInputDir, "0"), 0700); err != nil {
-					return err
-				}
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0644)
-			},
-			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
-				// FIXME: Update when we wire a real default key
-				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
-				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
-					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
-				}
-				return nil
-			},
-		},
-		{
-			name: "scenario 10 user provided bound-sa-signing-key only public part",
-			args: []string{
-				"--asset-input-dir=" + filepath.Join(assetsInputDir, "1"),
-				"--templates-input-dir=" + templateDir,
-				"--asset-output-dir=",
-				"--config-output-file=",
-			},
-			setupFunction: func() error {
-				data := `DUMMY DATA`
-				if err := os.Mkdir(filepath.Join(assetsInputDir, "1"), 0700); err != nil {
-					return err
-				}
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
-			},
-			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				issuerKeyFile := cfg.APIServerArguments["service-account-signing-key-file"]
-				// FIXME: Update when we wire a real default key
-				expectedIssuerKeyFile := kubecontrolplanev1.Arguments{"/etc/kubernetes/secrets/service-account.key"}
-				if !reflect.DeepEqual(issuerKeyFile, expectedIssuerKeyFile) {
-					return fmt.Errorf("expected the service-account-signing-key-file to be %q, but it was %q", expectedIssuerKeyFile, issuerKeyFile)
-				}
-				return nil
-			},
-		},
-		{
-			name: "scenario 11 user provided bound-sa-signing-key and public part",
+			name: " user provided bound-sa-signing-key and public part",
 			args: []string{
 				"--asset-input-dir=" + filepath.Join(assetsInputDir, "2"),
 				"--templates-input-dir=" + templateDir,
@@ -624,4 +567,98 @@ func runRender(args ...string) error {
 	c := NewRenderCommand()
 	os.Args = append([]string{""}, args...)
 	return c.Execute()
+}
+
+func Test_renderOpts_Validate(t *testing.T) {
+	assetsInputDir, err := ioutil.TempDir("", "testdata")
+	if err != nil {
+		t.Errorf("unable to create assets input directory, error: %v", err)
+	}
+	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
+
+	tests := []struct {
+		name          string
+		assetInputDir string
+		setupFunction func() error
+		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
+		wantErr       bool
+	}{
+		{
+			name:          "user provided bound-sa-signing-key only no public part",
+			assetInputDir: filepath.Join(assetsInputDir, "0"),
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "0"), 0700); err != nil {
+					return err
+				}
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0600)
+			},
+			wantErr: true,
+		},
+		{
+			name:          "user provided bound-sa-signing-key only public part",
+			assetInputDir: filepath.Join(assetsInputDir, "1"),
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "1"), 0700); err != nil {
+					return err
+				}
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
+			},
+			wantErr: true,
+		},
+		{
+			name:          "user provided bound-sa-signing-key - both keys exist",
+			assetInputDir: filepath.Join(assetsInputDir, "2"),
+			setupFunction: func() error {
+				data := `DUMMY DATA`
+				if err := os.Mkdir(filepath.Join(assetsInputDir, "2"), 0700); err != nil {
+					return err
+				}
+				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
+					return err
+				}
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0600)
+			},
+		},
+		{
+			name:          "user provided bound-sa-signing-key - neither key exists",
+			assetInputDir: filepath.Join(assetsInputDir, "3"),
+			setupFunction: func() error {
+				return os.Mkdir(filepath.Join(assetsInputDir, "3"), 0700)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outDirName := strings.ReplaceAll(tt.name, " ", "_")
+			teardown, outputDir, err := setupAssetOutputDir(outDirName)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			defer teardown()
+
+			if err := tt.setupFunction(); err != nil {
+				t.Fatalf("failed to set up, error: %v", err)
+			}
+
+			r := &renderOpts{
+				generic:  *genericrenderoptions.NewGenericOptions(),
+				manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hyperkube:latest"),
+
+				lockHostPath:   "/var/run/kubernetes/lock",
+				etcdServerURLs: []string{"https://127.0.0.1:2379"},
+				etcdServingCA:  "root-ca.crt",
+			}
+			r.generic.TemplatesDir = templateDir
+
+			r.generic.AssetInputDir = tt.assetInputDir
+			r.generic.AssetOutputDir = filepath.Join(outputDir, "manifests")
+			r.generic.ConfigOutputFile = filepath.Join(outputDir, "configs", "config.yaml")
+
+			if err := r.Validate(); (err != nil) != tt.wantErr {
+				t.Errorf("renderOpts.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
