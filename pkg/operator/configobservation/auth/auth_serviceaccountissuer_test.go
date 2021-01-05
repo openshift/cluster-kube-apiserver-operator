@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,32 +17,86 @@ import (
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 )
 
+const testLBURI = "https://lb.example.com/openid/v1/jwks"
+
 func TestObservedConfig(t *testing.T) {
 	existingConfig := unstructuredAPIConfigForIssuer(t, "https://example.com")
-	authConfig := authConfigForIssuer("https://example.com")
-	expectedErr := fmt.Errorf("foo")
-	newConfig, errs := observedConfig(
-		existingConfig,
-		func(_ string) (*configv1.Authentication, error) {
-			return authConfig, expectedErr
+	expectExistingConfig := apiConfigForIssuer("https://example.com")
+	expectedErrAuth := fmt.Errorf("foo")
+	expectedErrInfra := fmt.Errorf("bar")
+
+	for _, tc := range []struct {
+		name       string
+		issuer     string
+		authError  error
+		infraError error
+	}{
+		{
+			name:   "no issuer",
+			issuer: "",
 		},
-	)
+		{
+			name:   "issuer set",
+			issuer: "https://example.com",
+		},
+		{
+			name:      "auth getter error",
+			issuer:    "https://example.com",
+			authError: expectedErrAuth,
+		},
+		{
+			name:       "infra getter error",
+			issuer:     "",
+			infraError: expectedErrInfra,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			newConfig, errs := observedConfig(
+				existingConfig,
+				func(_ string) (*configv1.Authentication, error) {
+					return authConfigForIssuer(tc.issuer), tc.authError
+				},
+				func(_ string) (*configv1.Infrastructure, error) {
+					return &configv1.Infrastructure{
+						Status: configv1.InfrastructureStatus{
+							APIServerInternalURL: "https://lb.example.com",
+						},
+					}, tc.infraError
+				},
+			)
 
-	// Check that errors are passed through
-	require.Len(t, errs, 1)
-	require.Equal(t, errs[0], expectedErr)
+			var expectedConfig *kubecontrolplanev1.KubeAPIServerConfig
+			if tc.authError == nil && tc.infraError == nil {
+				require.Len(t, errs, 0)
+				expectedConfig = apiConfigForIssuer(tc.issuer)
+			} else {
+				expectedConfig = expectExistingConfig
+			}
 
-	// The observed config must unmarshall to
-	// KubeAPIServerConfig without error.
-	unstructuredConfig := unstructured.Unstructured{
-		Object: newConfig,
+			// Check that errors are passed through
+			if tc.authError != nil {
+				require.Contains(t, errs, expectedErrAuth)
+			}
+			if tc.infraError != nil {
+				require.Contains(t, errs, expectedErrInfra)
+			}
+
+			// The observed config must unmarshall to
+			// KubeAPIServerConfig without error.
+			unstructuredConfig := unstructured.Unstructured{
+				Object: newConfig,
+			}
+			jsonConfig, err := unstructuredConfig.MarshalJSON()
+			require.NoError(t, err)
+			unmarshalledConfig := &kubecontrolplanev1.KubeAPIServerConfig{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "KubeAPIServerConfig",
+				},
+			}
+			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
+			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
+		})
 	}
-	jsonConfig, err := unstructuredConfig.MarshalJSON()
-	require.NoError(t, err)
-	unmarshalledConfig := &kubecontrolplanev1.KubeAPIServerConfig{}
-	require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
-	expectedConfig := apiConfigForIssuer("https://example.com")
-	require.Equal(t, expectedConfig, unmarshalledConfig)
 }
 
 func TestIssuerFromUnstructuredConfig(t *testing.T) {
@@ -136,12 +191,21 @@ func authConfigForIssuer(issuer string) *configv1.Authentication {
 }
 
 func apiConfigForIssuer(issuer string) *kubecontrolplanev1.KubeAPIServerConfig {
-	return &kubecontrolplanev1.KubeAPIServerConfig{
-		APIServerArguments: map[string]kubecontrolplanev1.Arguments{
-			"service-account-issuer": {
-				issuer,
-			},
+	args := map[string]kubecontrolplanev1.Arguments{
+		"service-account-issuer": {
+			issuer,
 		},
+	}
+	if len(issuer) == 0 {
+		delete(args, "service-account-issuer")
+		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
+	}
+
+	return &kubecontrolplanev1.KubeAPIServerConfig{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "KubeAPIServerConfig",
+		},
+		APIServerArguments: args,
 	}
 }
 
