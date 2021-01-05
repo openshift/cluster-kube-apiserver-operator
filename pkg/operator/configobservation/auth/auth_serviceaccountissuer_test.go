@@ -8,51 +8,82 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 const testLBURI = "https://lb.example.com/openid/v1/jwks"
 
 func TestObservedConfig(t *testing.T) {
-	existingConfig := unstructuredAPIConfigForIssuer(t, "https://example.com")
-	expectExistingConfig := apiConfigForIssuer("https://example.com")
 	expectedErrAuth := fmt.Errorf("foo")
 	expectedErrInfra := fmt.Errorf("bar")
 
 	for _, tc := range []struct {
-		name       string
-		issuer     string
-		authError  error
-		infraError error
+		name           string
+		issuer         string
+		existingIssuer string
+		authError      error
+		infraError     error
+		expectedIssuer string
+		expectedChange bool
 	}{
 		{
-			name:   "no issuer",
-			issuer: "",
+			name:           "no issuer, no previous issuer",
+			existingIssuer: "",
+			issuer:         "",
+			expectedIssuer: "",
 		},
 		{
-			name:   "issuer set",
-			issuer: "https://example.com",
+			name:           "no issuer, previous issuer set",
+			existingIssuer: "https://example.com",
+			issuer:         "",
+			expectedIssuer: "",
+			expectedChange: true,
 		},
 		{
-			name:      "auth getter error",
-			issuer:    "https://example.com",
-			authError: expectedErrAuth,
+			name:           "issuer set, no previous issuer",
+			existingIssuer: "",
+			issuer:         "https://example.com",
+			expectedIssuer: "https://example.com",
+			expectedChange: true,
 		},
 		{
-			name:       "infra getter error",
-			issuer:     "",
-			infraError: expectedErrInfra,
+			name:           "issuer set, previous issuer same",
+			existingIssuer: "https://example.com",
+			issuer:         "https://example.com",
+			expectedIssuer: "https://example.com",
+		},
+		{
+			name:           "issuer set, previous issuer different",
+			existingIssuer: "https://example.com",
+			issuer:         "https://example2.com",
+			expectedIssuer: "https://example2.com",
+			expectedChange: true,
+		},
+		{
+			name:           "auth getter error",
+			existingIssuer: "https://example2.com",
+			issuer:         "https://example.com",
+			authError:      expectedErrAuth,
+			expectedIssuer: "https://example2.com",
+		},
+		{
+			name:           "infra getter error",
+			existingIssuer: "https://example.com",
+			issuer:         "",
+			infraError:     expectedErrInfra,
+			expectedIssuer: "https://example.com",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			testRecorder := events.NewInMemoryRecorder("SAIssuerTest")
+
 			newConfig, errs := observedConfig(
-				existingConfig,
+				unstructuredAPIConfigForIssuer(t, tc.existingIssuer),
 				func(_ string) (*configv1.Authentication, error) {
 					return authConfigForIssuer(tc.issuer), tc.authError
 				},
@@ -63,15 +94,14 @@ func TestObservedConfig(t *testing.T) {
 						},
 					}, tc.infraError
 				},
+				testRecorder,
 			)
 
 			var expectedConfig *kubecontrolplanev1.KubeAPIServerConfig
 			if tc.authError == nil && tc.infraError == nil {
 				require.Len(t, errs, 0)
-				expectedConfig = apiConfigForIssuer(tc.issuer)
-			} else {
-				expectedConfig = expectExistingConfig
 			}
+			expectedConfig = apiConfigForIssuer(tc.expectedIssuer)
 
 			// Check that errors are passed through
 			if tc.authError != nil {
@@ -95,89 +125,7 @@ func TestObservedConfig(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
-		})
-	}
-}
-
-func TestIssuerFromUnstructuredConfig(t *testing.T) {
-	testCases := map[string]struct {
-		issuer         string
-		expectedIssuer string
-		errorExpected  bool
-	}{
-		"Return empty if missing": {},
-		"Return error if has a colon but is not a url": {
-			issuer:        "invalid : issuer",
-			errorExpected: true,
-		},
-		"Return valid issuer": {
-			issuer:         "valid-issuer",
-			expectedIssuer: "valid-issuer",
-		},
-	}
-	for testName, tc := range testCases {
-		t.Run(testName, func(t *testing.T) {
-			config := unstructuredAPIConfigForIssuer(t, tc.issuer)
-			issuer, errs := issuerFromUnstructuredConfig(config)
-			require.Equal(t, tc.expectedIssuer, issuer)
-			if tc.errorExpected {
-				require.Len(t, errs, 1)
-			} else if len(errs) > 0 {
-				require.NoError(t, errs[0])
-			}
-			require.Equal(t, tc.expectedIssuer, issuer)
-		})
-	}
-}
-
-func TestObservedIssuer(t *testing.T) {
-	testCases := map[string]struct {
-		previousIssuer string
-		authIssuer     string
-		accessorError  error
-		expectedIssuer string
-		errorExpected  bool
-	}{
-		"Return empty if config resource is missing": {
-			accessorError: apierrors.NewNotFound(schema.GroupResource{}, ""),
-		},
-		"Return existing config if error on config resource access": {
-			previousIssuer: "https://example.com",
-			accessorError:  fmt.Errorf("Random error"),
-			expectedIssuer: "https://example.com",
-			errorExpected:  true,
-		},
-		"Return existing config if the issuer has a colon but is not a url": {
-			previousIssuer: "https://example.com",
-			authIssuer:     "invalid : issuer",
-			expectedIssuer: "https://example.com",
-			errorExpected:  true,
-		},
-		"Return updated config if the new issuer is valid": {
-			previousIssuer: "https://example.com",
-			authIssuer:     "new-issuer",
-			expectedIssuer: "new-issuer",
-		},
-	}
-	for testName, tc := range testCases {
-		t.Run(testName, func(t *testing.T) {
-			issuer, errs := observedIssuer(
-				unstructuredAPIConfigForIssuer(t, tc.previousIssuer),
-				func(_ string) (*configv1.Authentication, error) {
-					if tc.accessorError != nil {
-						return nil, tc.accessorError
-					}
-					return authConfigForIssuer(tc.authIssuer), nil
-				},
-			)
-			if tc.errorExpected {
-				require.Len(t, errs, 1)
-			} else {
-				if len(errs) > 0 {
-					require.NoError(t, errs[0])
-				}
-				require.Equal(t, tc.expectedIssuer, issuer)
-			}
+			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
 	}
 }
