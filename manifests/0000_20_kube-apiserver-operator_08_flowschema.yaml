@@ -1,4 +1,4 @@
-apiVersion: flowcontrol.apiserver.k8s.io/v1alpha1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
 kind: PriorityLevelConfiguration
 metadata:
   name: openshift-control-plane-operators
@@ -17,7 +17,7 @@ spec:
       type: Queue
   type: Limited
 ---
-apiVersion: flowcontrol.apiserver.k8s.io/v1alpha1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
 kind: FlowSchema
 metadata:
   name: openshift-monitoring-metrics
@@ -43,7 +43,7 @@ spec:
         name: prometheus-k8s
         namespace: openshift-monitoring
 ---
-apiVersion: flowcontrol.apiserver.k8s.io/v1alpha1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
 kind: FlowSchema
 metadata:
   name: openshift-kube-apiserver-operator
