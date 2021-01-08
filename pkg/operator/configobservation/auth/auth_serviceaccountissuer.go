@@ -17,17 +17,20 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
+var serviceAccountIssuerPath = []string{"apiServerArguments", "service-account-issuer"}
+
 // ObserveServiceAccountIssuer changes apiServerArguments.service-account-issuer from
 // the default value if Authentication.Spec.ServiceAccountIssuer specifies a valid
 // non-empty value.
 func ObserveServiceAccountIssuer(
 	genericListers configobserver.Listers,
-	_ events.Recorder,
+	recorder events.Recorder,
 	existingConfig map[string]interface{},
 ) (map[string]interface{}, []error) {
 
 	listers := genericListers.(configobservation.Listers)
-	return observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get)
+	ret, errs := observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get, recorder)
+	return configobserver.Pruned(ret, serviceAccountIssuerPath, []string{"apiServerArguments", "service-account-jwks-uri"}), errs
 }
 
 // observedConfig returns an unstructured fragment of KubeAPIServerConfig that may
@@ -35,18 +38,56 @@ func ObserveServiceAccountIssuer(
 // Authentication resource.
 func observedConfig(
 	existingConfig map[string]interface{},
-	authConfigAccessor func(string) (*configv1.Authentication, error),
-	infrastructureConfigAccessor func(string) (*configv1.Infrastructure, error),
+	getAuthConfig func(string) (*configv1.Authentication, error),
+	getInfrastructureConfig func(string) (*configv1.Infrastructure, error),
+	recorder events.Recorder,
 ) (map[string]interface{}, []error) {
 
-	issuer, errs := observedIssuer(existingConfig, authConfigAccessor)
+	errs := []error{}
+	var issuerChanged bool
+	var existingIssuer, newIssuer string
+	// when the issuer will change, indicate that by setting `issuerChanged` to true
+	// to emit the informative event
+	defer func() {
+		if issuerChanged {
+			recorder.Eventf(
+				"ObserveServiceAccountIssuer",
+				"ServiceAccount issuer changed from %v to %v",
+				existingIssuer, newIssuer,
+			)
+		}
+	}()
 
-	if len(issuer) != 0 {
-		// configure the issuer if set by the user
+	existingIssuers, _, err := unstructured.NestedStringSlice(existingConfig, serviceAccountIssuerPath...)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("unable to extract service account issuer from unstructured: %v", err))
+	}
+
+	if len(existingIssuers) > 0 {
+		existingIssuer = existingIssuers[0]
+	}
+
+	authConfig, err := getAuthConfig("cluster")
+	if apierrors.IsNotFound(err) {
+		klog.Warningf("authentications.config.openshift.io/cluster: not found")
+		// No issuer if the auth config is missing
+		authConfig = &configv1.Authentication{}
+	} else if err != nil {
+		return existingConfig, append(errs, err)
+	}
+
+	newIssuer = authConfig.Spec.ServiceAccountIssuer
+	if err := checkIssuer(newIssuer); err != nil {
+		return existingConfig, append(errs, err)
+	}
+
+	if len(newIssuer) != 0 {
+		issuerChanged = existingIssuer != newIssuer
+		// configure the issuer if set by the user and is a valid issuer
 		return map[string]interface{}{
 			"apiServerArguments": map[string]interface{}{
 				"service-account-issuer": []interface{}{
-					issuer,
+					newIssuer,
 				},
 			},
 		}, errs
@@ -55,7 +96,7 @@ func observedConfig(
 	// if the issuer is not set, rely on the config-overrides.yaml to set it
 	// but configure the jwks-uri to point to the LB so that it does not default to
 	// KAS IP which is not included in the serving certs
-	infrastructureConfig, err := infrastructureConfigAccessor("cluster")
+	infrastructureConfig, err := getInfrastructureConfig("cluster")
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
@@ -64,6 +105,7 @@ func observedConfig(
 		return existingConfig, append(errs, fmt.Errorf("APIServerInternalURL missing from infrastructure/cluster"))
 	}
 
+	issuerChanged = existingIssuer != newIssuer
 	return map[string]interface{}{
 		"apiServerArguments": map[string]interface{}{
 			"service-account-jwks-uri": []interface{}{
@@ -71,83 +113,18 @@ func observedConfig(
 			},
 		},
 	}, errs
-
-}
-
-// observedIssuer attempts to source the service account issuer defined in the
-// Authentication resource named "cluster". If that is not possible (due to error or
-// validation failure), an attempt will be made to return the previously observed
-// issuer. If that is not possible, then an empty string will be returned.
-func observedIssuer(
-	existingConfig map[string]interface{},
-	authConfigAccessor func(string) (*configv1.Authentication, error),
-) (string, []error) {
-	errs := []error{}
-
-	previousIssuer, moreErrs := issuerFromUnstructuredConfig(existingConfig)
-	errs = append(errs, moreErrs...)
-
-	authConfig, err := authConfigAccessor("cluster")
-	if apierrors.IsNotFound(err) {
-		klog.Warningf("authentications.config.openshift.io/cluster: not found")
-		// No issuer if the auth config is missing
-		return "", errs
-	} else if err != nil {
-		// Return the previously observed issuer if an error prevented retrieving the auth config
-		errs = append(errs, err)
-		return previousIssuer, errs
-	}
-
-	newIssuer := authConfig.Spec.ServiceAccountIssuer
-	err = checkIssuer(newIssuer, "spec.serviceAccountIssuer")
-	if err != nil {
-		// Return the previous issuer if the new issuer fails validation
-		errs = append(errs, err)
-		return previousIssuer, errs
-	}
-	return newIssuer, errs
-}
-
-// issuerFromUnstructuredConfig extracts the service account issuer from the provided
-// unstructured KubeAPIServerConfig fragment.
-func issuerFromUnstructuredConfig(config map[string]interface{}) (string, []error) {
-	errs := []error{}
-	fields := []string{"apiServerArguments", "service-account-issuer"}
-	qualifiedField := strings.Join(fields, ".")
-
-	previousIssuers, _, err := unstructured.NestedStringSlice(config, fields...)
-	if err != nil {
-		errs = append(errs, fmt.Errorf("Unable to extract %s from unstructured: %v", qualifiedField, err))
-	}
-
-	previousIssuer := ""
-	issuerCount := len(previousIssuers)
-	if issuerCount > 1 {
-		klog.Warningf("%s specified more than one issuer. Only the first issuer will be used.", qualifiedField)
-	}
-	if issuerCount > 0 {
-		err := checkIssuer(previousIssuers[0], qualifiedField)
-		if err != nil {
-			errs = append(errs, err)
-		} else {
-			previousIssuer = previousIssuers[0]
-		}
-	}
-	return previousIssuer, errs
 }
 
 // checkIssuer validates the issuer in the same way that it will be validated by
-// kube-apiserver. Performing this validation here allows the error to be reported as
-// a condition rather than via a failing pod.
-func checkIssuer(issuer, fieldName string) error {
-	// Does not contain a colon
+// kube-apiserver
+func checkIssuer(issuer string) error {
 	if !strings.Contains(issuer, ":") {
 		return nil
 	}
 	// If containing a colon, must parse without error as a url
 	_, err := url.Parse(issuer)
 	if err != nil {
-		return fmt.Errorf("%s contained a ':' but was not a valid URL: %v", fieldName, err)
+		return fmt.Errorf("service-account issuer contained a ':' but was not a valid URL: %v", err)
 	}
 	return nil
 }
