@@ -452,6 +452,8 @@ github.com/opencontainers/image-spec v1.0.1/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zM
 github.com/opencontainers/runc v0.0.0-20191031171055-b133feaeeb2e/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
 github.com/openshift/api v0.0.0-20201214114959-164a2fb63b5f h1:MhuCP7+M9hmUnZaz6EwOh3+W6FQp+BezIXbL99Q4xq4=
 github.com/openshift/api v0.0.0-20201214114959-164a2fb63b5f/go.mod h1:aqU5Cq+kqKKPbDMqxo9FojgDeSpNJI7iuskjXjtojDg=
+github.com/openshift/api v0.0.0-20201216151826-78a19e96f9eb h1:/2U2gRTwhhDLBUUfC9+5YPFFOeQ93VKq9EbZH2OPOXE=
+github.com/openshift/api v0.0.0-20201216151826-78a19e96f9eb/go.mod h1:aqU5Cq+kqKKPbDMqxo9FojgDeSpNJI7iuskjXjtojDg=
 github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab h1:lBrojddP6C9C2p67EMs2vcdpC8eF+H0DDom+fgI2IF0=
 github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20201214125552-e615e336eb49 h1:7NmjUkJtGHpMTE/n8ia6itbCdZ7eYuTCXKc/zsA7OSM=

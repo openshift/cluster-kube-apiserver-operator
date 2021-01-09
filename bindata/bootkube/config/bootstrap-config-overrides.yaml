@@ -57,6 +57,7 @@ apiServerArguments:
     - "ServiceNodeExclusion=true"
     - "SCTPSupport=true"
     - "LegacyNodeRoleBehavior=false"
+    - "RemoveSelfLink=false"
 {{- if .ServiceCIDR | len | eq 2}}
     - "IPv6DualStack=true"
 {{- end}}
