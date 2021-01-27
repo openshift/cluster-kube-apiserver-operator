@@ -1152,7 +1152,7 @@ spec:
     resources:
       requests:
         memory: 1Gi
-        cpu: 300m
+        cpu: 265m
     ports:
     - containerPort: 6443
     volumeMounts:
@@ -1214,7 +1214,7 @@ spec:
     resources:
       requests:
         memory: 50Mi
-        cpu: 10m
+        cpu: 5m
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
@@ -1237,7 +1237,7 @@ spec:
     resources:
       requests:
         memory: 50Mi
-        cpu: 10m
+        cpu: 5m
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
@@ -1254,7 +1254,7 @@ spec:
     resources:
       requests:
         memory: 50Mi
-        cpu: 10m
+        cpu: 5m
   - name: kube-apiserver-check-endpoints
     image: ${OPERATOR_IMAGE}
     imagePullPolicy: IfNotPresent
