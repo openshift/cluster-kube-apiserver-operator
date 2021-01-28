@@ -434,6 +434,28 @@ data:
         resources: ["oauthclients"]
     # catch-all rule to log all other requests with request and response payloads
     - level: RequestResponse
+
+  user-requests.yaml: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    metadata:
+      name: UserRequests
+    omitStages:
+    - "RequestReceived"
+    rules:
+    - level: RequestResponse
+      resources:
+      - group: "oauth.openshift.io"
+        resources: ["oauthaccesstokens"]
+      verbs:
+      - create
+      - delete
+    - level: Metadata
+      userGroups:
+      - system:authenticated:oauth
+     - level: Metadata
+       users:
+       - kube:admin
 `)
 
 func v410KubeApiserverAuditPoliciesCmYamlBytes() ([]byte, error) {
