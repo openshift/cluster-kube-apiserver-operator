@@ -17,7 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +48,7 @@ func NewKubeAPIServerConnectivityCheckController(
 			operatorcontrolplaneClient,
 			apiextensionsClient,
 			apiextensionsInformers,
+			configInformers,
 			[]factory.Informer{
 				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Informer(),
 				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Informer(),
@@ -267,10 +268,10 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerEndpoi
 	return templates, err
 }
 
-func (c *connectivityCheckTemplateProvider) findNodeForInternalIP(internalIP string) (*v1.Node, error) {
+func (c *connectivityCheckTemplateProvider) findNodeForInternalIP(internalIP string) (*corev1.Node, error) {
 	switch internalIP {
 	case "localhost", "127.0.0.1", "::1":
-		return &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "localhost"}}, nil
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "localhost"}}, nil
 	}
 	nodes, err := c.nodeLister.List(labels.Everything())
 	if err != nil {
@@ -278,7 +279,7 @@ func (c *connectivityCheckTemplateProvider) findNodeForInternalIP(internalIP str
 	}
 	for _, node := range nodes {
 		for _, nodeAddress := range node.Status.Addresses {
-			if nodeAddress.Type != v1.NodeInternalIP {
+			if nodeAddress.Type != corev1.NodeInternalIP {
 				continue
 			}
 			if internalIP == nodeAddress.Address {
