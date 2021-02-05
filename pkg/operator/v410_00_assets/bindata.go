@@ -14,6 +14,7 @@
 // bindata/v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml
+// bindata/v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-sa.yaml
@@ -822,6 +823,39 @@ func v410KubeApiserverControlPlaneNodeKubeconfigCmYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml = []byte(`# this rolebinding allows access to the in-cluster CA bundles for authentication, the request header flags, and
+# the front-proxy CA configuration so that anyone can set up a DelegatingAuthenticator that can terminate
+# client certificates.
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: authentication-reader-for-authenticated-users
+  namespace: kube-system
+roleRef:
+  kind: Role
+  name: extension-apiserver-authentication-reader
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:authenticated
+`)
+
+func v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml, nil
+}
+
+func v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverKubeconfigCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1590,6 +1624,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml":                       v410KubeApiserverCheckEndpointsRolebindingYaml,
 	"v4.1.0/kube-apiserver/cm.yaml":                                                v410KubeApiserverCmYaml,
 	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml":                  v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
+	"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml":    v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml,
 	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                                     v410KubeApiserverKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml":                     v410KubeApiserverLocalhostRecoveryClientCrbYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":                             v410KubeApiserverLocalhostRecoverySaYaml,
@@ -1664,6 +1699,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"check-endpoints-rolebinding.yaml":                       {v410KubeApiserverCheckEndpointsRolebindingYaml, map[string]*bintree{}},
 			"cm.yaml":                                                {v410KubeApiserverCmYaml, map[string]*bintree{}},
 			"control-plane-node-kubeconfig-cm.yaml":                  {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
+			"delegated-incluster-authentication-rolebinding.yaml":    {v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml, map[string]*bintree{}},
 			"kubeconfig-cm.yaml":                                     {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
 			"localhost-recovery-client-crb.yaml":                     {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
 			"localhost-recovery-sa.yaml":                             {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},

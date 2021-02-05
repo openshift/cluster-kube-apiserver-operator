@@ -141,6 +141,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
 			"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml",
 			"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
+			"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
