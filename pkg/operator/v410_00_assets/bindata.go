@@ -451,8 +451,7 @@ data:
       - create
       - delete
     - level: Metadata
-      userGroups:
-      - "system:authenticated:oauth"
+      userGroups: ["system:authenticated:oauth"]
      - level: Metadata
        users:
        - kube:admin
