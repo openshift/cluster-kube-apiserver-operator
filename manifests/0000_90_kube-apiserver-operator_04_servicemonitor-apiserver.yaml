@@ -137,7 +137,7 @@ spec:
         max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
   - name: pre-release-lifecycle
     rules:
-      - alert: DeprecatedAPIInUse
+      - alert: APIRemovedInNextReleaseInUse
         annotations:
           message: >-
             Deprecated API that will be removed in the next version is being used. Removing the workload that is using

@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-func TestDeprecatedAPIInUse(t *testing.T) {
+func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 	t.Run("RemovedRelease", func(t *testing.T) {
 		kubeConfig, err := test.NewClientConfigForTest()
 		require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestDeprecatedAPIInUse(t *testing.T) {
 		expr := func() string {
 			for _, group := range rule.Spec.Groups {
 				for _, rule := range group.Rules {
-					if rule.Alert == "DeprecatedAPIInUse" {
+					if rule.Alert == "APIRemovedInNextReleaseInUse" {
 						return strings.TrimSpace(rule.Expr.StrVal)
 					}
 				}
