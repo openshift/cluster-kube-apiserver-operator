@@ -455,6 +455,7 @@ data:
      - level: Metadata
        users:
        - kube:admin
+
 `)
 
 func v410KubeApiserverAuditPoliciesCmYamlBytes() ([]byte, error) {
