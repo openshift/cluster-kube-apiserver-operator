@@ -18,13 +18,11 @@ import (
 	oauthclient "github.com/openshift/client-go/oauth/clientset/versioned/typed/oauth/v1"
 	userclient "github.com/openshift/client-go/user/clientset/versioned/typed/user/v1"
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
-	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -35,7 +33,6 @@ func TestTokenInactivityTimeout(t *testing.T) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 
-	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 	userClient := userclient.NewForConfigOrDie(kubeConfig)
 	oauthClientClient := oauthclient.NewForConfigOrDie(kubeConfig)
 	configClient := configclient.NewForConfigOrDie(kubeConfig)
@@ -106,11 +103,14 @@ func TestTokenInactivityTimeout(t *testing.T) {
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testTokenTimeouts)
 	})
 
+	// increase the wait time so that KAS instances all are rolled out
+	test.WaitPollTimeout = 20 * time.Minute
+
 	// With only OAuth config timeout.
 	t.Run("with-inactivity-timeout", func(t *testing.T) {
 		updateOAuthConfigInactivityTimeout(t, configClient, &metav1.Duration{Duration: time.Duration(configInactivityTimeout) * time.Second})
 		test.WaitForKubeAPIServerStartProgressing(t, configClient)
-		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testInactivityTimeoutScenarios)
 	})
 
@@ -123,7 +123,7 @@ func TestTokenInactivityTimeout(t *testing.T) {
 	t.Run("unset-inactivity-timeout-client-timeout", func(t *testing.T) {
 		updateOAuthConfigInactivityTimeout(t, configClient, nil)
 		test.WaitForKubeAPIServerStartProgressing(t, configClient)
-		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods("openshift-kube-apiserver"))
+		test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
 		checkTokenAccess(t, userClient, oauthClientClient, configInactivityTimeout, nil, testTokenTimeouts)
 	})
 
