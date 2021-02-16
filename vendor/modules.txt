@@ -210,7 +210,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/o
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/user/clientset/versioned/scheme
 github.com/openshift/client-go/user/clientset/versioned/typed/user/v1
-# github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
+# github.com/openshift/library-go v0.0.0-20210212101259-30c88d191bdc
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/certs
 github.com/openshift/library-go/pkg/config/client

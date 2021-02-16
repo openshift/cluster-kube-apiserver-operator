@@ -28,7 +28,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
-	"github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
@@ -49,18 +48,6 @@ import (
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 )
-
-type encryptionProvider []schema.GroupResource
-
-var _ controllers.Provider = encryptionProvider{}
-
-func (p encryptionProvider) EncryptedGRs() []schema.GroupResource {
-	return p
-}
-
-func (p encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
-	return true, nil
-}
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
@@ -257,7 +244,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	encryptionControllers := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
-		encryptionProvider{
+		encryption.StaticEncryptionProvider{
 			schema.GroupResource{Group: "", Resource: "secrets"},
 			schema.GroupResource{Group: "", Resource: "configmaps"},
 		},
