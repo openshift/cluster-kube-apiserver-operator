@@ -89,13 +89,17 @@ func observedConfig(
 				"service-account-issuer": []interface{}{
 					newIssuer,
 				},
+				"api-audiences": []interface{}{
+					newIssuer,
+				},
 			},
 		}, errs
 	}
 
-	// if the issuer is not set, rely on the config-overrides.yaml to set it
-	// but configure the jwks-uri to point to the LB so that it does not default to
-	// KAS IP which is not included in the serving certs
+	// if the issuer is not set, rely on the config-overrides.yaml to set both
+	// the issuer and the api-audiences but configure the jwks-uri to point to
+	// the LB so that it does not default to KAS IP which is not included
+	// in the serving certs
 	infrastructureConfig, err := getInfrastructureConfig("cluster")
 	if err != nil {
 		return existingConfig, append(errs, err)
