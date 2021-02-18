@@ -24,7 +24,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhookauthenticatorupgradablecontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
@@ -276,12 +275,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
-	webhookAuthenticatorUpgradableController := webhookauthenticatorupgradablecontroller.NewWebhookAuthenticatorUpgradeableController(
-		operatorClient,
-		configInformers,
-		controllerContext.EventRecorder,
-	)
-
 	certRotationTimeUpgradeableController := certrotationtimeupgradeablecontroller.NewCertRotationTimeUpgradeableController(
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
@@ -334,7 +327,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go certRotationController.Run(ctx, 1)
 	go encryptionControllers.Run(ctx, 1)
 	go featureUpgradeableController.Run(ctx, 1)
-	go webhookAuthenticatorUpgradableController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
 	go eventWatcher.Run(ctx, 1)
