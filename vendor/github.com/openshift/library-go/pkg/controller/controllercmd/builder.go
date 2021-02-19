@@ -252,11 +252,11 @@ func (b *ControllerBuilder) Run(ctx context.Context, config *unstructured.Unstru
 		if err != nil {
 			return err
 		}
-		server.Authorizer = union.New(
+		serverConfig.Authorization.Authorizer = union.New(
 			// prefix the authorizer with the permissions for metrics scraping which are well known.
 			// openshift RBAC policy will always allow this user to read metrics.
 			hardcodedauthorizer.NewHardcodedMetricsScaperAuthorizer(),
-			server.Authorizer,
+			serverConfig.Authorization.Authorizer,
 		)
 		serverConfig.HealthzChecks = append(serverConfig.HealthzChecks, b.healthChecks...)
 
