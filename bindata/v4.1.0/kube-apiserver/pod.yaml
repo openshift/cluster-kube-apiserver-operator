@@ -97,6 +97,8 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: status.hostIP
+      - name: ETCD_CLIENT_DEBUG
+        value: "1"
     securityContext:
       privileged: true
   - name: kube-apiserver-cert-syncer
