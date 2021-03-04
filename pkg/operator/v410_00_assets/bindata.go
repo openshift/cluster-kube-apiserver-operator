@@ -1197,17 +1197,21 @@ spec:
     - mountPath: /var/log/kube-apiserver
       name: audit-dir
     livenessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 6443
-        path: healthz
+      exec:
+        command:
+          - curl
+          - -k
+          - --fail
+          - 'https://127.0.0.1:6443/healthz'
       initialDelaySeconds: 45
       timeoutSeconds: 10
     readinessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 6443
-        path: healthz
+      exec:
+        command:
+          - curl
+          - -k
+          - --fail
+          - 'https://127.0.0.1:6443/healthz'
       initialDelaySeconds: 10
       timeoutSeconds: 10
     env:
@@ -1325,17 +1329,21 @@ spec:
         containerPort: 17697
         protocol: TCP
     livenessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 17697
-        path: healthz
+      exec:
+        command:
+          - curl
+          - -k
+          - --fail
+          - 'https://127.0.0.1:17697/healthz'
       initialDelaySeconds: 10
       timeoutSeconds: 10
     readinessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 17697
-        path: healthz
+      exec:
+        command:
+          - curl
+          - -k
+          - --fail
+          - 'https://127.0.0.1:17697/healthz'
       initialDelaySeconds: 10
       timeoutSeconds: 10
     resources:
