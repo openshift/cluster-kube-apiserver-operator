@@ -1203,6 +1203,7 @@ spec:
           - -k
           - --fail
           - 'https://127.0.0.1:6443/healthz'
+      failureThreshold: 6
       initialDelaySeconds: 45
       timeoutSeconds: 10
     readinessProbe:
@@ -1335,6 +1336,7 @@ spec:
           - -k
           - --fail
           - 'https://127.0.0.1:17697/healthz'
+      failureThreshold: 6
       initialDelaySeconds: 10
       timeoutSeconds: 10
     readinessProbe:
