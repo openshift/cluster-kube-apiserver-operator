@@ -1201,6 +1201,7 @@ spec:
         scheme: HTTPS
         port: 6443
         path: healthz
+      failureThreshold: 6
       initialDelaySeconds: 45
       timeoutSeconds: 10
     readinessProbe:
@@ -1329,6 +1330,7 @@ spec:
         scheme: HTTPS
         port: 17697
         path: healthz
+      failureThreshold: 6
       initialDelaySeconds: 10
       timeoutSeconds: 10
     readinessProbe:
