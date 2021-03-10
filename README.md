@@ -114,7 +114,7 @@ $ IMAGE_ORG=sttts make images
 $ docker push sttts/origin-cluster-kube-apiserver-operator
 
 $ cd ../cluster-kube-apiserver-operator
-$ oc adm release new --from-release=registry.svc.ci.openshift.org/openshift/origin-release:v4.0 cluster-kube-apiserver-operator=docker.io/sttts/origin-cluster-kube-apiserver-operator:latest --to-image=sttts/origin-release:latest
+$ oc adm release new --from-release=registry.ci.openshift.org/openshift/origin-release:v4.0 cluster-kube-apiserver-operator=docker.io/sttts/origin-cluster-kube-apiserver-operator:latest --to-image=sttts/origin-release:latest
 
 $ cd ../installer
 $ OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/sttts/origin-release:latest bin/openshift-install cluster ...
