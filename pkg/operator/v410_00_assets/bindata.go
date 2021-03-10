@@ -1136,7 +1136,7 @@ metadata:
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"
-    revision: "REVISION"
+    revision: "REVISION_LABEL"
 spec:
   initContainers:
     - name: setup
