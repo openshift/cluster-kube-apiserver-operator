@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -286,8 +287,14 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
+	// Convert pod to yaml so the resulting configmap and static pod are human readable
+	requiredYAML, err := resourcehelper.InterfaceToYAML(required)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to marshal required pod to yaml: %v", err)
+	}
+
 	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod-cm.yaml"))
-	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
+	configMap.Data["pod.yaml"] = string(requiredYAML)
 	configMap.Data["forceRedeploymentReason"] = operatorSpec.ForceRedeploymentReason
 	configMap.Data["version"] = version.Get().String()
 	return resourceapply.ApplyConfigMap(client, recorder, configMap)
