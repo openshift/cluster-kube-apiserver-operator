@@ -32,16 +32,13 @@ spec:
     image: {{ .Image }}
     imagePullPolicy: {{ .ImagePullPolicy }}
     terminationMessagePolicy: FallbackToLogsOnError
-    command: [ "/bin/bash", "-ec" ]
+    command: ["hyperkube", "kube-apiserver"]
     args:
-    - >
-      hyperkube kube-apiserver
-      --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
-      --logtostderr=false
-      --alsologtostderr
-      --v=2
-      --log-file=/var/log/bootstrap-control-plane/kube-apiserver.log
-      --advertise-address=${HOST_IP}
+    - --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
+    - --logtostderr=false
+    - --alsologtostderr
+    - --v=2
+    - --log-file=/var/log/bootstrap-control-plane/kube-apiserver.log
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
@@ -73,12 +70,7 @@ spec:
         path: healthz
       initialDelaySeconds: 10
       timeoutSeconds: 10
-    env:
-    - name: HOST_IP
-      valueFrom:
-        fieldRef:
-          fieldPath: status.hostIP
-  {{if .OperatorImage}}
+{{if .OperatorImage}}
   - name: kube-apiserver-insecure-readyz
     image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
