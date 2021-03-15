@@ -1173,7 +1173,7 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: healthz
+        path: readyz
       initialDelaySeconds: 10
       timeoutSeconds: 10
     env:
