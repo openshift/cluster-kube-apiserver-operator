@@ -9,9 +9,6 @@ data:
     kind: Policy
     metadata:
       name: Default
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
     rules:
     # Don't log requests for events
     - level: None
@@ -23,14 +20,18 @@ data:
       resources:
       - group: "oauth.openshift.io"
         resources: ["oauthaccesstokens", "oauthauthorizetokens"]
+    - level: RequestResponse
+      userGroups: ["system:authenticated", "system:unauthenticated"]
+      nonResourceURLs:
+      - "/healthz"
+      - "/readyz"
+      - "/livez"
     # Don't log authenticated requests to certain non-resource URL paths.
     - level: None
       userGroups: ["system:authenticated", "system:unauthenticated"]
       nonResourceURLs:
       - "/api*" # Wildcard matching.
       - "/version"
-      - "/healthz"
-      - "/readyz"
     # A catch-all rule to log all other requests at the Metadata level.
     - level: Metadata
       # Long-running requests like watches that fall under this rule will not
