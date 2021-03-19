@@ -2,11 +2,7 @@ package render
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +18,7 @@ import (
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 
@@ -196,7 +193,7 @@ func (r *renderOpts) Run() error {
 		}
 
 		// the private key is missing => generate the keypair
-		pubPEM, privPEM, err := generateKeyPairPEM()
+		pubPEM, privPEM, err := crypto.GenerateRSAKeyPair()
 		if err != nil {
 			return fmt.Errorf("failed to generate an RSA keypair for bound SA token signing: %v", err)
 		}
@@ -456,33 +453,4 @@ func validateBoundSATokensSigningKeys(assetsDir string) error {
 	}
 
 	return nil
-}
-
-func generateKeyPairPEM() (pubKeyPEM []byte, privKeyPEM []byte, err error) {
-	privKey, err := rsa.GenerateKey(rand.Reader, 4096)
-	if err != nil {
-		return nil, nil, err
-	}
-	// convert the keys to PEM format
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privKey.PublicKey)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to encode pub key: %v", err)
-	}
-
-	pubKeyPEM = pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: pubKeyBytes,
-		},
-	)
-
-	privKeyBytes := x509.MarshalPKCS1PrivateKey(privKey)
-	privKeyPEM = pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: privKeyBytes,
-		},
-	)
-
-	return pubKeyPEM, privKeyPEM, nil
 }

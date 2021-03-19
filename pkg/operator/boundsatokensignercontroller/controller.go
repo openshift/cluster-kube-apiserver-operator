@@ -3,10 +3,6 @@ package boundsatokensignercontroller
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"time"
 
@@ -18,10 +14,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -33,7 +29,6 @@ const (
 	operatorNamespace = operatorclient.OperatorNamespace
 	targetNamespace   = operatorclient.TargetNamespace
 
-	keySize = 2048
 	// A new keypair will first be written to this secret in the operator namespace...
 	NextSigningKeySecretName = "next-bound-service-account-signing-key"
 	// ...and will copied to this secret in the operand namespace once
@@ -102,7 +97,17 @@ func (c *BoundSATokenSignerController) ensureNextOperatorSigningSecret(ctx conte
 	}
 
 	// Create or update the secret if it is missing or lacks the expected keypair data
-	needKeypair := secret == nil || len(secret.Data[PrivateKeyKey]) == 0 || len(secret.Data[PublicKeyKey]) == 0
+	needKeypair := false
+	if secret == nil {
+		klog.Error("Bound token signing keypair is missing and will be regenerated")
+		needKeypair = true
+	} else {
+		err := crypto.CheckRSAKeyPair(secret.Data[PublicKeyKey], secret.Data[PrivateKeyKey])
+		if err != nil {
+			klog.Errorf("Bound token signing keypair is invalid and will be regenerated: %v", err)
+			needKeypair = true
+		}
+	}
 	if needKeypair {
 		klog.V(2).Infof("Creating a new signing secret for bound service account tokens.")
 		newSecret, err := newNextSigningSecret()
@@ -293,15 +298,7 @@ func (c *BoundSATokenSignerController) publicKeySyncedToAllNodes(ctx context.Con
 
 // newNextSigningSecret creates a new secret populated with a new keypair.
 func newNextSigningSecret() (*corev1.Secret, error) {
-	rsaKey, err := rsa.GenerateKey(rand.Reader, keySize)
-	if err != nil {
-		return nil, err
-	}
-	privateBytes, err := keyutil.MarshalPrivateKeyToPEM(rsaKey)
-	if err != nil {
-		return nil, err
-	}
-	publicBytes, err := publicKeyToPem(&rsaKey.PublicKey)
+	publicBytes, privateBytes, err := crypto.GenerateRSAKeyPair()
 	if err != nil {
 		return nil, err
 	}
@@ -315,20 +312,6 @@ func newNextSigningSecret() (*corev1.Secret, error) {
 			PublicKeyKey:  publicBytes,
 		},
 	}, nil
-}
-
-func publicKeyToPem(key *rsa.PublicKey) ([]byte, error) {
-	keyInBytes, err := x509.MarshalPKIXPublicKey(key)
-	if err != nil {
-		return nil, err
-	}
-	keyinPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PUBLIC KEY",
-			Bytes: keyInBytes,
-		},
-	)
-	return keyinPem, nil
 }
 
 func configMapHasValue(configMap *corev1.ConfigMap, desiredValue string) bool {
