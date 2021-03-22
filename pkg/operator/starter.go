@@ -48,6 +48,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
@@ -57,6 +58,10 @@ import (
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := dynamic.NewForConfig(controllerContext.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
@@ -141,8 +146,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
 			// TODO remove this once we switch over in openshift/kubernetes
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml",
+			"v4.1.0/alerts/cpu-utilization.yaml",
 		},
-		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithAPIExtensionsClient(apiextensionsClient),
+		(&resourceapply.ClientHolder{}).
+			WithKubernetes(kubeClient).
+			WithAPIExtensionsClient(apiextensionsClient).
+			WithDynamicClient(dynamicClient),
 		operatorClient,
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)

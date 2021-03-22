@@ -1,5 +1,6 @@
 // Code generated for package v410_00_assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// bindata/v4.1.0/alerts/cpu-utilization.yaml
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
@@ -81,6 +82,74 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _v410AlertsCpuUtilizationYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cpu-utilization
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  groups:
+    - name: control-plane-cpu-utilization
+      rules:
+        - alert: HighOverallControlPlaneCPU
+          summary: >
+            CPU utilization across all three control plane nodes is higher than two control plane nodes can sustain; a single control plane node outage may
+            cause a cascading failure; increase available CPU.
+          message: >
+            Given three control plane nodes, the overall CPU utilization may only only be about 2/3 of all available capacity.
+            This is because if a single control plane node fails, the remaining two must handle the load of the cluster in order to be HA.
+            If the cluster is using more than 2/3 of all capacity, if one control plane node fails, the remaining two are likely to
+            fail when they take the load.
+            To fix this, increase the CPU and memory on your control plane nodes.
+          expr: |
+            sum(
+              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+              AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+            )
+            /
+            count(kube_node_role{role="master"})
+            > 60
+          for: 10m
+          labels:
+            severity: warning
+        - alert: ExtremelyHighIndividualControlPlaneCPU
+          annotations:
+          summary: >
+            CPU utilization on a single control plane node is very high, more CPU pressure is likely to cause a failover; increase available CPU.
+          message: >
+            Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
+            When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
+            causing even more CPU pressure.
+            It can also cause failing liveness probes due to slow etcd responsiveness on the backend.
+            If one kube-apiserver fails under this condition, chances are you will experience a cascade as the remaining
+            kube-apiservers are also under-provisioned.
+            To fix this, increase the CPU and memory on your control plane nodes.
+          expr: |
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85 AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+          for: 5m
+          labels:
+            severity: critical
+`)
+
+func v410AlertsCpuUtilizationYamlBytes() ([]byte, error) {
+	return _v410AlertsCpuUtilizationYaml, nil
+}
+
+func v410AlertsCpuUtilizationYaml() (*asset, error) {
+	bytes, err := v410AlertsCpuUtilizationYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/cpu-utilization.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _v410ConfigConfigOverridesYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
@@ -2220,6 +2289,7 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"v4.1.0/alerts/cpu-utilization.yaml":                                           v410AlertsCpuUtilizationYaml,
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml":            v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml,
@@ -2294,6 +2364,9 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v4.1.0": {nil, map[string]*bintree{
+		"alerts": {nil, map[string]*bintree{
+			"cpu-utilization.yaml": {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
+		}},
 		"config": {nil, map[string]*bintree{
 			"config-overrides.yaml": {v410ConfigConfigOverridesYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
