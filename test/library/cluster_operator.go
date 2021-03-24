@@ -25,7 +25,7 @@ func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *te
 		}
 		if err != nil {
 			fmt.Println("Unable to retrieve ClusterOperator/kube-apiserver:", err)
-			return false, err
+			return false, nil
 		}
 		conditions := clusterOperator.Status.Conditions
 		available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
@@ -51,7 +51,7 @@ func WaitForKubeAPIServerStartProgressing(t *testing.T, client configclient.Conf
 		}
 		if err != nil {
 			fmt.Println("Unable to retrieve ClusterOperator/kube-apiserver:", err)
-			return false, err
+			return false, nil
 		}
 		conditions := clusterOperator.Status.Conditions
 		available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
