@@ -5,9 +5,7 @@ go 1.13
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
 	github.com/davecgh/go-spew v1.1.1
-	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/go-logr/logr v0.3.0 // indirect
@@ -18,7 +16,7 @@ require (
 	github.com/openshift/api v0.0.0-20210216135427-8de5cee96c05
 	github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab
 	github.com/openshift/client-go v0.0.0-20201214125552-e615e336eb49
-	github.com/openshift/library-go v0.0.0-20210212101259-30c88d191bdc
+	github.com/openshift/library-go v0.0.0-20210325124623-83b476a47e6d
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.45.0
 	github.com/prometheus/client_golang v1.7.1
@@ -36,3 +34,5 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/kube-storage-version-migrator v0.0.3
 )
+
+replace github.com/openshift/library-go => github.com/marun/library-go v0.0.0-20210325021732-c2b44aac30d4
