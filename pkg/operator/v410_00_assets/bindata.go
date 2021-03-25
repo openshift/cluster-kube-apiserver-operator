@@ -1200,7 +1200,7 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: healthz
+        path: livez
       initialDelaySeconds: 45
       timeoutSeconds: 10
     readinessProbe:
