@@ -185,7 +185,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
-		WithVersioning(operatorclient.OperatorNamespace, "kube-apiserver", versionRecorder).
+		WithVersioning("kube-apiserver", versionRecorder).
 		ToControllers()
 	if err != nil {
 		return err
