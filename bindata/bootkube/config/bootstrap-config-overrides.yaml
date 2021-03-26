@@ -55,7 +55,7 @@ apiServerArguments:
     - "SupportPodPidsLimit=true"
     - "NodeDisruptionExclusion=true"
     - "ServiceNodeExclusion=true"
-    - "SCTPSupport=true"
+    - "DownwardAPIHugePages=true"
     - "LegacyNodeRoleBehavior=false"
 {{- if .ServiceCIDR | len | eq 2}}
     - "IPv6DualStack=true"
