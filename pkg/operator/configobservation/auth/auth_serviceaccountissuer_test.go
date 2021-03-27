@@ -143,9 +143,13 @@ func apiConfigForIssuer(issuer string) *kubecontrolplanev1.KubeAPIServerConfig {
 		"service-account-issuer": {
 			issuer,
 		},
+		"api-audiences": {
+			issuer,
+		},
 	}
 	if len(issuer) == 0 {
 		delete(args, "service-account-issuer")
+		delete(args, "api-audiences")
 		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
 	}
 
