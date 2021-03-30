@@ -143,6 +143,7 @@ func NewConfigObserver(
 			network.ObserveServicesSubnet,
 			network.ObserveExternalIPPolicy,
 			network.ObserveServicesNodePortRange,
+			// TODO: remove token inactivity observation in 4.9 when the authenticator no longer exists in KAS
 			configobserveroauth.ObserveAccessTokenInactivityTimeout,
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
