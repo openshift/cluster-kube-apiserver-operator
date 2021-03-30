@@ -23,7 +23,7 @@ const (
 )
 
 // DefaultPolicy brings back the default.yaml audit policy to init the api
-func DefaultPolicy(name, namespace string) ([]byte, error) {
+func DefaultUnsafePolicy(name, namespace string) ([]byte, error) {
 	cm, err := GetAuditPolicies(name, namespace)
 
 	if err != nil {

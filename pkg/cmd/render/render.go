@@ -253,7 +253,7 @@ func (r *renderOpts) Run() error {
 }
 
 func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	defaultPolicy, err := libgoassets.DefaultPolicy("kube-apiserver-audit-policies", "openshift-kube-apiserver")
+	defaultPolicy, err := libgoassets.DefaultUnsafePolicy("kube-apiserver-audit-policies", "openshift-kube-apiserver")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
 	}
