@@ -3,6 +3,8 @@ package auth
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/status"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +28,82 @@ var (
 	webhookTokenAuthenticatorVersion     = []interface{}{"v1"}
 )
 
+// TODO in 4.9, this is removed because the webhook is always available
+// We determine readiness by...
+// 1. if the webhook is not set, it is not ready.
+// 2. if webhook is set and does not point to secret/openshift-oauth-apiserver, the webhook authenticator configuration is ready
+// 3. if webhook is set and points to secret/openshift-oauth-apiserver and the existing observedConfig shows a webhook configuration
+//    the webhook authenticator configuration is ready.  This allows stickiness after being set once.
+// 4. if webhook is set and points to secret/openshift-oauth-apiserver and the authentication operator is at the same level as the
+//    kube-apiserver, the webhook authenticator configuration is ready.  This ensures, the oauth-apiserver is ready to
+//    answer webhook requests
+// 5. if webhook is set and points to secret/openshift-oauth-apiserver and the clusterversion indicates this is an initial
+//    install, the webhook authenticator is ready.  This avoids a late stage revision during install because some people care.
+// overall, it is better to return true than false if the choice is ambiguous
+func IsWebhookAuthenticatorReady(listers configobservation.Listers, existingConfig map[string]interface{}) (bool, error) {
+	auth, err := listers.AuthConfigLister.Get("cluster")
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return true, err
+	}
+
+	webhookSecretName := ""
+	if auth.Spec.WebhookTokenAuthenticator != nil {
+		webhookSecretName = auth.Spec.WebhookTokenAuthenticator.KubeConfig.Name
+	}
+	// case 1
+	if len(webhookSecretName) == 0 {
+		return false, nil
+	}
+	// case 2
+	// if the value is custom set, then it is always considered ready and authoritative
+	if webhookSecretName != "openshift-oauth-apiserver" {
+		return true, nil
+	}
+
+	// at this point, we know we're configured for internal oauth, *but* it is possible that this is an update the
+	// authentication operator isn't available yet.  However, once we start using internal  oauth as a webhook, we
+	// should never stop.
+
+	existingWebhookAuthenticator, _, err := unstructured.NestedSlice(existingConfig, webhookTokenAuthenticatorPath...)
+	if err != nil {
+		return true, err
+	}
+	// case 3
+	existingWebhookConfigured := len(existingWebhookAuthenticator) > 0
+	if existingWebhookConfigured {
+		return true, nil
+	}
+
+	authenticationOperator, err := listers.ClusterOperatorLister.Get("authentication")
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return true, err
+	}
+	expectedVersion := status.VersionForOperandFromEnv()
+	// case 4 - if oauth-apiserver is serving at a level that includes our webhook, use it.
+	for _, authVersion := range authenticationOperator.Status.Versions {
+		if authVersion.Name == "operator" && authVersion.Version == expectedVersion {
+			return true, nil
+		}
+	}
+
+	clusterVersion, err := listers.ClusterVersionLister.Get("version")
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return true, err
+	}
+	// case 5 - if this is the first version ever installed, we're ready to use the webhook.
+	if len(clusterVersion.Status.History) <= 1 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // ObserveWebhookTokenAuthenticator observes the webhookTokenAuthenticator field of
 // the authentication.config/cluster resource and if kubeConfig secret reference is
 // set it uses the contents of this secret as a webhhook token authenticator
@@ -45,8 +123,21 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 		// keep going on read error from existing config
 		errs = append(errs, err)
 	}
-	existingWebhookConfigured := len(existingWebhookAuthenticator) > 0
 
+	if isReady, err := IsWebhookAuthenticatorReady(listers, existingConfig); err != nil {
+		// if we had an error determining, just show the error and keep the existing config.
+		return existingConfig, append(errs, err)
+	} else if !isReady {
+		// if we aren't yet ready to use the webhook configuration, clear the webhook configuration
+		// don't sync anything and remove whatever we synced
+		resourceSyncer.SyncSecret(
+			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
+			resourcesynccontroller.ResourceLocation{Namespace: "", Name: ""},
+		)
+		return map[string]interface{}{}, nil
+	}
+
+	existingWebhookConfigured := len(existingWebhookAuthenticator) > 0
 	observedConfig := map[string]interface{}{}
 
 	auth, err := listers.AuthConfigLister.Get("cluster")

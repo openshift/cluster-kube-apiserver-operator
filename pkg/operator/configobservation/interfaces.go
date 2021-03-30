@@ -21,6 +21,8 @@ type Listers struct {
 	OAuthLister_          configlistersv1.OAuthLister
 	ProxyLister_          configlistersv1.ProxyLister
 	SchedulerLister       configlistersv1.SchedulerLister
+	ClusterOperatorLister configlistersv1.ClusterOperatorLister
+	ClusterVersionLister  configlistersv1.ClusterVersionLister
 
 	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
 	ConfigmapLister              corelistersv1.ConfigMapLister
