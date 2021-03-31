@@ -54,6 +54,9 @@ spec:
             fi
           done
           echo
+          echo -b "Rotating audit logs in /var/log/kube-apiserver"
+          test -f /var/log/kube-apiserver/audit.log && mv /var/log/kube-apiserver/audit{,-$(date '+%Y-%m-%dT%H-%M-%S.%3N')}.log
+          echo
           exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration=135s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} ${VERBOSITY} --permit-address-sharing
     resources:
       requests:
