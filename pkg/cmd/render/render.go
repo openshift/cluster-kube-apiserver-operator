@@ -20,10 +20,10 @@ import (
 	"k8s.io/klog/v2"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -251,7 +251,7 @@ func (r *renderOpts) Run() error {
 }
 
 func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	defaultPolicy, err := audit.DefaultPolicy()
+	defaultPolicy, err := libgoassets.DefaultPolicy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
 	}
