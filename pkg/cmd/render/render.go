@@ -21,9 +21,9 @@ import (
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
-	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
