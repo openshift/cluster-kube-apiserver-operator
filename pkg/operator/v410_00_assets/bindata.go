@@ -141,10 +141,10 @@ apiServerArguments:
     - Node
   audit-log-format:
     - json
-  audit-log-maxbackup:
-    - "10"
   audit-log-maxsize:
     - "100"
+  audit-log-maxage:
+    - 3
   audit-log-path:
     - /var/log/kube-apiserver/audit.log
   audit-policy-file:
