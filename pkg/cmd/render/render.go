@@ -251,7 +251,7 @@ func (r *renderOpts) Run() error {
 }
 
 func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	defaultPolicy, err := libgoassets.DefaultPolicy()
+	defaultPolicy, err := DefaultPolicy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
 	}
@@ -287,6 +287,19 @@ func getDefaultConfigWithAuditPolicy() ([]byte, error) {
 	}
 
 	return defaultConfigRaw, nil
+}
+
+func DefaultPolicy() ([]byte, error) {
+	// none is used on target name and namespace as it's not a key in the default.yaml
+	cm, err := libgoassets.GetAuditPolicies("none", "none")
+	if err != nil {
+		return nil, fmt.Errorf("failed to retreive audit policies - %w", err)
+	}
+	cmData := []byte(cm.Data["default.yaml"])
+	if len(cmData) == 0 {
+		return nil, errors.New("failed to locate the default policy from configmap")
+	}
+	return cmData, nil
 }
 
 func addAuditPolicyToConfig(config, policy map[string]interface{}) error {
