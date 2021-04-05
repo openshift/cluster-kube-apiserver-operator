@@ -251,12 +251,17 @@ func (r *renderOpts) Run() error {
 }
 
 func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	defaultPolicy, err := DefaultPolicy()
+	rawBytes, err := DefaultPolicy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
 	}
 
-	policy, err := convertToUnstructured(defaultPolicy)
+	rawPolicyJSON, err := kyaml.ToJSON(rawBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert asset yaml to JSON - %w", err)
+	}
+
+	policy, err := convertToUnstructured(rawPolicyJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode audit policy into unstructured - %s", err)
 	}

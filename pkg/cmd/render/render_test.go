@@ -23,6 +23,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	//libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 var (
@@ -523,7 +524,9 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 
 	defaultPolicy, err := DefaultPolicy()
 	require.NoError(t, err)
-	policyExpected, err := convertToUnstructured(defaultPolicy)
+	rawPolicyJSON, err := kyaml.ToJSON(defaultPolicy)
+	require.NoError(t, err)
+	policyExpected, err := convertToUnstructured(rawPolicyJSON)
 	require.NoError(t, err)
 
 	isEqual := equality.Semantic.DeepEqual(policyExpected, auditConfigPolicyGot)
