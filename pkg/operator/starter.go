@@ -93,7 +93,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")
+	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter("/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies")
 	if err != nil {
 		return err
 	}
