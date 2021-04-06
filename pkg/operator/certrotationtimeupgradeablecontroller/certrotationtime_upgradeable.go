@@ -38,7 +38,7 @@ func NewCertRotationTimeUpgradeableController(
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
 		configMapInformer.Informer(),
-	).WithSync(c.sync).ResyncEvery(time.Second).ToController("CertRotationTimeUpgradeableController", eventRecorder.WithComponentSuffix("certRotationTime-upgradeable"))
+	).WithSync(c.sync).ResyncEvery(time.Minute).ToController("CertRotationTimeUpgradeableController", eventRecorder.WithComponentSuffix("certRotationTime-upgradeable"))
 }
 
 func (c *CertRotationTimeUpgradeableController) sync(ctx context.Context, syncContext factory.SyncContext) error {
