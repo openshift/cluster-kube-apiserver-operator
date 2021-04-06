@@ -2,6 +2,8 @@ package operator
 
 import (
 	"context"
+	"encoding/json"
+	"math/rand"
 	"os"
 	"time"
 
@@ -38,12 +40,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 )
@@ -181,7 +187,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
 		WithEvents(controllerContext.EventRecorder).
-		WithInstaller([]string{"cluster-kube-apiserver-operator", "installer"}).
+		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
@@ -324,6 +330,62 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	<-ctx.Done()
 	return nil
+}
+
+// installerErrorInjector mutates the given installer pod to fail or OOM depending on the propability (
+// - 0 <= unsupportedConfigOverrides.installerErrorInjection.failPropability <= 1.0: fail the pod (crash loop)
+// - 0 <= unsupportedConfigOverrides.installerErrorInjection.oomPropability <= 1.0: cause OOM due to 1 MB memory limits
+func installerErrorInjector(operatorClient v1helpers.StaticPodOperatorClient) func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+	return func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
+		// get UnsupportedConfigOverrides
+		spec, _, _, err := operatorClient.GetOperatorState()
+		if err != nil {
+			klog.Warningf("failed to get operator/v1 spec for error injection: %v", err)
+			return nil // ignore error
+		}
+		if len(spec.UnsupportedConfigOverrides.Raw) == 0 {
+			return nil
+		}
+		var obj map[string]interface{}
+		if err := json.Unmarshal(spec.UnsupportedConfigOverrides.Raw, &obj); err != nil {
+			klog.Warningf("failed to unmarshal operator/v1 spec.unsupportedConfigOverrides for error injection: %v", err)
+			return nil
+		}
+
+		if failPropability, found, err := nestedFloat64OrInt(obj, "installerErrorInjection", "failPropability"); err == nil && found {
+			if rand.Float64() < failPropability {
+				pod.Spec.Containers[0].Command = []string{"false"}
+			}
+		}
+
+		if oomPropability, found, err := nestedFloat64OrInt(obj, "installerErrorInjection", "oomPropability"); err == nil && found {
+			if rand.Float64() < oomPropability {
+				twoMB := resource.NewQuantity(int64(2000000), resource.DecimalSI) // instead of 200M
+				for n := range pod.Spec.Containers[0].Resources.Limits {
+					if n == corev1.ResourceMemory {
+						pod.Spec.Containers[0].Resources.Limits[n] = *twoMB
+					}
+				}
+				for n := range pod.Spec.Containers[0].Resources.Requests {
+					if n == corev1.ResourceMemory {
+						pod.Spec.Containers[0].Resources.Requests[n] = *twoMB
+					}
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
+func nestedFloat64OrInt(obj map[string]interface{}, fields ...string) (float64, bool, error) {
+	if x, found, err := unstructured.NestedFloat64(obj, fields...); err == nil && !found {
+		return 0.0, false, nil
+	} else if err == nil && found {
+		return x, found, err
+	}
+	x, found, err := unstructured.NestedInt64(obj, fields...)
+	return float64(x), found, err
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
