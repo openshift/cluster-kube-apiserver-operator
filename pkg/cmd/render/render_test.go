@@ -21,7 +21,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	//libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
+	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -522,7 +522,7 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, auditConfigPolicyGot)
 
-	defaultPolicy, err := DefaultPolicy()
+	defaultPolicy, err := libgoassets.DefaultPolicy()
 	require.NoError(t, err)
 	rawPolicyJSON, err := kyaml.ToJSON(defaultPolicy)
 	require.NoError(t, err)
