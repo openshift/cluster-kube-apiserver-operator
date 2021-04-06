@@ -20,8 +20,8 @@ import (
 	"k8s.io/klog/v2"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 
@@ -251,16 +251,17 @@ func (r *renderOpts) Run() error {
 }
 
 func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	defaultPolicy, err := audit.DefaultPolicy()
+	rawBytes, err := libgoaudit.DefaultPolicy()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
 	}
 
-	policy, err := convertToUnstructured(defaultPolicy)
+	rawPolicyJSON, err := kyaml.ToJSON(rawBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode audit policy into unstructured - %s", err)
+		return nil, fmt.Errorf("failed to convert asset yaml to JSON - %w", err)
 	}
 
+	policy, err := convertToUnstructured(rawPolicyJSON)
 	asset := filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml")
 	raw, err := v410_00_assets.Asset(asset)
 	if err != nil {
