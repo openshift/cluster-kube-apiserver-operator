@@ -34,7 +34,7 @@ func innerTLSSecurityProfileObservations(genericListers configobserver.Listers, 
 	listers := genericListers.(APIServerLister)
 	errs := []error{}
 
-	currentMinTLSVersion, _, versionErr := unstructured.NestedString(existingConfig, minTLSVersionPath...)
+	currentMinTLSVersion, _, versionErr := unstructured.NestedStringSlice(existingConfig, minTLSVersionPath...)
 	if versionErr != nil {
 		errs = append(errs, fmt.Errorf("failed to retrieve spec.servingInfo.minTLSVersion: %v", versionErr))
 		// keep going on read error from existing config
@@ -56,14 +56,14 @@ func innerTLSSecurityProfileObservations(genericListers configobserver.Listers, 
 
 	observedConfig := map[string]interface{}{}
 	observedMinTLSVersion, observedCipherSuites := getSecurityProfileCiphers(apiServer.Spec.TLSSecurityProfile)
-	if err = unstructured.SetNestedField(observedConfig, observedMinTLSVersion, minTLSVersionPath...); err != nil {
+	if err = unstructured.SetNestedStringSlice(observedConfig, observedMinTLSVersion, minTLSVersionPath...); err != nil {
 		return existingConfig, append(errs, err)
 	}
 	if err = unstructured.SetNestedStringSlice(observedConfig, observedCipherSuites, cipherSuitesPath...); err != nil {
 		return existingConfig, append(errs, err)
 	}
 
-	if observedMinTLSVersion != currentMinTLSVersion {
+	if !reflect.DeepEqual(observedMinTLSVersion , currentMinTLSVersion ){
 		recorder.Eventf("ObserveTLSSecurityProfile", "minTLSVersion changed to %s", observedMinTLSVersion)
 	}
 	if !reflect.DeepEqual(observedCipherSuites, currentCipherSuites) {
@@ -76,7 +76,7 @@ func innerTLSSecurityProfileObservations(genericListers configobserver.Listers, 
 // Extracts the minimum TLS version and cipher suites from TLSSecurityProfile object,
 // Converts the ciphers to IANA names as supported by Kube ServingInfo config.
 // If profile is nil, returns config defined by the Intermediate TLS Profile
-func getSecurityProfileCiphers(profile *configv1.TLSSecurityProfile) (string, []string) {
+func getSecurityProfileCiphers(profile *configv1.TLSSecurityProfile) ([]string, []string) {
 	var profileType configv1.TLSProfileType
 	if profile == nil {
 		profileType = configv1.TLSProfileIntermediateType
@@ -99,5 +99,5 @@ func getSecurityProfileCiphers(profile *configv1.TLSSecurityProfile) (string, []
 	}
 
 	// need to remap all Ciphers to their respective IANA names used by Go
-	return string(profileSpec.MinTLSVersion), crypto.OpenSSLToIANACipherSuites(profileSpec.Ciphers)
+	return []string{string(profileSpec.MinTLSVersion)}, crypto.OpenSSLToIANACipherSuites(profileSpec.Ciphers)
 }

@@ -14,8 +14,10 @@ import (
 
 func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 	existingConfig := map[string]interface{}{
-		"corsAllowedOrigins": []interface{}{
-			`(?i)//my\.subdomain\.domain\.com(:|\z)`,
+		"apiServerArguments": map[string]interface{}{
+			"cors-allowed-origins": []interface{}{
+				`(?i)//my\.subdomain\.domain\.com(:|\z)`,
+			},
 		},
 	}
 
@@ -30,9 +32,11 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 			config:   nil,
 			existing: existingConfig,
 			expected: map[string]interface{}{
-				"corsAllowedOrigins": []interface{}{
-					`//127\.0\.0\.1(:|$)`,
-					`//localhost(:|$)`,
+				"apiServerArguments": map[string]interface{}{
+					"cors-allowed-origins": []interface{}{
+						`//127\.0\.0\.1(:|$)`,
+						`//localhost(:|$)`,
+					},
 				},
 			},
 		},
@@ -41,9 +45,11 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 			config:   newAPIServerConfig(),
 			existing: existingConfig,
 			expected: map[string]interface{}{
-				"corsAllowedOrigins": []interface{}{
-					`//127\.0\.0\.1(:|$)`,
-					`//localhost(:|$)`,
+				"apiServerArguments": map[string]interface{}{
+					"cors-allowed-origins": []interface{}{
+						`//127\.0\.0\.1(:|$)`,
+						`//localhost(:|$)`,
+					},
 				},
 			},
 		},
@@ -52,10 +58,12 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 			config:   newAPIServerConfig(withAdditionalCORSAllowedOrigins([]string{`(?i)//happy\.domain\.cz(:|\z)`})),
 			existing: existingConfig,
 			expected: map[string]interface{}{
-				"corsAllowedOrigins": []interface{}{
-					`(?i)//happy\.domain\.cz(:|\z)`,
-					`//127\.0\.0\.1(:|$)`,
-					`//localhost(:|$)`,
+				"apiServerArguments": map[string]interface{}{
+					"cors-allowed-origins": []interface{}{
+						`(?i)//happy\.domain\.cz(:|\z)`,
+						`//127\.0\.0\.1(:|$)`,
+						`//localhost(:|$)`,
+					},
 				},
 			},
 		},
