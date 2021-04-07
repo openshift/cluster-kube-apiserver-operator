@@ -2,7 +2,6 @@
 // sources:
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
-// bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml
@@ -299,154 +298,6 @@ func v410ConfigDefaultconfigYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/config/defaultconfig.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v410KubeApiserverAuditPoliciesCmYaml = []byte(`apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kube-apiserver-audit-policies
-  namespace: openshift-kube-apiserver
-data:
-  default.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: Default
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # A catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - "RequestReceived"
-
-  writerequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: WriteRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # log request and response payloads for all write requests
-    - level: RequestResponse
-      verbs:
-      - update
-      - patch
-      - create
-      - delete
-      - deletecollection
-    # catch-all rule to log all other requests at the Metadata level.
-    - level: Metadata
-      # Long-running requests like watches that fall under this rule will not
-      # generate an audit event in RequestReceived.
-      omitStages:
-      - RequestReceived
-
-  allrequestbodies.yaml: |
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    metadata:
-      name: AllRequestBodies
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-    - "RequestReceived"
-    rules:
-    # Don't log requests for events
-    - level: None
-      resources:
-      - group: ""
-        resources: ["events"]
-    # Don't log oauth tokens as metadata.name is the secret
-    - level: None
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-    # Don't log authenticated requests to certain non-resource URL paths.
-    - level: None
-      userGroups: ["system:authenticated", "system:unauthenticated"]
-      nonResourceURLs:
-      - "/api*" # Wildcard matching.
-      - "/version"
-      - "/healthz"
-      - "/readyz"
-    # exclude resources where the body is security-sensitive
-    - level: Metadata
-      resources:
-      - group: "route.openshift.io"
-        resources: ["routes"]
-      - resources: ["secrets"]
-    - level: Metadata
-      resources:
-      - group: "oauth.openshift.io"
-        resources: ["oauthclients"]
-    # catch-all rule to log all other requests with request and response payloads
-    - level: RequestResponse
-`)
-
-func v410KubeApiserverAuditPoliciesCmYamlBytes() ([]byte, error) {
-	return _v410KubeApiserverAuditPoliciesCmYaml, nil
-}
-
-func v410KubeApiserverAuditPoliciesCmYaml() (*asset, error) {
-	bytes, err := v410KubeApiserverAuditPoliciesCmYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/audit-policies-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1612,7 +1463,6 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
-	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                                 v410KubeApiserverAuditPoliciesCmYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml":            v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml":           v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml":                       v410KubeApiserverCheckEndpointsClusterroleYaml,
@@ -1687,7 +1537,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
-			"audit-policies-cm.yaml":                                 {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole-crd-reader.yaml":            {v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole-node-reader.yaml":           {v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole.yaml":                       {v410KubeApiserverCheckEndpointsClusterroleYaml, map[string]*bintree{}},
