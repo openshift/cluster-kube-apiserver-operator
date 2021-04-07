@@ -10,7 +10,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -25,6 +24,8 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/apiserver/audit"
+	libgoauditasset "github.com/openshift/library-go/pkg/operator/apiserver/audit/bindata"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -93,7 +94,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	auditPolicyPahGetter, err := audit.NewAuditPolicyPathGetter()
+	auditPolicyPahGetter, err := audit.NewAuditPolicyPathGetter("/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies")
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
-		v410_00_assets.Asset,
+		func(name string) ([]byte, error) {
+			// the order is important here!
+			if bytes, err := v410_00_assets.Asset(name); err == nil {
+				return bytes, err
+			}
+
+			bytes, ok := libgoauditasset.Asset(name)
+			return bytes, ok
+		},
 		[]string{
 			"v4.1.0/kube-apiserver/ns.yaml",
 			"v4.1.0/kube-apiserver/svc.yaml",
@@ -131,7 +140,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
-			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
+			"pkg/operator/apiserver/audit/manifests/audit-policies-cm.yaml",
 		},
 		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
 		operatorClient,

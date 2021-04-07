@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,8 +21,8 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 )
 
@@ -521,9 +522,11 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, auditConfigPolicyGot)
 
-	defaultPolicy, err := audit.DefaultPolicy()
+	defaultPolicyRawBytes, err := audit.DefaultPolicy()
 	require.NoError(t, err)
-	policyExpected, err := convertToUnstructured(defaultPolicy)
+	rawPolicyJSON, err := kyaml.ToJSON(defaultPolicyRawBytes)
+	require.NoError(t, err)
+	policyExpected, err := convertToUnstructured(rawPolicyJSON)
 	require.NoError(t, err)
 
 	isEqual := equality.Semantic.DeepEqual(policyExpected, auditConfigPolicyGot)
