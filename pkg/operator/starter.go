@@ -186,6 +186,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithVersioning("kube-apiserver", versionRecorder).
+		WithMinReadyDuration(30 * time.Second).
 		ToControllers()
 	if err != nil {
 		return err
