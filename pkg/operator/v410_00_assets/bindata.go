@@ -1,6 +1,8 @@
 // Code generated for package v410_00_assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// bindata/v4.1.0/alerts/api-usage.yaml
 // bindata/v4.1.0/alerts/cpu-utilization.yaml
+// bindata/v4.1.0/alerts/kube-apiserver-requests.yaml
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
@@ -84,6 +86,60 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
+var _v410AlertsApiUsageYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: api-usage
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  groups:
+    - name: pre-release-lifecycle
+      rules:
+        - alert: APIRemovedInNextReleaseInUse
+          annotations:
+            message: >-
+              Deprecated API that will be removed in the next version is being used. Removing the workload that is using
+              the {{$labels.group}}.{{$labels.version}}/{{$labels.resource}} API might be necessary for
+              a successful upgrade to the next cluster version.
+              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+          expr: |
+            group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
+          for: 1h
+          labels:
+            severity: info
+        - alert: APIRemovedInNextEUSReleaseInUse
+          annotations:
+            message: >-
+              Deprecated API that will be removed in the next EUS version is being used. Removing the workload that is using
+              the {{"{{$labels.group}}"}}.{{"{{$labels.version}}"}}/{{"{{$labels.resource}}"}} API might be necessary for
+              a successful upgrade to the next EUS cluster version.
+              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+          expr: |
+            group(apiserver_requested_deprecated_apis{removed_release=~"1\\.2[123]"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
+          for: 1h
+          labels:
+            severity: info
+`)
+
+func v410AlertsApiUsageYamlBytes() ([]byte, error) {
+	return _v410AlertsApiUsageYaml, nil
+}
+
+func v410AlertsApiUsageYaml() (*asset, error) {
+	bytes, err := v410AlertsApiUsageYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/api-usage.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410AlertsCpuUtilizationYaml = []byte(`apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -148,6 +204,44 @@ func v410AlertsCpuUtilizationYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/alerts/cpu-utilization.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410AlertsKubeApiserverRequestsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-requests
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  groups:
+    - name: apiserver-requests-in-flight
+      rules:
+        # We want to capture requests in-flight metrics for kube-apiserver and openshift-apiserver.
+        # apiserver='kube-apiserver' indicates that the source is kubernetes apiserver.
+        # apiserver='openshift-apiserver' indicates that the source is openshift apiserver.
+        # The subquery aggregates by apiserver and request kind. requestKind is {mutating|readOnly}
+        # The following query gives us maximum peak of the apiserver concurrency over a 2-minute window.
+        - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
+          expr: |
+            max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
+`)
+
+func v410AlertsKubeApiserverRequestsYamlBytes() ([]byte, error) {
+	return _v410AlertsKubeApiserverRequestsYaml, nil
+}
+
+func v410AlertsKubeApiserverRequestsYaml() (*asset, error) {
+	bytes, err := v410AlertsKubeApiserverRequestsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/kube-apiserver-requests.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2290,7 +2384,9 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"v4.1.0/alerts/api-usage.yaml":                                                 v410AlertsApiUsageYaml,
 	"v4.1.0/alerts/cpu-utilization.yaml":                                           v410AlertsCpuUtilizationYaml,
+	"v4.1.0/alerts/kube-apiserver-requests.yaml":                                   v410AlertsKubeApiserverRequestsYaml,
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml":            v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml,
@@ -2366,7 +2462,9 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v4.1.0": {nil, map[string]*bintree{
 		"alerts": {nil, map[string]*bintree{
-			"cpu-utilization.yaml": {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
+			"api-usage.yaml":               {v410AlertsApiUsageYaml, map[string]*bintree{}},
+			"cpu-utilization.yaml":         {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
+			"kube-apiserver-requests.yaml": {v410AlertsKubeApiserverRequestsYaml, map[string]*bintree{}},
 		}},
 		"config": {nil, map[string]*bintree{
 			"config-overrides.yaml": {v410ConfigConfigOverridesYaml, map[string]*bintree{}},
