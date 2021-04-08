@@ -1078,6 +1078,7 @@ metadata:
   name: openshift-kube-apiserver
   annotations:
     openshift.io/node-selector: ""
+    workload.openshift.io/allowed: "management"
   labels:
     openshift.io/run-level: "0"
     openshift.io/cluster-monitoring: "true"
@@ -1131,6 +1132,7 @@ metadata:
   name: kube-apiserver
   annotations:
     kubectl.kubernetes.io/default-logs-container: kube-apiserver
+    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"
@@ -1455,6 +1457,8 @@ metadata:
   name: kube-apiserver-recovery
   labels:
     revision: "recovery"
+  annotations:
+    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
 spec:
   containers:
   - name: kube-apiserver-recovery

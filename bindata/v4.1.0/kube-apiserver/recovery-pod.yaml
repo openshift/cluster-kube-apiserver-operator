@@ -5,6 +5,8 @@ metadata:
   name: kube-apiserver-recovery
   labels:
     revision: "recovery"
+  annotations:
+    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
 spec:
   containers:
   - name: kube-apiserver-recovery
