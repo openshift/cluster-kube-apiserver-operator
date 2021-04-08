@@ -29,4 +29,5 @@ func randomizeTestOrder(m *testing.M) {
 	rand.Shuffle(len(tests), func(i, j int) { tests[i], tests[j] = tests[j], tests[i] })
 
 	*realPtrToTests = tests
+	// dummy change
 }
