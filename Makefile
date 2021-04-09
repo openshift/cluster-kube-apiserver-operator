@@ -82,3 +82,16 @@ clean:
 # See vendor/github.com/openshift/build-machinery-go/scripts/run-telepresence.sh for usage and configuration details
 export TP_DEPLOYMENT_YAML ?=./manifests/0000_20_kube-apiserver-operator_06_deployment.yaml
 export TP_CMD_PATH ?=./cmd/cluster-kube-apiserver-operator
+
+# ensure the deprecatedapirequests crd is included in bindata
+DEPRECATEDAPIREQUEST_CRD_TARGET := bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml
+DEPRECATEDAPIREQUEST_CRD_SOURCE := vendor/github.com/openshift/api/apiserver/v1/apiserver.openshift.io_deprecatedapirequests.yaml
+update-bindata-v4.1.0: $(DEPRECATEDAPIREQUEST_CRD_TARGET)
+$(DEPRECATEDAPIREQUEST_CRD_TARGET): $(DEPRECATEDAPIREQUEST_CRD_SOURCE)
+	cp $< $@
+
+# ensure the correct version of the deprecatedapirequests crd is being used
+verify-bindata-v4.1.0: verify-deprecatedapirequests-crd
+.PHONY: verify-deprecatedapirequests-crd
+verify-deprecatedapirequests-crd:
+	diff -Naup $(DEPRECATEDAPIREQUEST_CRD_SOURCE) $(DEPRECATEDAPIREQUEST_CRD_TARGET)
