@@ -60,6 +60,9 @@ type DelegatingAuthenticatorConfig struct {
 	APIAudiences authenticator.Audiences
 
 	RequestHeaderConfig *RequestHeaderConfig
+
+	// RequestTimeout specifies a time limit for requests made by the authorization webhook client.
+	RequestTimeout time.Duration
 }
 
 func (c DelegatingAuthenticatorConfig) New() (authenticator.Request, *spec.SecurityDefinitions, error) {
@@ -88,7 +91,7 @@ func (c DelegatingAuthenticatorConfig) New() (authenticator.Request, *spec.Secur
 		if c.WebhookRetryBackoff == nil {
 			return nil, nil, errors.New("retry backoff parameters for delegating authentication webhook has not been specified")
 		}
-		tokenAuth, err := webhooktoken.NewFromInterface(c.TokenAccessReviewClient, c.APIAudiences, *c.WebhookRetryBackoff)
+		tokenAuth, err := webhooktoken.NewFromInterface(c.TokenAccessReviewClient, c.APIAudiences, *c.WebhookRetryBackoff, c.RequestTimeout)
 		if err != nil {
 			return nil, nil, err
 		}

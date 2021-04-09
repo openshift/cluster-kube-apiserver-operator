@@ -195,9 +195,9 @@ type DelegatingAuthenticationOptions struct {
 	// before we fail the webhook call in order to limit the fan out that ensues when the system is degraded.
 	WebhookRetryBackoff *wait.Backoff
 
-	// ClientTimeout specifies a time limit for requests made by the authorization webhook client.
+	// RequestTimeout specifies a time limit for requests made by the authorization webhook client.
 	// The default value is set to 10 seconds.
-	ClientTimeout time.Duration
+	RequestTimeout time.Duration
 }
 
 func NewDelegatingAuthenticationOptions() *DelegatingAuthenticationOptions {
@@ -211,7 +211,7 @@ func NewDelegatingAuthenticationOptions() *DelegatingAuthenticationOptions {
 			ExtraHeaderPrefixes: []string{"x-remote-extra-"},
 		},
 		WebhookRetryBackoff: DefaultAuthWebhookRetryBackoff(),
-		ClientTimeout:       10 * time.Second,
+		RequestTimeout:      10 * time.Second,
 	}
 }
 
@@ -220,9 +220,9 @@ func (s *DelegatingAuthenticationOptions) WithCustomRetryBackoff(backoff wait.Ba
 	s.WebhookRetryBackoff = &backoff
 }
 
-// WithClientTimeout sets the given timeout for the authentication webhook client.
-func (s *DelegatingAuthenticationOptions) WithClientTimeout(timeout time.Duration) {
-	s.ClientTimeout = timeout
+// WithRequestTimeout sets the given timeout for requests made by the authentication webhook client.
+func (s *DelegatingAuthenticationOptions) WithRequestTimeout(timeout time.Duration) {
+	s.RequestTimeout = timeout
 }
 
 func (s *DelegatingAuthenticationOptions) Validate() []error {
@@ -277,6 +277,7 @@ func (s *DelegatingAuthenticationOptions) ApplyTo(authenticationInfo *server.Aut
 		Anonymous:           true,
 		CacheTTL:            s.CacheTTL,
 		WebhookRetryBackoff: s.WebhookRetryBackoff,
+		RequestTimeout:      s.RequestTimeout,
 	}
 
 	client, err := s.getClient()
@@ -419,7 +420,6 @@ func (s *DelegatingAuthenticationOptions) getClient() (kubernetes.Interface, err
 	// set high qps/burst limits since this will effectively limit API server responsiveness
 	clientConfig.QPS = 200
 	clientConfig.Burst = 400
-	clientConfig.Timeout = s.ClientTimeout
 
 	return kubernetes.NewForConfig(clientConfig)
 }
