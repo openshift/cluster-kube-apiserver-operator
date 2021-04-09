@@ -44,3 +44,5 @@ status:
     - group: controlplane.operator.openshift.io
       resource: podnetworkconnectivitychecks
       namespace: openshift-kube-apiserver
+    - group: apiserver.openshift.io
+      resource: deprecatedapirequests
