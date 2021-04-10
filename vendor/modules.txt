@@ -14,6 +14,9 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
+# github.com/coreos/go-iptables v0.6.0
+## explicit
+github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
 github.com/coreos/go-semver/semver
 # github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
@@ -218,7 +221,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20210414082648-6e767630a0dc
+# github.com/openshift/library-go v0.0.0-20210414082648-6e767630a0dc => github.com/marun/library-go v0.0.0-20210420192337-3a0db88f982f
 ## explicit
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -274,6 +277,7 @@ github.com/openshift/library-go/pkg/operator/revisioncontroller
 github.com/openshift/library-go/pkg/operator/staleconditions
 github.com/openshift/library-go/pkg/operator/staticpod
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
+github.com/openshift/library-go/pkg/operator/staticpod/controller
 github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource
 github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource/bindata
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installer
@@ -1074,3 +1078,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
 # k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99
+# github.com/openshift/library-go => github.com/marun/library-go v0.0.0-20210420192337-3a0db88f982f

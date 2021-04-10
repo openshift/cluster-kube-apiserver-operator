@@ -8,7 +8,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -17,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -32,6 +32,9 @@ type StaticPodStateController struct {
 	configMapGetter corev1client.ConfigMapsGetter
 	podsGetter      corev1client.PodsGetter
 	versionRecorder status.VersionGetter
+
+	// staticPodFn returns the static pod for a node.
+	staticPodFn controller.StaticPodFunc
 }
 
 // NewStaticPodStateController creates a controller that watches static pods and will produce a failing status if the
@@ -44,6 +47,7 @@ func NewStaticPodStateController(
 	podsGetter corev1client.PodsGetter,
 	versionRecorder status.VersionGetter,
 	eventRecorder events.Recorder,
+	staticPodFn controller.StaticPodFunc,
 ) factory.Controller {
 	c := &StaticPodStateController{
 		targetNamespace: targetNamespace,
@@ -53,6 +57,7 @@ func NewStaticPodStateController(
 		configMapGetter: configMapGetter,
 		podsGetter:      podsGetter,
 		versionRecorder: versionRecorder,
+		staticPodFn:     staticPodFn,
 	}
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
@@ -81,7 +86,7 @@ func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.Syn
 	failingErrorCount := 0
 	images := sets.NewString()
 	for _, node := range originalOperatorStatus.NodeStatuses {
-		pod, err := c.podsGetter.Pods(c.targetNamespace).Get(ctx, mirrorPodNameForNode(c.staticPodName, node.NodeName), metav1.GetOptions{})
+		pod, err := c.staticPodFn(ctx, c.podsGetter, c.targetNamespace, c.staticPodName, node.NodeName)
 		if err != nil {
 			errs = append(errs, err)
 			failingErrorCount++
@@ -190,8 +195,4 @@ func max(x, y time.Duration) time.Duration {
 		return x
 	}
 	return y
-}
-
-func mirrorPodNameForNode(staticPodName, nodeName string) string {
-	return staticPodName + "-" + nodeName
 }

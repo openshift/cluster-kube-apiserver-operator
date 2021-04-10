@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/coreos/go-iptables v0.6.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
@@ -35,3 +36,5 @@ require (
 )
 
 replace k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 // points to temporary-watch-reduction-patch-1.21 to pick up k/k/pull/100959
+
+replace github.com/openshift/library-go => github.com/marun/library-go v0.0.0-20210420192337-3a0db88f982f

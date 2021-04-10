@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
@@ -50,6 +51,7 @@ type staticPodOperatorControllerBuilder struct {
 	// installer information
 	installCommand           []string
 	installerPodMutationFunc installer.InstallerPodMutationFunc
+	staticPodFunc            controller.StaticPodFunc
 	minReadyDuration         time.Duration
 
 	// pruning information
@@ -67,6 +69,7 @@ func NewBuilder(
 		staticPodOperatorClient: staticPodOperatorClient,
 		kubeClient:              kubeClient,
 		kubeInformers:           kubeInformers,
+		staticPodFunc:           controller.GetStaticPod,
 	}
 }
 
@@ -81,6 +84,7 @@ type Builder interface {
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
+	WithStaticPodAccessor(fn controller.StaticPodFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
@@ -129,6 +133,11 @@ func (b *staticPodOperatorControllerBuilder) WithMinReadyDuration(minReadyDurati
 func (b *staticPodOperatorControllerBuilder) WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder {
 	b.installCommand = command
 	b.installerPodMutationFunc = installerPodMutationFunc
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithStaticPodAccessor(fn controller.StaticPodFunc) Builder {
+	b.staticPodFunc = fn
 	return b
 }
 
@@ -195,6 +204,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.installerPodMutationFunc,
 		).WithMinReadyDuration(
 			b.minReadyDuration,
+		).WithStaticPodAccessorFn(
+			b.staticPodFunc,
 		), 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
@@ -221,6 +232,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			podClient,
 			versionRecorder,
 			eventRecorder,
+			b.staticPodFunc,
 		), 1)
 	} else {
 		eventRecorder.Warning("StaticPodStateControllerMissing", "not enough information provided, not all functionality is present")
