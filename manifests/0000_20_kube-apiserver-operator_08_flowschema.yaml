@@ -73,31 +73,3 @@ spec:
       serviceAccount:
         name: kube-apiserver-operator
         namespace: openshift-kube-apiserver-operator
----
-# probes need to always work.  If probes get 429s, then the kubelet will treat them as probe failures.
-# Since probes are cheap to run, we won't rate limit these at all.
-apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
-kind: FlowSchema
-metadata:
-  name: probes
-spec:
-  distinguisherMethod:
-    type: ByUser
-  matchingPrecedence: 2
-  priorityLevelConfiguration:
-    name: exempt
-  rules:
-    - nonResourceRules:
-        - nonResourceURLs:
-            - '/healthz'
-            - '/readyz'
-            - '/livez'
-          verbs:
-            - 'get'
-      subjects:
-        - group:
-            name: system:authenticated
-          kind: Group
-        - group:
-            name: system:unauthenticated
-          kind: Group
