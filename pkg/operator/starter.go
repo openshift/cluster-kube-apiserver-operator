@@ -134,7 +134,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml",
 		},
-		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithAPIExtensionsClient(apiextensionsClient),
+		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
 		operatorClient,
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
