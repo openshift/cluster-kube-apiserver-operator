@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/net"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -221,6 +222,10 @@ func TestNamedCertificates(t *testing.T) {
 				// connect to apiserver using a custom ServerName and examine the returned certificate's
 				// serial number to determine if the expected serving certificate was returned.
 				serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, tc.serverName)
+				if net.IsConnectionRefused(err) {
+					// retry on connection refused
+					return false, nil
+				}
 				require.NoError(t, err)
 				return tc.expectedSerialNumber == serialNumber, nil
 			})
