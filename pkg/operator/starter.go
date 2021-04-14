@@ -132,8 +132,9 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
 			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
+			"v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml",
 		},
-		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient),
+		(&resourceapply.ClientHolder{}).WithKubernetes(kubeClient).WithAPIExtensionsClient(apiextensionsClient),
 		operatorClient,
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
@@ -204,6 +205,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			{Group: "admissionregistration.k8s.io", Resource: "mutatingwebhookconfigurations"},
 			{Group: "admissionregistration.k8s.io", Resource: "validatingwebhookconfigurations"},
 			{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-kube-apiserver"},
+			{Group: "apiserver.openshift.io", Resource: "deprecatedapirequests"},
 		},
 
 		configClient.ConfigV1(),
