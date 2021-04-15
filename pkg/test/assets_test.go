@@ -21,7 +21,10 @@ func readAllYaml(path string, t *testing.T) {
 	manifests, err := assets.New(path, render.TemplateData{}, func(info os.FileInfo) bool {
 		return assets.OnlyYaml(info) && !strings.HasPrefix(info.Name(), "recovery-") &&
 			// the dashboard is a ConfigMap yaml but it has an embedded json in data that causes the reader to fail.
-			!strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml")
+			!strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml") &&
+			// there is an alert message containing $labels strings that cause the reader to fail.
+			!strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml")
+
 	})
 	if err != nil {
 		t.Errorf("Unexpected error reading manifests from %s: %v", path, err)
