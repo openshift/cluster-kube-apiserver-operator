@@ -5,6 +5,7 @@ metadata:
   name: kube-apiserver
   annotations:
     kubectl.kubernetes.io/default-logs-container: kube-apiserver
+    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"

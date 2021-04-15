@@ -59,6 +59,9 @@ func TestApiserverRecoveryPod(t *testing.T) {
 					Labels: map[string]string{
 						"revision": "recovery",
 					},
+					Annotations: map[string]string{
+						"workload.openshift.io/management": `{"effect": "PreferredDuringScheduling"}`,
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{

@@ -9,6 +9,7 @@ metadata:
   annotations:
     openshift.io/run-level: "0"
     kubectl.kubernetes.io/default-logs-container: kube-apiserver
+    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
 spec:
   restartPolicy: Always
   hostNetwork: true
