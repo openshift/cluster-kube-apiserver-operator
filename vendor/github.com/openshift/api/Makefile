@@ -33,6 +33,7 @@ $(call add-crd-gen,quota,./quota/v1,./quota/v1,./quota/v1)
 $(call add-crd-gen,samples,./samples/v1,./samples/v1,./samples/v1)
 $(call add-crd-gen,security,./security/v1,./security/v1,./security/v1)
 $(call add-crd-gen,securityinternal,./securityinternal/v1,./securityinternal/v1,./securityinternal/v1)
+$(call add-crd-gen,cloudnetwork,./cloudnetwork/v1,./cloudnetwork/v1,./cloudnetwork/v1)
 $(call add-crd-gen,network,./network/v1,./network/v1,./network/v1)
 $(call add-crd-gen,networkoperator,./networkoperator/v1,./networkoperator/v1,./networkoperator/v1)
 $(call add-crd-gen,operatorcontrolplane,./operatorcontrolplane/v1alpha1,./operatorcontrolplane/v1alpha1,./operatorcontrolplane/v1alpha1)
@@ -46,6 +47,7 @@ verify-scripts:
 	bash -x hack/verify-swagger-docs.sh
 	hack/verify-crds.sh
 	bash -x hack/verify-types.sh
+	hack/verify-crds-version-upgrade.sh
 .PHONY: verify-scripts
 verify: verify-scripts verify-codegen-crds
 
