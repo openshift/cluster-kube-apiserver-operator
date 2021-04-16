@@ -144,7 +144,7 @@ spec:
             the {{$labels.group}}.{{$labels.version}}/{{$labels.resource}} API might be necessary for
             a successful upgrade to the next cluster version. Refer to the audit logs to identify the workload.
         expr: |
-          group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[10m]))) > 0
+          group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
         for: 1h
         labels:
           severity: info
