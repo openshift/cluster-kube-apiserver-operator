@@ -60,6 +60,7 @@ apiServerArguments:
     - config.openshift.io/ValidateAPIServer
     - config.openshift.io/ValidateAuthentication
     - config.openshift.io/ValidateConsole
+    - operator.openshift.io/ValidateDNS
     - config.openshift.io/ValidateFeatureGate
     - config.openshift.io/ValidateImage
     - config.openshift.io/ValidateOAuth
