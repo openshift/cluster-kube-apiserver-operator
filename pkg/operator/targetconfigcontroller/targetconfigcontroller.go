@@ -249,6 +249,19 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 		}
 	}
 
+	// do a check right here to see if the cluster is in the "use management CPUs"
+	// this is called every minute even without any informer wired up to it.
+	shouldUseManagementCPUs := false
+	if shouldUseManagementCPUs {
+		required.Annotations["workload target"] = "effect something"
+		for i := range required.Spec.Containers {
+			// mutate required.Spec.Containers[i].Resources however we're supposed to
+		}
+		for i := range required.Spec.InitContainers {
+			// mutate required.Spec.InitContainers[i].Resources however we're supposed to
+		}
+	}
+
 	containerArgsWithLoglevel := required.Spec.Containers[0].Args
 	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
 		return nil, false, fmt.Errorf("expected only one container argument, got %d", argsCount)
