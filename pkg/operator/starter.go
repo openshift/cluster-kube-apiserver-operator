@@ -3,8 +3,11 @@ package operator
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -36,6 +39,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -49,6 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
@@ -147,6 +152,18 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
 
+	// Only configure graceful rollout for single replica control planes.
+	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	enableGracefulRollout := infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode
+	if enableGracefulRollout {
+		klog.V(1).Info("Configuring graceful kube-apiserver rollout for single replica control plane topology")
+		// The graceful monitor pod is required to ensure traffic is directed to the correct static pod
+		RevisionConfigMaps = append(RevisionConfigMaps, revision.RevisionResource{Name: "graceful-monitor-pod"})
+	}
+
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
@@ -155,6 +172,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient,
 		controllerContext.EventRecorder,
+		enableGracefulRollout,
 	)
 
 	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(
@@ -188,15 +206,21 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
-	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
+	builder := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces).
 		WithEvents(controllerContext.EventRecorder).
 		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
 		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
 		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithVersioning("kube-apiserver", versionRecorder).
-		WithMinReadyDuration(30 * time.Second).
-		ToControllers()
+		WithMinReadyDuration(30 * time.Second)
+	if enableGracefulRollout {
+		// Graceful rollout requires a static pod accessor that can return the
+		// static pod with the most recent revision for a given node. The
+		// default accessor assumes only one pod is present.
+		builder.WithStaticPodAccessor(getStaticPodForGraceful)
+	}
+	staticPodControllers, err := builder.ToControllers()
 	if err != nil {
 		return err
 	}
@@ -392,6 +416,58 @@ func nestedFloat64OrInt(obj map[string]interface{}, fields ...string) (float64, 
 	}
 	x, found, err := unstructured.NestedInt64(obj, fields...)
 	return float64(x), found, err
+}
+
+// getStaticPodForGraceful returns the static pod that has the greatest
+// revision for a given node. This ensures compatibility with library-go's
+// installer and static pod state controllers. These controllers expect only a
+// single static apiserver pod per node.
+func getStaticPodForGraceful(ctx context.Context, podsGetter corev1client.PodsGetter, namespace, staticPodPrefix, nodeName string) (*corev1.Pod, error) {
+	pods, err := podsGetter.Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
+	if err != nil {
+		return nil, err
+	}
+
+	// Identify the pod(s) for the given node
+	candidatePods := []corev1.Pod{}
+	for _, pod := range pods.Items {
+		if !strings.HasPrefix(pod.Name, staticPodPrefix) || pod.Spec.NodeName != nodeName {
+			continue
+		}
+		candidatePods = append(candidatePods, pod)
+	}
+
+	// No pods found
+	if len(candidatePods) == 0 {
+		// Return NotFound for consistency with a Get() call
+		groupResource := schema.GroupResource{Resource: "pods"}
+		name := controller.MirrorPodNameForNode(staticPodPrefix, nodeName)
+		return nil, errors.NewNotFound(groupResource, name)
+	}
+
+	// Pick the pod with the most recent revision.
+	//
+	// Scenarios:
+	//  - 1 active pod
+	//  - 1 active pod and a pod with a newer revision intended to replace it
+	//  - 1 active pod, 1 pod with a newer revision that has failed, and 1 pod
+	//  with a still newer revision intending to replace the active pod
+	//    - The installer deletes the manifests of all apiserver pods but the
+	//    active one, but there is a the lag between when a manifest is
+	//    deleted and when the kubelet removes the corresponding mirror pod.
+	mostRecentRevision := 0
+	var mostRecentPod *corev1.Pod
+	for _, pod := range candidatePods {
+		revision, err := strconv.Atoi(pod.Labels["revision"])
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse revision for pod %s: %v", pod.Name, err)
+		}
+		if revision > mostRecentRevision {
+			mostRecentRevision = revision
+			mostRecentPod = &pod
+		}
+	}
+	return mostRecentPod, nil
 }
 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.

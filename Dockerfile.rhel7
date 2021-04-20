@@ -10,6 +10,8 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/manifests /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/scc-manifests /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/iptables-scripts/iptables /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/iptables-scripts/ip6tables /usr/bin/
 COPY manifests /manifests
 COPY bindata/bootkube/scc-manifests /manifests
 COPY vendor/github.com/openshift/api/operator/v1/0000_20_kube-apiserver-operator_01_config.crd.yaml /manifests
