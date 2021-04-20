@@ -17,6 +17,8 @@
 // bindata/v4.1.0/kube-apiserver/cm.yaml
 // bindata/v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml
+// bindata/v4.1.0/kube-apiserver/graceful-pod-cm.yaml
+// bindata/v4.1.0/kube-apiserver/graceful-pod.yaml
 // bindata/v4.1.0/kube-apiserver/kubeconfig-cm.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml
 // bindata/v4.1.0/kube-apiserver/localhost-recovery-sa.yaml
@@ -1462,6 +1464,86 @@ func v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml() (*asset,
 	return a, nil
 }
 
+var _v410KubeApiserverGracefulPodCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: graceful-monitor-pod
+data:
+  pod.yaml:
+`)
+
+func v410KubeApiserverGracefulPodCmYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverGracefulPodCmYaml, nil
+}
+
+func v410KubeApiserverGracefulPodCmYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverGracefulPodCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/graceful-pod-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverGracefulPodYaml = []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: graceful-monitor
+  labels:
+    revision: "REVISION"
+spec:
+  containers:
+  - name: graceful-monitor
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    command: ["cluster-kube-apiserver-operator", "graceful-monitor"]
+    args:
+      - -v=3
+    volumeMounts:
+    - mountPath: /host
+      name: host-slash
+      readOnly: true
+      mountPropagation: HostToContainer
+    - mountPath: /etc/kubernetes/manifests
+      name: manifests
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 5m
+    securityContext:
+      privileged: true
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  tolerations:
+  - operator: "Exists"
+  volumes:
+  - name: host-slash
+    hostPath:
+      path: /
+  - name: manifests
+    hostPath:
+      path: /etc/kubernetes/manifests
+`)
+
+func v410KubeApiserverGracefulPodYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverGracefulPodYaml, nil
+}
+
+func v410KubeApiserverGracefulPodYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverGracefulPodYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/graceful-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverKubeconfigCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -2237,6 +2319,8 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/cm.yaml":                                                v410KubeApiserverCmYaml,
 	"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml":                  v410KubeApiserverControlPlaneNodeKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml":    v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml,
+	"v4.1.0/kube-apiserver/graceful-pod-cm.yaml":                                   v410KubeApiserverGracefulPodCmYaml,
+	"v4.1.0/kube-apiserver/graceful-pod.yaml":                                      v410KubeApiserverGracefulPodYaml,
 	"v4.1.0/kube-apiserver/kubeconfig-cm.yaml":                                     v410KubeApiserverKubeconfigCmYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml":                     v410KubeApiserverLocalhostRecoveryClientCrbYaml,
 	"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml":                             v410KubeApiserverLocalhostRecoverySaYaml,
@@ -2314,6 +2398,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                                                {v410KubeApiserverCmYaml, map[string]*bintree{}},
 			"control-plane-node-kubeconfig-cm.yaml":                  {v410KubeApiserverControlPlaneNodeKubeconfigCmYaml, map[string]*bintree{}},
 			"delegated-incluster-authentication-rolebinding.yaml":    {v410KubeApiserverDelegatedInclusterAuthenticationRolebindingYaml, map[string]*bintree{}},
+			"graceful-pod-cm.yaml":                                   {v410KubeApiserverGracefulPodCmYaml, map[string]*bintree{}},
+			"graceful-pod.yaml":                                      {v410KubeApiserverGracefulPodYaml, map[string]*bintree{}},
 			"kubeconfig-cm.yaml":                                     {v410KubeApiserverKubeconfigCmYaml, map[string]*bintree{}},
 			"localhost-recovery-client-crb.yaml":                     {v410KubeApiserverLocalhostRecoveryClientCrbYaml, map[string]*bintree{}},
 			"localhost-recovery-sa.yaml":                             {v410KubeApiserverLocalhostRecoverySaYaml, map[string]*bintree{}},
