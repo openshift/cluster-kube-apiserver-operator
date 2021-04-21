@@ -10,7 +10,6 @@ import (
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	configobserveroauth "github.com/openshift/library-go/pkg/operator/configobserver/oauth"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	encryption "github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -23,6 +22,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/oauth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
@@ -144,7 +144,7 @@ func NewConfigObserver(
 			network.ObserveExternalIPPolicy,
 			network.ObserveServicesNodePortRange,
 			// TODO: remove token inactivity observation in 4.9 when the authenticator no longer exists in KAS
-			configobserveroauth.ObserveAccessTokenInactivityTimeout,
+			oauth.ObserveAccessTokenInactivityTimeout,
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,

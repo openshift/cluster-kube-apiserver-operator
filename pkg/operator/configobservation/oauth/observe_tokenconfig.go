@@ -10,6 +10,8 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
 // OAuthLister lists OAuth information
@@ -18,55 +20,27 @@ type OAuthLister interface {
 }
 
 const (
-	defaultAccessTokenMaxAgeSeconds   = float64(86400) // a day
-	fieldAccessTokenMaxAgeSeconds     = "accessTokenMaxAgeSeconds"
 	fieldAccessTokenInactivityTimeout = "accessTokenInactivityTimeout"
 )
 
-// ObserveAccessTokenMaxAgeSeconds returns an unstructured fragment of KubeAPIServerConfig that changes the default value for access token max age,
-// if there is a valid value for it in OAuth cluster config.
-func ObserveAccessTokenMaxAgeSeconds(genericlisters configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
-	errs = []error{}
-	tokenConfigPath := []string{"oauthConfig", "tokenConfig"}
-	tokenMaxAgePath := append(tokenConfigPath, fieldAccessTokenMaxAgeSeconds)
-	defer func() {
-		// Prune the observed config so that it only contains access token max age field.
-		ret = configobserver.Pruned(ret, tokenMaxAgePath)
-	}()
-
-	listers, ok := genericlisters.(OAuthLister)
-	if !ok {
-		return existingConfig, append(errs, fmt.Errorf("failed to assert: given lister does not implement an OAuth lister"))
+func IsWebhookAuthenticatorConfigured(listers configobservation.Listers, existingConfig map[string]interface{}) (bool, error) {
+	auth, err := listers.AuthConfigLister.Get("cluster")
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return true, err
 	}
 
-	oauthConfig, err := listers.OAuthLister().Get("cluster")
-	if err != nil {
-		// Failed to read OAuth cluster config.
-		if errors.IsNotFound(err) {
-			klog.Warning("oauth.config.openshift.io/cluster: not found")
-		}
-		// return whatever is present in existing config.
-		return existingConfig, append(errs, err)
+	webhookSecretName := ""
+	if auth.Spec.WebhookTokenAuthenticator != nil {
+		webhookSecretName = auth.Spec.WebhookTokenAuthenticator.KubeConfig.Name
 	}
 
-	observedAccessTokenMaxAgeSeconds := float64(oauthConfig.Spec.TokenConfig.AccessTokenMaxAgeSeconds)
-	if observedAccessTokenMaxAgeSeconds == 0 {
-		// As the value 0 indicates that this field is not set or missing in OAuth cluster config, use the default value.
-		observedAccessTokenMaxAgeSeconds = defaultAccessTokenMaxAgeSeconds
+	if len(webhookSecretName) > 0 {
+		return true, nil
 	}
 
-	existingAccessTokenMaxAgeSeconds, _, err := unstructured.NestedFloat64(existingConfig, tokenMaxAgePath...)
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	if existingAccessTokenMaxAgeSeconds != observedAccessTokenMaxAgeSeconds {
-		recorder.Eventf("ObserveAccessTokenMaxAgeSeconds", "%s changed from %d to %d", fieldAccessTokenMaxAgeSeconds,
-			existingAccessTokenMaxAgeSeconds,
-			observedAccessTokenMaxAgeSeconds)
-	}
-
-	return buildUnstructuredTokenConfig(observedAccessTokenMaxAgeSeconds, tokenMaxAgePath), errs
+	return false, nil
 }
 
 // ObserveAccessTokenInactivityTimeout returns an unstructured fragment of KubeAPIServerConfig that has access token inactivity timeout,
@@ -80,9 +54,17 @@ func ObserveAccessTokenInactivityTimeout(genericlisters configobserver.Listers, 
 		ret = configobserver.Pruned(ret, tokenInactivityTimeoutPath)
 	}()
 
-	listers, ok := genericlisters.(OAuthLister)
+	listers, ok := genericlisters.(configobservation.Listers)
 	if !ok {
 		return existingConfig, append(errs, fmt.Errorf("failed to assert: given lister does not implement OAuth lister"))
+	}
+
+	if isReady, err := IsWebhookAuthenticatorConfigured(listers, existingConfig); err != nil {
+		// if we had an error determining, just show the error and keep the existing config.
+		return existingConfig, append(errs, err)
+	} else if isReady {
+		// if the webhook is ready, then we should no longer have any configuration for kube-apiserver
+		return map[string]interface{}{}, nil
 	}
 
 	oauthConfig, err := listers.OAuthLister().Get("cluster")
