@@ -91,10 +91,6 @@ kind: PrometheusRule
 metadata:
   name: api-usage
   namespace: openshift-kube-apiserver
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
-    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
     - name: pre-release-lifecycle
@@ -145,10 +141,6 @@ kind: PrometheusRule
 metadata:
   name: cpu-utilization
   namespace: openshift-kube-apiserver
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
-    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
     - name: control-plane-cpu-utilization
@@ -213,10 +205,6 @@ kind: PrometheusRule
 metadata:
   name: kube-apiserver-requests
   namespace: openshift-kube-apiserver
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
-    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
     - name: apiserver-requests-in-flight
