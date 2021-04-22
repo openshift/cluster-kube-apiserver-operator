@@ -144,8 +144,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
 			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
-			// TODO remove this once we switch over in openshift/kubernetes
-			"v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml",
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
