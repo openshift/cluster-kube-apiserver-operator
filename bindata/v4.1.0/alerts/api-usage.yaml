@@ -15,7 +15,7 @@ spec:
           annotations:
             message: >-
               Deprecated API that will be removed in the next version is being used. Removing the workload that is using
-              the {{$labels.group}}.{{$labels.version}}/{{$labels.resource}} API might be necessary for
+              the {{"{{$labels.group}}"}}.{{"{{$labels.version}}"}}/{{"{{$labels.resource}}"}} API might be necessary for
               a successful upgrade to the next cluster version.
               Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
           expr: |

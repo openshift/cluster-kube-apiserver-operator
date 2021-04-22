@@ -34,7 +34,7 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		rule, err := monitoringClient.MonitoringV1().PrometheusRules("openshift-kube-apiserver").Get(ctx, "kube-apiserver", v1.GetOptions{})
+		rule, err := monitoringClient.MonitoringV1().PrometheusRules("openshift-kube-apiserver").Get(ctx, "api-usage", v1.GetOptions{})
 		require.NoError(t, err)
 		expr := func() string {
 			for _, group := range rule.Spec.Groups {
