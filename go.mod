@@ -1,6 +1,6 @@
 module github.com/openshift/cluster-kube-apiserver-operator
 
-go 1.15
+go 1.16
 
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
