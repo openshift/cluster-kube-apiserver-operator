@@ -46,6 +46,8 @@ $(call add-bindata,v4.1.0,./bindata/v4.1.0/...,bindata,v410_00_assets,pkg/operat
 # $4 - output
 $(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 
+$(call verify-golang-versions,Dockerfile.rhel7)
+
 # these are extremely slow serial e2e encryption tests that modify the cluster's global state
 test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
