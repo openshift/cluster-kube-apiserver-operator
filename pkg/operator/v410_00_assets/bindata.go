@@ -1,9 +1,11 @@
 // Code generated for package v410_00_assets by go-bindata DO NOT EDIT. (@generated)
 // sources:
+// bindata/v4.1.0/alerts/api-usage.yaml
+// bindata/v4.1.0/alerts/cpu-utilization.yaml
+// bindata/v4.1.0/alerts/kube-apiserver-requests.yaml
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
-// bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml
 // bindata/v4.1.0/kube-apiserver/audit-policies-cm.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml
 // bindata/v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml
@@ -81,6 +83,154 @@ func (fi bindataFileInfo) IsDir() bool {
 // Sys return file is sys mode
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
+}
+
+var _v410AlertsApiUsageYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: api-usage
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: pre-release-lifecycle
+      rules:
+        - alert: APIRemovedInNextReleaseInUse
+          annotations:
+            message: >-
+              Deprecated API that will be removed in the next version is being used. Removing the workload that is using
+              the {{"{{$labels.group}}"}}.{{"{{$labels.version}}"}}/{{"{{$labels.resource}}"}} API might be necessary for
+              a successful upgrade to the next cluster version.
+              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+          expr: |
+            group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
+          for: 1h
+          labels:
+            severity: info
+        - alert: APIRemovedInNextEUSReleaseInUse
+          annotations:
+            message: >-
+              Deprecated API that will be removed in the next EUS version is being used. Removing the workload that is using
+              the {{"{{$labels.group}}"}}.{{"{{$labels.version}}"}}/{{"{{$labels.resource}}"}} API might be necessary for
+              a successful upgrade to the next EUS cluster version.
+              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+          expr: |
+            group(apiserver_requested_deprecated_apis{removed_release=~"1\\.2[123]"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
+          for: 1h
+          labels:
+            severity: info
+`)
+
+func v410AlertsApiUsageYamlBytes() ([]byte, error) {
+	return _v410AlertsApiUsageYaml, nil
+}
+
+func v410AlertsApiUsageYaml() (*asset, error) {
+	bytes, err := v410AlertsApiUsageYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/api-usage.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410AlertsCpuUtilizationYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cpu-utilization
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: control-plane-cpu-utilization
+      rules:
+        - alert: HighOverallControlPlaneCPU
+          summary: >
+            CPU utilization across all three control plane nodes is higher than two control plane nodes can sustain; a single control plane node outage may
+            cause a cascading failure; increase available CPU.
+          message: >
+            Given three control plane nodes, the overall CPU utilization may only be about 2/3 of all available capacity.
+            This is because if a single control plane node fails, the remaining two must handle the load of the cluster in order to be HA.
+            If the cluster is using more than 2/3 of all capacity, if one control plane node fails, the remaining two are likely to
+            fail when they take the load.
+            To fix this, increase the CPU and memory on your control plane nodes.
+          expr: |
+            sum(
+              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+              AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+            )
+            /
+            count(kube_node_role{role="master"})
+            > 60
+          for: 10m
+          labels:
+            severity: warning
+        - alert: ExtremelyHighIndividualControlPlaneCPU
+          annotations:
+          summary: >
+            CPU utilization on a single control plane node is very high, more CPU pressure is likely to cause a failover; increase available CPU.
+          message: >
+            Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
+            When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
+            causing even more CPU pressure.
+            It can also cause failing liveness probes due to slow etcd responsiveness on the backend.
+            If one kube-apiserver fails under this condition, chances are you will experience a cascade as the remaining
+            kube-apiservers are also under-provisioned.
+            To fix this, increase the CPU and memory on your control plane nodes.
+          expr: |
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90 AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+          for: 5m
+          labels:
+            severity: critical
+`)
+
+func v410AlertsCpuUtilizationYamlBytes() ([]byte, error) {
+	return _v410AlertsCpuUtilizationYaml, nil
+}
+
+func v410AlertsCpuUtilizationYaml() (*asset, error) {
+	bytes, err := v410AlertsCpuUtilizationYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/cpu-utilization.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410AlertsKubeApiserverRequestsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-requests
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: apiserver-requests-in-flight
+      rules:
+        # We want to capture requests in-flight metrics for kube-apiserver and openshift-apiserver.
+        # apiserver='kube-apiserver' indicates that the source is kubernetes apiserver.
+        # apiserver='openshift-apiserver' indicates that the source is openshift apiserver.
+        # The subquery aggregates by apiserver and request kind. requestKind is {mutating|readOnly}
+        # The following query gives us maximum peak of the apiserver concurrency over a 2-minute window.
+        - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
+          expr: |
+            max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
+`)
+
+func v410AlertsKubeApiserverRequestsYamlBytes() ([]byte, error) {
+	return _v410AlertsKubeApiserverRequestsYaml, nil
+}
+
+func v410AlertsKubeApiserverRequestsYaml() (*asset, error) {
+	bytes, err := v410AlertsKubeApiserverRequestsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/kube-apiserver-requests.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
 }
 
 var _v410ConfigConfigOverridesYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
@@ -621,6 +771,7 @@ spec:
                 description: removedInRelease is when the API will be removed.
                 type: string
                 maxLength: 64
+                minLength: 0
                 pattern: ^[0-9][0-9]*\.[0-9][0-9]*$
               requestCount:
                 description: requestCount is a sum of all requestCounts across all
@@ -641,270 +792,6 @@ func v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml() (*asset, error)
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYaml = []byte(`apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
-  name: deprecatedapirequests.apiserver.openshift.io
-spec:
-  group: apiserver.openshift.io
-  names:
-    kind: DeprecatedAPIRequest
-    listKind: DeprecatedAPIRequestList
-    plural: deprecatedapirequests
-    singular: deprecatedapirequest
-  scope: Cluster
-  versions:
-  - name: v1
-    schema:
-      openAPIV3Schema:
-        description: DeprecatedAPIRequest tracts requests made to a deprecated API.
-          The instance name should be of the form ` + "`" + `resource.version.group` + "`" + `, matching
-          the deprecated resource.
-        type: object
-        required:
-        - spec
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: spec defines the characteristics of the resource.
-            type: object
-            properties:
-              removedRelease:
-                description: removedRelease is when the API will be removed.
-                type: string
-                maxLength: 64
-                minLength: 3
-                pattern: ^[0-9][0-9]*\.[0-9][0-9]*$
-          status:
-            description: status contains the observed state of the resource.
-            type: object
-            properties:
-              conditions:
-                description: conditions contains details of the current status of
-                  this API Resource.
-                type: array
-                items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition ` + "`" + `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` + "`" + `
-                    \n     // other fields }"
-                  type: object
-                  required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
-                  properties:
-                    lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
-                      type: string
-                      format: date-time
-                    message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
-                      type: string
-                      maxLength: 32768
-                    observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
-                      type: integer
-                      format: int64
-                      minimum: 0
-                    reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
-                        This field may not be empty.
-                      type: string
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      type: string
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                    type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      type: string
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-              requestsLast24h:
-                description: requestsLast24h contains request history for the last
-                  24 hours, indexed by the hour, so 12:00AM-12:59 is in index 0, 6am-6:59am
-                  is index 6, etc. The index of the current hour is updated live and
-                  then duplicated into the requestsLastHour field.
-                type: array
-                items:
-                  description: RequestLog logs request for various nodes.
-                  type: object
-                  properties:
-                    nodes:
-                      description: nodes contains logs of requests per node.
-                      type: array
-                      items:
-                        description: NodeRequestLog contains logs of requests to a
-                          certain node.
-                        type: object
-                        properties:
-                          lastUpdate:
-                            description: lastUpdate should *always* being within the
-                              hour this is for.  This is a time indicating the last
-                              moment the server is recording for, not the actual update
-                              time.
-                            type: string
-                            format: date-time
-                          nodeName:
-                            description: nodeName where the request are being handled.
-                            type: string
-                          users:
-                            description: users contains request details by top 10
-                              users. Note that because in the case of an apiserver
-                              restart the list of top 10 users is determined on a
-                              best-effort basis, the list might be imprecise.
-                            type: array
-                            items:
-                              description: RequestUser contains logs of a user's requests.
-                              type: object
-                              properties:
-                                count:
-                                  description: count of requests.
-                                  type: integer
-                                requests:
-                                  description: requests details by verb.
-                                  type: array
-                                  items:
-                                    description: RequestCount counts requests by API
-                                      request verb.
-                                    type: object
-                                    properties:
-                                      count:
-                                        description: count of requests for verb.
-                                        type: integer
-                                      verb:
-                                        description: verb of API request (get, list,
-                                          create, etc...)
-                                        type: string
-                                username:
-                                  description: userName that made the request.
-                                  type: string
-              requestsLastHour:
-                description: requestsLastHour contains request history for the current
-                  hour. This is porcelain to make the API easier to read by humans
-                  seeing if they addressed a problem. This field is reset on the hour.
-                type: object
-                properties:
-                  nodes:
-                    description: nodes contains logs of requests per node.
-                    type: array
-                    items:
-                      description: NodeRequestLog contains logs of requests to a certain
-                        node.
-                      type: object
-                      properties:
-                        lastUpdate:
-                          description: lastUpdate should *always* being within the
-                            hour this is for.  This is a time indicating the last
-                            moment the server is recording for, not the actual update
-                            time.
-                          type: string
-                          format: date-time
-                        nodeName:
-                          description: nodeName where the request are being handled.
-                          type: string
-                        users:
-                          description: users contains request details by top 10 users.
-                            Note that because in the case of an apiserver restart
-                            the list of top 10 users is determined on a best-effort
-                            basis, the list might be imprecise.
-                          type: array
-                          items:
-                            description: RequestUser contains logs of a user's requests.
-                            type: object
-                            properties:
-                              count:
-                                description: count of requests.
-                                type: integer
-                              requests:
-                                description: requests details by verb.
-                                type: array
-                                items:
-                                  description: RequestCount counts requests by API
-                                    request verb.
-                                  type: object
-                                  properties:
-                                    count:
-                                      description: count of requests for verb.
-                                      type: integer
-                                    verb:
-                                      description: verb of API request (get, list,
-                                        create, etc...)
-                                      type: string
-                              username:
-                                description: userName that made the request.
-                                type: string
-    served: true
-    storage: true
-    subresources:
-      status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
-`)
-
-func v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYamlBytes() ([]byte, error) {
-	return _v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYaml, nil
-}
-
-func v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYaml() (*asset, error) {
-	bytes, err := v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2220,10 +2107,12 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
+	"v4.1.0/alerts/api-usage.yaml":                                                 v410AlertsApiUsageYaml,
+	"v4.1.0/alerts/cpu-utilization.yaml":                                           v410AlertsCpuUtilizationYaml,
+	"v4.1.0/alerts/kube-apiserver-requests.yaml":                                   v410AlertsKubeApiserverRequestsYaml,
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml":            v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml,
-	"v4.1.0/kube-apiserver/apiserver.openshift.io_deprecatedapirequests.yaml":      v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYaml,
 	"v4.1.0/kube-apiserver/audit-policies-cm.yaml":                                 v410KubeApiserverAuditPoliciesCmYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml":            v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml,
 	"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml":           v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml,
@@ -2294,13 +2183,17 @@ type bintree struct {
 
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v4.1.0": {nil, map[string]*bintree{
+		"alerts": {nil, map[string]*bintree{
+			"api-usage.yaml":               {v410AlertsApiUsageYaml, map[string]*bintree{}},
+			"cpu-utilization.yaml":         {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
+			"kube-apiserver-requests.yaml": {v410AlertsKubeApiserverRequestsYaml, map[string]*bintree{}},
+		}},
 		"config": {nil, map[string]*bintree{
 			"config-overrides.yaml": {v410ConfigConfigOverridesYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":    {v410ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"kube-apiserver": {nil, map[string]*bintree{
 			"apiserver.openshift.io_apirequestcount.yaml":            {v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml, map[string]*bintree{}},
-			"apiserver.openshift.io_deprecatedapirequests.yaml":      {v410KubeApiserverApiserverOpenshiftIo_deprecatedapirequestsYaml, map[string]*bintree{}},
 			"audit-policies-cm.yaml":                                 {v410KubeApiserverAuditPoliciesCmYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole-crd-reader.yaml":            {v410KubeApiserverCheckEndpointsClusterroleCrdReaderYaml, map[string]*bintree{}},
 			"check-endpoints-clusterrole-node-reader.yaml":           {v410KubeApiserverCheckEndpointsClusterroleNodeReaderYaml, map[string]*bintree{}},

@@ -120,6 +120,7 @@ metadata:
   name: kube-apiserver
   namespace: openshift-kube-apiserver
   annotations:
+    release.openshift.io/delete: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
     exclude.release.openshift.io/internal-openshift-hosted: "true"
@@ -135,16 +136,3 @@ spec:
     - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
       expr: |
         max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
-  - name: pre-release-lifecycle
-    rules:
-      - alert: APIRemovedInNextReleaseInUse
-        annotations:
-          message: >-
-            Deprecated API that will be removed in the next version is being used. Removing the workload that is using
-            the {{$labels.group}}.{{$labels.version}}/{{$labels.resource}} API might be necessary for
-            a successful upgrade to the next cluster version. Refer to the audit logs to identify the workload.
-        expr: |
-          group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total[4h]))) > 0
-        for: 1h
-        labels:
-          severity: info
