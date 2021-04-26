@@ -130,7 +130,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20210416115537-a60c0dc032fd
+# github.com/openshift/api v0.0.0-20210423140644-156ca80f8d83
 ## explicit
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -198,7 +198,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20210331195552-cf6c2669e01f
+# github.com/openshift/client-go v0.0.0-20210422153130-25c8450d1535
 ## explicit
 github.com/openshift/client-go/config/clientset/versioned
 github.com/openshift/client-go/config/clientset/versioned/scheme
@@ -218,7 +218,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20210414082648-6e767630a0dc
+# github.com/openshift/library-go v0.0.0-20210420183610-0e395da73318
 ## explicit
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
