@@ -1,0 +1,41 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: etcd-object-counts
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  groups:
+    - name: etcd-object-counts
+      rules:
+        - alert: etcdHighObjectCounts
+          annotations:
+            summary: "etcd recorded more than 100000 objects. Latest count: {{ $value }}"
+            description: |
+              A high object count of more than 100000 objects may lead to stability issue in the API server and etcd storage stack. If this value continues to increase, it may degrade the responsiveness of the API server and etcd.
+              To fix this, use the following query to determine the top-5 highest resource kinds:
+                  topk(5, sum(etcd_object_counts) by (apiserver,namespace,resource))
+              Depending on the resource kinds, additional metrics can be used to help identify the actual resources. For example,
+                  count(kube_secret_info) by (namespace)
+              shows the number of secrets grouped by namespaces.
+              Additional resource metrics can be found at https://github.com/kubernetes/kube-state-metrics/tree/master/docs
+          expr: |
+            sum(etcd_object_counts) > 100000
+          for: 10m
+          labels:
+            severity: warning
+        - alert: etcdIncreasingObjectCounts
+          annotations:
+            summary: "Increasing number of {{ $labels.resource }} objects in etcd."
+            description: |
+              The number of {{ $labels.resource }} objects have increased by {{ $value }} in the last 10 minutes. If this is unexpected, there are some additional metrics at https://github.com/kubernetes/kube-state-metrics/tree/master/docs that may be used to identify the actual resources. For example,
+                  count(kube_secret_info) by (namespace)
+              shows the number of secrets grouped by namespaces.
+          expr: |
+            sum(rate(etcd_object_counts[10m])) by (resource) > 100
+          for: 10m
+          labels:
+            severity: warning
