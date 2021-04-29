@@ -2,6 +2,7 @@
 // sources:
 // bindata/v4.1.0/alerts/api-usage.yaml
 // bindata/v4.1.0/alerts/cpu-utilization.yaml
+// bindata/v4.1.0/alerts/etcd-object-counts.yaml
 // bindata/v4.1.0/alerts/kube-apiserver-requests.yaml
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
@@ -195,6 +196,65 @@ func v410AlertsCpuUtilizationYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/alerts/cpu-utilization.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410AlertsEtcdObjectCountsYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: etcd-object-counts
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: etcd-object-counts
+      rules:
+        - alert: etcdHighCRDObjectCounts
+          annotations:
+            summary: etcd recorded {{ $value }} {{ $labels.resource }} objects.
+            description: |
+              etcd recorded {{ $value }} {{ $labels.resource }} objects. A high number of CRD objects is known to have caused stability issues in the API server and etcd storage stack. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/etcdHighObjectCounts.md
+          expr: |
+            cluster:usage:resources:sum{resource!~".*k8s.io|^[^.]+"} > 200
+          for: 10m
+          labels:
+            severity: warning
+        - alert: etcdHighK8sObjectCounts
+          annotations:
+            summary: etcd recorded {{ $value }} {{ $labels.resource }} objects.
+            description: |
+              etcd recorded {{ $value }} {{ $labels.resource }} objects. A high number of objects is known to have caused stability issues in the API server and etcd storage stack. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/etcdHighObjectCounts.md
+          expr: |
+            cluster:usage:resources:sum{resource=~".*k8s.io|^[^.]+"} > 700
+          for: 10m
+          labels:
+            severity: warning
+        - alert: KubeAPIIncreasingListResponseSize
+          annotations:
+            summary: The LIST response size among the {{ if $labels.group }}{{ $labels.group }}/{{ end }}{{ $labels.version }}/{{ $labels.resource }} objects has been increasing.
+            description: |
+              The LIST response size among the {{ if $labels.group }}{{ $labels.group }}/{{ end }}{{ $labels.version }}/{{ $labels.resource }} objects has been increasing at an average rate of {{ printf "%.2f" "$value" }} bytes/second in the past 10 minutes. If this rate continues to increase, it can caused stability issues in the API server. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/kubeAPIIncreasingListResponseSize.md
+          expr: |
+            sum by(group,version,resource)(rate(apiserver_response_sizes_sum{verb="LIST"}[10m])) > 100000
+          for: 10m
+          labels:
+            severity: warning
+`)
+
+func v410AlertsEtcdObjectCountsYamlBytes() ([]byte, error) {
+	return _v410AlertsEtcdObjectCountsYaml, nil
+}
+
+func v410AlertsEtcdObjectCountsYaml() (*asset, error) {
+	bytes, err := v410AlertsEtcdObjectCountsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/etcd-object-counts.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -2109,6 +2169,7 @@ func AssetNames() []string {
 var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/alerts/api-usage.yaml":                                                 v410AlertsApiUsageYaml,
 	"v4.1.0/alerts/cpu-utilization.yaml":                                           v410AlertsCpuUtilizationYaml,
+	"v4.1.0/alerts/etcd-object-counts.yaml":                                        v410AlertsEtcdObjectCountsYaml,
 	"v4.1.0/alerts/kube-apiserver-requests.yaml":                                   v410AlertsKubeApiserverRequestsYaml,
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
@@ -2186,6 +2247,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"alerts": {nil, map[string]*bintree{
 			"api-usage.yaml":               {v410AlertsApiUsageYaml, map[string]*bintree{}},
 			"cpu-utilization.yaml":         {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
+			"etcd-object-counts.yaml":      {v410AlertsEtcdObjectCountsYaml, map[string]*bintree{}},
 			"kube-apiserver-requests.yaml": {v410AlertsKubeApiserverRequestsYaml, map[string]*bintree{}},
 		}},
 		"config": {nil, map[string]*bintree{

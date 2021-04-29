@@ -147,6 +147,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
+			"v4.1.0/alerts/etcd-object-counts.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).

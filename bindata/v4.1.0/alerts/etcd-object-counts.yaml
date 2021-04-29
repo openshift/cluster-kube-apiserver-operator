@@ -3,39 +3,40 @@ kind: PrometheusRule
 metadata:
   name: etcd-object-counts
   namespace: openshift-kube-apiserver
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
-    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   groups:
     - name: etcd-object-counts
       rules:
-        - alert: etcdHighObjectCounts
+        - alert: etcdHighCRDObjectCounts
           annotations:
-            summary: "etcd recorded more than 100000 objects. Latest count: {{ $value }}"
+            summary: etcd recorded {{ $value }} {{ $labels.resource }} objects.
             description: |
-              A high object count of more than 100000 objects may lead to stability issue in the API server and etcd storage stack. If this value continues to increase, it may degrade the responsiveness of the API server and etcd.
-              To fix this, use the following query to determine the top-5 highest resource kinds:
-                  topk(5, sum(etcd_object_counts) by (apiserver,namespace,resource))
-              Depending on the resource kinds, additional metrics can be used to help identify the actual resources. For example,
-                  count(kube_secret_info) by (namespace)
-              shows the number of secrets grouped by namespaces.
-              Additional resource metrics can be found at https://github.com/kubernetes/kube-state-metrics/tree/master/docs
+              etcd recorded {{ $value }} {{ $labels.resource }} objects. A high number of CRD objects is known to have caused stability issues in the API server and etcd storage stack. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/etcdHighObjectCounts.md
           expr: |
-            sum(etcd_object_counts) > 100000
+            cluster:usage:resources:sum{resource!~".*k8s.io|^[^.]+"} > 200
           for: 10m
           labels:
             severity: warning
-        - alert: etcdIncreasingObjectCounts
+        - alert: etcdHighK8sObjectCounts
           annotations:
-            summary: "Increasing number of {{ $labels.resource }} objects in etcd."
+            summary: etcd recorded {{ $value }} {{ $labels.resource }} objects.
             description: |
-              The number of {{ $labels.resource }} objects have increased by {{ $value }} in the last 10 minutes. If this is unexpected, there are some additional metrics at https://github.com/kubernetes/kube-state-metrics/tree/master/docs that may be used to identify the actual resources. For example,
-                  count(kube_secret_info) by (namespace)
-              shows the number of secrets grouped by namespaces.
+              etcd recorded {{ $value }} {{ $labels.resource }} objects. A high number of objects is known to have caused stability issues in the API server and etcd storage stack. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/etcdHighObjectCounts.md
           expr: |
-            sum(rate(etcd_object_counts[10m])) by (resource) > 100
+            cluster:usage:resources:sum{resource=~".*k8s.io|^[^.]+"} > 700
+          for: 10m
+          labels:
+            severity: warning
+        - alert: KubeAPIIncreasingListResponseSize
+          annotations:
+            summary: The LIST response size among the {{ if $labels.group }}{{ $labels.group }}/{{ end }}{{ $labels.version }}/{{ $labels.resource }} objects has been increasing.
+            description: |
+              The LIST response size among the {{ if $labels.group }}{{ $labels.group }}/{{ end }}{{ $labels.version }}/{{ $labels.resource }} objects has been increasing at an average rate of {{ printf "%.2f" "$value" }} bytes/second in the past 10 minutes. If this rate continues to increase, it can caused stability issues in the API server. Information on diagnosis and mitigation steps can be found in the runbook.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/kubeAPIIncreasingListResponseSize.md
+          expr: |
+            sum by(group,version,resource)(rate(apiserver_response_sizes_sum{verb="LIST"}[10m])) > 100000
           for: 10m
           labels:
             severity: warning
