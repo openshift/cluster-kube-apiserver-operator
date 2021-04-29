@@ -1627,7 +1627,7 @@ metadata:
   name: kube-apiserver
   annotations:
     kubectl.kubernetes.io/default-logs-container: kube-apiserver
-    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+    target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
   labels:
     app: openshift-kube-apiserver
     apiserver: "true"
@@ -1953,7 +1953,7 @@ metadata:
   labels:
     revision: "recovery"
   annotations:
-    workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+    target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
 spec:
   containers:
   - name: kube-apiserver-recovery

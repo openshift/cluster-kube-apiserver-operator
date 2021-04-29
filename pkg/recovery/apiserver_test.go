@@ -60,7 +60,7 @@ func TestApiserverRecoveryPod(t *testing.T) {
 						"revision": "recovery",
 					},
 					Annotations: map[string]string{
-						"workload.openshift.io/management": `{"effect": "PreferredDuringScheduling"}`,
+						"target.workload.openshift.io/management": `{"effect": "PreferredDuringScheduling"}`,
 					},
 				},
 				Spec: corev1.PodSpec{
