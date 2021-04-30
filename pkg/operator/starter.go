@@ -223,7 +223,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			{Group: "admissionregistration.k8s.io", Resource: "mutatingwebhookconfigurations"},
 			{Group: "admissionregistration.k8s.io", Resource: "validatingwebhookconfigurations"},
 			{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-kube-apiserver"},
-			{Group: "apiserver.openshift.io", Resource: "deprecatedapirequests"},
 			{Group: "apiserver.openshift.io", Resource: "apirequestcounts"},
 		},
 
