@@ -1653,6 +1653,10 @@ spec:
         done
       securityContext:
         privileged: true
+      resources:
+        requests:
+          memory: 50Mi
+          cpu: 5m
   containers:
   - name: kube-apiserver
     image: ${IMAGE}
