@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.8
-	github.com/openshift/api v0.0.0-20210429235223-e5fb810477d3
+	github.com/openshift/api v0.0.0-20210503193030-25175d9d392d
 	github.com/openshift/build-machinery-go v0.0.0-20210423112049-9415d7ebd33e
 	github.com/openshift/client-go v0.0.0-20210422153130-25c8450d1535
 	github.com/openshift/library-go v0.0.0-20210430084706-e555322cb708
