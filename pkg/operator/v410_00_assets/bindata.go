@@ -1487,7 +1487,7 @@ spec:
   initContainers:
     - name: setup
       terminationMessagePolicy: FallbackToLogsOnError
-      image: ${IMAGE}
+      image: {{.Image}}
       imagePullPolicy: IfNotPresent
       volumeMounts:
         - mountPath: /var/log/kube-apiserver
@@ -1510,7 +1510,7 @@ spec:
           cpu: 5m
   containers:
   - name: kube-apiserver
-    image: ${IMAGE}
+    image: {{.Image}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["/bin/bash", "-ec"]
@@ -1541,7 +1541,7 @@ spec:
             fi
           done
           echo
-          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration=135s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} ${VERBOSITY} --permit-address-sharing
+          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} {{.Verbosity}} --permit-address-sharing
     resources:
       requests:
         memory: 1Gi
@@ -1596,7 +1596,7 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    image: ${OPERATOR_IMAGE}
+    image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "cert-syncer"]
@@ -1619,7 +1619,7 @@ spec:
       valueFrom:
         fieldRef:
           fieldPath: metadata.namespace
-    image: ${OPERATOR_IMAGE}
+    image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "cert-regeneration-controller"]
@@ -1635,7 +1635,7 @@ spec:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
   - name: kube-apiserver-insecure-readyz
-    image: ${OPERATOR_IMAGE}
+    image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
@@ -1649,7 +1649,7 @@ spec:
         memory: 50Mi
         cpu: 5m
   - name: kube-apiserver-check-endpoints
-    image: ${OPERATOR_IMAGE}
+    image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command:
@@ -1701,7 +1701,7 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
-  terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: {{.GracefulTerminationDuration}}
   hostNetwork: true
   priorityClassName: system-node-critical
   tolerations:
