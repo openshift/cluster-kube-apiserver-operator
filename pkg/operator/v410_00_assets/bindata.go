@@ -481,8 +481,8 @@ spec:
       jsonPath: .status.removedInRelease
     - name: RequestsInCurrentHour
       type: integer
-      description: Number of requests in the last hour.
-      jsonPath: .status.requestsInTheCurrentHour.requestCount
+      description: Number of requests in the current hour.
+      jsonPath: .status.currentHour.requestCount
     - name: RequestsInLast24h
       type: integer
       description: Number of requests in the last 24h.
