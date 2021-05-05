@@ -162,6 +162,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
+		configInformers.Config().V1().Infrastructures(),
 		kubeClient,
 		controllerContext.EventRecorder,
 	)
