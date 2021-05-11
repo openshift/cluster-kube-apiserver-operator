@@ -1665,6 +1665,15 @@ spec:
     command: ["/bin/bash", "-ec"]
     args:
         - |
+          LOCK=/var/log/kube-apiserver/.lock
+          echo -n "Acquiring exclusive lock ${LOCK}"
+          exec {LOCK_FD}>${LOCK} && flock -n "${LOCK_FD}" || {
+            echo "$(date -Iseconds -u) kubelet did not terminate old kube-apiserver before new one" >> /var/log/kube-apiserver/lock.log
+            echo -n ": WARNING: kubelet did not terminate old kube-apiserver before new one."
+            # we didn't get an exclusive lock. We keep going with the risk to corrupt audit logs.
+          }
+          echo
+
           if [ -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt ]; then
             echo "Copying system trust bundle"
             cp -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
