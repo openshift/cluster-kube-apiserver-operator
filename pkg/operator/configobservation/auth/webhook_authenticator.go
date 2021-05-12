@@ -20,10 +20,12 @@ import (
 )
 
 var (
-	webhookTokenAuthenticatorPath        = []string{"apiServerArguments", "authentication-token-webhook-config-file"}
-	webhookTokenAuthenticatorFile        = []interface{}{"/etc/kubernetes/static-pod-resources/secrets/webhook-authenticator/kubeConfig"}
-	webhookTokenAuthenticatorVersionPath = []string{"apiServerArguments", "authentication-token-webhook-version"}
-	webhookTokenAuthenticatorVersion     = []interface{}{"v1"}
+	webhookTokenAuthenticatorPath         = []string{"apiServerArguments", "authentication-token-webhook-config-file"}
+	webhookTokenAuthenticatorFile         = []interface{}{"/etc/kubernetes/static-pod-resources/secrets/webhook-authenticator/kubeConfig"}
+	webhookTokenAuthenticatorVersionPath  = []string{"apiServerArguments", "authentication-token-webhook-version"}
+	webhookTokenAuthenticatorVersion      = []interface{}{"v1"}
+	webhookTokenAuthenticatorCacheTTLPath = []string{"apiServerArguments", "authentication-token-webhook-cache-ttl"}
+	webhookTokenAuthenticatorCacheTTL     = []interface{}{"30s"}
 )
 
 // ObserveWebhookTokenAuthenticator observes the webhookTokenAuthenticator field of
@@ -79,6 +81,10 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 		}
 
 		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
+			return existingConfig, append(errs, err)
+		}
+
+		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorCacheTTL, webhookTokenAuthenticatorCacheTTLPath...); err != nil {
 			return existingConfig, append(errs, err)
 		}
 
