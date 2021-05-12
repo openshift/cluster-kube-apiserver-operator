@@ -6,17 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/ghodss/yaml"
 
-	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
-	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
@@ -44,9 +42,8 @@ type TargetConfigController struct {
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient           kubernetes.Interface
-	configMapLister      corev1listers.ConfigMapLister
-	infrastructureLister configlisterv1.InfrastructureLister
+	kubeClient      kubernetes.Interface
+	configMapLister corev1listers.ConfigMapLister
 }
 
 func NewTargetConfigController(
@@ -54,7 +51,6 @@ func NewTargetConfigController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	infrastuctureInformer configv1informers.InfrastructureInformer,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -64,7 +60,6 @@ func NewTargetConfigController(
 		operatorClient:        operatorClient,
 		kubeClient:            kubeClient,
 		configMapLister:       kubeInformersForNamespaces.ConfigMapLister(),
-		infrastructureLister:  infrastuctureInformer.Lister(),
 	}
 
 	return factory.New().WithInformers(
@@ -159,7 +154,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePod(c.kubeClient.CoreV1(), c.infrastructureLister, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec)
+	_, _, err = managePod(c.kubeClient.CoreV1(), recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -228,8 +223,8 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func managePod(client coreclientv1.ConfigMapsGetter, infrastructureLister configlisterv1.InfrastructureLister, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
-	appliedPodTemplate, err := manageTemplate(string(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, infrastructureLister, operatorSpec)
+func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
+	appliedPodTemplate, err := manageTemplate(string(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
 	if err != nil {
 		return nil, false, err
 	}
@@ -389,32 +384,32 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	return envVars
 }
 
-func gracefulTerminationDuration(infrastructureLister configlisterv1.InfrastructureLister) (watchTerminationDuration int) {
-	// 135s is our default value
-	//   the initial 70s is reserved fo the minimal termination period
-	//   additional 60s for finishing all in-flight requests
-	//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-	watchTerminationDuration = 135
+func gracefulTerminationDurationFromConfig(operatorSpec *operatorv1.StaticPodOperatorSpec) (int, error) {
+	var gracefulTerminationDurationPath = []string{"gracefulTerminationDuration"}
 
-	infra, err := infrastructureLister.Get("cluster")
+	mergedConfigs, err := resourcemerge.MergeProcessConfig(map[string]resourcemerge.MergeFunc{}, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-		}
-		// return defaults if there is no infrastructure resource or we encountered an error
-		return watchTerminationDuration
+		return 0, err
 	}
-	switch infra.Spec.PlatformSpec.Type {
-	case configv1.AWSPlatformType:
-		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
-		// We need to extend the time needed for an LB to notice and remove unhealthy instance.
-		// Once the mentioned issue is resolved this code must be removed and the default values applied.
-		//
-		// The initial 210s is reserved for the minimal termination period.
-		// Additional 60s for finishing all in-flight requests.
-		// An extra 5s to make sure a potential SIGTERM will be sent after a server terminates itself.
-		watchTerminationDuration = 275
+
+	// read the watch termination from the observed configuration
+	observedConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(mergedConfigs)).Decode(&observedConfig); err != nil {
+		return 0, err
 	}
-	return watchTerminationDuration
+	observedGracefulTerminationDurationStr, _, err := unstructured.NestedString(observedConfig, gracefulTerminationDurationPath...)
+	if err != nil {
+		return 0, fmt.Errorf("unable to extract gracefulTerminationDuration from the observed config: %v, path = %v", err, gracefulTerminationDurationPath)
+	}
+	if len(observedGracefulTerminationDurationStr) == 0 {
+		return 0, nil
+	}
+	observedGracefulTerminationDuration, err := strconv.Atoi(observedGracefulTerminationDurationStr)
+	if err != nil {
+		return 0, fmt.Errorf("incorrect value of watchTerminationDuration field in the observed config: %v", err)
+	}
+
+	return observedGracefulTerminationDuration, nil
 }
 
 type kasTemplate struct {
@@ -424,7 +419,7 @@ type kasTemplate struct {
 	GracefulTerminationDuration int
 }
 
-func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, infrastructureLister configlisterv1.InfrastructureLister, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
+func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
 	var verbosity string
 	switch operatorSpec.LogLevel {
 	case operatorv1.Normal:
@@ -439,13 +434,25 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		verbosity = fmt.Sprintf(" -v=%d", 2)
 	}
 
-	terminationDuration := gracefulTerminationDuration(infrastructureLister)
+	gracefulTerminationDuration, err := gracefulTerminationDurationFromConfig(operatorSpec)
+	if err != nil {
+		return "", err
+	}
+
+	if gracefulTerminationDuration == 0 {
+		// apply a default value
+		// 135s is our default value
+		//   the initial 70s is reserved fo the minimal termination period
+		//   additional 60s for finishing all in-flight requests
+		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
+		gracefulTerminationDuration = 135
+	}
 
 	tmplVal := kasTemplate{
 		Image:                       imagePullSpec,
 		OperatorImage:               operatorImagePullSpec,
 		Verbosity:                   verbosity,
-		GracefulTerminationDuration: terminationDuration,
+		GracefulTerminationDuration: gracefulTerminationDuration,
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {

@@ -119,6 +119,8 @@ func NewConfigObserver(
 			apiserver.ObserveNamedCertificates,
 			apiserver.ObserveUserClientCABundle,
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
+			apiserver.ObserveShutdownDelayDuration,
+			apiserver.ObserveWatchTerminationDuration,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			libgoapiserver.NewAuditObserver(auditPolicypathGetter),
 			auth.ObserveAuthMetadata,
