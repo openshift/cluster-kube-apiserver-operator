@@ -1,14 +1,17 @@
 package insecurereadyz
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
 
@@ -99,7 +102,27 @@ func (r *readyzOpts) Run() error {
 		w.Write(body)
 	})
 
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	shutdownHandler := server.SetupSignalHandler()
+
 	addr := fmt.Sprintf("0.0.0.0:%d", r.insecurePort)
 	klog.Infof("Listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+
+	server := &http.Server{
+		Addr:        addr,
+		Handler:     mux,
+		BaseContext: func(_ net.Listener) context.Context { return shutdownCtx },
+	}
+	go func() {
+		defer cancel()
+		<-shutdownHandler
+		klog.Infof("Received SIGTERM or SIGINT signal, shutting down server.")
+		server.Shutdown(shutdownCtx)
+	}()
+	err := server.ListenAndServe()
+	if err == http.ErrServerClosed {
+		err = nil
+	}
+	<-shutdownCtx.Done()
+	return err
 }
