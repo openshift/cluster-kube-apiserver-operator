@@ -12,7 +12,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/audit"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -27,6 +26,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -104,7 +104,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	auditPolicyPahGetter, err := audit.NewAuditPolicyPathGetter()
+	auditPolicyPahGetter, err := libgoaudit.NewAuditPolicyPathGetter("/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies")
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
-		v410_00_assets.Asset,
+		libgoaudit.WithAuditPolicies("kube-apiserver-audit-policies", "openshift-kube-apiserver", v410_00_assets.Asset),
 		[]string{
 			"v4.1.0/kube-apiserver/ns.yaml",
 			"v4.1.0/kube-apiserver/svc.yaml",
@@ -142,11 +142,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
-			"v4.1.0/kube-apiserver/audit-policies-cm.yaml",
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
+			libgoaudit.AuditPoliciesConfigMapFileName,
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
