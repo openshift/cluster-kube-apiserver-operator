@@ -11,13 +11,13 @@ import (
 var (
 	// the following parameters specify for how long apis must
 	// stay on the same revision to be considered stable
-	waitForAPIRevisionSuccessThreshold = 3
+	waitForAPIRevisionSuccessThreshold = 6
 	waitForAPIRevisionSuccessInterval  = 1 * time.Minute
 
 	// the following parameters specify max timeout after which
 	// apis are considered to not converged
 	waitForAPIRevisionPollInterval = 30 * time.Second
-	waitForAPIRevisionTimeout      = 15 * time.Minute
+	waitForAPIRevisionTimeout      = 22 * time.Minute
 )
 
 // WaitForAPIServerToStabilizeOnTheSameRevision waits until all API Servers are running at the same revision.
