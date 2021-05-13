@@ -260,7 +260,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
-	encryptionControllers := encryption.NewControllers(
+	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
 		encryption.StaticEncryptionProvider{
@@ -276,6 +276,9 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
+	if err != nil {
+		return err
+	}
 
 	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
 		operatorClient,
