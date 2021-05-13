@@ -66,7 +66,7 @@ test-e2e-encryption-rotation: test-unit
 
 test-e2e-encryption-perf: GO_TEST_PACKAGES :=./test/e2e-encryption-perf/...
 test-e2e-encryption-perf: GO_TEST_FLAGS += -v
-test-e2e-encryption-perf: GO_TEST_FLAGS += -timeout 1h
+test-e2e-encryption-perf: GO_TEST_FLAGS += -timeout 2h
 test-e2e-encryption-perf: GO_TEST_FLAGS += -p 1
 test-e2e-encryption-perf: test-unit
 .PHONY: test-e2e-encryption-perf
