@@ -85,6 +85,8 @@ clean:
 export TP_DEPLOYMENT_YAML ?=./manifests/0000_20_kube-apiserver-operator_06_deployment.yaml
 export TP_CMD_PATH ?=./cmd/cluster-kube-apiserver-operator
 
+$(call verify-golang-versions,Dockerfile.rhel7)
+
 # ensure the apirequestcounts crd is included in bindata
 APIREQUESTCOUNT_CRD_TARGET := bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
 APIREQUESTCOUNT_CRD_SOURCE := vendor/github.com/openshift/api/apiserver/v1/apiserver.openshift.io_apirequestcount.yaml
