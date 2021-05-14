@@ -56,6 +56,14 @@ test-e2e-encryption: GO_TEST_FLAGS += -p 1
 test-e2e-encryption: test-unit
 .PHONY: test-e2e-encryption
 
+# these are extremely slow serial e2e encryption rotation tests that modify the cluster's global state
+test-e2e-encryption-rotation: GO_TEST_PACKAGES :=./test/e2e-encryption-rotation/...
+test-e2e-encryption-rotation: GO_TEST_FLAGS += -v
+test-e2e-encryption-rotation: GO_TEST_FLAGS += -timeout 4h
+test-e2e-encryption-rotation: GO_TEST_FLAGS += -p 1
+test-e2e-encryption-rotation: test-unit
+.PHONY: test-e2e-encryption-rotation
+
 test-e2e-encryption-perf: GO_TEST_PACKAGES :=./test/e2e-encryption-perf/...
 test-e2e-encryption-perf: GO_TEST_FLAGS += -v
 test-e2e-encryption-perf: GO_TEST_FLAGS += -timeout 1h
