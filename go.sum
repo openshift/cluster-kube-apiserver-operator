@@ -426,8 +426,8 @@ github.com/openshift/client-go v0.0.0-20210422153130-25c8450d1535 h1:JGSJhDJiQxq
 github.com/openshift/client-go v0.0.0-20210422153130-25c8450d1535/go.mod h1:v5/AYttPCjfqMGC1Ed/vutuDpuXmgWc5O+W9nwQ7EtE=
 github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 h1:KrCYRAJcgZYzMCB1PjJHJMYPu/d+dEkelq5eYyi0fDw=
 github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99/go.mod h1:w2YSn4/WIwYuxG5zJmcqtRdtqgW/J2JRgFAqps3bBpg=
-github.com/openshift/library-go v0.0.0-20210430084706-e555322cb708 h1:Xnx252xAZag9fk8IhWdgqkfVkF2c1jMIM5cq4/y8mmM=
-github.com/openshift/library-go v0.0.0-20210430084706-e555322cb708/go.mod h1:pnz961veImKsbn7pQcuFbcVpCQosYiC1fUOjzEDeOLU=
+github.com/openshift/library-go v0.0.0-20210513103829-aa02c23cb230 h1:Mr0ac4Z0VO8QQ5uFSVXz2x5egyf+UEP3UkcfaM1wwsI=
+github.com/openshift/library-go v0.0.0-20210513103829-aa02c23cb230/go.mod h1:pnz961veImKsbn7pQcuFbcVpCQosYiC1fUOjzEDeOLU=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
