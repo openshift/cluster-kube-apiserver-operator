@@ -29,7 +29,7 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 	listers := genericListers.(configobservation.Listers)
 	infra, err := listers.InfrastructureLister().Get("cluster")
 	if err != nil && !apierrors.IsNotFound(err) {
-		// without the infrastructure object we are not able to determine the type of platform we are running on
+		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
 		return existingConfig, append(errs, err)
 	}
 	switch infra.Spec.PlatformSpec.Type {
@@ -39,8 +39,8 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		observedShutdownDelayDuration = "210s"
 	default:
-		// just return the existing configuration since we don't have an opinion anyway
-		return existingConfig, errs
+		// don't override default value
+		return map[string]interface{}{}, errs
 	}
 
 	// read the current value
@@ -79,7 +79,7 @@ func ObserveWatchTerminationDuration(genericListers configobserver.Listers, _ ev
 	listers := genericListers.(configobservation.Listers)
 	infra, err := listers.InfrastructureLister().Get("cluster")
 	if err != nil && !apierrors.IsNotFound(err) {
-		// without the infrastructure object we are not able to determine the type of platform we are running on
+		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
 		return existingConfig, append(errs, err)
 	}
 	switch infra.Spec.PlatformSpec.Type {
@@ -89,8 +89,8 @@ func ObserveWatchTerminationDuration(genericListers configobserver.Listers, _ ev
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		observedGracefulTerminationDuration = "275"
 	default:
-		// just return the existing configuration since we don't have an opinion anyway
-		return existingConfig, errs
+		// don't override default value
+		return map[string]interface{}{}, errs
 	}
 
 	// read the current value

@@ -30,14 +30,15 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 
 		// scenario 1
 		{
-			name: "default value is not applied",
+			name:                  "default value is not applied",
+			expectedKubeAPIConfig: map[string]interface{}{},
 		},
 
 		// scenario 2
 		{
 			name:                  "happy path: a config with some watchTerminationDuration value already exists",
 			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
-			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
+			expectedKubeAPIConfig: map[string]interface{}{}, // this is okay, the desired state in that case is no data, eventually all the configurations will be merged
 		},
 
 		// scenario 3
@@ -85,13 +86,10 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 		{
 			name: "a config with a shutdown-delay-duration value is respected",
 			validateKubeAPIConfigFn: func(actualKasConfig kubecontrolplanev1.KubeAPIServerConfig) error {
-				shutdownDurationArgs := actualKasConfig.APIServerArguments["shutdown-delay-duration"]
-				if len(shutdownDurationArgs) != 1 {
-					return fmt.Errorf("expected only one argument under shutdown-delay-duration key, got %d", len(shutdownDurationArgs))
+				if actualKasConfig.APIServerArguments != nil {
+					return fmt.Errorf("expected to receive an empty APIServerArguments list, saw %d items in the list", len(actualKasConfig.APIServerArguments))
 				}
-				if shutdownDurationArgs[0] != "70s" {
-					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 70s, got %v", shutdownDurationArgs[0])
-				}
+				// this is okay, the desired state in that case is no data, eventually all the configurations will be merged
 				return nil
 			},
 			existingConfig: kubecontrolplanev1.KubeAPIServerConfig{APIServerArguments: map[string]kubecontrolplanev1.Arguments{"shutdown-delay-duration": {"70s"}}},
