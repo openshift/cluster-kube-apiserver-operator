@@ -6,13 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/ghodss/yaml"
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -20,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,13 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
-
-const workQueueKey = "key"
 
 type TargetConfigController struct {
 	targetImagePullSpec   string
@@ -224,53 +224,11 @@ func manageKubeAPIServerConfig(client coreclientv1.ConfigMapsGetter, recorder ev
 }
 
 func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
-	required := resourceread.ReadPodV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod.yaml"))
-	// TODO: If the image pull spec is not specified, the "${IMAGE}" will be used as value and the pod will fail to start.
-	images := map[string]string{
-		"${IMAGE}":          imagePullSpec,
-		"${OPERATOR_IMAGE}": operatorImagePullSpec,
+	appliedPodTemplate, err := manageTemplate(string(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
+	if err != nil {
+		return nil, false, err
 	}
-	if len(imagePullSpec) > 0 {
-		for i := range required.Spec.Containers {
-			for pat, img := range images {
-				if required.Spec.Containers[i].Image == pat {
-					required.Spec.Containers[i].Image = img
-					break
-				}
-			}
-		}
-		for i := range required.Spec.InitContainers {
-			for pat, img := range images {
-				if required.Spec.InitContainers[i].Image == pat {
-					required.Spec.InitContainers[i].Image = img
-					break
-				}
-			}
-		}
-	}
-
-	containerArgsWithLoglevel := required.Spec.Containers[0].Args
-	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
-		return nil, false, fmt.Errorf("expected only one container argument, got %d", argsCount)
-	}
-	if !strings.Contains(containerArgsWithLoglevel[0], "hyperkube kube-apiserver") {
-		return nil, false, fmt.Errorf("hyperkube kube-apiserver not found in first argument %q", containerArgsWithLoglevel[0])
-	}
-
-	var verbosity string
-	switch operatorSpec.LogLevel {
-	case operatorv1.Normal:
-		verbosity = fmt.Sprintf(" -v=%d", 2)
-	case operatorv1.Debug:
-		verbosity = fmt.Sprintf(" -v=%d", 4)
-	case operatorv1.Trace:
-		verbosity = fmt.Sprintf(" -v=%d", 6)
-	case operatorv1.TraceAll:
-		verbosity = fmt.Sprintf(" -v=%d", 8)
-	default:
-		verbosity = fmt.Sprintf(" -v=%d", 2)
-	}
-	required.Spec.Containers[0].Args[0] = strings.ReplaceAll(containerArgsWithLoglevel[0], "${VERBOSITY}", verbosity)
+	required := resourceread.ReadPodV1OrDie([]byte(appliedPodTemplate))
 
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorSpec.ObservedConfig.Raw, &observedConfig); err != nil {
@@ -424,4 +382,87 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	// need to sort the slice so that kube-apiserver-pod configmap does not change all the time
 	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
+}
+
+func gracefulTerminationDurationFromConfig(operatorSpec *operatorv1.StaticPodOperatorSpec) (int, error) {
+	var gracefulTerminationDurationPath = []string{"gracefulTerminationDuration"}
+
+	mergedConfigs, err := resourcemerge.MergeProcessConfig(map[string]resourcemerge.MergeFunc{}, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
+	if err != nil {
+		return 0, err
+	}
+
+	// read the watch termination from the observed configuration
+	observedConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(mergedConfigs)).Decode(&observedConfig); err != nil {
+		return 0, err
+	}
+	observedGracefulTerminationDurationStr, _, err := unstructured.NestedString(observedConfig, gracefulTerminationDurationPath...)
+	if err != nil {
+		return 0, fmt.Errorf("unable to extract gracefulTerminationDuration from the observed config: %v, path = %v", err, gracefulTerminationDurationPath)
+	}
+	if len(observedGracefulTerminationDurationStr) == 0 {
+		return 0, nil
+	}
+	observedGracefulTerminationDuration, err := strconv.Atoi(observedGracefulTerminationDurationStr)
+	if err != nil {
+		return 0, fmt.Errorf("incorrect value of watchTerminationDuration field in the observed config: %v", err)
+	}
+
+	return observedGracefulTerminationDuration, nil
+}
+
+type kasTemplate struct {
+	Image                       string
+	OperatorImage               string
+	Verbosity                   string
+	GracefulTerminationDuration int
+}
+
+func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
+	var verbosity string
+	switch operatorSpec.LogLevel {
+	case operatorv1.Normal:
+		verbosity = fmt.Sprintf(" -v=%d", 2)
+	case operatorv1.Debug:
+		verbosity = fmt.Sprintf(" -v=%d", 4)
+	case operatorv1.Trace:
+		verbosity = fmt.Sprintf(" -v=%d", 6)
+	case operatorv1.TraceAll:
+		verbosity = fmt.Sprintf(" -v=%d", 8)
+	default:
+		verbosity = fmt.Sprintf(" -v=%d", 2)
+	}
+
+	gracefulTerminationDuration, err := gracefulTerminationDurationFromConfig(operatorSpec)
+	if err != nil {
+		return "", err
+	}
+
+	if gracefulTerminationDuration == 0 {
+		// apply a default value
+		// 135s is our default value
+		//   the initial 70s is reserved fo the minimal termination period
+		//   additional 60s for finishing all in-flight requests
+		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
+		gracefulTerminationDuration = 135
+	}
+
+	tmplVal := kasTemplate{
+		Image:                       imagePullSpec,
+		OperatorImage:               operatorImagePullSpec,
+		Verbosity:                   verbosity,
+		GracefulTerminationDuration: gracefulTerminationDuration,
+	}
+	tmpl, err := template.New("kas").Parse(rawTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, tmplVal)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

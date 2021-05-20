@@ -23,7 +23,9 @@ func readAllYaml(path string, t *testing.T) {
 			// the dashboard is a ConfigMap yaml but it has an embedded json in data that causes the reader to fail.
 			!strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml") &&
 			// there is an alert message containing $labels strings that cause the reader to fail.
-			!strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml")
+			!strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml") &&
+			// the kas's pod manifest contains go template values and fails compilation
+			!strings.HasSuffix(info.Name(), "pod.yaml")
 
 	})
 	if err != nil {

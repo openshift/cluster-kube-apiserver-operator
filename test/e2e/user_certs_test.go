@@ -24,6 +24,8 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
@@ -48,8 +50,9 @@ func TestNamedCertificates(t *testing.T) {
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
-	// kube-apiserver must be available, not progressing, and not failing to continue
-	test.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, configClient)
+	// before starting our test make sure that all apis are on the same revision
+	// a previous test might have triggered a new revision and failed
+	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 
 	// create secrets for named serving certificates
 	for _, info := range testCertInfoById {
@@ -201,17 +204,8 @@ func TestNamedCertificates(t *testing.T) {
 		},
 	}
 
-	// wait for configuration to become effective.
-	// if the first test case passes once, then we are at least progressing.
-	// this is a hack to work around having to wait for all nodes to be updated
-	err = wait.PollImmediate(time.Second, 9*time.Minute, func() (bool, error) {
-		serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, testCases[0].serverName)
-		if err != nil || serialNumber != testCases[0].expectedSerialNumber {
-			return false, nil
-		}
-		return true, nil
-	})
-	require.NoError(t, err)
+	// wait until a new version has been rolled out with the new configuration
+	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 
 	// execute test cases
 	for _, tc := range testCases {
