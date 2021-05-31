@@ -36,6 +36,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -201,8 +202,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithEvents(controllerContext.EventRecorder).
 		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
-		WithResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
-		WithCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
+		WithRevisionedResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
+		WithUnrevisionedCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithVersioning("kube-apiserver", versionRecorder).
 		WithMinReadyDuration(30 * time.Second).
 		ToControllers()
@@ -445,7 +446,7 @@ var RevisionSecrets = []revision.RevisionResource{
 	{Name: "webhook-authenticator", Optional: true},
 }
 
-var CertConfigMaps = []revision.RevisionResource{
+var CertConfigMaps = []installer.UnrevisionedResource{
 	{Name: "aggregator-client-ca"},
 	{Name: "client-ca"},
 
@@ -459,7 +460,7 @@ var CertConfigMaps = []revision.RevisionResource{
 	{Name: "check-endpoints-kubeconfig"},
 }
 
-var CertSecrets = []revision.RevisionResource{
+var CertSecrets = []installer.UnrevisionedResource{
 	{Name: "aggregator-client"},
 	{Name: "localhost-serving-cert-certkey"},
 	{Name: "service-network-serving-certkey"},
