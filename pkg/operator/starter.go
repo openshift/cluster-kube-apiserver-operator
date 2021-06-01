@@ -204,7 +204,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
 		WithRevisionedResources(operatorclient.TargetNamespace, "kube-apiserver", RevisionConfigMaps, RevisionSecrets).
-		WithUnrevisionedCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
+		WithUnrevisionedCerts("dynamic", CertConfigMaps, CertSecrets).
 		WithVersioning("kube-apiserver", versionRecorder).
 		WithMinReadyDuration(30 * time.Second).
 		ToControllers()

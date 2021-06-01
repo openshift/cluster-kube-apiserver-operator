@@ -2180,7 +2180,7 @@ spec:
       path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION
     name: resource-dir
   - hostPath:
-      path: /etc/kubernetes/static-pod-resources/kube-apiserver-certs
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-REVISION/dynamic
     name: cert-dir
   - hostPath:
       path: /var/log/kube-apiserver
