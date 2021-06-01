@@ -3,6 +3,7 @@
 // bindata/v4.1.0/alerts/api-usage.yaml
 // bindata/v4.1.0/alerts/cpu-utilization.yaml
 // bindata/v4.1.0/alerts/kube-apiserver-requests.yaml
+// bindata/v4.1.0/alerts/kube-apiserver-slos.yaml
 // bindata/v4.1.0/config/config-overrides.yaml
 // bindata/v4.1.0/config/defaultconfig.yaml
 // bindata/v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
@@ -229,6 +230,473 @@ func v410AlertsKubeApiserverRequestsYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v4.1.0/alerts/kube-apiserver-requests.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410AlertsKubeApiserverSlosYaml = []byte(`apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-slos
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+  - name: kube-apiserver-slos
+    rules:
+    - alert: KubeAPIErrorBudgetBurn
+      annotations:
+        description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        summary: The API server is burning too much error budget.
+      expr: |
+        sum(apiserver_request:burnrate1h) > (14.40 * 0.01000)
+        and
+        sum(apiserver_request:burnrate5m) > (14.40 * 0.01000)
+      for: 2m
+      labels:
+        long: 1h
+        severity: critical
+        short: 5m
+    - alert: KubeAPIErrorBudgetBurn
+      annotations:
+        description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        summary: The API server is burning too much error budget.
+      expr: |
+        sum(apiserver_request:burnrate6h) > (6.00 * 0.01000)
+        and
+        sum(apiserver_request:burnrate30m) > (6.00 * 0.01000)
+      for: 15m
+      labels:
+        long: 6h
+        severity: critical
+        short: 30m
+    - alert: KubeAPIErrorBudgetBurn
+      annotations:
+        description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        summary: The API server is burning too much error budget.
+      expr: |
+        sum(apiserver_request:burnrate1d) > (3.00 * 0.01000)
+        and
+        sum(apiserver_request:burnrate2h) > (3.00 * 0.01000)
+      for: 1h
+      labels:
+        long: 1d
+        severity: warning
+        short: 2h
+    - alert: KubeAPIErrorBudgetBurn
+      annotations:
+        description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        summary: The API server is burning too much error budget.
+      expr: |
+        sum(apiserver_request:burnrate3d) > (1.00 * 0.01000)
+        and
+        sum(apiserver_request:burnrate6h) > (1.00 * 0.01000)
+      for: 3h
+      labels:
+        long: 3d
+        severity: warning
+        short: 6h
+  - name: kube-apiserver.rules
+    rules:
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[5m]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[5m])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[5m]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[5m])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[5m])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[5m]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[5m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[5m])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[5m]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[5m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[5m])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate5m
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[30m]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[30m])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[30m]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[30m])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[30m])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[30m]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[30m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[30m])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[30m]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[30m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[30m])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate30m
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[1h]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[1h])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[1h]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[1h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1h])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[1h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[1h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1h])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[1h]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[1h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[1h])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate1h
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[2h]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[2h])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[2h]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[2h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[2h])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[2h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[2h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[2h])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[2h]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[2h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[2h])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate2h
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[6h]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[6h])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[6h]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[6h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[6h])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[6h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[6h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[6h])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[6h]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[6h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[6h])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate6h
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[1d]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[1d])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[1d]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[1d])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1d])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[1d]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[1d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1d])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[1d]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[1d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[1d])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate1d
+    - expr: |
+        # error
+        label_replace(
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[3d]))
+        / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[3d])))
+        , "type", "error", "_none_", "")
+        or
+        # resource-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|"}[3d]))
+          -
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource|",le="0.1"}[3d])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[3d])))
+        , "type", "slow-resource", "_none_", "")
+        or
+        # namespace-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[3d]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[3d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[3d])))
+        , "type", "slow-namespace", "_none_", "")
+        or
+        # cluster-scoped latency
+        label_replace(
+          (
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",scope="cluster"}[3d]))
+            - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",scope="cluster",le="5"}[3d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[3d])))
+        , "type", "slow-cluster", "_none_", "")
+      labels:
+        verb: read
+      record: apiserver_request:burnrate3d
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1d]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[1d]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[1d]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1d]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate1d
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1h]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[1h]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[1h]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1h]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate1h
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[2h]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[2h]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[2h]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[2h]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate2h
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[30m]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[30m]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[30m]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[30m]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate30m
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[3d]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[3d]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[3d]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[3d]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate3d
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[5m]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[5m]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate5m
+    - expr: |
+        (
+          (
+            # too slow
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[6h]))
+            -
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[6h]))
+          )
+          +
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[6h]))
+        )
+        /
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[6h]))
+      labels:
+        verb: write
+      record: apiserver_request:burnrate6h
+    - expr: |
+        sum by (code,resource) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[5m]))
+      labels:
+        verb: read
+      record: code_resource:apiserver_request_total:rate5m
+    - expr: |
+        sum by (code,resource) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+      labels:
+        verb: write
+      record: code_resource:apiserver_request_total:rate5m
+    - expr: |
+        histogram_quantile(0.99, sum by (le, resource) (rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET"}[5m]))) > 0
+      labels:
+        quantile: "0.99"
+        verb: read
+      record: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile
+    - expr: |
+        histogram_quantile(0.99, sum by (le, resource) (rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))) > 0
+      labels:
+        quantile: "0.99"
+        verb: write
+      record: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile
+    - expr: |
+        histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",subresource!="log",verb!~"LIST|WATCH|WATCHLIST|DELETECOLLECTION|PROXY|CONNECT"}[5m])) without(instance, pod))
+      labels:
+        quantile: "0.99"
+      record: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile
+    - expr: |
+        histogram_quantile(0.9, sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",subresource!="log",verb!~"LIST|WATCH|WATCHLIST|DELETECOLLECTION|PROXY|CONNECT"}[5m])) without(instance, pod))
+      labels:
+        quantile: "0.9"
+      record: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile
+    - expr: |
+        histogram_quantile(0.5, sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",subresource!="log",verb!~"LIST|WATCH|WATCHLIST|DELETECOLLECTION|PROXY|CONNECT"}[5m])) without(instance, pod))
+      labels:
+        quantile: "0.5"
+      record: cluster_quantile:apiserver_request_duration_seconds:histogram_quantile
+`)
+
+func v410AlertsKubeApiserverSlosYamlBytes() ([]byte, error) {
+	return _v410AlertsKubeApiserverSlosYaml, nil
+}
+
+func v410AlertsKubeApiserverSlosYaml() (*asset, error) {
+	bytes, err := v410AlertsKubeApiserverSlosYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/alerts/kube-apiserver-slos.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -1975,6 +2443,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/alerts/api-usage.yaml":                                                 v410AlertsApiUsageYaml,
 	"v4.1.0/alerts/cpu-utilization.yaml":                                           v410AlertsCpuUtilizationYaml,
 	"v4.1.0/alerts/kube-apiserver-requests.yaml":                                   v410AlertsKubeApiserverRequestsYaml,
+	"v4.1.0/alerts/kube-apiserver-slos.yaml":                                       v410AlertsKubeApiserverSlosYaml,
 	"v4.1.0/config/config-overrides.yaml":                                          v410ConfigConfigOverridesYaml,
 	"v4.1.0/config/defaultconfig.yaml":                                             v410ConfigDefaultconfigYaml,
 	"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml":            v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml,
@@ -2051,6 +2520,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"api-usage.yaml":               {v410AlertsApiUsageYaml, map[string]*bintree{}},
 			"cpu-utilization.yaml":         {v410AlertsCpuUtilizationYaml, map[string]*bintree{}},
 			"kube-apiserver-requests.yaml": {v410AlertsKubeApiserverRequestsYaml, map[string]*bintree{}},
+			"kube-apiserver-slos.yaml":     {v410AlertsKubeApiserverSlosYaml, map[string]*bintree{}},
 		}},
 		"config": {nil, map[string]*bintree{
 			"config-overrides.yaml": {v410ConfigConfigOverridesYaml, map[string]*bintree{}},
