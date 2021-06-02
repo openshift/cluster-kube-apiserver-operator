@@ -78,6 +78,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	migrationClient, err := kubemigratorclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -144,6 +148,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
 			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
 			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
+			"v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml",
+			"v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
@@ -153,7 +159,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
 			WithAPIExtensionsClient(apiextensionsClient).
-			WithDynamicClient(dynamicClient),
+			WithDynamicClient(dynamicClient).
+			WithMigrationClient(migrationClient),
 		operatorClient,
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
@@ -258,7 +265,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerContext.KubeConfig)
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
