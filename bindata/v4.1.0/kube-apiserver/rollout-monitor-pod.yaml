@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: rollout-monitor
+  labels:
+    revision: "REVISION"
+spec:
+  containers:
+  - name: rollout-monitor
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    command: ["cluster-kube-apiserver-operator", "rollout-monitor"]
+    args:
+      - -v=3
+    volumeMounts:
+    - mountPath: /etc/kubernetes/manifests
+      name: manifests
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 5m
+    securityContext:
+      privileged: true
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  tolerations:
+  - operator: "Exists"
+  volumes:
+  - name: manifests
+    hostPath:
+      path: /etc/kubernetes/manifests

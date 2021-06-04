@@ -44,6 +44,8 @@ type TargetConfigController struct {
 
 	kubeClient      kubernetes.Interface
 	configMapLister corev1listers.ConfigMapLister
+
+	enableRolloutMonitor bool
 }
 
 func NewTargetConfigController(
@@ -53,6 +55,7 @@ func NewTargetConfigController(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
+	enableRolloutMonitor bool,
 ) factory.Controller {
 	c := &TargetConfigController{
 		targetImagePullSpec:   targetImagePullSpec,
@@ -60,6 +63,7 @@ func NewTargetConfigController(
 		operatorClient:        operatorClient,
 		kubeClient:            kubeClient,
 		configMapLister:       kubeInformersForNamespaces.ConfigMapLister(),
+		enableRolloutMonitor:  enableRolloutMonitor,
 	}
 
 	return factory.New().WithInformers(
@@ -177,6 +181,13 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", err))
 	}
 
+	if c.enableRolloutMonitor {
+		_, _, err = manageRolloutMonitorPod(c.kubeClient.CoreV1(), recorder, c.operatorImagePullSpec)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%q: %v", "configmap/rollout-monitor-pod", err))
+		}
+	}
+
 	if len(errors) > 0 {
 		condition := operatorv1.OperatorCondition{
 			Type:    "TargetConfigControllerDegraded",
@@ -248,6 +259,16 @@ func managePod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, o
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorSpec.ForceRedeploymentReason
 	configMap.Data["version"] = version.Get().String()
+	return resourceapply.ApplyConfigMap(client, recorder, configMap)
+}
+
+func manageRolloutMonitorPod(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
+	required := resourceread.ReadPodV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/rollout-monitor-pod.yaml"))
+	required.Spec.Containers[0].Image = operatorImagePullSpec
+	required.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
+
+	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/rollout-monitor-pod-cm.yaml"))
+	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	return resourceapply.ApplyConfigMap(client, recorder, configMap)
 }
 

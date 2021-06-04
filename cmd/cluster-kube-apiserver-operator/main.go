@@ -20,10 +20,10 @@ import (
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/rolloutmonitor"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
 )
 
@@ -61,7 +61,8 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(operatorcmd.NewOperator())
 	cmd.AddCommand(render.NewRenderCommand())
-	cmd.AddCommand(installerpod.NewInstaller())
+	cmd.AddCommand(rolloutmonitor.NewInstallerCommand())
+	cmd.AddCommand(rolloutmonitor.NewRolloutMonitorCommand())
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
