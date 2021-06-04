@@ -165,6 +165,18 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	).AddKubeInformers(kubeInformersForNamespaces)
 
+	// Only configure graceful rollout for single replica control planes.
+	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	enableRolloutMonitor := infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode
+	if enableRolloutMonitor {
+		klog.V(1).Info("Configuring rollout monitor for single replica control plane topology")
+		// The rollout monitor pod will ensure that an unhealthy revision is rolled back
+		RevisionConfigMaps = append(RevisionConfigMaps, revision.RevisionResource{Name: "rollout-monitor-pod"})
+	}
+
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
@@ -173,6 +185,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient,
 		controllerContext.EventRecorder,
+		enableRolloutMonitor,
 	)
 
 	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(
