@@ -367,6 +367,8 @@ github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN
 github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.7.0 h1:aizVhC/NAAcKWb+5QsU1iNOZb4Yws5UO2I+aIprQITM=
 github.com/mailru/easyjson v0.7.0/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
+github.com/marun/library-go v0.0.0-20210621215210-96c0952aa5a8 h1:RUrdJeHKQuzc0eg/gnoIIHgl3VDkAOkNPeZr59Toea0=
+github.com/marun/library-go v0.0.0-20210621215210-96c0952aa5a8/go.mod h1:C5DDOSPucn3EVA0T05fODKtAweTObMBrTYm/G3uUBI8=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-isatty v0.0.3/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
@@ -421,8 +423,6 @@ github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142 h1:ZHRIMCFIJN1
 github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142/go.mod h1:fjS8r9mqDVsPb5td3NehsNOAWa4uiFkYEfVZioQ2gH0=
 github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 h1:KrCYRAJcgZYzMCB1PjJHJMYPu/d+dEkelq5eYyi0fDw=
 github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99/go.mod h1:w2YSn4/WIwYuxG5zJmcqtRdtqgW/J2JRgFAqps3bBpg=
-github.com/openshift/library-go v0.0.0-20210611094144-35c8a075e255 h1:4lXXCXSNmAD56T+lL0CRQfm4aImnb1I6Va9QVtN/d+Q=
-github.com/openshift/library-go v0.0.0-20210611094144-35c8a075e255/go.mod h1:C5DDOSPucn3EVA0T05fODKtAweTObMBrTYm/G3uUBI8=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
