@@ -442,7 +442,6 @@ var RevisionConfigMaps = []revision.RevisionResource{
 var RevisionSecrets = []revision.RevisionResource{
 	// these need to removed, but if we remove them now, the cluster will die because we don't reload them yet
 	{Name: "etcd-client"},
-	{Name: "kubelet-client"},
 	// etcd encryption
 	{Name: "encryption-config", Optional: true},
 
@@ -476,6 +475,7 @@ var CertSecrets = []installer.UnrevisionedResource{
 	{Name: "bound-service-account-signing-key"},
 	{Name: "control-plane-node-admin-client-cert-key"},
 	{Name: "check-endpoints-client-cert-key"},
+	{Name: "kubelet-client"},
 
 	{Name: "node-kubeconfigs"},
 
