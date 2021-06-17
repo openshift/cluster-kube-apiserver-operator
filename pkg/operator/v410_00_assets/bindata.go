@@ -847,9 +847,9 @@ apiServerArguments:
   kubelet-certificate-authority:
     - /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   kubelet-client-certificate:
-    - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.crt
+    - /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.crt
   kubelet-client-key:
-    - /etc/kubernetes/static-pod-resources/secrets/kubelet-client/tls.key
+    - /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.key
   kubelet-https:
     - "true"
   kubelet-preferred-address-types:
