@@ -30,6 +30,8 @@
 // bindata/v4.1.0/kube-apiserver/recovery-config.yaml
 // bindata/v4.1.0/kube-apiserver/recovery-encryption-config.yaml
 // bindata/v4.1.0/kube-apiserver/recovery-pod.yaml
+// bindata/v4.1.0/kube-apiserver/rollout-monitor-pod-cm.yaml
+// bindata/v4.1.0/kube-apiserver/rollout-monitor-pod.yaml
 // bindata/v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml
 // bindata/v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml
 // bindata/v4.1.0/kube-apiserver/svc.yaml
@@ -2334,6 +2336,86 @@ func v410KubeApiserverRecoveryPodYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v410KubeApiserverRolloutMonitorPodCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver
+  name: rollout-monitor-pod
+data:
+  pod.yaml:
+`)
+
+func v410KubeApiserverRolloutMonitorPodCmYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverRolloutMonitorPodCmYaml, nil
+}
+
+func v410KubeApiserverRolloutMonitorPodCmYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverRolloutMonitorPodCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/rollout-monitor-pod-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v410KubeApiserverRolloutMonitorPodYaml = []byte(`apiVersion: v1
+kind: Pod
+metadata:
+  namespace: openshift-kube-apiserver
+  name: rollout-monitor
+  labels:
+    revision: "REVISION"
+spec:
+  containers:
+  - name: rollout-monitor
+    image: ${OPERATOR_IMAGE}
+    imagePullPolicy: IfNotPresent
+    command: ["cluster-kube-apiserver-operator", "rollout-monitor"]
+    args:
+      - -v=3
+    volumeMounts:
+    - mountPath: /host
+      name: host-slash
+      readOnly: true
+      mountPropagation: HostToContainer
+    - mountPath: /etc/kubernetes/manifests
+      name: manifests
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 5m
+    securityContext:
+      privileged: true
+  hostNetwork: true
+  priorityClassName: system-node-critical
+  tolerations:
+  - operator: "Exists"
+  volumes:
+  - name: host-slash
+    hostPath:
+      path: /
+  - name: manifests
+    hostPath:
+      path: /etc/kubernetes/manifests
+`)
+
+func v410KubeApiserverRolloutMonitorPodYamlBytes() ([]byte, error) {
+	return _v410KubeApiserverRolloutMonitorPodYaml, nil
+}
+
+func v410KubeApiserverRolloutMonitorPodYaml() (*asset, error) {
+	bytes, err := v410KubeApiserverRolloutMonitorPodYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v4.1.0/kube-apiserver/rollout-monitor-pod.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v410KubeApiserverStorageVersionMigrationFlowschemaYaml = []byte(`apiVersion: migration.k8s.io/v1alpha1
 kind: StorageVersionMigration
 metadata:
@@ -2525,6 +2607,8 @@ var _bindata = map[string]func() (*asset, error){
 	"v4.1.0/kube-apiserver/recovery-config.yaml":                                      v410KubeApiserverRecoveryConfigYaml,
 	"v4.1.0/kube-apiserver/recovery-encryption-config.yaml":                           v410KubeApiserverRecoveryEncryptionConfigYaml,
 	"v4.1.0/kube-apiserver/recovery-pod.yaml":                                         v410KubeApiserverRecoveryPodYaml,
+	"v4.1.0/kube-apiserver/rollout-monitor-pod-cm.yaml":                               v410KubeApiserverRolloutMonitorPodCmYaml,
+	"v4.1.0/kube-apiserver/rollout-monitor-pod.yaml":                                  v410KubeApiserverRolloutMonitorPodYaml,
 	"v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml":                 v410KubeApiserverStorageVersionMigrationFlowschemaYaml,
 	"v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml": v410KubeApiserverStorageVersionMigrationPrioritylevelconfigurationYaml,
 	"v4.1.0/kube-apiserver/svc.yaml":                                                  v410KubeApiserverSvcYaml,
@@ -2608,6 +2692,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"recovery-config.yaml":                                      {v410KubeApiserverRecoveryConfigYaml, map[string]*bintree{}},
 			"recovery-encryption-config.yaml":                           {v410KubeApiserverRecoveryEncryptionConfigYaml, map[string]*bintree{}},
 			"recovery-pod.yaml":                                         {v410KubeApiserverRecoveryPodYaml, map[string]*bintree{}},
+			"rollout-monitor-pod-cm.yaml":                               {v410KubeApiserverRolloutMonitorPodCmYaml, map[string]*bintree{}},
+			"rollout-monitor-pod.yaml":                                  {v410KubeApiserverRolloutMonitorPodYaml, map[string]*bintree{}},
 			"storage-version-migration-flowschema.yaml":                 {v410KubeApiserverStorageVersionMigrationFlowschemaYaml, map[string]*bintree{}},
 			"storage-version-migration-prioritylevelconfiguration.yaml": {v410KubeApiserverStorageVersionMigrationPrioritylevelconfigurationYaml, map[string]*bintree{}},
 			"svc.yaml":           {v410KubeApiserverSvcYaml, map[string]*bintree{}},
