@@ -26,7 +26,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
+	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -109,16 +109,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	auditPolicyPahGetter, err := libgoaudit.NewAuditPolicyPathGetter("/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies")
-	if err != nil {
-		return err
-	}
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		kubeInformersForNamespaces,
 		configInformers,
 		resourceSyncController,
-		auditPolicyPahGetter,
 		controllerContext.EventRecorder,
 	)
 
@@ -128,7 +123,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
-		libgoaudit.WithAuditPolicies("kube-apiserver-audit-policies", "openshift-kube-apiserver", v410_00_assets.Asset),
+		v410_00_assets.Asset,
 		[]string{
 			"v4.1.0/kube-apiserver/ns.yaml",
 			"v4.1.0/kube-apiserver/svc.yaml",
@@ -153,7 +148,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
-			"audit-policies-cm.yaml",
 			"v4.1.0/alerts/kube-apiserver-slos.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
@@ -314,6 +308,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	auditPolicyController := auditpolicy.NewAuditPolicyController(
+		operatorclient.TargetNamespace,
+		"kube-apiserver-audit-policies",
+		configInformers.Config().V1().APIServers().Lister(),
+		operatorClient,
+		kubeClient,
+		configInformers,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		controllerContext.EventRecorder,
+	)
+
 	staleConditionsController := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
 			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
@@ -350,6 +355,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go terminationObserver.Run(ctx, 1)
 	go eventWatcher.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx, 1)
+	go auditPolicyController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
 

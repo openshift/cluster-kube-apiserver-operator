@@ -771,7 +771,7 @@ apiServerArguments:
   audit-log-path:
     - /var/log/kube-apiserver/audit.log
   audit-policy-file:
-    - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/default.yaml
+    - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/policy.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
   enable-admission-plugins:
