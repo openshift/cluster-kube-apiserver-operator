@@ -1,14 +1,19 @@
 package insecurereadyz
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"golang.org/x/sys/unix"
+	"k8s.io/apiserver/pkg/server"
 	"k8s.io/klog/v2"
 )
 
@@ -99,7 +104,42 @@ func (r *readyzOpts) Run() error {
 		w.Write(body)
 	})
 
+	shutdownCtx, cancel := context.WithCancel(context.Background())
+	shutdownHandler := server.SetupSignalHandler()
+
 	addr := fmt.Sprintf("0.0.0.0:%d", r.insecurePort)
 	klog.Infof("Listening on %s", addr)
-	return http.ListenAndServe(addr, mux)
+
+	server := &http.Server{
+		Addr:        addr,
+		Handler:     mux,
+		BaseContext: func(_ net.Listener) context.Context { return shutdownCtx },
+	}
+	go func() {
+		defer cancel()
+		<-shutdownHandler
+		klog.Infof("Received SIGTERM or SIGINT signal, shutting down server.")
+		server.Shutdown(shutdownCtx)
+	}()
+
+	c := net.ListenConfig{}
+	c.Control = permitAddressReuse
+	ln, err := c.Listen(shutdownCtx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	err = server.Serve(ln)
+	if err == http.ErrServerClosed {
+		err = nil
+	}
+	<-shutdownCtx.Done()
+	return err
+}
+
+func permitAddressReuse(network, addr string, conn syscall.RawConn) error {
+	return conn.Control(func(fd uintptr) {
+		if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
+			klog.Warningf("failed to set SO_REUSEADDR on socket: %v", err)
+		}
+	})
 }
