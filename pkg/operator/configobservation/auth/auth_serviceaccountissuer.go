@@ -17,7 +17,11 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
 
-var serviceAccountIssuerPath = []string{"apiServerArguments", "service-account-issuer"}
+var (
+	serviceAccountIssuerPath = []string{"apiServerArguments", "service-account-issuer"}
+	audiencesPath            = []string{"apiServerArguments", "api-audiences"}
+	jwksURIPath              = []string{"apiServerArguments", "service-account-jwks-uri"}
+)
 
 // ObserveServiceAccountIssuer changes apiServerArguments.service-account-issuer from
 // the default value if Authentication.Spec.ServiceAccountIssuer specifies a valid
@@ -30,7 +34,7 @@ func ObserveServiceAccountIssuer(
 
 	listers := genericListers.(configobservation.Listers)
 	ret, errs := observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get, recorder)
-	return configobserver.Pruned(ret, serviceAccountIssuerPath, []string{"apiServerArguments", "service-account-jwks-uri"}), errs
+	return configobserver.Pruned(ret, serviceAccountIssuerPath, audiencesPath, jwksURIPath), errs
 }
 
 // observedConfig returns an unstructured fragment of KubeAPIServerConfig that may
