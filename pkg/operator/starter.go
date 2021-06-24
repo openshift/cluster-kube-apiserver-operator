@@ -153,7 +153,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"v4.1.0/alerts/api-usage.yaml",
 			"v4.1.0/alerts/cpu-utilization.yaml",
 			"v4.1.0/alerts/kube-apiserver-requests.yaml",
-			libgoaudit.AuditPoliciesConfigMapFileName,
+			"audit-policies-cm.yaml",
 			"v4.1.0/alerts/kube-apiserver-slos.yaml",
 		},
 		(&resourceapply.ClientHolder{}).

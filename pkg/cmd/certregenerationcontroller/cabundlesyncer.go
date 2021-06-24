@@ -132,7 +132,7 @@ func (c *CABundleController) sync(ctx context.Context) error {
 		return nil
 	}
 
-	_, changed, err := targetconfigcontroller.ManageClientCABundle(c.configMapLister, c.configMapGetter, c.eventRecorder)
+	_, changed, err := targetconfigcontroller.ManageClientCABundle(ctx, c.configMapLister, c.configMapGetter, c.eventRecorder)
 	if err != nil {
 		return err
 	}
