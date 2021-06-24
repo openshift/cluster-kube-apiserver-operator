@@ -110,7 +110,7 @@ func (c *BoundSATokenSignerController) ensureNextOperatorSigningSecret(ctx conte
 			return err
 		}
 
-		secret, _, err = resourceapply.ApplySecret(c.secretClient, syncCtx.Recorder(), newSecret)
+		secret, _, err = resourceapply.ApplySecret(ctx, c.secretClient, syncCtx.Recorder(), newSecret)
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func (c *BoundSATokenSignerController) ensurePublicKeyConfigMap(ctx context.Cont
 
 		// Ensure the configmap is updated with the current public key
 		configMap.Data[nextKeyKey] = currPublicKey
-		configMap, _, err = resourceapply.ApplyConfigMap(c.configMapClient, syncCtx.Recorder(), configMap)
+		configMap, _, err = resourceapply.ApplyConfigMap(ctx, c.configMapClient, syncCtx.Recorder(), configMap)
 		if err != nil {
 			return err
 		}
@@ -248,7 +248,7 @@ func (c *BoundSATokenSignerController) ensureOperandSigningSecret(ctx context.Co
 	if !syncAllowed {
 		return nil
 	}
-	_, _, err = resourceapply.SyncSecret(c.secretClient, syncCtx.Recorder(),
+	_, _, err = resourceapply.SyncSecret(ctx, c.secretClient, syncCtx.Recorder(),
 		operatorNamespace, NextSigningKeySecretName,
 		targetNamespace, SigningKeySecretName, []metav1.OwnerReference{})
 	return err
