@@ -26,6 +26,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 		existingKubeAPIConfig   map[string]interface{}
 		expectedKubeAPIConfig   map[string]interface{}
 		platformType            configv1.PlatformType
+		controlPlaneTopology    configv1.TopologyMode
 	}{
 
 		// scenario 1
@@ -48,6 +49,21 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "275"},
 			platformType:          configv1.AWSPlatformType,
 		},
+
+		// scenario 4
+		{
+			name:                  "sno: shutdown-delay-duration reduced to 0s",
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "60"},
+			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
+		},
+
+		// scenario 4
+		{
+			name:                  "sno takes precedence over platform type",
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "60"},
+			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
+			platformType:          configv1.AWSPlatformType,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -55,7 +71,11 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 			// test data
 			eventRecorder := events.NewInMemoryRecorder("")
 			infrastructureIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			infrastructureIndexer.Add(&configv1.Infrastructure{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.InfrastructureSpec{PlatformSpec: configv1.PlatformSpec{Type: scenario.platformType}}})
+			infrastructureIndexer.Add(&configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Spec:       configv1.InfrastructureSpec{PlatformSpec: configv1.PlatformSpec{Type: scenario.platformType}},
+				Status:     configv1.InfrastructureStatus{ControlPlaneTopology: scenario.controlPlaneTopology},
+			})
 			listers := configobservation.Listers{
 				InfrastructureLister_: configlistersv1.NewInfrastructureLister(infrastructureIndexer),
 			}
@@ -80,6 +100,7 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 		validateKubeAPIConfigFn func(kubecontrolplanev1.KubeAPIServerConfig) error
 		existingConfig          kubecontrolplanev1.KubeAPIServerConfig
 		platformType            configv1.PlatformType
+		controlPlaneTopology    configv1.TopologyMode
 	}{
 
 		// scenario 1
@@ -123,6 +144,39 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 				return nil
 			},
 		},
+
+		// scenario 4
+		{
+			name: "sno: shutdown-delay-duration reduced to 0s",
+			validateKubeAPIConfigFn: func(actualKasConfig kubecontrolplanev1.KubeAPIServerConfig) error {
+				shutdownDurationArgs := actualKasConfig.APIServerArguments["shutdown-delay-duration"]
+				if len(shutdownDurationArgs) != 1 {
+					return fmt.Errorf("expected only one argument under shutdown-delay-duration key, got %d", len(shutdownDurationArgs))
+				}
+				if shutdownDurationArgs[0] != "0s" {
+					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 0s, got %v", shutdownDurationArgs[0])
+				}
+				return nil
+			},
+			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
+		},
+
+		// scenario 5
+		{
+			name: "sno takes precedence over platform type",
+			validateKubeAPIConfigFn: func(actualKasConfig kubecontrolplanev1.KubeAPIServerConfig) error {
+				shutdownDurationArgs := actualKasConfig.APIServerArguments["shutdown-delay-duration"]
+				if len(shutdownDurationArgs) != 1 {
+					return fmt.Errorf("expected only one argument under shutdown-delay-duration key, got %d", len(shutdownDurationArgs))
+				}
+				if shutdownDurationArgs[0] != "0s" {
+					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 0s, got %v", shutdownDurationArgs[0])
+				}
+				return nil
+			},
+			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
+			platformType:         configv1.AWSPlatformType,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -130,7 +184,11 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 			// test data
 			eventRecorder := events.NewInMemoryRecorder("")
 			infrastructureIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			infrastructureIndexer.Add(&configv1.Infrastructure{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: configv1.InfrastructureSpec{PlatformSpec: configv1.PlatformSpec{Type: scenario.platformType}}})
+			infrastructureIndexer.Add(&configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Spec:       configv1.InfrastructureSpec{PlatformSpec: configv1.PlatformSpec{Type: scenario.platformType}},
+				Status:     configv1.InfrastructureStatus{ControlPlaneTopology: scenario.controlPlaneTopology},
+			})
 			listers := configobservation.Listers{
 				InfrastructureLister_: configlistersv1.NewInfrastructureLister(infrastructureIndexer),
 			}
