@@ -32,8 +32,12 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
 		return existingConfig, append(errs, err)
 	}
-	switch infra.Spec.PlatformSpec.Type {
-	case configv1.AWSPlatformType:
+
+	switch {
+	case infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode:
+		// reduce the shutdown delay to 0 to reach the maximum downtime for SNO
+		observedShutdownDelayDuration = "0s"
+	case infra.Spec.PlatformSpec.Type == configv1.AWSPlatformType:
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
@@ -82,8 +86,13 @@ func ObserveWatchTerminationDuration(genericListers configobserver.Listers, _ ev
 		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
 		return existingConfig, append(errs, err)
 	}
-	switch infra.Spec.PlatformSpec.Type {
-	case configv1.AWSPlatformType:
+
+	switch {
+	case infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode:
+		// reduce termination duration from 135s (default) to 60s to reach the maximum downtime for SNO
+		// on a single node the shutdown-delay-duration is set to 0s, additional 60s is for in-flight requests
+		observedGracefulTerminationDuration = "60"
+	case infra.Spec.PlatformSpec.Type == configv1.AWSPlatformType:
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
