@@ -14,9 +14,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ghodss/yaml"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -25,10 +30,6 @@ import (
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
-
-	"github.com/ghodss/yaml"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -257,7 +258,7 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	defaultConfig, err := getDefaultConfigWithAuditPolicy()
+	defaultConfig, err := bootstrapDefaultConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get default config with audit policy - %s", err)
 	}
@@ -275,18 +276,7 @@ func (r *renderOpts) Run() error {
 	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig)
 }
 
-func getDefaultConfigWithAuditPolicy() ([]byte, error) {
-	rawBytes, err := libgoaudit.DefaultPolicy()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get default audit policy - %s", err)
-	}
-
-	rawPolicyJSON, err := kyaml.ToJSON(rawBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert asset yaml to JSON - %w", err)
-	}
-
-	policy, err := convertToUnstructured(rawPolicyJSON)
+func bootstrapDefaultConfig() ([]byte, error) {
 	asset := filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml")
 	raw, err := v410_00_assets.Asset(asset)
 	if err != nil {
@@ -303,6 +293,10 @@ func getDefaultConfigWithAuditPolicy() ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode default config into unstructured - %s", err)
 	}
 
+	policy, err := libgoaudit.GetAuditPolicy(configv1.Audit{Profile: configv1.AuditProfileDefaultType})
+	if err != nil {
+		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
+	}
 	if err := addAuditPolicyToConfig(defaultConfig, policy); err != nil {
 		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
 	}
@@ -315,11 +309,23 @@ func getDefaultConfigWithAuditPolicy() ([]byte, error) {
 	return defaultConfigRaw, nil
 }
 
-func addAuditPolicyToConfig(config, policy map[string]interface{}) error {
+func addAuditPolicyToConfig(config map[string]interface{}, policy *auditv1.Policy) error {
 	const (
 		auditConfigPath  = "auditConfig"
 		localAuditPolicy = "openshift.local.audit/policy.yaml"
 	)
+
+	policy = policy.DeepCopy()
+	policy.Kind = "Policy"
+	policy.APIVersion = auditv1.SchemeGroupVersion.String()
+	bs, err := json.Marshal(policy)
+	if err != nil {
+		return err
+	}
+	var unstructuredPolicy map[string]interface{}
+	if err := json.Unmarshal(bs, &unstructuredPolicy); err != nil {
+		return err
+	}
 
 	auditConfigEnabledPath := []string{auditConfigPath, "enabled"}
 	if err := unstructured.SetNestedField(config, true, auditConfigEnabledPath...); err != nil {
@@ -327,7 +333,7 @@ func addAuditPolicyToConfig(config, policy map[string]interface{}) error {
 	}
 
 	auditConfigPolicyConfigurationPath := []string{auditConfigPath, "policyConfiguration"}
-	if err := unstructured.SetNestedMap(config, policy, auditConfigPolicyConfigurationPath...); err != nil {
+	if err := unstructured.SetNestedMap(config, unstructuredPolicy, auditConfigPolicyConfigurationPath...); err != nil {
 		return fmt.Errorf("failed to set audit configuration field=%s - %s", auditConfigPolicyConfigurationPath, err)
 	}
 
