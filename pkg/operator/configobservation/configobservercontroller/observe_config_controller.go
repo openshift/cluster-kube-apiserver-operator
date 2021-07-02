@@ -120,7 +120,7 @@ func NewConfigObserver(
 			apiserver.ObserveUserClientCABundle,
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			apiserver.ObserveShutdownDelayDuration,
-			apiserver.ObserveWatchTerminationDuration,
+			apiserver.ObserveGracefulTerminationDuration,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			libgoapiserver.NewAuditObserver(auditPolicypathGetter),
 			auth.ObserveAuthMetadata,

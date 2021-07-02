@@ -71,8 +71,8 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 	return existingConfig, errs
 }
 
-// ObserveShutdownDelayDuration sets the graceful termination duration according to the current platform.
-func ObserveWatchTerminationDuration(genericListers configobserver.Listers, _ events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
+// ObserveGracefulTerminationDuration sets the graceful termination duration according to the current platform.
+func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _ events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
 	defer func() {
 		// Prune the observed config so that it only contains gracefulTerminationDuration field.
 		ret = configobserver.Pruned(ret, gracefulTerminationDurationPath)
@@ -89,9 +89,11 @@ func ObserveWatchTerminationDuration(genericListers configobserver.Listers, _ ev
 
 	switch {
 	case infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode:
-		// reduce termination duration from 135s (default) to 60s to reach the maximum downtime for SNO
-		// on a single node the shutdown-delay-duration is set to 0s, additional 60s is for in-flight requests
-		observedGracefulTerminationDuration = "60"
+		// reduce termination duration from 135s (default) to 15s to reach the maximum downtime for SNO:
+		// - the shutdown-delay-duration is set to 0s because there is no load-balancer, and no fallback apiserver
+		//   anyway that could benefit from a service network taking out the endpoint gracefully
+		// - additional 15s is for in-flight requests
+		observedGracefulTerminationDuration = "15"
 	case infra.Spec.PlatformSpec.Type == configv1.AWSPlatformType:
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.

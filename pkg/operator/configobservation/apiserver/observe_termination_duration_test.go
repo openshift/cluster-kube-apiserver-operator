@@ -53,14 +53,14 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 		// scenario 4
 		{
 			name:                  "sno: shutdown-delay-duration reduced to 0s",
-			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "60"},
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "15"},
 			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
 		},
 
 		// scenario 4
 		{
 			name:                  "sno takes precedence over platform type",
-			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "60"},
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "15"},
 			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
 			platformType:          configv1.AWSPlatformType,
 		},
@@ -81,7 +81,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 			}
 
 			// act
-			observedKubeAPIConfig, err := ObserveWatchTerminationDuration(listers, eventRecorder, scenario.existingKubeAPIConfig)
+			observedKubeAPIConfig, err := ObserveGracefulTerminationDuration(listers, eventRecorder, scenario.existingKubeAPIConfig)
 
 			// validate
 			if len(err) > 0 {
