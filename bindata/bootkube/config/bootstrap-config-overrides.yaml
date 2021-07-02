@@ -83,3 +83,7 @@ apiServerArguments:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   tls-private-key-file:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
+{{- if .ShutdownDelayDuration}}
+  shutdown-delay-duration:
+    - {{ .ShutdownDelayDuration }}
+{{- end}}

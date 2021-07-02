@@ -93,7 +93,7 @@ spec:
     ports:
     - containerPort: 6080
 {{end}}
-  terminationGracePeriodSeconds: 135 # bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
+  terminationGracePeriodSeconds: {{ .TerminationGracePeriodSeconds }}
   volumes:
   - hostPath:
       path: {{ .SecretsHostPath }}

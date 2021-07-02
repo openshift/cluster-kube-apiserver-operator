@@ -19,6 +19,7 @@ import (
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
@@ -44,6 +45,7 @@ type renderOpts struct {
 	etcdServingCA     string
 	clusterConfigFile string
 	clusterAuthFile   string
+	infraConfigFile   string
 }
 
 // NewRenderCommand creates a render command.
@@ -86,6 +88,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.etcdServingCA, "manifest-etcd-serving-ca", r.etcdServingCA, "The etcd serving CA.")
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
 	fs.StringVar(&r.clusterAuthFile, "cluster-auth-file", r.clusterAuthFile, "Openshift Cluster Authentication API Config file.")
+	fs.StringVar(&r.infraConfigFile, "infra-config-file", "", "File containing infrastructure.config.openshift.io manifest.")
 }
 
 // Validate verifies the inputs.
@@ -154,17 +157,25 @@ type TemplateData struct {
 	// BindNetwork is the network (tcp4 or tcp6) to bind to
 	BindNetwork string
 
+	// TerminationGracePeriodSeconds is set in pod manifest
+	TerminationGracePeriodSeconds int
+
+	// ShutdownDelayDuration is passed to kube-apiserver. Empty means not to override defaultconfig's value.
+	ShutdownDelayDuration string
+
 	ServiceAccountIssuer string
 }
 
 // Run contains the logic of the render command.
 func (r *renderOpts) Run() error {
 	renderConfig := TemplateData{
-		LockHostPath:   r.lockHostPath,
-		EtcdServerURLs: r.etcdServerURLs,
-		EtcdServingCA:  r.etcdServingCA,
-		BindAddress:    "0.0.0.0:6443",
-		BindNetwork:    "tcp4",
+		LockHostPath:                  r.lockHostPath,
+		EtcdServerURLs:                r.etcdServerURLs,
+		EtcdServingCA:                 r.etcdServingCA,
+		BindAddress:                   "0.0.0.0:6443",
+		BindNetwork:                   "tcp4",
+		TerminationGracePeriodSeconds: 135, // bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
+		ShutdownDelayDuration:         "",  // do not override
 	}
 	if len(r.clusterConfigFile) > 0 {
 		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
@@ -228,6 +239,20 @@ func (r *renderOpts) Run() error {
 			renderConfig.BindNetwork = "tcp6"
 		}
 	}
+
+	if len(r.infraConfigFile) > 0 {
+		infra, err := getInfrastructure(r.infraConfigFile)
+		if err != nil {
+			return fmt.Errorf("failed to get infrastructure config: %w", err)
+		}
+
+		switch infra.Status.ControlPlaneTopology {
+		case configv1.SingleReplicaTopologyMode:
+			renderConfig.TerminationGracePeriodSeconds = 15
+			renderConfig.ShutdownDelayDuration = "0s"
+		}
+	}
+
 	if err := r.manifest.ApplyTo(&renderConfig.ManifestConfig); err != nil {
 		return err
 	}
@@ -486,4 +511,21 @@ func generateKeyPairPEM() (pubKeyPEM []byte, privKeyPEM []byte, err error) {
 	)
 
 	return pubKeyPEM, privKeyPEM, nil
+}
+
+func getInfrastructure(file string) (*configv1.Infrastructure, error) {
+	config := &configv1.Infrastructure{}
+	yamlData, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	configJson, err := yaml.YAMLToJSON(yamlData)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(configJson, config)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
