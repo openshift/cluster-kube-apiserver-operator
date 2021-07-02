@@ -2014,7 +2014,7 @@ spec:
             fi
           done
           echo
-          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} {{.Verbosity}} --permit-address-sharing
+          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} {{.Verbosity}} --permit-address-sharing --runtime-config="admissionregistration.k8s.io/v1beta1=false,apiextensions.k8s.io/v1beta1=false"
     resources:
       requests:
         memory: 1Gi
