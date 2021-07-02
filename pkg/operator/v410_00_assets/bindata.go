@@ -928,6 +928,7 @@ var _v410KubeApiserverApiserverOpenshiftIo_apirequestcountYaml = []byte(`apiVers
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    api-approved.openshift.io: https://github.com/openshift/api/pull/897
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
   name: apirequestcounts.apiserver.openshift.io
