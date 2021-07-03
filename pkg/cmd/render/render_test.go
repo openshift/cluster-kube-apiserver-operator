@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -95,6 +95,28 @@ spec:
     - fd02::/112
     - 172.30.0.0/16
 status: {}
+`
+
+	infrastructureHA = `
+apiVersion: config.openshift.io/v1
+kind: Infrastructure
+metadata:
+  creationTimestamp: null
+  name: cluster
+spec: {}
+status:
+  controlPlaneTopology: HighlyAvailable
+`
+
+	infrastructureSNO = `
+apiVersion: config.openshift.io/v1
+kind: Infrastructure
+metadata:
+  creationTimestamp: null
+  name: cluster
+spec: {}
+status:
+  controlPlaneTopology: SingleReplica
 `
 )
 
@@ -215,10 +237,11 @@ func TestRenderCommand(t *testing.T) {
 
 	tests := []struct {
 		// note the name is used as a name for a temporary directory
-		name          string
-		args          []string
-		setupFunction func() error
-		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
+		name            string
+		args            []string
+		setupFunction   func() error
+		testFunction    func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
+		podTestFunction func(cfg *corev1.Pod) error
 	}{
 		{
 			name: "checks feature gates",
@@ -420,7 +443,7 @@ spec:
 			},
 		},
 		{
-			name: " user provided bound-sa-signing-key and public part",
+			name: "user provided bound-sa-signing-key and public part",
 			args: []string{
 				"--asset-input-dir=" + filepath.Join(assetsInputDir, "2"),
 				"--templates-input-dir=" + templateDir,
@@ -456,47 +479,147 @@ spec:
 				return nil
 			},
 		},
+		{
+			name: "no infrastructure file",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
+					return fmt.Errorf("expected a shutdown-delay-duration argument")
+				}
+				if got, expected := cfg.APIServerArguments["shutdown-delay-duration"][0], "70s"; got != expected {
+					return fmt.Errorf("expected shutdown-delay-duration=%q, but found %s", expected, got)
+				}
+				return nil
+			},
+			podTestFunction: func(pod *corev1.Pod) error {
+				if pod.Spec.TerminationGracePeriodSeconds == nil {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				if got, expected := *pod.Spec.TerminationGracePeriodSeconds, int64(135); got != expected {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				return nil
+			},
+		},
+		{
+			name: "infrastructure file with HA topology",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
+			},
+			setupFunction: func() error {
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureHA), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
+					return fmt.Errorf("expected a shutdown-delay-duration argument")
+				}
+				if got, expected := cfg.APIServerArguments["shutdown-delay-duration"][0], "70s"; got != expected {
+					return fmt.Errorf("expected shutdown-delay-duration=%q, but found %s", expected, got)
+				}
+				return nil
+			},
+			podTestFunction: func(pod *corev1.Pod) error {
+				if pod.Spec.TerminationGracePeriodSeconds == nil {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				if got, expected := *pod.Spec.TerminationGracePeriodSeconds, int64(135); got != expected {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				return nil
+			},
+		},
+		{
+			name: "infrastructure file with SNO topology",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
+			},
+			setupFunction: func() error {
+				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureSNO), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
+					return fmt.Errorf("expected a shutdown-delay-duration argument")
+				}
+				if got, expected := cfg.APIServerArguments["shutdown-delay-duration"][0], "0s"; got != expected {
+					return fmt.Errorf("expected shutdown-delay-duration=%q, but found %s", expected, got)
+				}
+				return nil
+			},
+			podTestFunction: func(pod *corev1.Pod) error {
+				if pod.Spec.TerminationGracePeriodSeconds == nil {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				if got, expected := *pod.Spec.TerminationGracePeriodSeconds, int64(15); got != expected {
+					return fmt.Errorf("expected a spec.terminationGracePeriodSeconds to be set in pod manifest")
+				}
+				return nil
+			},
+		},
 	}
 
 	for _, test := range tests {
-		outDirName := strings.ReplaceAll(test.name, " ", "_")
-		teardown, outputDir, err := setupAssetOutputDir(outDirName)
-		if err != nil {
-			t.Fatalf("%s: unexpected error: %v", test.name, err)
-		}
-		defer teardown()
-
-		if test.setupFunction != nil {
-			if err := test.setupFunction(); err != nil {
-				t.Fatalf("%q failed to set up, error: %v", test.name, err)
+		t.Run(test.name, func(t *testing.T) {
+			outDirName := strings.ReplaceAll(test.name, " ", "_")
+			teardown, outputDir, err := setupAssetOutputDir(outDirName)
+			if err != nil {
+				t.Fatalf("%s: unexpected error: %v", test.name, err)
 			}
-		}
+			defer teardown()
 
-		test.args = setOutputFlags(test.args, outputDir)
-		err = runRender(test.args...)
-		if err != nil {
-			t.Fatalf("%s: got unexpected error %v", test.name, err)
-		}
-
-		rawConfigFile, err := ioutil.ReadFile(filepath.Join(outputDir, "configs", "config.yaml"))
-		if err != nil {
-			t.Fatalf("cannot read the rendered config file, error: %v", err)
-		}
-
-		configJson, err := yaml.YAMLToJSON(rawConfigFile)
-		if err != nil {
-			t.Fatalf("cannot transform the config file to JSON format, error: %v", err)
-		}
-
-		cfg := &kubecontrolplanev1.KubeAPIServerConfig{}
-		if err := json.Unmarshal(configJson, cfg); err != nil {
-			t.Fatalf("cannot unmarshal config into KubeAPIServerConfig, error: %v", err)
-		}
-		if test.testFunction != nil {
-			if err := test.testFunction(cfg); err != nil {
-				t.Fatalf("%q reports incorrect config file, error: %v", test.name, err)
+			if test.setupFunction != nil {
+				if err := test.setupFunction(); err != nil {
+					t.Fatalf("%q failed to set up, error: %v", test.name, err)
+				}
 			}
-		}
+
+			test.args = setOutputFlags(test.args, outputDir)
+			err = runRender(test.args...)
+			if err != nil {
+				t.Fatalf("%s: got unexpected error %v", test.name, err)
+			}
+
+			rawConfigFile, err := ioutil.ReadFile(filepath.Join(outputDir, "configs", "config.yaml"))
+			if err != nil {
+				t.Fatalf("cannot read the rendered config file, error: %v", err)
+			}
+			cfg := &kubecontrolplanev1.KubeAPIServerConfig{}
+			if err := kyaml.Unmarshal(rawConfigFile, cfg); err != nil {
+				t.Fatalf("cannot unmarshal config into KubeAPIServerConfig, error: %v", err)
+			}
+
+			rawStaticPodFile, err := ioutil.ReadFile(filepath.Join(outputDir, "manifests", "bootstrap-manifests", "kube-apiserver-pod.yaml"))
+			if err != nil {
+				t.Fatalf("cannot read the rendered config file, error: %v", err)
+			}
+			pod := corev1.Pod{}
+			if err := kyaml.Unmarshal(rawStaticPodFile, &pod); err != nil {
+				t.Fatalf("cannot unmarshal config into Pod, error: %v", err)
+			}
+
+			if test.testFunction != nil {
+				if err := test.testFunction(cfg); err != nil {
+					t.Fatalf("%q reports incorrect config file, error: %v\n\n%s", test.name, err, string(rawConfigFile))
+				}
+			}
+			if test.podTestFunction != nil {
+				if err := test.podTestFunction(&pod); err != nil {
+					t.Fatalf("%q reports incorrect static pod file, error: %v\n\n%s", test.name, err, string(rawStaticPodFile))
+				}
+			}
+		})
 	}
 }
 
