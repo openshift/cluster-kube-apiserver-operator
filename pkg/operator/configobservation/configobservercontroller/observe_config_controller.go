@@ -37,7 +37,6 @@ func NewConfigObserver(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
-	auditPolicypathGetter libgoapiserver.AuditPolicyPathGetterFunc,
 	eventRecorder events.Recorder,
 ) *ConfigObserver {
 	interestingNamespaces := []string{
@@ -119,7 +118,6 @@ func NewConfigObserver(
 			apiserver.ObserveShutdownDelayDuration,
 			apiserver.ObserveGracefulTerminationDuration,
 			libgoapiserver.ObserveTLSSecurityProfile,
-			libgoapiserver.NewAuditObserver(auditPolicypathGetter),
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
 			auth.ObserveWebhookTokenAuthenticator,
