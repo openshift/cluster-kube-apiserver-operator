@@ -293,7 +293,7 @@ func bootstrapDefaultConfig() ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode default config into unstructured - %s", err)
 	}
 
-	policy, err := libgoaudit.GetAuditPolicy(configv1.Audit{Profile: configv1.AuditProfileDefaultType})
+	policy, err := libgoaudit.GetAuditPolicy(configv1.Audit{Profile: configv1.DefaultAuditProfileType})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
 	}
