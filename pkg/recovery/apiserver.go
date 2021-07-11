@@ -24,7 +24,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/crypto"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 )
 
 const (
