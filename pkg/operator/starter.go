@@ -12,6 +12,7 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
@@ -24,7 +25,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
@@ -123,32 +123,32 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
-		v410_00_assets.Asset,
+		bindata.Asset,
 		[]string{
-			"v4.1.0/kube-apiserver/ns.yaml",
-			"v4.1.0/kube-apiserver/svc.yaml",
-			"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml",
-			"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
-			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
-			"v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml",
-			"v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
-			"v4.1.0/alerts/api-usage.yaml",
-			"v4.1.0/alerts/cpu-utilization.yaml",
-			"v4.1.0/alerts/kube-apiserver-requests.yaml",
-			"v4.1.0/alerts/kube-apiserver-slos.yaml",
+			"assets/kube-apiserver/ns.yaml",
+			"assets/kube-apiserver/svc.yaml",
+			"assets/kube-apiserver/kubeconfig-cm.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrole.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
+			"assets/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
+			"assets/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
+			"assets/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
+			"assets/kube-apiserver/check-endpoints-rolebinding.yaml",
+			"assets/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
+			"assets/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
+			"assets/kube-apiserver/localhost-recovery-client-crb.yaml",
+			"assets/kube-apiserver/localhost-recovery-sa.yaml",
+			"assets/kube-apiserver/localhost-recovery-token.yaml",
+			"assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
+			"assets/kube-apiserver/storage-version-migration-flowschema.yaml",
+			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
+			"assets/alerts/api-usage.yaml",
+			"assets/alerts/cpu-utilization.yaml",
+			"assets/alerts/kube-apiserver-requests.yaml",
+			"assets/alerts/kube-apiserver-slos.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).

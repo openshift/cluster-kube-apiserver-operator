@@ -26,14 +26,10 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
-)
-
-const (
-	bootstrapVersion = "v4.1.0"
 )
 
 // renderOpts holds values to drive the render command.
@@ -277,8 +273,8 @@ func (r *renderOpts) Run() error {
 }
 
 func bootstrapDefaultConfig() ([]byte, error) {
-	asset := filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml")
-	raw, err := v410_00_assets.Asset(asset)
+	asset := filepath.Join("assets", "config", "defaultconfig.yaml")
+	raw, err := bindata.Asset(asset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default config asset asset=%s - %s", asset, err)
 	}

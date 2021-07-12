@@ -10,8 +10,8 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -95,7 +95,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 }
 
 func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interface, secretLister corev1listers.SecretLister, configmapLister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
-	requiredSecret := resourceread.ReadSecretV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/node-kubeconfigs.yaml"))
+	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
 
 	systemAdminCredsSecret, err := secretLister.Secrets(operatorclient.OperatorNamespace).Get("node-system-admin-client")
 	if err != nil {
