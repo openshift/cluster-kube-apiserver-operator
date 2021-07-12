@@ -1,10 +1,10 @@
-package v410_00_assets
+package bindata
 
 import (
 	"embed"
 )
 
-//go:embed v4.1.0/*
+//go:embed assets/*
 var f embed.FS
 
 // Asset reads and returns the content of the named file.

@@ -205,9 +205,9 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 }
 
 func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
-	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/cm.yaml"))
-	defaultConfig := v410_00_assets.MustAsset("v4.1.0/config/defaultconfig.yaml")
-	configOverrides := v410_00_assets.MustAsset("v4.1.0/config/config-overrides.yaml")
+	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/cm.yaml"))
+	defaultConfig := bindata.MustAsset("assets/config/defaultconfig.yaml")
+	configOverrides := bindata.MustAsset("assets/config/config-overrides.yaml")
 	specialMergeRules := map[string]resourcemerge.MergeFunc{}
 
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
@@ -227,7 +227,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 }
 
 func managePod(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
-	appliedPodTemplate, err := manageTemplate(string(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
+	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
 	if err != nil {
 		return nil, false, err
 	}
@@ -247,7 +247,7 @@ func managePod(ctx context.Context, client coreclientv1.ConfigMapsGetter, record
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/pod-cm.yaml"))
+	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorSpec.ForceRedeploymentReason
 	configMap.Data["version"] = version.Get().String()
@@ -314,7 +314,7 @@ func checkExternalDependencies(ctx context.Context, lister corev1listers.ConfigM
 }
 
 func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
-	required := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/trusted-ca-cm.yaml"))
+	required := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/trusted-ca-cm.yaml"))
 	cmCLient := client.ConfigMaps(operatorclient.TargetNamespace)
 
 	cm, err := cmCLient.Get(ctx, "trusted-ca-bundle", metav1.GetOptions{})
@@ -336,8 +336,8 @@ func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV
 }
 
 func ensureLocalhostRecoverySAToken(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
-	requiredSA := resourceread.ReadServiceAccountV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/localhost-recovery-sa.yaml"))
-	requiredToken := resourceread.ReadSecretV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/localhost-recovery-token.yaml"))
+	requiredSA := resourceread.ReadServiceAccountV1OrDie(bindata.MustAsset("assets/kube-apiserver/localhost-recovery-sa.yaml"))
+	requiredToken := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/localhost-recovery-token.yaml"))
 
 	saClient := client.ServiceAccounts(operatorclient.TargetNamespace)
 	serviceAccount, err := saClient.Get(ctx, requiredSA.Name, metav1.GetOptions{})

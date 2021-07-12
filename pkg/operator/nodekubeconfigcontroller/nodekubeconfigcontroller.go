@@ -95,7 +95,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 }
 
 func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interface, secretLister corev1listers.SecretLister, configmapLister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
-	requiredSecret := resourceread.ReadSecretV1OrDie(v410_00_assets.MustAsset("v4.1.0/kube-apiserver/node-kubeconfigs.yaml"))
+	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
 
 	systemAdminCredsSecret, err := secretLister.Secrets(operatorclient.OperatorNamespace).Get("node-system-admin-client")
 	if err != nil {

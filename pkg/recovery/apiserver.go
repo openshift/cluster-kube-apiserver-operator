@@ -34,9 +34,9 @@ const (
 	RecoveryEncryptionCofigFileName = "encryption-config"
 	AdminKubeconfigFileName         = "admin.kubeconfig"
 
-	RecoveryPodAsset              = "v4.1.0/kube-apiserver/recovery-pod.yaml"
-	RecoveryConfigAsset           = "v4.1.0/kube-apiserver/recovery-config.yaml"
-	RecoveryEncryptionConfigAsset = "v4.1.0/kube-apiserver/recovery-encryption-config.yaml"
+	RecoveryPodAsset              = "assets/kube-apiserver/recovery-pod.yaml"
+	RecoveryConfigAsset           = "assets/kube-apiserver/recovery-config.yaml"
+	RecoveryEncryptionConfigAsset = "assets/kube-apiserver/recovery-encryption-config.yaml"
 )
 
 type Apiserver struct {
@@ -131,7 +131,7 @@ func (s *Apiserver) GetKubeClientset() (*kubernetes.Clientset, error) {
 
 func (s *Apiserver) recoveryPod() (*corev1.Pod, error) {
 	// Create the manifest to run recovery apiserver
-	recoveryPodTemplateBytes, err := v410_00_assets.Asset(RecoveryPodAsset)
+	recoveryPodTemplateBytes, err := bindata.Asset(RecoveryPodAsset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find internal recovery pod asset %q: %v", RecoveryPodAsset, err)
 	}
@@ -229,7 +229,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	// Create config for recovery apiserver
-	recoveryConfigBytes, err := v410_00_assets.Asset(RecoveryConfigAsset)
+	recoveryConfigBytes, err := bindata.Asset(RecoveryConfigAsset)
 	if err != nil {
 		return fmt.Errorf("fail to find internal recovery config asset %q: %v", RecoveryConfigAsset, err)
 	}
@@ -252,7 +252,7 @@ func (s *Apiserver) Create() error {
 			return err
 		}
 	} else {
-		recoveryEncryptionConfigBytes, err := v410_00_assets.Asset(RecoveryEncryptionConfigAsset)
+		recoveryEncryptionConfigBytes, err := bindata.Asset(RecoveryEncryptionConfigAsset)
 		if err != nil {
 			return fmt.Errorf("fail to find recovery encryption config asset %q: %v", RecoveryEncryptionConfigAsset, err)
 		}

@@ -32,10 +32,6 @@ import (
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 )
 
-const (
-	bootstrapVersion = "v4.1.0"
-)
-
 // renderOpts holds values to drive the render command.
 type renderOpts struct {
 	manifest genericrenderoptions.ManifestOptions
@@ -277,8 +273,8 @@ func (r *renderOpts) Run() error {
 }
 
 func bootstrapDefaultConfig() ([]byte, error) {
-	asset := filepath.Join(bootstrapVersion, "config", "defaultconfig.yaml")
-	raw, err := v410_00_assets.Asset(asset)
+	asset := filepath.Join("assets", "config", "defaultconfig.yaml")
+	raw, err := bindata.Asset(asset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default config asset asset=%s - %s", asset, err)
 	}
