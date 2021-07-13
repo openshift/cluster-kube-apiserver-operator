@@ -21,10 +21,12 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 )
 
 func main() {
@@ -68,6 +70,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
+	cmd.AddCommand(startupmonitor.NewCommand(startupmonitorreadiness.New()))
 
 	return cmd
 }
