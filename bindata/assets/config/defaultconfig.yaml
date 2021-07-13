@@ -38,6 +38,7 @@ apiServerArguments:
     - DefaultIngressClass
     - DefaultStorageClass
     - DefaultTolerationSeconds
+    - ExtendedResourceToleration
     - LimitRanger
     - MutatingAdmissionWebhook
     - NamespaceLifecycle
