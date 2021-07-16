@@ -73,3 +73,12 @@ spec:
       serviceAccount:
         name: kube-apiserver-operator
         namespace: openshift-kube-apiserver-operator
+---
+# openshift-aggregated-api-delegated-auth is no longer used,
+# so delete it from the cluster.
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
+kind: PriorityLevelConfiguration
+metadata:
+  name: openshift-aggregated-api-delegated-auth
+  annotations:
+    release.openshift.io/delete: "true"
