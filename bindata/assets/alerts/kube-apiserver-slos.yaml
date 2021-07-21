@@ -303,15 +303,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[1d]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[1d]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[1d]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[1d]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[1d]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1d]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[1d]))
       labels:
         verb: write
       record: apiserver_request:burnrate1d
@@ -319,15 +319,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[1h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[1h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[1h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[1h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[1h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[1h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[1h]))
       labels:
         verb: write
       record: apiserver_request:burnrate1h
@@ -335,15 +335,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[2h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[2h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[2h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[2h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[2h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[2h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[2h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[2h]))
       labels:
         verb: write
       record: apiserver_request:burnrate2h
@@ -351,15 +351,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[30m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[30m]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[30m]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[30m]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[30m]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[30m]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[30m]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[30m]))
       labels:
         verb: write
       record: apiserver_request:burnrate30m
@@ -367,15 +367,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[3d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[3d]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[3d]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[3d]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[3d]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[3d]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[3d]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[3d]))
       labels:
         verb: write
       record: apiserver_request:burnrate3d
@@ -383,15 +383,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[5m]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[5m]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[5m]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[5m]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[5m]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[5m]))
       labels:
         verb: write
       record: apiserver_request:burnrate5m
@@ -399,15 +399,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[6h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[6h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",le="1"}[6h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",le="1"}[6h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[6h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec",code=~"5.."}[6h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[6h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec"}[6h]))
       labels:
         verb: write
       record: apiserver_request:burnrate6h
