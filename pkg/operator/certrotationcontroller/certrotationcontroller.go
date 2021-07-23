@@ -130,7 +130,7 @@ func newCertRotationController(
 
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "aggregator-client-signer",
 			Validity:               30 * rotationDay,
@@ -141,7 +141,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:          "kube-apiserver-aggregator-client-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
@@ -149,7 +149,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "aggregator-client",
 			Validity:               30 * rotationDay,
@@ -170,7 +170,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeAPIServerToKubeletClientCert",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-apiserver-to-kubelet-signer",
 			Validity:               1 * 365 * defaultRotationDay, // this comes from the installer
@@ -181,7 +181,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-apiserver-to-kubelet-client-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -189,7 +189,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "kubelet-client",
 			Validity:               30 * rotationDay,
@@ -210,7 +210,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostServing",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "localhost-serving-signer",
 			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
@@ -221,7 +221,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "localhost-serving-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -229,7 +229,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "localhost-serving-cert-certkey",
 			Validity:               30 * rotationDay,
@@ -250,7 +250,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ServiceNetworkServing",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "service-network-serving-signer",
 			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
@@ -261,7 +261,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "service-network-serving-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -269,7 +269,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "service-network-serving-certkey",
 			Validity:               30 * rotationDay,
@@ -291,7 +291,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ExternalLoadBalancerServing",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "loadbalancer-serving-signer",
 			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
@@ -302,7 +302,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -310,7 +310,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "external-loadbalancer-serving-certkey",
 			Validity:               30 * rotationDay,
@@ -332,7 +332,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"InternalLoadBalancerServing",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "loadbalancer-serving-signer",
 			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
@@ -343,7 +343,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -351,7 +351,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "internal-loadbalancer-serving-certkey",
 			Validity:               30 * rotationDay,
@@ -373,7 +373,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostRecoveryServing",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "localhost-recovery-serving-signer",
 			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
@@ -383,7 +383,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "localhost-recovery-serving-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -391,7 +391,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-recovery-serving-certkey",
 			Validity:  10 * 365 * defaultRotationDay,
@@ -411,7 +411,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeControllerManagerClient",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
 			Validity:               60 * defaultRotationDay,
@@ -422,7 +422,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -430,7 +430,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:                   "kube-controller-manager-client-cert-key",
 			Validity:               30 * rotationDay,
@@ -451,7 +451,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeSchedulerClient",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
 			Validity:               60 * defaultRotationDay,
@@ -462,7 +462,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -470,7 +470,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:                   "kube-scheduler-client-cert-key",
 			Validity:               30 * rotationDay,
@@ -491,7 +491,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ControlPlaneNodeAdminClient",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
 			Validity:               60 * defaultRotationDay,
@@ -502,7 +502,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -510,7 +510,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "control-plane-node-admin-client-cert-key",
 			Validity:               30 * rotationDay,
@@ -531,7 +531,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"CheckEndpointsClient",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "kube-control-plane-signer",
 			Validity:               60 * defaultRotationDay,
@@ -542,7 +542,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "kube-control-plane-signer-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -550,7 +550,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace:              operatorclient.TargetNamespace,
 			Name:                   "check-endpoints-client-cert-key",
 			Validity:               30 * rotationDay,
@@ -571,7 +571,7 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"NodeSystemAdminClient",
-		certrotation.SigningRotation{
+		certrotation.RotatedSigningCASecret{
 			Namespace:              operatorclient.OperatorNamespace,
 			Name:                   "node-system-admin-signer",
 			Validity:               1 * 365 * defaultRotationDay,
@@ -582,7 +582,7 @@ func newCertRotationController(
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
 		},
-		certrotation.CABundleRotation{
+		certrotation.CABundleConfigMap{
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "node-system-admin-ca",
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
@@ -590,7 +590,7 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		certrotation.TargetRotation{
+		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-client",
 			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
