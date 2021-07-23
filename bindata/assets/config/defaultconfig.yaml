@@ -107,8 +107,6 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.crt
   kubelet-client-key:
     - /etc/kubernetes/static-pod-certs/secrets/kubelet-client/tls.key
-  kubelet-https:
-    - "true"
   kubelet-preferred-address-types:
     - InternalIP # all of our kubelets have internal IPs and we *only* support communicating with them via that internal IP so that NO_PROXY always works and is lightweight
   kubelet-read-only-port:
