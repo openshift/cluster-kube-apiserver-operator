@@ -13,8 +13,11 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configinformersv1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
@@ -24,6 +27,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	corev1 "k8s.io/api/core/v1"
@@ -42,8 +46,9 @@ type TargetConfigController struct {
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient      kubernetes.Interface
-	configMapLister corev1listers.ConfigMapLister
+	kubeClient           kubernetes.Interface
+	configMapLister      corev1listers.ConfigMapLister
+	infrastructureLister configlistersv1.InfrastructureLister
 }
 
 func NewTargetConfigController(
@@ -51,6 +56,7 @@ func NewTargetConfigController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	infrastructureInformer configinformersv1.InfrastructureInformer,
 	kubeClient kubernetes.Interface,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -60,10 +66,12 @@ func NewTargetConfigController(
 		operatorClient:        operatorClient,
 		kubeClient:            kubeClient,
 		configMapLister:       kubeInformersForNamespaces.ConfigMapLister(),
+		infrastructureLister:  infrastructureInformer.Lister(),
 	}
 
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
+		infrastructureInformer.Informer(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer(),
 		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer(),
@@ -157,7 +165,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePod(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec)
+	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.infrastructureLister, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -226,7 +234,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePod(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
+func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, infrastructureLister configlistersv1.InfrastructureLister, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
 	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
 	if err != nil {
 		return nil, false, err
@@ -251,7 +259,47 @@ func managePod(ctx context.Context, client coreclientv1.ConfigMapsGetter, record
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorSpec.ForceRedeploymentReason
 	configMap.Data["version"] = version.Get().String()
+
+	startupMonitorPodKey, optionalStartupMonitor, err := generateOptionalStartupMonitorPod(infrastructureLister, operatorSpec, operatorImagePullSpec)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to apply an optional pod due to %v", err)
+	}
+	if optionalStartupMonitor != nil {
+		configMap.Data[startupMonitorPodKey] = resourceread.WritePodV1OrDie(optionalStartupMonitor)
+	}
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, configMap)
+}
+
+func generateOptionalStartupMonitorPod(infrastructureLister configlistersv1.InfrastructureLister, operatorSpec *operatorv1.StaticPodOperatorSpec, operatorImagePullSpec string) (string, *corev1.Pod, error) {
+	infra, err := infrastructureLister.Get("cluster")
+	if err != nil && !apierrors.IsNotFound(err) {
+		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
+		return "", nil, err
+	}
+	if infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
+		return "", nil, nil
+	}
+
+	// TODO: remove before releasing 4.9
+	startupMonitorExplicitlyEnabled := false
+	if len(operatorSpec.OperatorSpec.UnsupportedConfigOverrides.Raw) > 0 {
+		observedUnsupportedConfig := map[string]interface{}{}
+		if err := json.NewDecoder(bytes.NewBuffer(operatorSpec.UnsupportedConfigOverrides.Raw)).Decode(&observedUnsupportedConfig); err != nil {
+			return "", nil, err
+		}
+		startupMonitorExplicitlyEnabled, _, _ = unstructured.NestedBool(observedUnsupportedConfig, "startupMonitor")
+	}
+	if !startupMonitorExplicitlyEnabled {
+		return "", nil, nil
+	}
+	// End of TODO
+
+	appliedStartupMonitorPodTemplate, err := startupmonitor.GeneratePodTemplate(operatorSpec, []string{"cluster-kube-apiserver-operator", "startup-monitor"}, operatorclient.TargetNamespace, "kube-apiserver", operatorImagePullSpec)
+	if err != nil {
+		return "", nil, err
+	}
+	required := resourceread.ReadPodV1OrDie([]byte(appliedStartupMonitorPodTemplate))
+	return "kube-apiserver-startup-monitor-pod.yaml", required, nil
 }
 
 func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {

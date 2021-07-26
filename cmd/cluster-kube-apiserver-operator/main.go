@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"k8s.io/client-go/rest"
 	utilflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 
@@ -21,10 +22,14 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
+
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 )
 
 func main() {
@@ -68,6 +73,13 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
+	cmd.AddCommand(startupmonitor.NewCommand(startupmonitorreadiness.New(), func(config *rest.Config) (operatorclientv1.KubeAPIServerInterface, error) {
+		client, err := operatorclientv1.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
+		return client.KubeAPIServers(), nil
+	}))
 
 	return cmd
 }
