@@ -1,6 +1,7 @@
 package startupmonitor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,9 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 )
@@ -19,7 +23,7 @@ import (
 // not ready with a given timeout.
 type fallback interface {
 	fallbackToPreviousRevision(reason, message string) error
-	markRevisionGood() error
+	markRevisionGood(context.Context) error
 }
 
 // staticPodFallback implement fallback using static pod last-known-good symlink.
@@ -39,11 +43,17 @@ type staticPodFallback struct {
 
 	// io collects file system level operations that need to be mocked out during tests
 	io ioInterface
+
+	// operatorClient is used to acknowledge readiness.
+	operatorClient operatorv1client.KubeAPIServerInterface
+
+	// nodeName is the node hostname as used by the static pod operator resource.
+	nodeName string
 }
 
 var _ fallback = &staticPodFallback{}
 
-func newFallback() *staticPodFallback {
+func newStaticPodFallback() *staticPodFallback {
 	return &staticPodFallback{io: realFS{}}
 }
 
@@ -127,8 +137,49 @@ func (f *staticPodFallback) fallbackToPreviousRevision(reason, message string) e
 	return nil
 }
 
-func (f *staticPodFallback) markRevisionGood() error {
-	return f.createLastKnowGoodRevisionFor(f.revision, true)
+func (f *staticPodFallback) markRevisionGood(ctx context.Context) error {
+	if err := f.createLastKnowGoodRevisionFor(f.revision, true); err != nil {
+		return err
+	}
+
+	// the startup-monitor is authorative to signal readiness of a revision. The operator
+	// is waiting for this to happen. Otherwise, the operator could assume readiness while
+	// the startup-monitor falls back, leading to an awkward situation.
+	// Note that this will retry forever, with a backoff.
+	return retry.OnError(retry.DefaultRetry, func(error) bool { return true }, func() error {
+		o, err := f.operatorClient.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("Failed to get static pod operator status.nodeStatus: %v", err)
+			return err
+		}
+
+		for i := range o.Status.NodeStatuses {
+			s := &o.Status.NodeStatuses[i]
+			if s.NodeName != f.nodeName {
+				continue
+			}
+
+			if int(s.TargetRevision) != f.revision {
+				// target revision mismatch
+				return nil
+			}
+
+			s.CurrentRevision = s.TargetRevision
+			s.TargetRevision = 0
+			s.LastFailedRevision = 0
+			s.LastFailedTime = nil
+			s.LastFailedCount = 0
+			s.LastFailedRevisionErrors = nil
+
+			_, err := f.operatorClient.UpdateStatus(ctx, o, metav1.UpdateOptions{})
+			if err != nil {
+				klog.Errorf("Failed to update static pod operator status.nodeStatus: %v", err)
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 func (f *staticPodFallback) createLastKnowGoodRevisionFor(revision int, strict bool) error {
