@@ -14,7 +14,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -288,16 +287,14 @@ func createHTTPClient(restConfig *rest.Config) (*http.Client, error) {
 		return nil, err
 	}
 
-	tlsConfig, err := transport.TLSConfigFor(transportConfig)
+	rt, err := transport.New(transportConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	client := &http.Client{
-		Transport: utilnet.SetTransportDefaults(&http.Transport{
-			TLSClientConfig: tlsConfig,
-		}),
-		Timeout: restConfig.Timeout,
+		Transport: rt,
+		Timeout:   restConfig.Timeout,
 	}
 
 	return client, nil
