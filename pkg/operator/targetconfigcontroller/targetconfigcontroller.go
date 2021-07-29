@@ -158,8 +158,9 @@ func isRequiredConfigPresent(config []byte) error {
 func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
 
-	if err := checkExternalDependencies(ctx, c.configMapLister, recorder); err != nil {
-		errors = append(errors, err)
+	if err := checkExternalDependencies(ctx, c.configMapLister, c.infrastructureLister, recorder); err != nil {
+		recorder.Warning("MissingRequiredResource", err.Error())
+		return false, err
 	}
 	_, _, err := manageKubeAPIServerConfig(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec)
 	if err != nil {
@@ -350,13 +351,19 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 }
 
 // checkExternalDependencies ensures that resources critical to cluster stability are valid before possible disruptive rollout.
-func checkExternalDependencies(ctx context.Context, lister corev1listers.ConfigMapLister, recorder events.Recorder) error {
-	csrControllerCAConfigMap, err := lister.ConfigMaps(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get("csr-controller-ca")
-	if err != nil {
+func checkExternalDependencies(ctx context.Context, lister corev1listers.ConfigMapLister, infrastructureLister configlistersv1.InfrastructureLister, recorder events.Recorder) error {
+	infra, err := infrastructureLister.Get("cluster")
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := checkCSRControllerCAConfigMap(csrControllerCAConfigMap); err != nil {
-		return err
+	if infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
+		csrControllerCAConfigMap, err := lister.ConfigMaps(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get("csr-controller-ca")
+		if err != nil {
+			return err
+		}
+		if err := checkCSRControllerCAConfigMap(csrControllerCAConfigMap); err != nil {
+			return err
+		}
 	}
 	return nil
 }
