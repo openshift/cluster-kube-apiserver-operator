@@ -19,16 +19,46 @@ spec:
       volumeMounts:
         - mountPath: /var/log/kube-apiserver
           name: audit-dir
-      command: ['/usr/bin/timeout', '105', '/bin/bash', '-ec'] # a bit more than 60s for graceful termination + 35s for minimum-termination-duration, 5s extra cri-o's graceful termination period
+      command: ['/usr/bin/timeout', '{{.SetupContainerTimeoutDuration}}', '/bin/bash', '-ec']
       args:
       - |
-        echo -n "Fixing audit permissions."
+        echo "Fixing audit permissions ..."
         chmod 0700 /var/log/kube-apiserver && touch /var/log/kube-apiserver/audit.log && chmod 0600 /var/log/kube-apiserver/*
-        echo -n "Waiting for port :6443 and :6080 to be released."
-        while [ -n "$(ss -Htan '( sport = 6443 or sport = 6080 )')" ]; do
-          echo -n "."
-          sleep 1
-        done
+
+        LOCK=/var/log/kube-apiserver/.lock
+        echo "Acquiring exclusive lock ${LOCK} ..."
+
+        # Waiting for {{.GracefulTerminationDuration}}s max for old kube-apiserver's watch-termination process to exit and remove the lock.
+        # Two cases:
+        # 1. if kubelet does not start the old and new in parallel (i.e. works as expected), the flock will always succeed without any time.
+        # 2. if kubelet does overlap old and new pods for up to 130s, the flock will wait and immediate return when the old finishes.
+        #
+        # NOTE: We can increase {{.GracefulTerminationDuration}}s for a bigger expected overlap. But a higher value means less noise about the broken kubelet behaviour, i.e. we hide a bug.
+        # NOTE: Do not tweak these timings without considering the livenessProbe initialDelaySeconds
+        exec {LOCK_FD}>${LOCK} && flock --verbose -w {{.GracefulTerminationDuration}} "${LOCK_FD}" || {
+          echo "$(date -Iseconds -u) kubelet did not terminate old kube-apiserver before new one" >> /var/log/kube-apiserver/lock.log
+          echo -n ": WARNING: kubelet did not terminate old kube-apiserver before new one."
+
+          # We failed to acquire exclusive lock, which means there is old kube-apiserver running in system.
+          # Since we utilize SO_REUSEPORT, we need to make sure the old kube-apiserver stopped listening.
+          #
+          # NOTE: This is a fallback for broken kubelet, if you observe this please report a bug.
+          echo -n "Waiting for port 6443 to be released due to likely bug in kubelet or CRI-O "
+          while [ -n "$(ss -Htan state listening '( sport = 6443 or sport = 6080 )')" ]; do
+            echo -n "."
+            sleep 1
+            (( tries += 1 ))
+            if [[ "${tries}" -gt 10 ]]; then
+              echo "Timed out waiting for port :6443 and :6080 to be released, this is likely a bug in kubelet or CRI-O"
+              exit 1
+            fi
+          done
+          #  This is to make sure the server has terminated independently from the lock.
+          #  After the port has been freed (requests can be pending and need 60s max).
+          sleep 65
+        }
+        # We cannot hold the lock from the init container to the main container. We release it here. There is no risk, at this point we know we are safe.
+        flock -u "${LOCK_FD}"
       securityContext:
         privileged: true
       resources:
@@ -44,30 +74,16 @@ spec:
     args:
         - |
           LOCK=/var/log/kube-apiserver/.lock
-          echo -n "Acquiring exclusive lock ${LOCK}"
-          exec {LOCK_FD}>${LOCK} && flock -n "${LOCK_FD}" || {
-            echo "$(date -Iseconds -u) kubelet did not terminate old kube-apiserver before new one" >> /var/log/kube-apiserver/lock.log
-            echo -n ": WARNING: kubelet did not terminate old kube-apiserver before new one."
-            # we didn't get an exclusive lock. We keep going with the risk to corrupt audit logs.
+          # We should be able to acquire the lock immediatelly. If not, it means the init container has not released it yet and kubelet or CRI-O started container prematurely.
+          exec {LOCK_FD}>${LOCK} && flock --verbose -w 30 "${LOCK_FD}" || {
+            echo "Failed to acquire lock for kube-apiserver. Please check setup container for details. This is likely kubelet or CRI-O bug."
+            exit 1
           }
-          echo
-
           if [ -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt ]; then
-            echo "Copying system trust bundle"
+            echo "Copying system trust bundle ..."
             cp -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           fi
-          echo -n "Waiting for port :6443 to be released."
-          tries=0
-          while [ -n "$(ss -Htan '( sport = 6443 )')" ]; do
-            echo -n "."
-            sleep 1
-            (( tries += 1 ))
-            if [[ "${tries}" -gt 105 ]]; then
-              echo "timed out waiting for port :6443 to be released"
-              exit 1
-            fi
-          done
-          echo
+
           exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} {{.Verbosity}} --permit-address-sharing --runtime-config="admissionregistration.k8s.io/v1beta1=false,apiextensions.k8s.io/v1beta1=false"
     resources:
       requests:
