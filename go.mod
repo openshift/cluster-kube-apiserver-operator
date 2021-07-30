@@ -11,8 +11,8 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.8
-	github.com/openshift/api v0.0.0-20210706092853-b63d499a70ce
-	github.com/openshift/build-machinery-go v0.0.0-20210423112049-9415d7ebd33e
+	github.com/openshift/api v0.0.0-20210726144523-6fcabc0010ca
+	github.com/openshift/build-machinery-go v0.0.0-20210712174854-1bb7fd1518d3
 	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
 	github.com/openshift/library-go v0.0.0-20210723141450-212eeb60ef3e
 	github.com/pkg/profile v1.5.0 // indirect
@@ -35,3 +35,5 @@ require (
 )
 
 replace k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 // points to temporary-watch-reduction-patch-1.21 to pick up k/k/pull/100959
+
+replace github.com/openshift/library-go => github.com/sttts/library-go v0.0.0-20210730111900-e1d6c10e05f1
