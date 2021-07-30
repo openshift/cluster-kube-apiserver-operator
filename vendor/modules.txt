@@ -126,7 +126,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20210706092853-b63d499a70ce
+# github.com/openshift/api v0.0.0-20210726144523-6fcabc0010ca
 ## explicit
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -184,7 +184,7 @@ github.com/openshift/api/template
 github.com/openshift/api/template/v1
 github.com/openshift/api/user
 github.com/openshift/api/user/v1
-# github.com/openshift/build-machinery-go v0.0.0-20210423112049-9415d7ebd33e
+# github.com/openshift/build-machinery-go v0.0.0-20210712174854-1bb7fd1518d3
 ## explicit
 github.com/openshift/build-machinery-go
 github.com/openshift/build-machinery-go/make
@@ -214,7 +214,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20210723141450-212eeb60ef3e
+# github.com/openshift/library-go v0.0.0-20210723141450-212eeb60ef3e => github.com/sttts/library-go v0.0.0-20210730111900-e1d6c10e05f1
 ## explicit
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -282,6 +282,8 @@ github.com/openshift/library-go/pkg/operator/staticpod/controller/node
 github.com/openshift/library-go/pkg/operator/staticpod/controller/prune
 github.com/openshift/library-go/pkg/operator/staticpod/controller/prune/bindata
 github.com/openshift/library-go/pkg/operator/staticpod/controller/revision
+github.com/openshift/library-go/pkg/operator/staticpod/controller/startupmonitorcondition
+github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodfallback
 github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/internal/flock
@@ -1078,3 +1080,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
 # k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99
+# github.com/openshift/library-go => github.com/sttts/library-go v0.0.0-20210730111900-e1d6c10e05f1
