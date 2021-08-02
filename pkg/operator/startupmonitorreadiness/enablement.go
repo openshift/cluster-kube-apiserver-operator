@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	configv1 "github.com/openshift/api/config/v1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // IsStartupMonitorEnabledFunction returns a function that determines if the startup monitor should be enabled on a cluster
@@ -20,16 +21,11 @@ func IsStartupMonitorEnabledFunction(infrastructureLister configlistersv1.Infras
 			return false, err
 		}
 
-		// TODO: uncomment before releasing 4.9
-		/*
-			if infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
-				return false, nil
-			}
-		*/
+		if infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
+			return true, nil
+		}
 
-		// TODO: remove before releasing 4.9
-		_ = infra
-		startupMonitorExplicitlyEnabled := false
+		// for development and debugging
 		operatorSpec, _, _, err := operatorClient.GetOperatorState()
 		if err != nil {
 			return false, err
@@ -39,12 +35,12 @@ func IsStartupMonitorEnabledFunction(infrastructureLister configlistersv1.Infras
 			if err := json.NewDecoder(bytes.NewBuffer(operatorSpec.UnsupportedConfigOverrides.Raw)).Decode(&observedUnsupportedConfig); err != nil {
 				return false, err
 			}
-			startupMonitorExplicitlyEnabled, _, _ = unstructured.NestedBool(observedUnsupportedConfig, "startupMonitor")
+			enabled, found, err := unstructured.NestedBool(observedUnsupportedConfig, "startupMonitor")
+			if err == nil && found {
+				return enabled, nil
+			}
 		}
-		if !startupMonitorExplicitlyEnabled {
-			return false, nil
-		}
-		// End of TODO
-		return true, nil
+
+		return false, nil
 	}
 }
