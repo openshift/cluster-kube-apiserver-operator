@@ -137,29 +137,27 @@ func newPodRunning(podClient corev1client.PodInterface, monitorRevision int, cur
 	return func(ctx context.Context) (bool, string, string) {
 		apiServerPods, err := podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 		if err != nil {
-			return false, "PodListError", fmt.Sprintf("unable to check the pod's status, falied to get Kube API server pod due to %v", err)
-		}
-		if len(apiServerPods.Items) == 0 {
-			return false, "PodNotRunning", "unable to check the pod's status, waiting for Kube API server pod to show up"
+			return false, "PodListError", fmt.Sprintf("failed to list kube-apiserver static pods: %v", err)
 		}
 
 		var kasPod corev1.Pod
 		filteredKasPods := filterByNodeName(apiServerPods.Items, currentNodeName)
 		switch len(filteredKasPods) {
 		case 0:
-			return false, "PodNotFound", fmt.Sprintf("unable to check the pod's status, haven't found a pod that would match the current node name %s, checked %d Kube API server pods", currentNodeName, len(apiServerPods.Items))
+			return false, "PodNotRunning", fmt.Sprintf("waiting for kube-apiserver static pod for node %s to show up", currentNodeName)
 		case 1:
 			kasPod = filteredKasPods[0]
 		default:
+			// this should never happen for static pod as they are uniquely named for each node
 			podsOnCurrentNode := []string{}
 			for _, filteredKasPod := range filteredKasPods {
 				podsOnCurrentNode = append(podsOnCurrentNode, filteredKasPod.Name)
 			}
-			return false, "PodListError", fmt.Sprintf("unable to check the pod's status: found multiple pods (%v) matching the provided node name %s", podsOnCurrentNode, currentNodeName)
+			return false, "PodListError", fmt.Sprintf("multiple kube-apiserver static pods for node %s found: %v", currentNodeName, podsOnCurrentNode)
 		}
 
 		if kasPod.Status.Phase != corev1.PodRunning {
-			return false, "PodNodReady", fmt.Sprintf("waiting for Kube API server pod to be in PodRunning phase, the current phase is %v", kasPod.Status.Phase)
+			return false, "PodNodReady", fmt.Sprintf("waiting for kube-apiserver static pod %s to be running: %s", kasPod.Name, kasPod.Status.Phase)
 		}
 
 		if kasPod.Status.Phase == corev1.PodRunning && !func(pod corev1.Pod) bool {
@@ -170,7 +168,7 @@ func newPodRunning(podClient corev1client.PodInterface, monitorRevision int, cur
 			}
 			return false
 		}(kasPod) {
-			return false, "PodNodReady", "waiting for Kube API server pod to have PodReady state set to true"
+			return false, "PodNodReady", fmt.Sprintf("waiting for kube-apiserver static pod %s to be ready", kasPod.Name)
 		}
 
 		return checkRevision(&kasPod, monitorRevision)
@@ -202,25 +200,23 @@ func noOldRevisionPodExists(podClient corev1client.PodInterface, monitorRevision
 func checkRevisionOnPod(ctx context.Context, podClient corev1client.PodInterface, monitorRevision int, strictMode bool, currentNodeName string) (bool, string, string) {
 	apiServerPods, err := podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
-		return !strictMode, "PodListError", fmt.Sprintf("unable to check a revison, failed to get Kube API server pod due to %v", err)
-	}
-	if len(apiServerPods.Items) == 0 {
-		return !strictMode, "PodNotRunning", "unable to check a revision, waiting for Kube API server pod to show up"
+		return !strictMode, "PodListError", fmt.Sprintf("failed to list kube-apiserver static pods: %v", err)
 	}
 
 	var kasPod corev1.Pod
 	filteredKasPods := filterByNodeName(apiServerPods.Items, currentNodeName)
 	switch len(filteredKasPods) {
 	case 0:
-		return false, "PodNotFound", fmt.Sprintf("unable to check a revision, haven't found a pod that would match the current node name %s, checked %d Kube API server pods", currentNodeName, len(apiServerPods.Items))
+		return false, "PodNotRunning", fmt.Sprintf("waiting for kube-apiserver static pod for node %s to show up", currentNodeName)
 	case 1:
 		kasPod = filteredKasPods[0]
 	default:
+		// this should never happen for static pod as they are uniquely named for each node
 		podsOnCurrentNode := []string{}
 		for _, filteredKasPod := range filteredKasPods {
 			podsOnCurrentNode = append(podsOnCurrentNode, filteredKasPod.Name)
 		}
-		return false, "PodListError", fmt.Sprintf("unable to check a revision: found multiple pods (%v) matching the provided node name %s", podsOnCurrentNode, currentNodeName)
+		return false, "PodListError", fmt.Sprintf("multiple kube-apiserver static pods for node %s found: %v", currentNodeName, podsOnCurrentNode)
 	}
 
 	return checkRevision(&kasPod, monitorRevision)
@@ -229,18 +225,18 @@ func checkRevisionOnPod(ctx context.Context, podClient corev1client.PodInterface
 func checkRevision(kasPod *corev1.Pod, monitorRevision int) (bool, string, string) {
 	revisionString, found := kasPod.Labels["revision"]
 	if !found {
-		return false, "InvalidPod", fmt.Sprintf("pod %s doesn't have revision label", kasPod.Name)
+		return false, "InvalidPod", fmt.Sprintf("missing revision label on static pod %s", kasPod.Name)
 	}
 	if len(revisionString) == 0 {
-		return false, "InvalidRevision", fmt.Sprintf("empty revision label on %s pod", kasPod.Name)
+		return false, "InvalidPod", fmt.Sprintf("unexpected empty revision label on static pod %s", kasPod.Name)
 	}
 	revision, err := strconv.Atoi(revisionString)
 	if err != nil || revision < 0 {
-		return false, "InvalidRevision", fmt.Sprintf("invalid revision label on pod %s: %q", kasPod.Name, revisionString)
+		return false, "InvalidPod", fmt.Sprintf("invalid revision label on static pod %s: %q", kasPod.Name, revisionString)
 	}
 
 	if revision != monitorRevision {
-		return false, "UnexpectedRevision", fmt.Sprintf("the running Kube API (%s) is at unexpected revision %d, expected %d", kasPod.Name, revision, monitorRevision)
+		return false, "UnexpectedRevision", fmt.Sprintf("waiting for kube-apiserver static pod %s of revision %d, found %d", kasPod.Name, monitorRevision, revision)
 	}
 
 	return true, "", ""
