@@ -14,6 +14,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -275,11 +276,20 @@ func goodHealthzEtcdEndpoint(client *http.Client, rawURL string) func(context.Co
 func doHTTPCheckAndTransform(ctx context.Context, client *http.Client, rawURL string, checkName string, httpCheckFn func(ctx context.Context, client *http.Client, rawURL string) (int, string, error)) (bool, string, string) {
 	statusCode, response, err := httpCheckFn(ctx, client, rawURL)
 	if err != nil {
+		if utilnet.IsConnectionRefused(err) {
+			return false, "NetworkError", fmt.Sprintf("waiting for kube-apiserver static pod to listen on port 6443: %v", err)
+		}
+		if utilnet.IsConnectionReset(err) || utilnet.IsProbableEOF(err) {
+			return false, "NetworkError", fmt.Sprintf("failed sending request to kube-apiserver: %v", err)
+		}
+		if utilnet.IsTimeout(err) {
+			return false, "NetworkError", fmt.Sprintf("request to kube-apiserver static pod timed out: %v", err)
+		}
 		errMsg := err.Error()
 		if len(response) > 0 {
 			errMsg = fmt.Sprintf("%v, a response from the server was %v", errMsg, response)
 		}
-		return false, fmt.Sprintf("%vError", checkName), errMsg
+		return false, "UnknownError", errMsg
 	}
 	if statusCode != http.StatusOK {
 		return false, checkName, response
