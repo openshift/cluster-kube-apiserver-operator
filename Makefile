@@ -72,6 +72,13 @@ test-e2e: GO_TEST_FLAGS += -p 1
 test-e2e: test-unit
 .PHONY: test-e2e
 
+test-e2e-sno-disruptive: GO_TEST_PACKAGES :=./test/e2e-sno-disruptive/...
+test-e2e-sno-disruptive: GO_TEST_FLAGS += -v
+test-e2e-sno-disruptive: GO_TEST_FLAGS += -timeout 3h
+test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
+test-e2e-sno-disruptive: test-unit
+.PHONY: test-e2e-sno-disruptive
+
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
