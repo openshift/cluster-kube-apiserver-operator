@@ -38,7 +38,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			name:     "scenario 2: no pod",
 			healthy:  false,
 			reason:   "PodNotRunning",
-			msg:      "unable to check the pod's status, waiting for Kube API server pod to show up",
+			msg:      "waiting for kube-apiserver static pod for node master-1 to show up",
 			nodeName: "master-1",
 		},
 
@@ -46,7 +46,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			name:           "scenario 3: pending pod",
 			healthy:        false,
 			reason:         "PodNodReady",
-			msg:            "waiting for Kube API server pod to be in PodRunning phase, the current phase is Pending",
+			msg:            "waiting for kube-apiserver static pod kas to be running: Pending",
 			nodeName:       "master-1",
 			initialObjects: []runtime.Object{newPod(corev1.PodPending, corev1.ConditionTrue, "3", "kas", "master-1")},
 		},
@@ -55,7 +55,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			name:           "scenario 4: not ready pod",
 			healthy:        false,
 			reason:         "PodNodReady",
-			msg:            "waiting for Kube API server pod to have PodReady state set to true",
+			msg:            "waiting for kube-apiserver static pod kas to be ready",
 			nodeName:       "master-1",
 			initialObjects: []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "kas", "master-1")},
 		},
@@ -64,7 +64,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			name:            "scenario 5: unexpected revision",
 			healthy:         false,
 			reason:          "UnexpectedRevision",
-			msg:             "the running Kube API (kas) is at unexpected revision 4, expected 3",
+			msg:             "waiting for kube-apiserver static pod kas of revision 3, found 4",
 			nodeName:        "master-1",
 			monitorRevision: 3,
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas", "master-1")},
@@ -73,8 +73,8 @@ func TestNewPodHasStateRunning(t *testing.T) {
 		{
 			name:            "scenario 6: unexpected node name",
 			healthy:         false,
-			reason:          "PodNotFound",
-			msg:             "unable to check the pod's status, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			reason:          "PodNotRunning",
+			msg:             "waiting for kube-apiserver static pod for node master-2 to show up",
 			nodeName:        "master-2",
 			monitorRevision: 3,
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas", "master-1")},
@@ -94,7 +94,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			monitorRevision: 3,
 			nodeName:        "master-1",
 			reason:          "PodListError",
-			msg:             "unable to check the pod's status: found multiple pods ([kas kas-2]) matching the provided node name master-1",
+			msg:             "multiple kube-apiserver static pods for node master-1 found: [kas kas-2]",
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-1")},
 		},
 	}
@@ -128,17 +128,17 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 			healthy:         false,
 			monitorRevision: 3,
 			reason:          "UnexpectedRevision",
-			msg:             "the running Kube API (kas) is at unexpected revision 2, expected 3",
+			msg:             "waiting for kube-apiserver static pod kas of revision 3, found 2",
 			nodeName:        "master-1",
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
 		},
 
 		{
 			name:            "scenario 2: no pod",
-			healthy:         true,
+			healthy:         false,
 			monitorRevision: 3,
 			reason:          "PodNotRunning",
-			msg:             "waiting for Kube API server pod to show up",
+			msg:             "waiting for kube-apiserver static pod for node master-1 to show up",
 			nodeName:        "master-1",
 		},
 
@@ -146,8 +146,8 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 			name:            "scenario 3: unexpected node name",
 			healthy:         false,
 			monitorRevision: 3,
-			reason:          "PodNotFound",
-			msg:             "unable to check a revision, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			reason:          "PodNotRunning",
+			msg:             "waiting for kube-apiserver static pod for node master-2 to show up",
 			nodeName:        "master-2",
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
 		},
@@ -166,7 +166,7 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 			monitorRevision: 3,
 			nodeName:        "master-1",
 			reason:          "PodListError",
-			msg:             "unable to check a revision: found multiple pods ([kas kas-2]) matching the provided node name master-1",
+			msg:             "multiple kube-apiserver static pods for node master-1 found: [kas kas-2]",
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-1")},
 		},
 	}
@@ -209,7 +209,7 @@ func TestNewRevisionPodExists(t *testing.T) {
 			healthy:         false,
 			monitorRevision: 3,
 			reason:          "PodNotRunning",
-			msg:             "waiting for Kube API server pod to show up",
+			msg:             "waiting for kube-apiserver static pod for node  to show up",
 		},
 
 		{
@@ -232,15 +232,15 @@ func TestNewRevisionPodExists(t *testing.T) {
 				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-old", "master-1"),
 			},
 			reason: "UnexpectedRevision",
-			msg:    "the running Kube API (kas-old) is at unexpected revision 3, expected 4",
+			msg:    "waiting for kube-apiserver static pod kas-old of revision 4, found 3",
 		},
 
 		{
 			name:            "scenario 5: unexpected node name",
 			healthy:         false,
 			monitorRevision: 3,
-			reason:          "PodNotFound",
-			msg:             "unable to check a revision, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			reason:          "PodNotRunning",
+			msg:             "waiting for kube-apiserver static pod for node master-2 to show up",
 			nodeName:        "master-2",
 			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
 		},
@@ -515,13 +515,13 @@ func doCheckAndValidate(t *testing.T, checkFn func() (bool, string, string), exp
 		t.Errorf("unexpected health condition (healthy=%v), expected healthy=%v", actualHealthy, expectedHealthy)
 	}
 	if expectedReason != actualReason {
-		t.Errorf("unexpected reason %v, expected %v", actualReason, expectedReason)
+		t.Errorf("unexpected reason %q, expected %q", actualReason, expectedReason)
 	}
 	if !strings.Contains(actualMsg, expectedMessage) {
-		t.Errorf("unexpected message %v, expected %v", actualMsg, expectedMessage)
+		t.Errorf("unexpected message %q, expected %q", actualMsg, expectedMessage)
 	}
 	if len(expectedMessage) == 0 && len(actualMsg) > 0 {
-		t.Errorf("unexpected message %v received (didn't expect a msg)", actualMsg)
+		t.Errorf("unexpected message %q received (didn't expect a msg)", actualMsg)
 	}
 }
 
