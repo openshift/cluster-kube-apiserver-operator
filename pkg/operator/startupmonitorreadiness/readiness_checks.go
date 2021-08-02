@@ -14,7 +14,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -35,10 +34,15 @@ type KubeAPIReadinessChecker struct {
 	baseRawURL string
 
 	kubeClient *kubernetes.Clientset
+
+	// currentNodeName holds the name of the node we are currently running on
+	// primarly introduced for easier testing on an HA cluster
+	currentNodeName string
 }
 
 var _ startupmonitor.ReadinessChecker = &KubeAPIReadinessChecker{}
 var _ startupmonitor.WantsRestConfig = &KubeAPIReadinessChecker{}
+var _ startupmonitor.WantsNodeName = &KubeAPIReadinessChecker{}
 
 // New creates a new Kube API readiness checker
 func New() *KubeAPIReadinessChecker {
@@ -57,6 +61,11 @@ func (ch *KubeAPIReadinessChecker) SetRestConfig(config *rest.Config) {
 
 	ch.restConfig.Burst = 15
 	ch.restConfig.QPS = 10
+}
+
+// SetNodeName called by startup monitor to provide the current node name
+func (ch *KubeAPIReadinessChecker) SetNodeName(nodeName string) {
+	ch.currentNodeName = nodeName
 }
 
 // IsReady performs a series of checks for assessing Kube API server readiness condition
@@ -81,13 +90,17 @@ func (ch *KubeAPIReadinessChecker) IsReady(ctx context.Context, revision int) ( 
 		ch.kubeClient = kubeClient
 	}
 
+	if len(ch.currentNodeName) == 0 {
+		return false, "", "", fmt.Errorf("a node name is required, use the SetNodeName method")
+	}
+
 	// loop through a list of ordered checks for assessing Kube API readiness condition
 	for _, checkFn := range []func(context.Context) (bool, string, string){
 		//	TODO: watch /var/log/kube-apiserver/termination.log for the first start-up attempt (beware of the race of startup-monitor startup and kube-apiserver startup). Set Reason=NeverStartedUp when this times out.
 		//	TODO: watch /var/log/kube-apiserver/termination.log for more than one start-up attempt. Set Reason=CrashLooping if more than one is found and the monitor times out.
 
 		// checks if we are not dealing with the old kas
-		noOldRevisionPodExists(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision),
+		noOldRevisionPodExists(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision, ch.currentNodeName),
 
 		// check kube-apiserver /healthz/etcd endpoint
 		goodHealthzEtcdEndpoint(ch.client, ch.baseRawURL),
@@ -99,10 +112,10 @@ func (ch *KubeAPIReadinessChecker) IsReady(ctx context.Context, revision int) ( 
 		goodReadyzEndpoint(ch.client, ch.baseRawURL, 3, 5*time.Second),
 
 		// check if the kas pod is running at the expected revision
-		newRevisionPodExists(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision),
+		newRevisionPodExists(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision, ch.currentNodeName),
 
 		// check that kubelet has reporting readiness for the new pod
-		newPodRunning(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision),
+		newPodRunning(ch.kubeClient.CoreV1().Pods(operatorclient.TargetNamespace), revision, ch.currentNodeName),
 	} {
 		select {
 		case <-ctx.Done():
@@ -120,7 +133,7 @@ func (ch *KubeAPIReadinessChecker) IsReady(ctx context.Context, revision int) ( 
 }
 
 // newPodRunning checks if kas pod is in PodRunning phase and has PodReady condition set to true
-func newPodRunning(podClient corev1client.PodInterface, monitorRevision int) func(context.Context) (bool, string, string) {
+func newPodRunning(podClient corev1client.PodInterface, monitorRevision int, currentNodeName string) func(context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
 		apiServerPods, err := podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 		if err != nil {
@@ -129,11 +142,22 @@ func newPodRunning(podClient corev1client.PodInterface, monitorRevision int) fun
 		if len(apiServerPods.Items) == 0 {
 			return false, "PodNotRunning", "unable to check the pod's status, waiting for Kube API server pod to show up"
 		}
-		if len(apiServerPods.Items) != 1 {
-			return false, "PodListError", fmt.Sprintf("unable to check the pod's status, unexpected number of Kube API server pods %d, expected only one pod", len(apiServerPods.Items))
+
+		var kasPod corev1.Pod
+		filteredKasPods := filterByNodeName(apiServerPods.Items, currentNodeName)
+		switch len(filteredKasPods) {
+		case 0:
+			return false, "PodNotFound", fmt.Sprintf("unable to check the pod's status, haven't found a pod that would match the current node name %s, checked %d Kube API server pods", currentNodeName, len(apiServerPods.Items))
+		case 1:
+			kasPod = filteredKasPods[0]
+		default:
+			podsOnCurrentNode := []string{}
+			for _, filteredKasPod := range filteredKasPods {
+				podsOnCurrentNode = append(podsOnCurrentNode, filteredKasPod.Name)
+			}
+			return false, "PodListError", fmt.Sprintf("unable to check the pod's status: found multiple pods (%v) matching the provided node name %s", podsOnCurrentNode, currentNodeName)
 		}
 
-		kasPod := apiServerPods.Items[0]
 		if kasPod.Status.Phase != corev1.PodRunning {
 			return false, "PodNodReady", fmt.Sprintf("waiting for Kube API server pod to be in PodRunning phase, the current phase is %v", kasPod.Status.Phase)
 		}
@@ -154,9 +178,9 @@ func newPodRunning(podClient corev1client.PodInterface, monitorRevision int) fun
 }
 
 // newRevisionPodExists check if the kas pod is running at the expected revision
-func newRevisionPodExists(podClient corev1client.PodInterface, monitorRevision int) func(context.Context) (bool, string, string) {
+func newRevisionPodExists(podClient corev1client.PodInterface, monitorRevision int, currentNodeName string) func(context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
-		return checkRevisionOnPod(ctx, podClient, monitorRevision, true)
+		return checkRevisionOnPod(ctx, podClient, monitorRevision, true, currentNodeName)
 	}
 }
 
@@ -165,9 +189,9 @@ func newRevisionPodExists(podClient corev1client.PodInterface, monitorRevision i
 //
 // note that:
 // it won't fail when getting the pod from the api server fails as that might mean the new instance is not ready/healthy
-func noOldRevisionPodExists(podClient corev1client.PodInterface, monitorRevision int) func(context.Context) (bool, string, string) {
+func noOldRevisionPodExists(podClient corev1client.PodInterface, monitorRevision int, currentNodeName string) func(context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
-		return checkRevisionOnPod(ctx, podClient, monitorRevision, false)
+		return checkRevisionOnPod(ctx, podClient, monitorRevision, false, currentNodeName)
 	}
 }
 
@@ -175,7 +199,7 @@ func noOldRevisionPodExists(podClient corev1client.PodInterface, monitorRevision
 //
 // strictMode controls whether a certain errors like: failing to get the pod or absence of the pod should be fatal
 // it is useful when you want to avoid false positive - failing readyz check when the previous instance is still running
-func checkRevisionOnPod(ctx context.Context, podClient corev1client.PodInterface, monitorRevision int, strictMode bool) (bool, string, string) {
+func checkRevisionOnPod(ctx context.Context, podClient corev1client.PodInterface, monitorRevision int, strictMode bool, currentNodeName string) (bool, string, string) {
 	apiServerPods, err := podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
 		return !strictMode, "PodListError", fmt.Sprintf("unable to check a revison, failed to get Kube API server pod due to %v", err)
@@ -183,11 +207,23 @@ func checkRevisionOnPod(ctx context.Context, podClient corev1client.PodInterface
 	if len(apiServerPods.Items) == 0 {
 		return !strictMode, "PodNotRunning", "unable to check a revision, waiting for Kube API server pod to show up"
 	}
-	if len(apiServerPods.Items) != 1 {
-		return !strictMode, "PodListError", fmt.Sprintf("unable to check a revision, unexpected number of Kube API server pods %d, expected only one pod", len(apiServerPods.Items))
+
+	var kasPod corev1.Pod
+	filteredKasPods := filterByNodeName(apiServerPods.Items, currentNodeName)
+	switch len(filteredKasPods) {
+	case 0:
+		return false, "PodNotFound", fmt.Sprintf("unable to check a revision, haven't found a pod that would match the current node name %s, checked %d Kube API server pods", currentNodeName, len(apiServerPods.Items))
+	case 1:
+		kasPod = filteredKasPods[0]
+	default:
+		podsOnCurrentNode := []string{}
+		for _, filteredKasPod := range filteredKasPods {
+			podsOnCurrentNode = append(podsOnCurrentNode, filteredKasPod.Name)
+		}
+		return false, "PodListError", fmt.Sprintf("unable to check a revision: found multiple pods (%v) matching the provided node name %s", podsOnCurrentNode, currentNodeName)
 	}
 
-	return checkRevision(&apiServerPods.Items[0], monitorRevision)
+	return checkRevision(&kasPod, monitorRevision)
 }
 
 func checkRevision(kasPod *corev1.Pod, monitorRevision int) (bool, string, string) {
@@ -288,16 +324,14 @@ func createHTTPClient(restConfig *rest.Config) (*http.Client, error) {
 		return nil, err
 	}
 
-	tlsConfig, err := transport.TLSConfigFor(transportConfig)
+	rt, err := transport.New(transportConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	client := &http.Client{
-		Transport: utilnet.SetTransportDefaults(&http.Transport{
-			TLSClientConfig: tlsConfig,
-		}),
-		Timeout: restConfig.Timeout,
+		Transport: rt,
+		Timeout:   restConfig.Timeout,
 	}
 
 	return client, nil
@@ -321,4 +355,16 @@ func doHTTPCheckMultipleTimes(n int, interval time.Duration) func(ctx context.Co
 		}
 		return lastStatusCode, lastResponse, lastError
 	}
+}
+
+func filterByNodeName(kasPods []corev1.Pod, currentNodeName string) []corev1.Pod {
+	filteredKasPods := []corev1.Pod{}
+
+	for _, potentialKasPods := range kasPods {
+		if potentialKasPods.Spec.NodeName == currentNodeName {
+			filteredKasPods = append(filteredKasPods, potentialKasPods)
+		}
+	}
+
+	return filteredKasPods
 }

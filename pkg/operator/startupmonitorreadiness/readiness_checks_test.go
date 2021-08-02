@@ -22,6 +22,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 		reason          string
 		msg             string
 		monitorRevision int
+		nodeName        string
 
 		initialObjects []runtime.Object
 	}{
@@ -29,14 +30,16 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			name:            "scenario 1: happy path",
 			healthy:         true,
 			monitorRevision: 3,
-			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas")},
+			nodeName:        "master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1")},
 		},
 
 		{
-			name:    "scenario 2: no pod",
-			healthy: false,
-			reason:  "PodNotRunning",
-			msg:     "unable to check the pod's status, waiting for Kube API server pod to show up",
+			name:     "scenario 2: no pod",
+			healthy:  false,
+			reason:   "PodNotRunning",
+			msg:      "unable to check the pod's status, waiting for Kube API server pod to show up",
+			nodeName: "master-1",
 		},
 
 		{
@@ -44,7 +47,8 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			healthy:        false,
 			reason:         "PodNodReady",
 			msg:            "waiting for Kube API server pod to be in PodRunning phase, the current phase is Pending",
-			initialObjects: []runtime.Object{newPod(corev1.PodPending, corev1.ConditionTrue, "3", "kas")},
+			nodeName:       "master-1",
+			initialObjects: []runtime.Object{newPod(corev1.PodPending, corev1.ConditionTrue, "3", "kas", "master-1")},
 		},
 
 		{
@@ -52,7 +56,8 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			healthy:        false,
 			reason:         "PodNodReady",
 			msg:            "waiting for Kube API server pod to have PodReady state set to true",
-			initialObjects: []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "kas")},
+			nodeName:       "master-1",
+			initialObjects: []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionFalse, "3", "kas", "master-1")},
 		},
 
 		{
@@ -60,8 +65,37 @@ func TestNewPodHasStateRunning(t *testing.T) {
 			healthy:         false,
 			reason:          "UnexpectedRevision",
 			msg:             "the running Kube API (kas) is at unexpected revision 4, expected 3",
+			nodeName:        "master-1",
 			monitorRevision: 3,
-			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas")},
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas", "master-1")},
+		},
+
+		{
+			name:            "scenario 6: unexpected node name",
+			healthy:         false,
+			reason:          "PodNotFound",
+			msg:             "unable to check the pod's status, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			nodeName:        "master-2",
+			monitorRevision: 3,
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas", "master-1")},
+		},
+
+		{
+			name:            "scenario 7: multiple pods",
+			healthy:         true,
+			monitorRevision: 3,
+			nodeName:        "master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-2")},
+		},
+
+		{
+			name:            "scenario 8: multiple pods on the same node",
+			healthy:         false,
+			monitorRevision: 3,
+			nodeName:        "master-1",
+			reason:          "PodListError",
+			msg:             "unable to check the pod's status: found multiple pods ([kas kas-2]) matching the provided node name master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-1")},
 		},
 	}
 
@@ -72,7 +106,7 @@ func TestNewPodHasStateRunning(t *testing.T) {
 
 			// act and validate
 			doCheckAndValidate(t, func() (bool, string, string) {
-				return newPodRunning(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision)(context.TODO())
+				return newPodRunning(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision, scenario.nodeName)(context.TODO())
 			}, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
@@ -86,6 +120,7 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 		msg     string
 
 		monitorRevision int
+		nodeName        string
 		initialObjects  []runtime.Object
 	}{
 		{
@@ -94,7 +129,8 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 			monitorRevision: 3,
 			reason:          "UnexpectedRevision",
 			msg:             "the running Kube API (kas) is at unexpected revision 2, expected 3",
-			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas")},
+			nodeName:        "master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
 		},
 
 		{
@@ -103,6 +139,35 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 			monitorRevision: 3,
 			reason:          "PodNotRunning",
 			msg:             "waiting for Kube API server pod to show up",
+			nodeName:        "master-1",
+		},
+
+		{
+			name:            "scenario 3: unexpected node name",
+			healthy:         false,
+			monitorRevision: 3,
+			reason:          "PodNotFound",
+			msg:             "unable to check a revision, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			nodeName:        "master-2",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
+		},
+
+		{
+			name:            "scenario 4: multiple pods",
+			healthy:         true,
+			monitorRevision: 3,
+			nodeName:        "master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-2")},
+		},
+
+		{
+			name:            "scenario 5: multiple pods on the same node",
+			healthy:         false,
+			monitorRevision: 3,
+			nodeName:        "master-1",
+			reason:          "PodListError",
+			msg:             "unable to check a revision: found multiple pods ([kas kas-2]) matching the provided node name master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1"), newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-2", "master-1")},
 		},
 	}
 
@@ -113,7 +178,7 @@ func TestNoOldRevisionPodExists(t *testing.T) {
 
 			// act and validate
 			doCheckAndValidate(t, func() (bool, string, string) {
-				return noOldRevisionPodExists(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision)(context.TODO())
+				return noOldRevisionPodExists(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision, scenario.nodeName)(context.TODO())
 			}, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
@@ -128,13 +193,15 @@ func TestNewRevisionPodExists(t *testing.T) {
 		msg     string
 
 		monitorRevision int
+		nodeName        string
 		initialObjects  []runtime.Object
 	}{
 		{
 			name:            "scenario 1: happy path",
 			healthy:         true,
 			monitorRevision: 3,
-			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas")},
+			nodeName:        "master-1",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas", "master-1")},
 		},
 
 		{
@@ -146,26 +213,36 @@ func TestNewRevisionPodExists(t *testing.T) {
 		},
 
 		{
-			name:            "scenario 3: multipe pods",
-			healthy:         false,
+			name:            "scenario 3: multiple pods",
+			healthy:         true,
 			monitorRevision: 4,
+			nodeName:        "master-2",
 			initialObjects: []runtime.Object{
-				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-old"),
-				newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas-new"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-old", "master-1"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "4", "kas-new", "master-2"),
 			},
-			reason: "PodListError",
-			msg:    "unexpected number of Kube API server pods 2, expected only one pod",
 		},
 
 		{
 			name:            "scenario 4: old running",
 			healthy:         false,
 			monitorRevision: 4,
+			nodeName:        "master-1",
 			initialObjects: []runtime.Object{
-				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-old"),
+				newPod(corev1.PodRunning, corev1.ConditionTrue, "3", "kas-old", "master-1"),
 			},
 			reason: "UnexpectedRevision",
 			msg:    "the running Kube API (kas-old) is at unexpected revision 3, expected 4",
+		},
+
+		{
+			name:            "scenario 5: unexpected node name",
+			healthy:         false,
+			monitorRevision: 3,
+			reason:          "PodNotFound",
+			msg:             "unable to check a revision, haven't found a pod that would match the current node name master-2, checked 1 Kube API server pods",
+			nodeName:        "master-2",
+			initialObjects:  []runtime.Object{newPod(corev1.PodRunning, corev1.ConditionTrue, "2", "kas", "master-1")},
 		},
 	}
 
@@ -176,7 +253,7 @@ func TestNewRevisionPodExists(t *testing.T) {
 
 			// act and validate
 			doCheckAndValidate(t, func() (bool, string, string) {
-				return newRevisionPodExists(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision)(context.TODO())
+				return newRevisionPodExists(fakeKubeClient.CoreV1().Pods("openshift-kube-apiserver"), scenario.monitorRevision, scenario.nodeName)(context.TODO())
 			}, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
@@ -462,7 +539,7 @@ func setupServerClient(handlerFn http.HandlerFunc) (*httptest.Server, *http.Clie
 	return ts, client
 }
 
-func newPod(phase corev1.PodPhase, ready corev1.ConditionStatus, revision, name string) *corev1.Pod {
+func newPod(phase corev1.PodPhase, ready corev1.ConditionStatus, revision, name, nodeName string) *corev1.Pod {
 	pod := corev1.Pod{
 		TypeMeta: v1.TypeMeta{Kind: "Pod"},
 		ObjectMeta: v1.ObjectMeta{
@@ -472,7 +549,7 @@ func newPod(phase corev1.PodPhase, ready corev1.ConditionStatus, revision, name 
 				"revision":  revision,
 				"apiserver": "true",
 			}},
-		Spec: corev1.PodSpec{},
+		Spec: corev1.PodSpec{NodeName: nodeName},
 		Status: corev1.PodStatus{
 			Phase: phase,
 			Conditions: []corev1.PodCondition{{
