@@ -265,6 +265,7 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 		healthy     bool
 		reason      string
 		msg         string
+		customURL   string
 		rspWriterFn func(w http.ResponseWriter)
 	}{
 
@@ -321,6 +322,14 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 			reason:  "NotReady",
 			msg:     "failed on 3 invocation",
 		},
+
+		{
+			name:      "scenario 5: connection refused",
+			healthy:   false,
+			reason:    "NetworkError",
+			msg:       "waiting for kube-apiserver static pod to listen on port 6443",
+			customURL: "https://localhost:1234",
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -350,9 +359,14 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 				rspWriterFn = scenario.rspWriterFn
 			}
 
+			url := ts.URL
+			if len(scenario.customURL) > 0 {
+				url = scenario.customURL
+			}
+
 			// act and validate
 			doCheckAndValidate(t, func() (bool, string, string) {
-				return goodReadyzEndpoint(client, ts.URL, 3, 50*time.Millisecond)(context.TODO())
+				return goodReadyzEndpoint(client, url, 3, 50*time.Millisecond)(context.TODO())
 			}, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
@@ -364,6 +378,7 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 		healthy     bool
 		reason      string
 		msg         string
+		customURL   string
 		rspWriterFn func(w http.ResponseWriter)
 	}{
 		{
@@ -388,7 +403,7 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 				panic("bum")
 			},
 			healthy: false,
-			reason:  "UnhealthyError",
+			reason:  "NetworkError",
 			// we don't check the entire rsp from the server
 			msg: "/healthz?verbose=true\": EOF",
 		},
@@ -398,9 +413,16 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 				time.Sleep(2 * time.Second)
 			},
 			healthy: false,
-			reason:  "UnhealthyError",
+			reason:  "NetworkError",
 			// we don't check the entire rsp from the server
-			msg: "context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+			msg: "request to kube-apiserver static pod timed out",
+		},
+		{
+			name:      "scenario 5: connection refused",
+			healthy:   false,
+			reason:    "NetworkError",
+			msg:       "waiting for kube-apiserver static pod to listen on port 6443",
+			customURL: "https://localhost:1234",
 		},
 	}
 
@@ -430,8 +452,13 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 				rspWriterFn = scenario.rspWriterFn
 			}
 
+			url := ts.URL
+			if len(scenario.customURL) > 0 {
+				url = scenario.customURL
+			}
+
 			// act and validate
-			doCheckAndValidate(t, func() (bool, string, string) { return goodHealthzEndpoint(client, ts.URL)(context.TODO()) }, scenario.healthy, scenario.reason, scenario.msg)
+			doCheckAndValidate(t, func() (bool, string, string) { return goodHealthzEndpoint(client, url)(context.TODO()) }, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
 }
@@ -442,6 +469,7 @@ func TestHealthzEtcdEndpoint(t *testing.T) {
 		healthy     bool
 		reason      string
 		msg         string
+		customURL   string
 		rspWriterFn func(w http.ResponseWriter)
 	}{
 		{
@@ -465,7 +493,7 @@ func TestHealthzEtcdEndpoint(t *testing.T) {
 				panic("bum")
 			},
 			healthy: false,
-			reason:  "EtcdUnhealthyError",
+			reason:  "NetworkError",
 			// we don't check the entire rsp from the server
 			msg: "/healthz/etcd\": EOF",
 		},
@@ -475,9 +503,17 @@ func TestHealthzEtcdEndpoint(t *testing.T) {
 				time.Sleep(2 * time.Second)
 			},
 			healthy: false,
-			reason:  "EtcdUnhealthyError",
+			reason:  "NetworkError",
 			// we don't check the entire rsp from the server
-			msg: "context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+			msg: "request to kube-apiserver static pod timed out",
+		},
+
+		{
+			name:      "scenario 5: connection refused",
+			healthy:   false,
+			reason:    "NetworkError",
+			msg:       "waiting for kube-apiserver static pod to listen on port 6443",
+			customURL: "https://localhost:1234",
 		},
 	}
 
@@ -502,8 +538,13 @@ func TestHealthzEtcdEndpoint(t *testing.T) {
 				rspWriterFn = scenario.rspWriterFn
 			}
 
+			url := ts.URL
+			if len(scenario.customURL) > 0 {
+				url = scenario.customURL
+			}
+
 			// act and validate
-			doCheckAndValidate(t, func() (bool, string, string) { return goodHealthzEtcdEndpoint(client, ts.URL)(context.TODO()) }, scenario.healthy, scenario.reason, scenario.msg)
+			doCheckAndValidate(t, func() (bool, string, string) { return goodHealthzEtcdEndpoint(client, url)(context.TODO()) }, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
 
