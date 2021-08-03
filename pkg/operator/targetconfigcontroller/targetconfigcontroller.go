@@ -473,10 +473,11 @@ func gracefulTerminationDurationFromConfig(operatorSpec *operatorv1.StaticPodOpe
 }
 
 type kasTemplate struct {
-	Image                       string
-	OperatorImage               string
-	Verbosity                   string
-	GracefulTerminationDuration int
+	Image                         string
+	OperatorImage                 string
+	Verbosity                     string
+	GracefulTerminationDuration   int
+	SetupContainerTimeoutDuration int
 }
 
 func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
@@ -513,6 +514,8 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		OperatorImage:               operatorImagePullSpec,
 		Verbosity:                   verbosity,
 		GracefulTerminationDuration: gracefulTerminationDuration,
+		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
+		SetupContainerTimeoutDuration: gracefulTerminationDuration + 80 + 5,
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {
