@@ -16,7 +16,14 @@ import (
 func IsStartupMonitorEnabledFunction(infrastructureLister configlistersv1.InfrastructureLister, operatorClient v1helpers.StaticPodOperatorClient) func() (bool, error) {
 	return func() (bool, error) {
 		infra, err := infrastructureLister.Get("cluster")
-		if err != nil && !apierrors.IsNotFound(err) {
+		// we won't be without an infra for very long.  This means we're starting up very early in the process, so
+		// being able to detect that a rollback of a revision is needed isn't necessary since the stakes are low because
+		// there is no customer data in the cluster yet.
+		// Just return false until we're able one.
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
 			// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
 			return false, err
 		}
