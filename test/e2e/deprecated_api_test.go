@@ -30,6 +30,9 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 		currentMinor, err := strconv.Atoi(regexp.MustCompile(`^\d*`).FindString(version.Minor))
 
 		// get deprecated major.minor version from alert expression
+		// NOTE: the alert major and minor version is hardcoded
+		// this test will fail in each version bump until the alert is updated
+		// xref: /home/aojea/go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/assets/alerts/api-usage.yaml
 		monitoringClient, err := monitoringclient.NewForConfig(kubeConfig)
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
