@@ -138,6 +138,7 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 
 var defaultFeatures = &FeatureGateEnabledDisabled{
 	Enabled: []string{
+		"APIServerTracing",               // testing
 		"APIPriorityAndFairness",         // sig-apimachinery, deads2k
 		"RotateKubeletServerCertificate", // sig-pod, sjenning
 		"SupportPodPidsLimit",            // sig-pod, sjenning

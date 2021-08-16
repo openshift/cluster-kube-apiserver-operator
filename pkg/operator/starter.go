@@ -146,6 +146,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
 		"assets/kube-apiserver/storage-version-migration-flowschema.yaml",
 		"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
+		"assets/kube-apiserver/tracing-config-cm.yaml",
 		"assets/alerts/api-usage.yaml",
 		"assets/alerts/audit-errors.yaml",
 		"assets/alerts/cpu-utilization.yaml",
@@ -450,6 +451,7 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "kube-apiserver-cert-syncer-kubeconfig"},
 	{Name: "oauth-metadata", Optional: true},
 	{Name: "cloud-config", Optional: true},
+	{Name: "kube-apiserver-tracing-config", Optional: true},
 
 	// This configmap is managed by the operator, but ensuring a revision history
 	// supports signing key promotion. Promotion requires knowing whether the current
