@@ -18,6 +18,7 @@ spec:
       for: 2m
       labels:
         long: 1h
+        namespace: openshift-kube-apiserver
         severity: critical
         short: 5m
     - alert: KubeAPIErrorBudgetBurn
@@ -31,6 +32,7 @@ spec:
       for: 15m
       labels:
         long: 6h
+        namespace: openshift-kube-apiserver
         severity: critical
         short: 30m
     - alert: KubeAPIErrorBudgetBurn
@@ -44,6 +46,7 @@ spec:
       for: 1h
       labels:
         long: 1d
+        namespace: openshift-kube-apiserver
         severity: warning
         short: 2h
     - alert: KubeAPIErrorBudgetBurn
@@ -57,6 +60,7 @@ spec:
       for: 3h
       labels:
         long: 3d
+        namespace: openshift-kube-apiserver
         severity: warning
         short: 6h
   - name: kube-apiserver.rules
