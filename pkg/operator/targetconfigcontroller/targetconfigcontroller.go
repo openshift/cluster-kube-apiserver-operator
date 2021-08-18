@@ -13,8 +13,11 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
@@ -43,8 +46,9 @@ type TargetConfigController struct {
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient      kubernetes.Interface
-	configMapLister corev1listers.ConfigMapLister
+	kubeClient           kubernetes.Interface
+	configMapLister      corev1listers.ConfigMapLister
+	infrastructureLister configv1listers.InfrastructureLister
 
 	isStartupMonitorEnabledFn func() (bool, error)
 }
@@ -54,6 +58,7 @@ func NewTargetConfigController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	infrastructureInformer configv1informers.InfrastructureInformer,
 	kubeClient kubernetes.Interface,
 	isStartupMonitorEnabledFn func() (bool, error),
 	eventRecorder events.Recorder,
@@ -64,6 +69,7 @@ func NewTargetConfigController(
 		operatorClient:            operatorClient,
 		kubeClient:                kubeClient,
 		configMapLister:           kubeInformersForNamespaces.ConfigMapLister(),
+		infrastructureLister:      infrastructureInformer.Lister(),
 		isStartupMonitorEnabledFn: isStartupMonitorEnabledFn,
 	}
 
@@ -155,7 +161,7 @@ func isRequiredConfigPresent(config []byte) error {
 func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
 
-	if err := checkExternalDependencies(ctx, c.configMapLister, recorder); err != nil {
+	if err := checkExternalDependencies(ctx, c.configMapLister, c.infrastructureLister, recorder); err != nil {
 		errors = append(errors, err)
 	}
 	_, _, err := manageKubeAPIServerConfig(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec)
@@ -330,7 +336,16 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 }
 
 // checkExternalDependencies ensures that resources critical to cluster stability are valid before possible disruptive rollout.
-func checkExternalDependencies(ctx context.Context, lister corev1listers.ConfigMapLister, recorder events.Recorder) error {
+func checkExternalDependencies(ctx context.Context, lister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
+	infra, err := infrastructureLister.Get("cluster")
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	if infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
+		return nil
+	}
+
 	csrControllerCAConfigMap, err := lister.ConfigMaps(operatorclient.GlobalMachineSpecifiedConfigNamespace).Get("csr-controller-ca")
 	if err != nil {
 		return err

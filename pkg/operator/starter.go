@@ -169,6 +169,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
+		configInformers.Config().V1().Infrastructures(),
 		kubeClient,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
 		controllerContext.EventRecorder,
