@@ -11,10 +11,10 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.8
-	github.com/openshift/api v0.0.0-20210730095913-85e1d547cdee
-	github.com/openshift/build-machinery-go v0.0.0-20210712174854-1bb7fd1518d3
+	github.com/openshift/api v0.0.0-20210817132244-67c28690af52
+	github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37
 	github.com/openshift/client-go v0.0.0-20210730113412-1811c1b3fc0e
-	github.com/openshift/library-go v0.0.0-20210811133500-5e31383de2a7
+	github.com/openshift/library-go v0.0.0-20210819104210-e14e06ba8d47
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.45.0
 	github.com/prometheus/client_golang v1.11.0
@@ -23,12 +23,12 @@ require (
 	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
-	k8s.io/api v0.22.0-rc.0
-	k8s.io/apiextensions-apiserver v0.22.0-rc.0
-	k8s.io/apimachinery v0.22.0-rc.0
-	k8s.io/apiserver v0.22.0-rc.0
-	k8s.io/client-go v0.22.0-rc.0
-	k8s.io/component-base v0.22.0-rc.0
+	k8s.io/api v0.22.1
+	k8s.io/apiextensions-apiserver v0.22.1
+	k8s.io/apimachinery v0.22.1
+	k8s.io/apiserver v0.22.1
+	k8s.io/client-go v0.22.1
+	k8s.io/component-base v0.22.1
 	k8s.io/klog/v2 v2.9.0
 	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/kube-storage-version-migrator v0.0.4
