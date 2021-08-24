@@ -194,7 +194,7 @@ func WaitForNextMigratedKey(t testing.TB, kubeClient kubernetes.Interface, prevK
 func GetLastKeyMeta(kubeClient kubernetes.Interface, namespace, labelSelector string) (EncryptionKeyMeta, error) {
 	secretsClient := kubeClient.CoreV1().Secrets(namespace)
 	var selectedSecrets *corev1.SecretList
-	err := onErrorWithTimeout(wait.ForeverTestTimeout, retry.DefaultBackoff, transientAPIError, func() (err error) {
+	err := onErrorWithTimeout(time.Minute * 25, retry.DefaultBackoff, transientAPIError, func() (err error) {
 		selectedSecrets, err = secretsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
 		return
 	})
