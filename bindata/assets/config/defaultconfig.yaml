@@ -147,7 +147,7 @@ apiServerArguments:
   shutdown-send-retry-after:
   - "true"
   startup-send-retry-after-until-ready:
-  - "false"
+  - "true"
   storage-backend:
     - etcd3
   storage-media-type:

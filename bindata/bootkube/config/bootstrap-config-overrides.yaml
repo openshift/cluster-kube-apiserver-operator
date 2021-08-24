@@ -83,6 +83,8 @@ apiServerArguments:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.crt
   tls-private-key-file:
     - /etc/kubernetes/secrets/kube-apiserver-service-network-server.key
+  startup-send-retry-after-until-ready:
+    - "false"
 {{- if .ShutdownDelayDuration}}
   shutdown-delay-duration:
     - {{ .ShutdownDelayDuration }}
