@@ -12,7 +12,7 @@ spec:
             summary: >-
               CPU utilization across all three control plane nodes is higher than two control plane nodes can sustain; a single control plane node outage may
               cause a cascading failure; increase available CPU.
-            message: >-
+            description: >-
               Given three control plane nodes, the overall CPU utilization may only be about 2/3 of all available capacity.
               This is because if a single control plane node fails, the remaining two must handle the load of the cluster in order to be HA.
               If the cluster is using more than 2/3 of all capacity, if one control plane node fails, the remaining two are likely to
@@ -33,7 +33,7 @@ spec:
           annotations:
             summary: >-
               CPU utilization on a single control plane node is very high, more CPU pressure is likely to cause a failover; increase available CPU.
-            message: >-
+            description: >-
               Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
               When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
               causing even more CPU pressure.
