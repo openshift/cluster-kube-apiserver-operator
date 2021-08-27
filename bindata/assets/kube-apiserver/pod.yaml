@@ -195,6 +195,30 @@ spec:
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
+  - name: kube-apiserver-deadman
+    env:
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+    image: {{.OperatorImage}}
+    imagePullPolicy: IfNotPresent
+    terminationMessagePolicy: FallbackToLogsOnError
+    command: ["cluster-kube-apiserver-operator", "deadman"]
+    args:
+      - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
+      - --namespace=$(POD_NAMESPACE)
+      - --heartbeat-file=/var/log/kube-apiserver/.heartbeat
+      - -v=2
+    resources:
+      requests:
+        memory: 50Mi
+        cpu: 5m
+    volumeMounts:
+      - mountPath: /etc/kubernetes/static-pod-resources
+        name: resource-dir
+      - mountPath: /var/log/kube-apiserver
+        name: audit-dir
   - name: kube-apiserver-insecure-readyz
     image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
