@@ -17,6 +17,7 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/deadman"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
@@ -57,6 +58,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
 	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
 	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
+	cmd.AddCommand(deadman.NewDeadmanCommand(ctx))
 	cmd.AddCommand(startupmonitor.NewCommand(startupmonitorreadiness.New(), func(config *rest.Config) (operatorclientv1.KubeAPIServerInterface, error) {
 		client, err := operatorclientv1.NewForConfig(config)
 		if err != nil {
