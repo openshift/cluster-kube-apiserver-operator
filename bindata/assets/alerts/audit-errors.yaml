@@ -18,4 +18,5 @@ spec:
         sum by (apiserver,instance)(rate(apiserver_audit_error_total{apiserver=~".+-apiserver"}[5m])) / sum by (apiserver,instance) (rate(apiserver_audit_event_total{apiserver=~".+-apiserver"}[5m])) > 0
       for: 1m
       labels:
+        namespace: openshift-kube-apiserver
         severity: warning

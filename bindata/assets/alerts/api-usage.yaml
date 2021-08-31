@@ -18,6 +18,7 @@ spec:
             group(apiserver_requested_deprecated_apis{removed_release="1.23"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
           for: 1h
           labels:
+            namespace: openshift-kube-apiserver
             severity: info
         - alert: APIRemovedInNextEUSReleaseInUse
           annotations:
@@ -31,4 +32,5 @@ spec:
 
           for: 1h
           labels:
+            namespace: openshift-kube-apiserver
             severity: info
