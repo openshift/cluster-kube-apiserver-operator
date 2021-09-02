@@ -271,7 +271,7 @@ func generateOptionalStartupMonitorPod(isStartupMonitorEnabledFn func() (bool, e
 		return "", nil, nil
 	}
 
-	generatedStartupMonitorPodTemplate, err := startupmonitor.GeneratePodTemplate(operatorSpec, []string{"cluster-kube-apiserver-operator", "startup-monitor"}, operatorclient.TargetNamespace, "kube-apiserver", operatorImagePullSpec)
+	generatedStartupMonitorPodTemplate, err := startupmonitor.GeneratePodTemplate(operatorSpec, []string{"cluster-kube-apiserver-operator", "startup-monitor"}, operatorclient.TargetNamespace, "kube-apiserver", operatorImagePullSpec, "/var/log/kube-apiserver/startup.log")
 	if err != nil {
 		return "", nil, err
 	}
