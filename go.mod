@@ -11,10 +11,10 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.8
-	github.com/openshift/api v0.0.0-20210817132244-67c28690af52
+	github.com/openshift/api v0.0.0-20210831091943-07e756545ac1
 	github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37
-	github.com/openshift/client-go v0.0.0-20210730113412-1811c1b3fc0e
-	github.com/openshift/library-go v0.0.0-20210819104210-e14e06ba8d47
+	github.com/openshift/client-go v0.0.0-20210831095141-e19a065e79f7
+	github.com/openshift/library-go v0.0.0-20210902124015-4dece8f1f48b
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.45.0
 	github.com/prometheus/client_golang v1.11.0
