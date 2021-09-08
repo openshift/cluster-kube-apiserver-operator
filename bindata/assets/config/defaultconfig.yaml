@@ -9,6 +9,17 @@ admission:
         externalIPNetworkCIDRs: null
         kind: ExternalIPRangerAdmissionConfig
       location: ""
+    PodSecurity:
+      configuration:
+        kind: PodSecurityConfiguration
+        apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+        defaults:
+          enforce: "privileged"
+          enforce-version: "latest"
+          audit: "baseline"
+          audit-version: "latest"
+          warn: "baseline"
+          warn-version: "latest"
 apiServerArguments:
   allow-privileged:
     - "true"
@@ -47,6 +58,7 @@ apiServerArguments:
     - PersistentVolumeLabel
     - PodNodeSelector
     - PodTolerationRestriction
+    - PodSecurity
     - Priority
     - ResourceQuota
     - RuntimeClass
