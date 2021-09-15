@@ -57,6 +57,7 @@ apiServerArguments:
     - "ServiceNodeExclusion=true"
     - "DownwardAPIHugePages=true"
     - "LegacyNodeRoleBehavior=false"
+    - "PodSecurity=true"
 {{- if .ServiceCIDR | len | eq 2}}
     - "IPv6DualStack=true"
 {{- end}}
