@@ -9,7 +9,8 @@ spec:
       rules:
         - alert: APIRemovedInNextReleaseInUse
           annotations:
-            message: >-
+            summary: Deprecated API that will be removed in the next version is being used.
+            description: >-
               Deprecated API that will be removed in the next version is being used. Removing the workload that is using
               the {{ $labels.group }}.{{ $labels.version }}/{{ $labels.resource }} API might be necessary for
               a successful upgrade to the next cluster version.
@@ -22,7 +23,8 @@ spec:
             severity: info
         - alert: APIRemovedInNextEUSReleaseInUse
           annotations:
-            message: >-
+            summary: Deprecated API that will be removed in the next EUS version is being used.
+            description: >-
               Deprecated API that will be removed in the next EUS version is being used. Removing the workload that is using
               the {{ $labels.group }}.{{ $labels.version }}/{{ $labels.resource }} API might be necessary for
               a successful upgrade to the next EUS cluster version.
