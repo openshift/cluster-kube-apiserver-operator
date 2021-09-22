@@ -132,7 +132,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20210913234526-74913c050b54
+# github.com/openshift/api v0.0.0-20210915110300-3cd8091317c4
 ## explicit
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -202,7 +202,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20210831095141-e19a065e79f7
+# github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 ## explicit
 github.com/openshift/client-go/config/clientset/versioned
 github.com/openshift/client-go/config/clientset/versioned/scheme
@@ -222,7 +222,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20210909124717-1c18e732a117
+# github.com/openshift/library-go v0.0.0-20210922102545-c1aa04539ce3
 ## explicit
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -248,6 +248,7 @@ github.com/openshift/library-go/pkg/operator/condition
 github.com/openshift/library-go/pkg/operator/configobserver
 github.com/openshift/library-go/pkg/operator/configobserver/apiserver
 github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider
+github.com/openshift/library-go/pkg/operator/configobserver/etcd
 github.com/openshift/library-go/pkg/operator/configobserver/featuregates
 github.com/openshift/library-go/pkg/operator/configobserver/network
 github.com/openshift/library-go/pkg/operator/configobserver/proxy
