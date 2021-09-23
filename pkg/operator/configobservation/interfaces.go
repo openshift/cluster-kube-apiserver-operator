@@ -23,10 +23,9 @@ type Listers struct {
 	ProxyLister_          configlistersv1.ProxyLister
 	SchedulerLister       configlistersv1.SchedulerLister
 
-	OpenshiftEtcdEndpointsLister corelistersv1.EndpointsLister
-	ConfigmapLister_             corelistersv1.ConfigMapLister
-	SecretLister_                corelistersv1.SecretLister
-	ConfigSecretLister_          corelistersv1.SecretLister
+	ConfigmapLister_    corelistersv1.ConfigMapLister
+	SecretLister_       corelistersv1.SecretLister
+	ConfigSecretLister_ corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
