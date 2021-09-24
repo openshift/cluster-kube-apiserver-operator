@@ -84,16 +84,14 @@ func NewConfigObserver(
 				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
-				SecretLister_:                kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-				ConfigSecretLister_:          kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
-				OpenshiftEtcdEndpointsLister: kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Lister(),
-				ConfigmapLister:              kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Lister(),
+				SecretLister_:       kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+				ConfigSecretLister_: kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
+				ConfigmapLister_:    kubeInformersForNamespaces.ConfigMapLister(),
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(preRunCacheSynced,
 					operatorClient.Informer().HasSynced,
 
-					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer().HasSynced,
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer().HasSynced,
 					kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer().HasSynced,
 
