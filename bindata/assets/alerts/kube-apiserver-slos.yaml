@@ -75,18 +75,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[5m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[5m]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[5m])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[5m])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[5m])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[5m])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[5m]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[5m]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[5m])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[5m]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[5m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[5m])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -109,18 +109,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[30m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[30m]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[30m])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[30m])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[30m])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[30m])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[30m]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[30m]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[30m])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[30m]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[30m]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[30m])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -143,18 +143,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[1h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[1h]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[1h])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1h])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[1h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1h])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[1h]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[1h]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1h])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[1h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[1h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1h])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -177,18 +177,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[2h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[2h]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[2h])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[2h])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[2h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[2h])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[2h]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[2h]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[2h])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[2h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[2h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[2h])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -211,18 +211,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[6h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[6h]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[6h])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[6h])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[6h])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[6h])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[6h]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[6h]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[6h])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[6h]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[6h]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[6h])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -245,18 +245,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[1d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[1d]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[1d])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1d])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[1d])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1d])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[1d]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[1d]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[1d])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[1d]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[1d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[1d])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -279,18 +279,18 @@ spec:
         # resource-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource"}[3d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource"}[3d]))
           -
-            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="resource",le="0.1"}[3d])) or vector(0))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[3d])))
+            (sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="resource",le="0.1"}[3d])) or vector(0))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[3d])))
         , "type", "slow-resource", "_none_", "")
         or
         # namespace-scoped latency
         label_replace(
           (
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace"}[3d]))
-          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec",scope="namespace",le="0.5"}[3d]))
-          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|log|exec"}[3d])))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace"}[3d]))
+          - sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward",scope="namespace",le="0.5"}[3d]))
+          ) / scalar(sum(rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward"}[3d])))
         , "type", "slow-namespace", "_none_", "")
         or
         # cluster-scoped latency
@@ -307,15 +307,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[1d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1d]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[1d]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[1d]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[1d]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[1d]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[1d]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1d]))
       labels:
         verb: write
       record: apiserver_request:burnrate1d
@@ -323,15 +323,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[1h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[1h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[1h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[1h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[1h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[1h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[1h]))
       labels:
         verb: write
       record: apiserver_request:burnrate1h
@@ -339,15 +339,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[2h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[2h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[2h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[2h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[2h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[2h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[2h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[2h]))
       labels:
         verb: write
       record: apiserver_request:burnrate2h
@@ -355,15 +355,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[30m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[30m]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[30m]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[30m]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[30m]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[30m]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[30m]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[30m]))
       labels:
         verb: write
       record: apiserver_request:burnrate30m
@@ -371,15 +371,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[3d]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[3d]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[3d]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[3d]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[3d]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[3d]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[3d]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[3d]))
       labels:
         verb: write
       record: apiserver_request:burnrate3d
@@ -387,15 +387,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[5m]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[5m]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[5m]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[5m]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[5m]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[5m]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[5m]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[5m]))
       labels:
         verb: write
       record: apiserver_request:burnrate5m
@@ -403,15 +403,15 @@ spec:
         (
           (
             # too slow
-            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[6h]))
+            sum(rate(apiserver_request_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[6h]))
             -
-            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",le="1"}[6h]))
+            sum(rate(apiserver_request_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",le="1"}[6h]))
           )
           +
-          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward",code=~"5.."}[6h]))
+          sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward",code=~"5.."}[6h]))
         )
         /
-        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|log|exec|portforward"}[6h]))
+        sum(rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward"}[6h]))
       labels:
         verb: write
       record: apiserver_request:burnrate6h
