@@ -127,10 +127,10 @@ apiServerArguments:
     - "0"
   # value should logically scale with max-requests-inflight
   max-mutating-requests-inflight:
-    - "1000"
+    - "17"
   # value needed to be bumped for scale tests.  The kube-apiserver did ok here
   max-requests-inflight:
-    - "3000"
+    - "33"
   min-request-timeout:
     - "3600"
   proxy-client-cert-file:
