@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -324,6 +325,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	kubeletVersionSkewController := kubeletversionskewcontroller.NewKubeletVersionSkewController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		controllerContext.EventRecorder,
+	)
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -352,6 +359,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go boundSATokenSignerController.Run(ctx, 1)
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
+	go kubeletVersionSkewController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
