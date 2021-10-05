@@ -1,4 +1,37 @@
 apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
+kind: FlowSchema
+metadata:
+  name: exempt-watches
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  matchingPrecedence: 2
+  priorityLevelConfiguration:
+    # Exempt all watches from APF (effectively the same as pre-4.9 behavior).
+    # https://github.com/kubernetes/kubernetes/issues/105409
+    name: exempt
+  rules:
+  - resourceRules:
+    - apiGroups:
+      - '*'
+      clusterScope: true
+      namespaces:
+      - '*'
+      resources:
+      - '*'
+      verbs:
+      - 'watch'
+    subjects:
+    - group:
+        name: 'system:authenticated'
+      kind: Group
+    - group:
+        name: 'system:unauthenticated'
+      kind: Group
+---
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
 kind: PriorityLevelConfiguration
 metadata:
   name: openshift-control-plane-operators
