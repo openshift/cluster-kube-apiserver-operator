@@ -127,36 +127,44 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
 		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
+	staticResourceFiles := []string{
+		"v4.1.0/kube-apiserver/ns.yaml",
+		"v4.1.0/kube-apiserver/svc.yaml",
+		"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
+		"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml",
+		"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
+		"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
+		"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
+		"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
+		"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
+		"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
+		"v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml",
+		"v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
+		"v4.1.0/alerts/api-usage.yaml",
+		"v4.1.0/alerts/cpu-utilization.yaml",
+		"v4.1.0/alerts/kube-apiserver-requests.yaml",
+		libgoaudit.AuditPoliciesConfigMapFileName,
+		"v4.1.0/alerts/kube-apiserver-slos-basic.yaml",
+	}
+	infrastructure, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
+		staticResourceFiles = append(staticResourceFiles, "v4.1.0/alerts/kube-apiserver-slos-extended.yaml")
+	}
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
 		libgoaudit.WithAuditPolicies("kube-apiserver-audit-policies", "openshift-kube-apiserver", v410_00_assets.Asset),
-		[]string{
-			"v4.1.0/kube-apiserver/ns.yaml",
-			"v4.1.0/kube-apiserver/svc.yaml",
-			"v4.1.0/kube-apiserver/kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
-			"v4.1.0/kube-apiserver/check-endpoints-rolebinding.yaml",
-			"v4.1.0/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
-			"v4.1.0/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-client-crb.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-sa.yaml",
-			"v4.1.0/kube-apiserver/localhost-recovery-token.yaml",
-			"v4.1.0/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
-			"v4.1.0/kube-apiserver/storage-version-migration-flowschema.yaml",
-			"v4.1.0/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
-			"v4.1.0/alerts/api-usage.yaml",
-			"v4.1.0/alerts/cpu-utilization.yaml",
-			"v4.1.0/alerts/kube-apiserver-requests.yaml",
-			libgoaudit.AuditPoliciesConfigMapFileName,
-			"v4.1.0/alerts/kube-apiserver-slos.yaml",
-		},
+		staticResourceFiles,
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
 			WithAPIExtensionsClient(apiextensionsClient).
