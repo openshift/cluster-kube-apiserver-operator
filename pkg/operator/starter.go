@@ -125,36 +125,44 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
 		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
+	staticResourceFiles := []string{
+		"assets/kube-apiserver/ns.yaml",
+		"assets/kube-apiserver/svc.yaml",
+		"assets/kube-apiserver/kubeconfig-cm.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrole.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
+		"assets/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
+		"assets/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
+		"assets/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
+		"assets/kube-apiserver/check-endpoints-rolebinding.yaml",
+		"assets/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
+		"assets/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
+		"assets/kube-apiserver/localhost-recovery-client-crb.yaml",
+		"assets/kube-apiserver/localhost-recovery-sa.yaml",
+		"assets/kube-apiserver/localhost-recovery-token.yaml",
+		"assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
+		"assets/kube-apiserver/storage-version-migration-flowschema.yaml",
+		"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
+		"assets/alerts/api-usage.yaml",
+		"assets/alerts/audit-errors.yaml",
+		"assets/alerts/cpu-utilization.yaml",
+		"assets/alerts/kube-apiserver-requests.yaml",
+		"assets/alerts/kube-apiserver-slos-basic.yaml",
+	}
+	infrastructure, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
+		staticResourceFiles = append(staticResourceFiles, "assets/alerts/kube-apiserver-slos-extended.yaml")
+	}
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
 		bindata.Asset,
-		[]string{
-			"assets/kube-apiserver/ns.yaml",
-			"assets/kube-apiserver/svc.yaml",
-			"assets/kube-apiserver/kubeconfig-cm.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrole.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrole-node-reader.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrole-crd-reader.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrolebinding-auth-delegator.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrolebinding-node-reader.yaml",
-			"assets/kube-apiserver/check-endpoints-clusterrolebinding-crd-reader.yaml",
-			"assets/kube-apiserver/check-endpoints-kubeconfig-cm.yaml",
-			"assets/kube-apiserver/check-endpoints-rolebinding-kube-system.yaml",
-			"assets/kube-apiserver/check-endpoints-rolebinding.yaml",
-			"assets/kube-apiserver/control-plane-node-kubeconfig-cm.yaml",
-			"assets/kube-apiserver/delegated-incluster-authentication-rolebinding.yaml",
-			"assets/kube-apiserver/localhost-recovery-client-crb.yaml",
-			"assets/kube-apiserver/localhost-recovery-sa.yaml",
-			"assets/kube-apiserver/localhost-recovery-token.yaml",
-			"assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
-			"assets/kube-apiserver/storage-version-migration-flowschema.yaml",
-			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
-			"assets/alerts/api-usage.yaml",
-			"assets/alerts/audit-errors.yaml",
-			"assets/alerts/cpu-utilization.yaml",
-			"assets/alerts/kube-apiserver-requests.yaml",
-			"assets/alerts/kube-apiserver-slos.yaml",
-		},
+		staticResourceFiles,
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
 			WithAPIExtensionsClient(apiextensionsClient).
