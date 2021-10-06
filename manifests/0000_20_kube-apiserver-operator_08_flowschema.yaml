@@ -30,7 +30,7 @@ spec:
     type: ByUser
   matchingPrecedence: 2000
   priorityLevelConfiguration:
-    name: workload-high
+    name: exempt
   rules:
   - nonResourceRules:
     - verbs:
