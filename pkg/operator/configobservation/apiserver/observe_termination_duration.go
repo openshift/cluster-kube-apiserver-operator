@@ -41,7 +41,9 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
-		observedShutdownDelayDuration = "210s"
+		//
+		// Note this is the official number we got from AWS
+		observedShutdownDelayDuration = "129s"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
@@ -98,7 +100,12 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
-		observedGracefulTerminationDuration = "275"
+		//
+		// 194s is calculated as follows:
+		//   the initial 129s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
+		//   additional 60s for finishing all in-flight requests
+		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
+		observedGracefulTerminationDuration = "194"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
