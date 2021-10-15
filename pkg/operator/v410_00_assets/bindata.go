@@ -102,7 +102,7 @@ spec:
               Deprecated API that will be removed in the next version is being used. Removing the workload that is using
               the {{ $labels.group }}.{{ $labels.version }}/{{ $labels.resource }} API might be necessary for
               a successful upgrade to the next cluster version.
-              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+              Refer to ` + "`" + `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` + "`" + ` to identify the workload.
           expr: |
             group(apiserver_requested_deprecated_apis{removed_release="1.22"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
           for: 1h
@@ -114,7 +114,7 @@ spec:
               Deprecated API that will be removed in the next EUS version is being used. Removing the workload that is using
               the {{ $labels.group }}.{{ $labels.version }}/{{ $labels.resource }} API might be necessary for
               a successful upgrade to the next EUS cluster version.
-              Refer to the apirequestcount.apiserver.openshift.io resources to identify the workload.
+              Refer to ` + "`" + `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` + "`" + ` to identify the workload.
           expr: |
             group(apiserver_requested_deprecated_apis{removed_release=~"1\\.2[123]"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
 
