@@ -3,9 +3,13 @@ reviewers:
   - sttts
   - mfojtik
   - soltysh
+  - p0lyn0mial
+  - tkashem
 approvers:
   - deads2k
   - sttts
   - mfojtik
   - soltysh
+  - p0lyn0mial
+  - tkashem
 component: "kube-apiserver"
