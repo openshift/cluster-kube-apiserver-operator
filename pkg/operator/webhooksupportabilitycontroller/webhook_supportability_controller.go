@@ -63,6 +63,7 @@ func (c *webhookSupportabilityController) sync(ctx context.Context, controllerCo
 	updates = append(updates, c.updateMutatingAdmissionWebhookConfigurationDegraded(ctx))
 	updates = append(updates, c.updateValidatingAdmissionWebhookConfigurationDegradedStatus(ctx))
 	updates = append(updates, c.updateCRDConversionWebhookConfigurationDegraded(ctx))
+	updates = append(updates, c.updateVirtualResourceAdmissionDegraded(ctx))
 
 	_, _, err = v1helpers.UpdateStatus(ctx, c.operatorClient, updates...)
 	return err

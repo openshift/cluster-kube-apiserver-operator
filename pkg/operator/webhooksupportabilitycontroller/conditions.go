@@ -12,6 +12,10 @@ const (
 	// CRDConversionWebhookConfigurationDegradedType is true when there
 	// is a problem with a custom resource definition conversion webhook service.
 	CRDConversionWebhookConfigurationDegradedType = "CRDConversionWebhookConfigurationDegraded"
+
+	// VirtualResourceAdmissionDegradedType is true when a dynamic admission webhook matches
+	// a virtual resource.
+	VirtualResourceAdmissionDegradedType = "VirtualResourceAdmissionDegraded"
 )
 
 const (
@@ -25,4 +29,8 @@ const (
 	// WebhookServiceNotReadyReason indicates that webhook services are having a variety of
 	// problems.
 	WebhookServiceNotReadyReason = "WebhookServiceNotReady"
+
+	// AdmissionWebhookMatchesVirtualResourceReason indicates that an admission webhook matches
+	// a virtual resource.
+	AdmissionWebhookMatchesVirtualResourceReason = "AdmissionWebhookMatchesVirtualResource"
 )

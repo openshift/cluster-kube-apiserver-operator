@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/foxcpp/go-mockdns"
@@ -474,6 +475,32 @@ func withMutatingWebhook(n string, options ...func(*admissionregistrationv1.Muta
 			o(w)
 		}
 		c.Webhooks = append(c.Webhooks, *w)
+	}
+}
+
+const all = "*"
+
+func withMutatingRule(g, v, r string) func(*admissionregistrationv1.MutatingWebhook) {
+	return func(webhook *admissionregistrationv1.MutatingWebhook) {
+		webhook.Rules = append(webhook.Rules, admissionregistrationv1.RuleWithOperations{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   strings.Split(g, ","),
+				APIVersions: strings.Split(v, ","),
+				Resources:   strings.Split(r, ","),
+			},
+		})
+	}
+}
+
+func withValidatingRule(g, v, r string) func(webhook *admissionregistrationv1.ValidatingWebhook) {
+	return func(webhook *admissionregistrationv1.ValidatingWebhook) {
+		webhook.Rules = append(webhook.Rules, admissionregistrationv1.RuleWithOperations{
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   strings.Split(g, ","),
+				APIVersions: strings.Split(v, ","),
+				Resources:   strings.Split(r, ","),
+			},
+		})
 	}
 }
 
