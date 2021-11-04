@@ -269,7 +269,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 
 	staticPodNodeProvider := encryptiondeployer.StaticPodNodeProvider{OperatorClient: operatorClient}
-	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), staticPodNodeProvider)
+	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, kubeClient.CoreV1(), kubeClient.CoreV1(), staticPodNodeProvider)
 	if err != nil {
 		return err
 	}
@@ -292,6 +292,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
+		resourceSyncController,
 	)
 	if err != nil {
 		return err
