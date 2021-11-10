@@ -52,7 +52,7 @@ func TestRevisionLimits(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get current revision limits
-	operatorSpec, _, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
+	operatorSpec, _, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(context.TODO())
 	require.NoError(t, err)
 
 	totalRevisionLimit := operatorSpec.SucceededRevisionLimit + operatorSpec.FailedRevisionLimit
