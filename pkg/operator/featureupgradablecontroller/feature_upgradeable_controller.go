@@ -47,7 +47,7 @@ func (c *FeatureUpgradeableController) sync(ctx context.Context, syncCtx factory
 	}
 
 	cond := newUpgradeableCondition(featureGates)
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 

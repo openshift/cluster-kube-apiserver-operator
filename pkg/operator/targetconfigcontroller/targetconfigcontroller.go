@@ -189,7 +189,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 			Reason:  "SynchronizationError",
 			Message: v1helpers.NewMultiLineAggregate(errors).Error(),
 		}
-		if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
+		if _, _, err := v1helpers.UpdateStaticPodStatus(ctx, c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
 			return true, err
 		}
 		return true, nil
@@ -199,7 +199,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 		Type:   "TargetConfigControllerDegraded",
 		Status: operatorv1.ConditionFalse,
 	}
-	if _, _, err := v1helpers.UpdateStaticPodStatus(c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
+	if _, _, err := v1helpers.UpdateStaticPodStatus(ctx, c.operatorClient, v1helpers.UpdateStaticPodConditionFn(condition)); err != nil {
 		return true, err
 	}
 

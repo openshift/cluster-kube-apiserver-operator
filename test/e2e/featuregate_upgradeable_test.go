@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -20,7 +21,7 @@ func TestFeatureGatesUpgradeable(t *testing.T) {
 	require.NoError(t, err)
 
 	// if the condition is true, then we're active.  The unit tests confirm it goes false.
-	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
+	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(context.TODO())
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "FeatureGatesUpgradeable"))
 }

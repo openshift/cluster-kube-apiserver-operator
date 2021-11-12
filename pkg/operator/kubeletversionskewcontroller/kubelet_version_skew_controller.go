@@ -84,7 +84,7 @@ type kubeletVersionSkewController struct {
 	minSupportedSkewNextVersion int
 }
 
-func (c *kubeletVersionSkewController) sync(_ context.Context, _ factory.SyncContext) error {
+func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ func (c *kubeletVersionSkewController) sync(_ context.Context, _ factory.SyncCon
 		condition.Message = "Kubelet and API server minor versions are synced."
 	}
 
-	_, _, err = v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(condition))
+	_, _, err = v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(condition))
 	return err
 }
 

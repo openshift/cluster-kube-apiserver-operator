@@ -48,7 +48,7 @@ func (c *CertRotationTimeUpgradeableController) sync(ctx context.Context, syncCo
 	}
 
 	cond := newUpgradeableCondition(certRotationTimeConfigMap)
-	if _, _, updateError := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
+	if _, _, updateError := v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return updateError
 	}
 

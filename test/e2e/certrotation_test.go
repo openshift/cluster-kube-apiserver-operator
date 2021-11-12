@@ -29,7 +29,8 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
-	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum()
+	ctx := context.TODO()
+	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
 
@@ -46,7 +47,7 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	// TODO better detection maybe someday
 	time.Sleep(5 * time.Second)
 
-	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum()
+	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionFalse(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
 	clusteroperator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
@@ -58,7 +59,7 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	// TODO better detection maybe someday
 	time.Sleep(5 * time.Second)
 
-	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum()
+	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
 	clusteroperator, err = configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
