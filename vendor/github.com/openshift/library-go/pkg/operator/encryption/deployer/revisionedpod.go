@@ -15,7 +15,6 @@ import (
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -53,30 +52,17 @@ var (
 // a label storing the deployed encryption config revision, like the pods created
 // by the staticpod controllers.
 //
-// It syns the encryption-config-<targetNamespace> from openshift-config-managed
-// namespace to the target namespace as encryption-config. From there it is
-// revisioned and deployed to the static pods. The last deployed encryption
-// config is read from encryption-config-<revision>.
-//
-// For testing, resourceSyncer might be nil.
+// It revisiones and deployes the synchronized encryption-config from the
+// operator namespace to the static pods. The last deployed encryption config is
+// read from encryption-config-<revision>.
 func NewRevisionLabelPodDeployer(
 	revisionLabel string,
 	targetNamespace string,
 	namespaceInformers operatorv1helpers.KubeInformersForNamespaces,
-	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	podClient corev1client.PodsGetter,
 	secretClient corev1client.SecretsGetter,
 	nodeProvider MasterNodeProvider,
 ) (*RevisionLabelPodDeployer, error) {
-	if resourceSyncer != nil {
-		if err := resourceSyncer.SyncSecret(
-			resourcesynccontroller.ResourceLocation{Namespace: targetNamespace, Name: encryptionconfig.EncryptionConfSecretName},
-			resourcesynccontroller.ResourceLocation{Namespace: "openshift-config-managed", Name: fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, targetNamespace)},
-		); err != nil {
-			return nil, err
-		}
-	}
-
 	return &RevisionLabelPodDeployer{
 		podClient:                podClient.Pods(targetNamespace),
 		secretClient:             secretClient.Secrets(targetNamespace),
@@ -88,7 +74,7 @@ func NewRevisionLabelPodDeployer(
 
 // DeployedEncryptionConfigSecret returns the deployed encryption config and whether all
 // instances of the operand have acknowledged it.
-func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	nodes, err := d.nodeProvider.MasterNodeNames()
 	if err != nil {
 		return nil, false, err
@@ -98,7 +84,7 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 	}
 
 	// do a live list so we never get confused about what revision we are on
-	apiServerPods, err := d.podClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "apiserver=true"})
+	apiServerPods, err := d.podClient.List(ctx, metav1.ListOptions{LabelSelector: "apiserver=true"})
 	if err != nil {
 		return nil, false, err
 	}
@@ -111,7 +97,7 @@ func (d *RevisionLabelPodDeployer) DeployedEncryptionConfigSecret() (secret *cor
 		return nil, false, nil
 	}
 
-	s, err := d.secretClient.Get(context.TODO(), encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
+	s, err := d.secretClient.Get(ctx, encryptionconfig.EncryptionConfSecretName+"-"+revision, metav1.GetOptions{})
 	if err != nil {
 		// if encryption is not enabled at this revision or the secret was deleted, we should not error
 		if errors.IsNotFound(err) {
