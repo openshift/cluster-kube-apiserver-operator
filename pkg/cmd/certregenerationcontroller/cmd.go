@@ -97,7 +97,7 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	certRotationScale, err := certrotation.GetCertRotationScale(kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
+	certRotationScale, err := certrotation.GetCertRotationScale(ctx, kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
 	if err != nil {
 		return err
 	}
