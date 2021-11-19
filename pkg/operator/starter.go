@@ -27,7 +27,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhooksupportabilitycontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
@@ -352,13 +351,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
-	webhookSupportabilityController := webhooksupportabilitycontroller.NewWebhookSupportabilityController(
-		operatorClient,
-		kubeInformersForNamespaces,
-		apiextensionsInformers,
-		controllerContext.EventRecorder,
-	)
-
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -389,7 +381,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
 	go kubeletVersionSkewController.Run(ctx, 1)
-	go webhookSupportabilityController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
