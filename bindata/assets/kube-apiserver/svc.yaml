@@ -3,9 +3,6 @@ kind: Service
 metadata:
   namespace: openshift-kube-apiserver
   name: apiserver
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: https
 spec:
   type: ClusterIP
   selector:
