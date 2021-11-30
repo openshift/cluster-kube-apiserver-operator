@@ -16,9 +16,9 @@ admission:
         defaults:
           enforce: "privileged"
           enforce-version: "latest"
-          audit: "baseline"
+          audit: "restricted"
           audit-version: "latest"
-          warn: "baseline"
+          warn: "restricted"
           warn-version: "latest"
 apiServerArguments:
   allow-privileged:
