@@ -19,7 +19,7 @@ type CryptoMaterials struct {
 
 // NewServerCertificate returns crypto materials suitable for use by a server. The hosts specified will be added as
 // subject alternate names.
-func NewServerCertificate(t *testing.T, signerCert *x509.Certificate, hosts ...string) *CryptoMaterials {
+func NewServerCertificate(t *testing.T, signer *CryptoMaterials, hosts ...string) *CryptoMaterials {
 	var err error
 	server := &CryptoMaterials{}
 	if server.PrivateKey, err = rsa.GenerateKey(rand.Reader, 2048); err != nil {
@@ -41,7 +41,7 @@ func NewServerCertificate(t *testing.T, signerCert *x509.Certificate, hosts ...s
 		DNSNames:              hosts,
 	}
 	var certs []byte
-	if certs, err = x509.CreateCertificate(rand.Reader, template, signerCert, server.PrivateKey.Public(), server.PrivateKey); err != nil {
+	if certs, err = x509.CreateCertificate(rand.Reader, template, signer.Certificate, server.PrivateKey.Public(), signer.PrivateKey); err != nil {
 		panic(err)
 	}
 	if server.Certificate, err = x509.ParseCertificate(certs); err != nil {

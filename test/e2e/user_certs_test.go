@@ -37,9 +37,9 @@ func TestNamedCertificates(t *testing.T) {
 
 	// details of the test certs that will be created, keyed by an string "id"
 	testCertInfoById := map[string]*testCertInfo{
-		"one":   newTestCertInfo(t, "one", rootCA.Certificate, "one.test"),
-		"two":   newTestCertInfo(t, "two", rootCA.Certificate, "two.test"),
-		"three": newTestCertInfo(t, "three", rootCA.Certificate, "three.test", "four.test"),
+		"one":   newTestCertInfo(t, "one", rootCA, "one.test"),
+		"two":   newTestCertInfo(t, "two", rootCA, "two.test"),
+		"three": newTestCertInfo(t, "three", rootCA, "three.test", "four.test"),
 	}
 
 	// initialize clients
@@ -387,7 +387,7 @@ type testCertInfo struct {
 	crypto *test.CryptoMaterials
 }
 
-func newTestCertInfo(t *testing.T, id string, signer *x509.Certificate, hosts ...string) *testCertInfo {
+func newTestCertInfo(t *testing.T, id string, signer *test.CryptoMaterials, hosts ...string) *testCertInfo {
 	return &testCertInfo{
 		secretName: strings.ToLower(test.GenerateNameForTest(t, id+"-")),
 		hosts:      hosts,
