@@ -6,10 +6,12 @@ require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/davecgh/go-spew v1.1.1
+	github.com/foxcpp/go-mockdns v0.0.0-20210729171921-fb145fc6f897
 	github.com/ghodss/yaml v1.0.0
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/google/go-cmp v0.5.6
 	github.com/imdario/mergo v0.3.8
+	github.com/miekg/dns v1.1.25
 	github.com/openshift/api v0.0.0-20211209173311-a19f3b9052a6
 	github.com/openshift/build-machinery-go v0.0.0-20210922160744-a9caf93aef90
 	github.com/openshift/client-go v0.0.0-20211209144617-7385dd6338e3
