@@ -10,6 +10,7 @@ spec:
     - alert: KubeAPIErrorBudgetBurn
       annotations:
         description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/KubeAPIErrorBudgetBurn.md
         summary: The API server is burning too much error budget.
       expr: |
         sum(apiserver_request:burnrate1h) > (14.40 * 0.01000)
@@ -24,6 +25,7 @@ spec:
     - alert: KubeAPIErrorBudgetBurn
       annotations:
         description: The API server is burning too much error budget. This alert fires when too many requests are failing with high latency. Use the 'API Performance' monitoring dashboards to narrow down the request states and latency. The 'etcd' monitoring dashboards also provides metrics to help determine etcd stability and performance.
+        runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/KubeAPIErrorBudgetBurn.md
         summary: The API server is burning too much error budget.
       expr: |
         sum(apiserver_request:burnrate6h) > (6.00 * 0.01000)
