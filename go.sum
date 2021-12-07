@@ -478,8 +478,8 @@ github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37 h1:40
 github.com/openshift/build-machinery-go v0.0.0-20210806203541-4ea9b6da3a37/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20210831095141-e19a065e79f7 h1:iKVU5Tga76kiCWpq9giPi0TfI/gZcFoYb7/x+1SkgwM=
 github.com/openshift/client-go v0.0.0-20210831095141-e19a065e79f7/go.mod h1:D6P8RkJzwdkBExQdYUnkWcePMLBiTeCCr8eQIQ7y8Dk=
-github.com/openshift/library-go v0.0.0-20210915142033-188c3c82f817 h1:qshYZlcU0Wt5wqR67O4LMTRIaJ76x+u4Kb/MquGZk2o=
-github.com/openshift/library-go v0.0.0-20210915142033-188c3c82f817/go.mod h1:fKtzrsRXSWMLiBT1SM8cEVT2YyL7ihx/TEuT3gmgFgQ=
+github.com/openshift/library-go v0.0.0-20211207082558-36821c7a1fa2 h1:a4mC6hoimeAxOqdsLIWB4wxiyEIre8HbAWBvJmdeNCk=
+github.com/openshift/library-go v0.0.0-20211207082558-36821c7a1fa2/go.mod h1:fKtzrsRXSWMLiBT1SM8cEVT2YyL7ihx/TEuT3gmgFgQ=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/uuid v1.2.0/go.mod h1:X/NO0urCmaxf9VXbdlT7C2Yzkj2IKimNn4k+gtPdI/k=
