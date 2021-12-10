@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
-	goflag "flag"
-	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
 	"k8s.io/client-go/rest"
-	utilflag "k8s.io/component-base/cli/flag"
-	"k8s.io/component-base/logs"
+	"k8s.io/component-base/cli"
+
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
@@ -24,28 +24,12 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
-	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
-	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
-	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
-
-	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 )
 
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
-	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
-
-	logs.InitLogs()
-	defer logs.FlushLogs()
-
 	command := NewOperatorCommand(context.Background())
-	if err := command.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
+	code := cli.Run(command)
+	os.Exit(code)
 }
 
 func NewOperatorCommand(ctx context.Context) *cobra.Command {
