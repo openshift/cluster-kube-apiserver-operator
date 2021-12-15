@@ -149,6 +149,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 		"assets/alerts/api-usage.yaml",
 		"assets/alerts/audit-errors.yaml",
+		"assets/alerts/client-go-requests.yaml",
 		"assets/alerts/cpu-utilization.yaml",
 		"assets/alerts/kube-apiserver-requests.yaml",
 		"assets/alerts/kube-apiserver-slos-basic.yaml",
