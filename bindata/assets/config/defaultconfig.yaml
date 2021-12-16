@@ -42,6 +42,8 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/policy.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
+  disable-admission-plugins:
+    - PodSecurity
   enable-admission-plugins:
     - CertificateApproval
     - CertificateSigning
@@ -58,7 +60,6 @@ apiServerArguments:
     - PersistentVolumeLabel
     - PodNodeSelector
     - PodTolerationRestriction
-    - PodSecurity
     - Priority
     - ResourceQuota
     - RuntimeClass
