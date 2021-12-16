@@ -49,6 +49,8 @@ spec:
         - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           name: kube-api-access
           readOnly: true
+        - mountPath: /var/run/configmaps/service-ca-bundle
+          name: service-ca-bundle
         env:
         - name: IMAGE
           value: quay.io/openshift/origin-hyperkube:v4.0
@@ -89,6 +91,10 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.namespace
                 path: namespace
+      - name: service-ca-bundle
+        configMap:
+          name: service-ca-bundle
+          optional: true
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: "system-cluster-critical"

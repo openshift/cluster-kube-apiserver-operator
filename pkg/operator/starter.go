@@ -35,6 +35,7 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/metricscontroller"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
@@ -298,6 +299,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	invalidCertsController := metricscontroller.NewMetricsController(
+		"InvalidCertsController",
+		operatorClient,
+		controllerContext.EventRecorder.WithComponentSuffix("invalid-webhook-certs"),
+		"/var/run/configmaps/service-ca-bundle/service-ca.crt",
+		metricscontroller.NewLegacyCNCertsMetricsSyncFunc(
+			`sum(apiserver_kube_aggregator_x509_missing_san_total{job="apiserver",namespace="default"}) + sum(apiserver_webhooks_x509_missing_san_total{job="apiserver",namespace="default"})`,
+			operatorClient,
+		),
+	)
+
 	featureUpgradeableController := featureupgradablecontroller.NewFeatureUpgradeableController(
 		operatorClient,
 		configInformers,
@@ -381,6 +393,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
 	go kubeletVersionSkewController.Run(ctx, 1)
+	go invalidCertsController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
