@@ -101,12 +101,12 @@ func ApplyNamespaceImproved(ctx context.Context, client coreclientv1.NamespacesG
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(required, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	if !*modified {
@@ -141,12 +141,12 @@ func ApplyServiceImproved(ctx context.Context, client coreclientv1.ServicesGette
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(required, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	selectorSame := equality.Semantic.DeepEqual(existingCopy.Spec.Selector, required.Spec.Selector)
@@ -191,12 +191,12 @@ func ApplyPodImproved(ctx context.Context, client coreclientv1.PodsGetter, recor
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(required, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	if !*modified {
@@ -229,12 +229,12 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(required, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 	if !*modified {
@@ -265,12 +265,12 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(required, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	modified := resourcemerge.BoolPtr(false)
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, required.ObjectMeta)
 
@@ -344,8 +344,9 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 		return nil, false, err
 	}
 
+	existingCopy := existing.DeepCopy()
 	if cache.SafeToSkipApply(requiredInput, existing) {
-		return existing, false, nil
+		return existingCopy, false, nil
 	}
 
 	required := requiredInput.DeepCopy()
@@ -373,8 +374,6 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 	if err != nil {
 		return nil, false, err
 	}
-
-	existingCopy := existing.DeepCopy()
 
 	resourcemerge.EnsureObjectMeta(resourcemerge.BoolPtr(false), &existingCopy.ObjectMeta, required.ObjectMeta)
 
