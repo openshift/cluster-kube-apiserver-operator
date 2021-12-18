@@ -268,7 +268,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20211214141842-7bcd82848eb9
+# github.com/openshift/library-go v0.0.0-20211214141842-7bcd82848eb9 => github.com/jerpeter1/library-go v0.0.0-20211218010113-583f8a3fe641
 ## explicit; go 1.17
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -331,6 +331,8 @@ github.com/openshift/library-go/pkg/operator/staticpod
 github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod
 github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource
 github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource/bindata
+github.com/openshift/library-go/pkg/operator/staticpod/controller/guard
+github.com/openshift/library-go/pkg/operator/staticpod/controller/guard/bindata
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installer
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate
@@ -1295,3 +1297,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# github.com/openshift/library-go => github.com/jerpeter1/library-go v0.0.0-20211218010113-583f8a3fe641
