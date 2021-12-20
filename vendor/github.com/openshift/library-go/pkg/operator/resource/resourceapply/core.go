@@ -367,7 +367,7 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 		actual, err := client.Secrets(requiredCopy.Namespace).
 			Create(ctx, resourcemerge.WithCleanLabelsAndAnnotations(requiredCopy).(*corev1.Secret), metav1.CreateOptions{})
 		reportCreateEvent(recorder, requiredCopy, err)
-		cache.UpdateCachedResourceMetadata(requiredInput, actual)
+		cache.UpdateCachedResourceMetadata(required, actual)
 		return actual, true, err
 	}
 	if err != nil {
@@ -402,7 +402,7 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 	}
 
 	if equality.Semantic.DeepEqual(existingCopy, existing) {
-		cache.UpdateCachedResourceMetadata(requiredInput, existingCopy)
+		cache.UpdateCachedResourceMetadata(required, existingCopy)
 		return existing, false, nil
 	}
 
@@ -436,7 +436,7 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 	existingCopy.ResourceVersion = ""
 	actual, err = client.Secrets(required.Namespace).Create(ctx, existingCopy, metav1.CreateOptions{})
 	reportCreateEvent(recorder, existingCopy, err)
-	cache.UpdateCachedResourceMetadata(requiredInput, actual)
+	cache.UpdateCachedResourceMetadata(required, actual)
 	return actual, true, err
 }
 
