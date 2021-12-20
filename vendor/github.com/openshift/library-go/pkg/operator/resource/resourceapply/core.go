@@ -340,12 +340,14 @@ func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter,
 	// copy the stringData to data.  Error on a data content conflict inside required.  This is usually a bug.
 
 	existing, err := client.Secrets(requiredInput.Namespace).Get(ctx, requiredInput.Name, metav1.GetOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, false, err
-	}
-
-	if cache.SafeToSkipApply(requiredInput, existing) {
+	switch{
+	case !apierrors.IsNotFound(err):
+		// do nothing and fall through to create
+		case err != nil:
+			return nil, false, err
+	case  cache.SafeToSkipApply(requiredInput, existing):
 		return existing, false, nil
+
 	}
 
 	required := requiredInput.DeepCopy()

@@ -66,9 +66,15 @@ func getResourceMetadata(obj runtime.Object) (schema.GroupKind, string, string, 
 }
 
 func getResourceVersion(obj runtime.Object) (string, error) {
+	if obj == nil {
+		return "", fmt.Errorf("nil object has no resourceVersion")
+	}
 	metadata, err := meta.Accessor(obj)
 	if err != nil {
 		return "", err
+	}
+	if metadata == nil{
+		return "", fmt.Errorf("object has no metadata")
 	}
 	rv := metadata.GetResourceVersion()
 	if len(rv) == 0 {
