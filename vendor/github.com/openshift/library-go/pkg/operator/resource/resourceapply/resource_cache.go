@@ -142,7 +142,7 @@ func (c *resourceCache) SafeToSkipApply(required runtime.Object, existing runtim
 		return false
 	}
 
-	minAppliedBeforeSafe := 5
+	minAppliedBeforeSafe := 500
 	var versionMatch, hashMatch bool
 	if cached, exists := c.cache[cacheKey]; exists {
 		versionMatch = cached.resourceVersion == resourceVersion
