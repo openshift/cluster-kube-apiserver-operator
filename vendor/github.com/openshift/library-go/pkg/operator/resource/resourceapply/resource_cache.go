@@ -22,6 +22,7 @@ type cachedVersionKey struct {
 // resourceVersion is the received resourceVersion from the apiserver in response to an update that is comparable to the GET
 type cachedResource struct {
 	resourceHash, resourceVersion string
+	appliedCount                  int
 }
 
 type resourceCache struct {
@@ -101,7 +102,17 @@ func (c *resourceCache) UpdateCachedResourceMetadata(required runtime.Object, ac
 		return
 	}
 
-	c.cache[cacheKey] = cachedResource{resourceHash, resourceVersion}
+	appliedCount := 1
+	// if the cached resource matches the one being applied, then increment appliedCount
+	var versionMatch, hashMatch bool
+	if cached, exists := c.cache[cacheKey]; exists {
+		versionMatch = cached.resourceVersion == resourceVersion
+		hashMatch = cached.resourceHash == resourceHash
+		if versionMatch && hashMatch {
+			appliedCount = cached.appliedCount + 1
+		}
+	}
+	c.cache[cacheKey] = cachedResource{resourceHash, resourceVersion, appliedCount}
 	klog.V(7).Infof("updated resourceVersion of %s:%s:%s %s", name, kind, namespace, resourceVersion)
 }
 
@@ -131,11 +142,12 @@ func (c *resourceCache) SafeToSkipApply(required runtime.Object, existing runtim
 		return false
 	}
 
+	minAppliedBeforeSafe := 5
 	var versionMatch, hashMatch bool
 	if cached, exists := c.cache[cacheKey]; exists {
 		versionMatch = cached.resourceVersion == resourceVersion
 		hashMatch = cached.resourceHash == resourceHash
-		if versionMatch && hashMatch {
+		if versionMatch && hashMatch && cached.appliedCount >= minAppliedBeforeSafe {
 			klog.V(4).Infof("found matching resourceVersion & manifest hash")
 			return true
 		}
