@@ -19,6 +19,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
@@ -27,6 +28,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -62,17 +64,20 @@ type migrationController struct {
 	preRunCachesSynced       []cache.InformerSynced
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer statemachine.Deployer
-	migrator migrators.Migrator
-	provider Provider
+	deployer                 statemachine.Deployer
+	migrator                 migrators.Migrator
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
 }
 
 func NewMigrationController(
 	component string,
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	migrator migrators.Migrator,
 	operatorClient operatorv1helpers.OperatorClient,
+	apiServerConfigInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -88,66 +93,54 @@ func NewMigrationController(
 		deployer:                 deployer,
 		migrator:                 migrator,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 	}
 
-	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		migrator,
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-migration-controller"))
 }
 
-func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerDegraded", Status: operatorv1.ConditionFalse}
+	progressingCondition := &operatorv1.OperatorCondition{Type: "EncryptionMigrationControllerProgressing", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if degradedCondition == nil && progressingCondition == nil {
+			return
+		}
+		conditions := []v1helpers.UpdateStatusFunc{
+			v1helpers.UpdateConditionFn(*degradedCondition),
+			v1helpers.UpdateConditionFn(*progressingCondition),
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, conditions...); updateError != nil {
+			err = updateError
+		}
+	}()
+
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			degradedCondition = nil
+			progressingCondition = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	migratingResources, migrationError := c.migrateKeysIfNeededAndRevisionStable(syncCtx, c.provider.EncryptedGRs())
-
-	// update failing condition
-	degraded := operatorv1.OperatorCondition{
-		Type:   "EncryptionMigrationControllerDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
 	if migrationError != nil {
-		degraded.Status = operatorv1.ConditionTrue
-		degraded.Reason = "Error"
-		degraded.Message = migrationError.Error()
-	}
-
-	// update progressing condition
-	progressing := operatorv1.OperatorCondition{
-		Type:   "EncryptionMigrationControllerProgressing",
-		Status: operatorv1.ConditionFalse,
+		degradedCondition.Status = operatorv1.ConditionTrue
+		degradedCondition.Reason = "Error"
+		degradedCondition.Message = migrationError.Error()
 	}
 	if len(migratingResources) > 0 {
-		progressing.Status = operatorv1.ConditionTrue
-		progressing.Reason = "Migrating"
-		progressing.Message = fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources))
+		progressingCondition.Status = operatorv1.ConditionTrue
+		progressingCondition.Reason = "Migrating"
+		progressingCondition.Message = fmt.Sprintf("migrating resources to a new write key: %v", grsToHumanReadable(migratingResources))
 	}
-
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(degraded), operatorv1helpers.UpdateConditionFn(progressing)); updateError != nil {
-		return updateError
-	}
-
 	return migrationError
-}
-
-func (c *migrationController) setProgressing(migrating bool, reason, message string, args ...interface{}) error {
-	// update progressing condition
-	progressing := operatorv1.OperatorCondition{
-		Type:    "EncryptionMigrationControllerProgressing",
-		Status:  operatorv1.ConditionTrue,
-		Reason:  reason,
-		Message: fmt.Sprintf(message, args...),
-	}
-	if !migrating {
-		progressing.Status = operatorv1.ConditionFalse
-	}
-
-	_, _, err := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(progressing))
-	return err
 }
 
 // TODO doc

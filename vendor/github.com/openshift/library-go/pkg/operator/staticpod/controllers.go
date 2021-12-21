@@ -2,31 +2,27 @@ package staticpod
 
 import (
 	"fmt"
-
-	"github.com/openshift/library-go/pkg/controller/manager"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
-	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
+	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/controller/manager"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/node"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 )
 
 type staticPodOperatorControllerBuilder struct {
@@ -34,7 +30,6 @@ type staticPodOperatorControllerBuilder struct {
 	staticPodOperatorClient v1helpers.StaticPodOperatorClient
 	kubeClient              kubernetes.Interface
 	kubeInformers           v1helpers.KubeInformersForNamespaces
-	dynamicClient           dynamic.Interface
 	eventRecorder           events.Recorder
 
 	// resource information
@@ -45,25 +40,22 @@ type staticPodOperatorControllerBuilder struct {
 
 	// cert information
 	certDir        string
-	certConfigMaps []revisioncontroller.RevisionResource
-	certSecrets    []revisioncontroller.RevisionResource
+	certConfigMaps []installer.UnrevisionedResource
+	certSecrets    []installer.UnrevisionedResource
 
 	// versioner information
-	versionRecorder   status.VersionGetter
-	operatorNamespace string
-	operandName       string
+	versionRecorder status.VersionGetter
+	operandName     string
 
 	// installer information
 	installCommand           []string
 	installerPodMutationFunc installer.InstallerPodMutationFunc
+	minReadyDuration         time.Duration
 
 	// pruning information
 	pruneCommand []string
 	// TODO de-dupe this.  I think it's actually a directory name
 	staticPodPrefix string
-
-	// TODO: remove this after all operators get rid of service monitor controller
-	enableServiceMonitorController bool
 }
 
 func NewBuilder(
@@ -81,11 +73,11 @@ func NewBuilder(
 // Builder allows the caller to construct a set of static pod controllers in pieces
 type Builder interface {
 	WithEvents(eventRecorder events.Recorder) Builder
-	WithServiceMonitor(dynamicClient dynamic.Interface) Builder
-	WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder
-	WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder
-	WithCerts(certDir string, certConfigMaps, certSecrets []revisioncontroller.RevisionResource) Builder
+	WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder
+	WithRevisionedResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder
+	WithUnrevisionedCerts(certDir string, certConfigMaps, certSecrets []installer.UnrevisionedResource) Builder
 	WithInstaller(command []string) Builder
+	WithMinReadyDuration(minReadyDuration time.Duration) Builder
 	// WithCustomInstaller allows mutating the installer pod definition just before
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
@@ -98,22 +90,13 @@ func (b *staticPodOperatorControllerBuilder) WithEvents(eventRecorder events.Rec
 	return b
 }
 
-// DEPRECATED: We have moved all our operators now to have this manifest with customized content.
-func (b *staticPodOperatorControllerBuilder) WithServiceMonitor(dynamicClient dynamic.Interface) Builder {
-	klog.Warning("DEPRECATED: MonitoringResourceController is no longer needed")
-	b.enableServiceMonitorController = true
-	b.dynamicClient = dynamicClient
-	return b
-}
-
-func (b *staticPodOperatorControllerBuilder) WithVersioning(operatorNamespace, operandName string, versionRecorder status.VersionGetter) Builder {
-	b.operatorNamespace = operatorNamespace
+func (b *staticPodOperatorControllerBuilder) WithVersioning(operandName string, versionRecorder status.VersionGetter) Builder {
 	b.operandName = operandName
 	b.versionRecorder = versionRecorder
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder {
+func (b *staticPodOperatorControllerBuilder) WithRevisionedResources(operandNamespace, staticPodName string, revisionConfigMaps, revisionSecrets []revisioncontroller.RevisionResource) Builder {
 	b.operandNamespace = operandNamespace
 	b.staticPodName = staticPodName
 	b.revisionConfigMaps = revisionConfigMaps
@@ -121,7 +104,7 @@ func (b *staticPodOperatorControllerBuilder) WithResources(operandNamespace, sta
 	return b
 }
 
-func (b *staticPodOperatorControllerBuilder) WithCerts(certDir string, certConfigMaps, certSecrets []revisioncontroller.RevisionResource) Builder {
+func (b *staticPodOperatorControllerBuilder) WithUnrevisionedCerts(certDir string, certConfigMaps, certSecrets []installer.UnrevisionedResource) Builder {
 	b.certDir = certDir
 	b.certConfigMaps = certConfigMaps
 	b.certSecrets = certSecrets
@@ -133,6 +116,11 @@ func (b *staticPodOperatorControllerBuilder) WithInstaller(command []string) Bui
 	b.installerPodMutationFunc = func(pod *corev1.Pod, nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
 		return nil
 	}
+	return b
+}
+
+func (b *staticPodOperatorControllerBuilder) WithMinReadyDuration(minReadyDuration time.Duration) Builder {
+	b.minReadyDuration = minReadyDuration
 	return b
 }
 
@@ -205,6 +193,8 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.certSecrets,
 		).WithInstallerPodMutationFn(
 			b.installerPodMutationFunc,
+		).WithMinReadyDuration(
+			b.minReadyDuration,
 		), 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
@@ -224,7 +214,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		manager.WithController(staticpodstate.NewStaticPodStateController(
 			b.operandNamespace,
 			b.staticPodName,
-			b.operatorNamespace,
 			b.operandName,
 			operandInformers,
 			b.staticPodOperatorClient,
@@ -241,6 +230,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		manager.WithController(prune.NewPruneController(
 			b.operandNamespace,
 			b.staticPodPrefix,
+			b.certDir,
 			b.pruneCommand,
 			configMapClient,
 			secretClient,
@@ -270,18 +260,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		b.staticPodOperatorClient,
 		eventRecorder,
 	).AddKubeInformers(b.kubeInformers), 1)
-
-	if b.dynamicClient != nil && b.enableServiceMonitorController {
-		manager.WithController(monitoring.NewMonitoringResourceController(
-			b.operandNamespace,
-			b.operandNamespace,
-			b.staticPodOperatorClient,
-			operandInformers,
-			b.kubeClient,
-			b.dynamicClient,
-			eventRecorder,
-		), 1)
-	}
 
 	manager.WithController(unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.staticPodOperatorClient, eventRecorder), 1)
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)

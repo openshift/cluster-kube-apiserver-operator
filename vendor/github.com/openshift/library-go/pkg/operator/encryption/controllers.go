@@ -35,12 +35,17 @@ func NewControllers(
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretsClient corev1.SecretsGetter,
 	eventRecorder events.Recorder,
-) *Controllers {
+) (*Controllers, error) {
 	// avoid using the CachedSecretGetter as we need strong guarantees that our encryptionSecretSelector works
 	// otherwise we could see secrets from a different component (which will break our keyID invariants)
 	// this is fine in terms of performance since these controllers will be idle most of the time
 	// TODO: update the eventHandlers used by the controllers to ignore components that do not match their own
 	encryptionSecretSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + component}
+
+	encryptionEnabledChecker, err := newEncryptionEnabledPrecondition(apiServerInformer.Lister(), kubeInformersForNamespaces, encryptionSecretSelector.LabelSelector, component)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Controllers{
 		controllers: []runner{
@@ -49,6 +54,7 @@ func NewControllers(
 				unsupportedConfigPrefix,
 				provider,
 				deployer,
+				encryptionEnabledChecker.PreconditionFulfilled,
 				operatorClient,
 				apiServerClient,
 				apiServerInformer,
@@ -61,7 +67,9 @@ func NewControllers(
 				component,
 				provider,
 				deployer,
+				encryptionEnabledChecker.PreconditionFulfilled,
 				operatorClient,
+				apiServerInformer,
 				kubeInformersForNamespaces,
 				secretsClient,
 				encryptionSecretSelector,
@@ -70,7 +78,9 @@ func NewControllers(
 			controllers.NewPruneController(
 				provider,
 				deployer,
+				encryptionEnabledChecker.PreconditionFulfilled,
 				operatorClient,
+				apiServerInformer,
 				kubeInformersForNamespaces,
 				secretsClient,
 				encryptionSecretSelector,
@@ -80,8 +90,10 @@ func NewControllers(
 				component,
 				provider,
 				deployer,
+				encryptionEnabledChecker.PreconditionFulfilled,
 				migrator,
 				operatorClient,
+				apiServerInformer,
 				kubeInformersForNamespaces,
 				secretsClient,
 				encryptionSecretSelector,
@@ -90,14 +102,16 @@ func NewControllers(
 			controllers.NewConditionController(
 				provider,
 				deployer,
+				encryptionEnabledChecker.PreconditionFulfilled,
 				operatorClient,
+				apiServerInformer,
 				kubeInformersForNamespaces,
 				secretsClient,
 				encryptionSecretSelector,
 				eventRecorder,
 			),
 		},
-	}
+	}, nil
 }
 
 type Controllers struct {

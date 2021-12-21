@@ -16,6 +16,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
@@ -39,16 +40,19 @@ type pruneController struct {
 
 	encryptionSecretSelector metav1.ListOptions
 
-	deployer     statemachine.Deployer
-	provider     Provider
-	secretClient corev1client.SecretsGetter
-	name         string
+	deployer                 statemachine.Deployer
+	provider                 Provider
+	preconditionsFulfilledFn preconditionsFulfilled
+	secretClient             corev1client.SecretsGetter
+	name                     string
 }
 
 func NewPruneController(
 	provider Provider,
 	deployer statemachine.Deployer,
+	preconditionsFulfilledFn preconditionsFulfilled,
 	operatorClient operatorv1helpers.OperatorClient,
+	apiServerConfigInformer configv1informers.APIServerInformer,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
@@ -60,37 +64,42 @@ func NewPruneController(
 		encryptionSecretSelector: encryptionSecretSelector,
 		deployer:                 deployer,
 		provider:                 provider,
+		preconditionsFulfilledFn: preconditionsFulfilledFn,
 		secretClient:             secretClient,
 	}
 
-	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(
+	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithInformers(
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
 		deployer,
 	).ToController(c.name, eventRecorder.WithComponentSuffix("encryption-prune-controller"))
 }
 
-func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if ready, err := shouldRunEncryptionController(c.operatorClient, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+func (c *pruneController) sync(_ context.Context, syncCtx factory.SyncContext) (err error) {
+	degradedCondition := &operatorv1.OperatorCondition{Type: "EncryptionPruneControllerDegraded", Status: operatorv1.ConditionFalse}
+	defer func() {
+		if degradedCondition == nil {
+			return
+		}
+		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+			err = updateError
+		}
+	}()
+
+	if ready, err := shouldRunEncryptionController(c.operatorClient, c.preconditionsFulfilledFn, c.provider.ShouldRunEncryptionControllers); err != nil || !ready {
+		if err != nil {
+			degradedCondition = nil
+		}
 		return err // we will get re-kicked when the operator status updates
 	}
 
 	configError := c.deleteOldMigratedSecrets(syncCtx, c.provider.EncryptedGRs())
-
-	// update failing condition
-	cond := operatorv1.OperatorCondition{
-		Type:   "EncryptionPruneControllerDegraded",
-		Status: operatorv1.ConditionFalse,
-	}
 	if configError != nil {
-		cond.Status = operatorv1.ConditionTrue
-		cond.Reason = "Error"
-		cond.Message = configError.Error()
+		degradedCondition.Status = operatorv1.ConditionTrue
+		degradedCondition.Reason = "Error"
+		degradedCondition.Message = configError.Error()
 	}
-	if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(cond)); updateError != nil {
-		return updateError
-	}
-
 	return configError
 }
 

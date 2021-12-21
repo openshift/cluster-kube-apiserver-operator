@@ -97,7 +97,7 @@ func (c RevisionController) createRevisionIfNeeded(recorder events.Recorder, lat
 
 	nextRevision := latestAvailableRevision + 1
 	recorder.Eventf("RevisionTriggered", "new revision %d triggered by %q", nextRevision, reason)
-	if err := c.createNewRevision(recorder, nextRevision); err != nil {
+	if err := c.createNewRevision(recorder, nextRevision, reason); err != nil {
 		cond := operatorv1.OperatorCondition{
 			Type:    "RevisionControllerDegraded",
 			Status:  operatorv1.ConditionTrue,
@@ -191,7 +191,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 	return true, ""
 }
 
-func (c RevisionController) createNewRevision(recorder events.Recorder, revision int32) error {
+func (c RevisionController) createNewRevision(recorder events.Recorder, revision int32, reason string) error {
 	// Create a new InProgress status configmap
 	statusConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -201,6 +201,7 @@ func (c RevisionController) createNewRevision(recorder events.Recorder, revision
 		Data: map[string]string{
 			"status":   prune.StatusInProgress,
 			"revision": fmt.Sprintf("%d", revision),
+			"reason":   reason,
 		},
 	}
 	statusConfigMap, _, err := resourceapply.ApplyConfigMap(c.configMapGetter, recorder, statusConfigMap)
@@ -233,7 +234,6 @@ func (c RevisionController) createNewRevision(recorder events.Recorder, revision
 		Name:       statusConfigMap.Name,
 		UID:        statusConfigMap.UID,
 	}}
-
 	for _, cm := range c.configMaps {
 		obj, _, err := resourceapply.SyncConfigMap(c.configMapGetter, recorder, c.targetNamespace, cm.Name, c.targetNamespace, nameFor(cm.Name, revision), ownerRefs)
 		if err != nil {
@@ -257,8 +257,8 @@ func (c RevisionController) createNewRevision(recorder events.Recorder, revision
 }
 
 // getLatestAvailableRevision returns the latest known revision to the operator
-// This is either the LatestAvailableRevision in the status or by checking revision status configmaps
-func (c RevisionController) getLatestAvailableRevision(operatorStatus *operatorv1.OperatorStatus) (int32, error) {
+// This is determined by checking revision status configmaps.
+func (c RevisionController) getLatestAvailableRevision() (int32, error) {
 	configMaps, err := c.configMapGetter.ConfigMaps(c.targetNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return 0, err
@@ -283,11 +283,10 @@ func (c RevisionController) getLatestAvailableRevision(operatorStatus *operatorv
 }
 
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	operatorSpec, originalOperatorStatus, latestAvailableRevision, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
+	operatorSpec, _, latestAvailableRevision, resourceVersion, err := c.operatorClient.GetLatestRevisionState()
 	if err != nil {
 		return err
 	}
-	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
@@ -297,7 +296,7 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 	// or possibly the operator resource was deleted and reset back to 0, which is not what we want so check configmaps
 	if latestAvailableRevision == 0 {
 		// Check to see if current revision is accurate and if not, search through configmaps for latest revision
-		latestRevision, err := c.getLatestAvailableRevision(operatorStatus)
+		latestRevision, err := c.getLatestAvailableRevision()
 		if err != nil {
 			return err
 		}
