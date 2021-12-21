@@ -16,13 +16,13 @@ spec:
                 label_replace(rest_client_request_duration_seconds_bucket{verb="GET",url=~"https?://api-int.*"},
                   "host","$1","url","https?://([^/\\s]+).*")[5m:30s]
                 )) by (le,host,service,namespace,node)
-        - record: service:rest_client_request_duration_seconds:sum:rate
+        - record: service:rest_client_request_duration_seconds:rate5m
           expr: |
               sum(rate(
                 label_replace(rest_client_request_duration_seconds_bucket{verb="GET",url!~"https?://(api-int|\\[::1\\]|127\\.0\\.0\\.1|localhost).*"},
                   "host","$1","url","https?://([^/\\s]+).*")[5m:30s]
                 )) by (le,host,service,namespace)
-        - record: pod:rest_client_request_duration_seconds:sum:rate
+        - record: pod:rest_client_request_duration_seconds:rate5m
           expr: |
               sum(rate(
                 label_replace(rest_client_request_duration_seconds_bucket{verb="GET",url=~"https?://(\\[::1\\]|127\\.0\\.0\\.1|localhost).*"},
@@ -33,17 +33,17 @@ spec:
           labels:
             quantile: "0.99"
           expr: |
-            histogram_quantile(0.99, sum by (le) (internal_load_balancer:rest_client_request_duration_seconds:sum:rate))
+            histogram_quantile(0.99, sum by (le) (internal_load_balancer:rest_client_request_duration_seconds:rate5m))
         - record: service:rest_client_request_duration_seconds:histogram_quantile
           labels:
             quantile: "0.99"
           expr: |
-            histogram_quantile(0.99, sum by (le) (service:rest_client_request_duration_seconds:sum:rate))
+            histogram_quantile(0.99, sum by (le) (service:rest_client_request_duration_seconds:rate5m))
         - record: pod:rest_client_request_duration_seconds:histogram_quantile
           labels:
             quantile: "0.99"
           expr: |
-            histogram_quantile(0.99, sum by (le) (pod:rest_client_request_duration_seconds:sum:rate))
+            histogram_quantile(0.99, sum by (le) (pod:rest_client_request_duration_seconds:rate5m))
         # error by host and job, the rest_client metrics use the code "<error>" to aggregate
         # any non-http error and avoid cardinality problems.
         # xref: https://github.com/kubernetes/kubernetes/blob/66931c9b8f11a3f223ba1890e4f390cff74ce1a6/staging/src/k8s.io/client-go/rest/request.go#L785-L799
@@ -63,12 +63,12 @@ spec:
             / ignoring (host,service,namespace) group_left
             sum(rate(rest_client_requests_total{host=~"(\\[::1\\]|127\\.0\\.0\\.1|localhost).*"}[5m]))
         # errors by destination
-        - record: internal_load_balancer:rest_client_requests_errors:sum
+        - record: internal_load_balancer:rest_client_requests_errors:rate5m:sum
           expr: |
             sum(internal_load_balancer:rest_client_requests_errors:ratio_rate5m)
-        - record: service:rest_client_requests:errors:sum
+        - record: service:rest_client_requests:errors:rate5m:sum
           expr: |
             sum(service:rest_client_requests:errors:ratio_rate5m)
-        - record: pod:rest_client_requests:errors:sum
+        - record: pod:rest_client_requests:errors:rate5m:sum
           expr: |
             sum(pod:rest_client_requests:errors:ratio_rate5m)
