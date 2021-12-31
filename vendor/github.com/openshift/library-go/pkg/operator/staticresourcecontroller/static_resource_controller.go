@@ -64,7 +64,6 @@ type StaticResourceController struct {
 	factory          *factory.Factory
 	restMapper       meta.RESTMapper
 	categoryExpander restmapper.CategoryExpander
-	performanceCache map[resourceapply.CachedVersionKey]resourceapply.CachedResource
 }
 
 type conditionalManifests struct {
@@ -101,8 +100,7 @@ func NewStaticResourceController(
 
 		eventRecorder: eventRecorder.WithComponentSuffix(strings.ToLower(name)),
 
-		factory:          factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
-		performanceCache: make(map[resourceapply.CachedVersionKey]resourceapply.CachedResource),
+		factory: factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
 	}
 	c.WithConditionalResources(manifests, files, nil, nil)
 
@@ -253,7 +251,7 @@ func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedInd
 	return c
 }
 
-func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
+func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
@@ -279,7 +277,7 @@ func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory
 			continue
 
 		case shouldCreate:
-			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), c.performanceCache, conditionalManifest.manifests, conditionalManifest.files...)
+			directResourceResults = resourceapply.ApplyDirectly(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
 		case shouldDelete:
 			directResourceResults = resourceapply.DeleteAll(ctx, c.clients, syncContext.Recorder(), conditionalManifest.manifests, conditionalManifest.files...)
 		}
