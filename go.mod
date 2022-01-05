@@ -1,6 +1,6 @@
 module github.com/openshift/cluster-kube-apiserver-operator
 
-go 1.13
+go 1.16
 
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
@@ -33,3 +33,5 @@ require (
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/kube-storage-version-migrator v0.0.4
 )
+
+replace k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 // points to temporary-watch-reduction-patch-1.21 to pick up k/k/pull/100959
