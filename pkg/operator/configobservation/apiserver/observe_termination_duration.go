@@ -43,7 +43,7 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		//
 		// Note this is the official number we got from AWS
-		observedShutdownDelayDuration = "129s"
+		observedShutdownDelayDuration = "159s"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
@@ -105,7 +105,7 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		//   the initial 129s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
 		//   additional 60s for finishing all in-flight requests
 		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-		observedGracefulTerminationDuration = "194"
+		observedGracefulTerminationDuration = "224"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs

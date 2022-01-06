@@ -156,7 +156,7 @@ apiServerArguments:
   service-node-port-range:
     - 30000-32767
   shutdown-delay-duration:
-    - 70s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
+    - 100s # give SDN some time to converge: 30s for iptable lock contention, 25s for the second try and some seconds for AWS to update ELBs
   shutdown-send-retry-after:
   - "true"
   storage-backend:
