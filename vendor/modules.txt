@@ -220,7 +220,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20211207082558-36821c7a1fa2
+# github.com/openshift/library-go v0.0.0-20220113084649-1a3940c8c9da
 ## explicit
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -266,6 +266,7 @@ github.com/openshift/library-go/pkg/operator/eventwatch
 github.com/openshift/library-go/pkg/operator/genericoperatorclient
 github.com/openshift/library-go/pkg/operator/loglevel
 github.com/openshift/library-go/pkg/operator/management
+github.com/openshift/library-go/pkg/operator/metricscontroller
 github.com/openshift/library-go/pkg/operator/render
 github.com/openshift/library-go/pkg/operator/render/options
 github.com/openshift/library-go/pkg/operator/resource/resourceapply
@@ -323,6 +324,8 @@ github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/mo
 github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1alpha1
 # github.com/prometheus/client_golang v1.11.0
 ## explicit
+github.com/prometheus/client_golang/api
+github.com/prometheus/client_golang/api/prometheus/v1
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
