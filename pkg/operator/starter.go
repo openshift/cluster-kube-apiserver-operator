@@ -39,6 +39,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/guard"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
@@ -223,7 +224,18 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithUnrevisionedCerts("kube-apiserver-certs", CertConfigMaps, CertSecrets).
 		WithVersioning("kube-apiserver", versionRecorder).
 		WithMinReadyDuration(30*time.Second).
-		WithStartupMonitor(startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient), labels.Set{"apiserver": "true"}.AsSelector()).
+		WithStartupMonitor(startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient)).
+		WithPodDisruptionBudgetGuard(
+			"openshift-kube-apiserver-operator",
+			"cluster-kube-apiserver-operator",
+			"6443",
+			func() (bool, error) {
+				isSNO, err := guard.IsSNOCheckFnc(configInformers.Config().V1().Infrastructures().Lister())()
+				// create only when not a single node topology
+				return !isSNO, err
+			},
+		).
+		WithOperandPodLabelSelector(labels.Set{"apiserver": "true"}.AsSelector()).
 		ToControllers()
 	if err != nil {
 		return err
