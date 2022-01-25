@@ -305,7 +305,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder.WithComponentSuffix("invalid-webhook-certs"),
 		"/var/run/configmaps/service-ca-bundle/service-ca.crt",
 		metricscontroller.NewLegacyCNCertsMetricsSyncFunc(
-			`sum(apiserver_kube_aggregator_x509_missing_san_total{job="apiserver",namespace="default"}) + sum(apiserver_webhooks_x509_missing_san_total{job="apiserver",namespace="default"})`,
+			"",
+			`sum by (type) (label_replace(apiserver_webhooks_x509_missing_san_total{job="apiserver", namespace="default"}, "type", "webhooks", "", "") or label_replace(apiserver_kube_aggregator_x509_missing_san_total{job="apiserver", namespace="default"}, "type", "aggregation", "", ""))`,
 			operatorClient,
 		),
 	)
