@@ -52,11 +52,7 @@ apiServerArguments:
   feature-gates:
     - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
-    - "SupportPodPidsLimit=true"
-    - "NodeDisruptionExclusion=true"
-    - "ServiceNodeExclusion=true"
     - "DownwardAPIHugePages=true"
-    - "LegacyNodeRoleBehavior=false"
     - "PodSecurity=true"
     - "CSIMigrationAWS=false"
     - "CSIMigrationAzureDisk=false"
