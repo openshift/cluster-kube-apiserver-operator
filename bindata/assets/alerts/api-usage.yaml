@@ -16,7 +16,7 @@ spec:
               a successful upgrade to the next cluster version.
               Refer to `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` to identify the workload.
           expr: |
-            group(apiserver_requested_deprecated_apis{removed_release="1.23"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
+            group(apiserver_requested_deprecated_apis{removed_release="1.25"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
           for: 1h
           labels:
             namespace: openshift-kube-apiserver
@@ -30,7 +30,7 @@ spec:
               a successful upgrade to the next EUS cluster version.
               Refer to `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` to identify the workload.
           expr: |
-            group(apiserver_requested_deprecated_apis{removed_release=~"1\\.2[123]"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
+            group(apiserver_requested_deprecated_apis{removed_release="1.25"}) by (group,version,resource) and (sum by(group,version,resource) (rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h]))) > 0
 
           for: 1h
           labels:
