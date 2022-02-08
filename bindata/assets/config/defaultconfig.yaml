@@ -12,13 +12,13 @@ admission:
     PodSecurity:
       configuration:
         kind: PodSecurityConfiguration
-        apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+        apiVersion: pod-security.admission.config.k8s.io/v1beta1
         defaults:
           enforce: "privileged"
           enforce-version: "latest"
-          audit: "baseline"
+          audit: "restricted"
           audit-version: "latest"
-          warn: "baseline"
+          warn: "restricted"
           warn-version: "latest"
 apiServerArguments:
   allow-privileged:
@@ -42,8 +42,6 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/policy.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
-  disable-admission-plugins:
-    - PodSecurity
   enable-admission-plugins:
     - CertificateApproval
     - CertificateSigning
