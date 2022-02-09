@@ -13,6 +13,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 )
 
@@ -101,8 +102,15 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		port = fmt.Sprintf("%d", *reference.Port)
 	}
 	rootCAs := x509.NewCertPool()
-	if len(caBundle) > 0 {
+	switch {
+	case net.JoinHostPort(host, port) == "kubernetes.default.svc:443":
+		// ignore any caBundle specified and get one from the service account
+		rootCAs = serviceAccountCABundle()
+	case len(caBundle) > 0:
 		rootCAs.AppendCertsFromPEM(caBundle)
+	default:
+		// if no caBundle was specified, use the one from the service account
+		rootCAs = serviceAccountCABundle()
 	}
 	// the last error that occurred in the loop below
 	var err error
@@ -134,4 +142,18 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		break
 	}
 	return err
+}
+
+func serviceAccountCABundle() *x509.CertPool {
+	inClusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil
+	}
+	err = rest.LoadTLSFiles(inClusterConfig)
+	if err != nil {
+		return nil
+	}
+	caBundle := x509.NewCertPool()
+	caBundle.AppendCertsFromPEM(inClusterConfig.CAData)
+	return caBundle
 }
