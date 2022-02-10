@@ -3,19 +3,19 @@ package webhooksupportabilitycontroller
 const (
 	// MutatingAdmissionWebhookConfigurationDegradedType is true when there
 	// is a problem with a mutating admission webhook service.
-	MutatingAdmissionWebhookConfigurationDegradedType = "MutatingAdmissionWebhookConfigurationDegraded"
+	MutatingAdmissionWebhookConfigurationDegradedType = "MutatingAdmissionWebhookConfigurationError"
 
 	// ValidatingAdmissionWebhookConfigurationDegradedType is true when there
 	// is a problem with a validating admission webhook service.
-	ValidatingAdmissionWebhookConfigurationDegradedType = "ValidatingAdmissionWebhookConfigurationDegraded"
+	ValidatingAdmissionWebhookConfigurationDegradedType = "ValidatingAdmissionWebhookConfigurationError"
 
 	// CRDConversionWebhookConfigurationDegradedType is true when there
 	// is a problem with a custom resource definition conversion webhook service.
-	CRDConversionWebhookConfigurationDegradedType = "CRDConversionWebhookConfigurationDegraded"
+	CRDConversionWebhookConfigurationDegradedType = "CRDConversionWebhookConfigurationError"
 
 	// VirtualResourceAdmissionDegradedType is true when a dynamic admission webhook matches
 	// a virtual resource.
-	VirtualResourceAdmissionDegradedType = "VirtualResourceAdmissionDegraded"
+	VirtualResourceAdmissionDegradedType = "VirtualResourceAdmissionError"
 )
 
 const (
