@@ -353,6 +353,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			// the static pod operator used to directly set these. this removes those conditions since the static pod operator was updated.
 			// these can be removed in 4.5
 			"Available", "Progressing",
+			// webhook supportability controller used to set these but are now renamed
+			"MutatingAdmissionWebhookConfigurationDegraded",
+			"ValidatingAdmissionWebhookConfigurationDegraded",
+			"CRDConversionWebhookConfigurationDegraded",
+			"VirtualResourceAdmissionDegraded",
 		},
 		operatorClient,
 		controllerContext.EventRecorder,
