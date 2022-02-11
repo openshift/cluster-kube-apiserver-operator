@@ -35,6 +35,8 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.4
 )
 
+replace github.com/openshift/library-go => github.com/dgrisonnet/library-go v0.0.0-20220214171349-d29493785229
+
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
