@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/missingstaticpodcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -377,6 +378,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	missingStaticPodController := missingstaticpodcontroller.New(
+		operatorClient,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		controllerContext.EventRecorder)
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -408,6 +414,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go connectivityCheckController.Run(ctx, 1)
 	go kubeletVersionSkewController.Run(ctx, 1)
 	go webhookSupportabilityController.Run(ctx, 1)
+	go missingStaticPodController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
