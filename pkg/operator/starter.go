@@ -306,7 +306,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"/var/run/configmaps/service-ca-bundle/service-ca.crt",
 		metricscontroller.NewLegacyCNCertsMetricsSyncFunc(
 			"",
-			`sum by (type) (label_replace(apiserver_webhooks_x509_missing_san_total{job="apiserver", namespace="default"}, "type", "webhooks", "", "") or label_replace(apiserver_kube_aggregator_x509_missing_san_total{job="apiserver", namespace="default"}, "type", "aggregation", "", ""))`,
+			`sum by (type) (label_replace(increase(apiserver_webhooks_x509_missing_san_total{job="apiserver", namespace="default"}[30m]), "type", "webhooks", "", "") or label_replace(increase(apiserver_kube_aggregator_x509_missing_san_total{job="apiserver", namespace="default"}[30m]), "type", "aggregation", "", "")) or on() vector(0)`,
 			operatorClient,
 		),
 	)
