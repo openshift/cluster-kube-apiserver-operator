@@ -58,21 +58,23 @@ func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
 func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 	if infra, err := m.infrastructureLister.Get("cluster"); err == nil {
 		if status := infra.Status.PlatformStatus; status != nil {
-			var g prometheus.Gauge
 			var value float64 = 1
+			var region string = ""
 			switch {
 			// it is illegal to set type to empty string, so let the default case handle
 			// empty string (so we can detect it) while preserving the constant None here
 			case status.Type == configv1.NonePlatformType:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), "")
 				value = 0
-			case status.AWS != nil:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), status.AWS.Region)
-			case status.GCP != nil:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), status.GCP.Region)
-			default:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), "")
+			case status.Type == configv1.AlibabaCloudPlatformType && status.AlibabaCloud != nil:
+				region = status.AlibabaCloud.Region
+			case status.Type == configv1.AWSPlatformType && status.AWS != nil:
+				region = status.AWS.Region
+			case status.Type == configv1.GCPPlatformType && status.GCP != nil:
+				region = status.GCP.Region
+			case status.Type == configv1.PowerVSPlatformType && status.PowerVS != nil:
+				region = status.PowerVS.Region
 			}
+			g := m.cloudProvider.WithLabelValues(string(status.Type), region)
 			g.Set(value)
 			ch <- g
 		}
