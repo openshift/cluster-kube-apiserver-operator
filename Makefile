@@ -100,3 +100,9 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 .PHONY: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
+
+ALERT_MANIFESTS := bindata/assets/alerts
+.PHONY: generate
+generate:
+	jsonnet -J jsonnet/vendor -m $(ALERT_MANIFESTS) jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | gojsontoyaml > {}.yaml' -- {}
+	find $(ALERT_MANIFESTS) -type f ! -name '*.yaml' -delete
