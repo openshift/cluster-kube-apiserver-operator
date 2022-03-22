@@ -10,548 +10,659 @@ metadata:
 data:
   api-client-go.json: |-
     {
-      "annotations": {
-        "list": [
+       "__inputs": [ ],
+       "__requires": [ ],
+       "annotations": {
+          "list": [ ]
+       },
+       "editable": false,
+       "gnetId": null,
+       "graphTooltip": 0,
+       "hideControls": false,
+       "id": null,
+       "links": [ ],
+       "refresh": "10s",
+       "rows": [
           {
-            "builtIn": 1,
-            "datasource": "-- Grafana --",
-            "enable": true,
-            "hide": true,
-            "iconColor": "rgba(0, 211, 255, 1)",
-            "name": "Annotations & Alerts",
-            "type": "dashboard"
+             "collapse": false,
+             "collapsed": false,
+             "panels": [
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 2,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "sum(rate(rest_client_requests_total{cluster=\"$cluster\", code=~\"$code\", host=~\"$host\",method=~\"$verb\"}[$__rate_interval])) by (cluster, code, host)",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{cluster}} {{code}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Request rate",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "ops",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "ops",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                },
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 3,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "sum(rate(rest_client_requests_total{cluster=\"$cluster\", code=\"<error>\", host=~\"$host\",method=~\"$verb\"}[$__rate_interval])) by (cluster, host) / sum(rate(rest_client_requests_total{cluster=\"$cluster\"}[$__rate_interval])) by (cluster) ",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{cluster}} {{code}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Request network error rate",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "ops",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "ops",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                }
+             ],
+             "repeat": null,
+             "repeatIteration": null,
+             "repeatRowId": null,
+             "showTitle": false,
+             "title": "Dashboard Row",
+             "titleSize": "h6",
+             "type": "row"
+          },
+          {
+             "collapse": false,
+             "collapsed": false,
+             "panels": [
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 4,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "histogram_quantile(0.99, sum(rate(rest_client_request_duration_seconds_bucket{cluster=\"$cluster\", host=~\"$host\", verb=~\"$verb\"}[$__rate_interval])) by (verb, host, le))",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{verb}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Request duration 99th quantile",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                },
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 5,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "histogram_quantile(0.99, sum(rate(rest_client_rate_limiter_duration_seconds_bucket{cluster=\"$cluster\", host=~\"$host\", verb=~\"$verb\"}[$__rate_interval])) by (verb, host, le))",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{verb}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Rate Limiter duration 99th quantile",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                }
+             ],
+             "repeat": null,
+             "repeatIteration": null,
+             "repeatRowId": null,
+             "showTitle": false,
+             "title": "Dashboard Row",
+             "titleSize": "h6",
+             "type": "row"
+          },
+          {
+             "collapse": false,
+             "collapsed": false,
+             "panels": [
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 6,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "histogram_quantile(0.99, sum(rate(rest_client_request_size_bytes_bucket{cluster=\"$cluster\", host=~\"$host\", verb=~\"$verb\"}[$__rate_interval])) by (verb, host, le))",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{verb}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Request size 99th quantile",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                },
+                {
+                   "aliasColors": { },
+                   "bars": false,
+                   "dashLength": 10,
+                   "dashes": false,
+                   "datasource": "$datasource",
+                   "fill": 1,
+                   "fillGradient": 0,
+                   "gridPos": { },
+                   "id": 7,
+                   "interval": "1m",
+                   "legend": {
+                      "alignAsTable": true,
+                      "avg": false,
+                      "current": true,
+                      "max": false,
+                      "min": false,
+                      "rightSide": true,
+                      "show": true,
+                      "sideWidth": null,
+                      "total": false,
+                      "values": true
+                   },
+                   "lines": true,
+                   "linewidth": 1,
+                   "links": [ ],
+                   "nullPointMode": "null",
+                   "percentage": false,
+                   "pointradius": 5,
+                   "points": false,
+                   "renderer": "flot",
+                   "repeat": null,
+                   "seriesOverrides": [ ],
+                   "spaceLength": 10,
+                   "stack": false,
+                   "steppedLine": false,
+                   "targets": [
+                      {
+                         "expr": "histogram_quantile(0.99, sum(rate(rest_client_response_size_bytes{cluster=\"$cluster\", host=~\"$host\", verb=~\"$verb\"}[$__rate_interval])) by (verb, host, le))",
+                         "format": "time_series",
+                         "intervalFactor": 2,
+                         "legendFormat": "{{verb}} {{host}}",
+                         "refId": "A"
+                      }
+                   ],
+                   "thresholds": [ ],
+                   "timeFrom": null,
+                   "timeShift": null,
+                   "title": "Response size 99th quantile",
+                   "tooltip": {
+                      "shared": false,
+                      "sort": 0,
+                      "value_type": "individual"
+                   },
+                   "type": "graph",
+                   "xaxis": {
+                      "buckets": null,
+                      "mode": "time",
+                      "name": null,
+                      "show": true,
+                      "values": [ ]
+                   },
+                   "yaxes": [
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      },
+                      {
+                         "format": "s",
+                         "label": null,
+                         "logBase": 1,
+                         "max": null,
+                         "min": null,
+                         "show": true
+                      }
+                   ]
+                }
+             ],
+             "repeat": null,
+             "repeatIteration": null,
+             "repeatRowId": null,
+             "showTitle": false,
+             "title": "Dashboard Row",
+             "titleSize": "h6",
+             "type": "row"
           }
-        ]
-      },
-      "description": "Client-go metrics",
-      "editable": true,
-      "fiscalYearStartMonth": 0,
-      "graphTooltip": 0,
-      "id": 1,
-      "iteration": 1646386012025,
-      "links": [],
-      "liveNow": false,
-      "panels": [
-        {
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
+       ],
+       "schemaVersion": 14,
+       "style": "dark",
+       "tags": [
+          "kubernetes-mixin"
+       ],
+       "templating": {
+          "list": [
+             {
+                "current": {
+                   "text": "default",
+                   "value": "default"
                 },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 0
-          },
-          "id": 2,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(rate(rest_client_requests_total{code=~\"$http_code\",host=~\"$host\",method=~\"$http_verb\"}[$__rate_interval])) by (code,host)",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
+                "hide": 0,
+                "label": "Data Source",
+                "name": "datasource",
+                "options": [ ],
+                "query": "prometheus",
+                "refresh": 1,
+                "regex": "",
+                "type": "datasource"
+             },
+             {
+                "allValue": null,
+                "current": { },
+                "datasource": "$datasource",
+                "hide": 0,
+                "includeAll": true,
+                "label": "host",
+                "multi": false,
+                "name": "host",
+                "options": [ ],
+                "query": "label_values(cluster=\"$cluster\", host)",
+                "refresh": 2,
+                "regex": "",
+                "sort": 1,
+                "tagValuesQuery": "",
+                "tags": [ ],
+                "tagsQuery": "",
+                "type": "query",
+                "useTags": false
+             },
+             {
+                "allValue": null,
+                "current": { },
+                "datasource": "$datasource",
+                "hide": 0,
+                "includeAll": true,
+                "label": "verb",
+                "multi": false,
+                "name": "verb",
+                "options": [ ],
+                "query": "label_values(cluster=\"$cluster\", verb)",
+                "refresh": 2,
+                "regex": "",
+                "sort": 1,
+                "tagValuesQuery": "",
+                "tags": [ ],
+                "tagsQuery": "",
+                "type": "query",
+                "useTags": false
+             },
+             {
+                "allValue": null,
+                "current": { },
+                "datasource": "$datasource",
+                "hide": 0,
+                "includeAll": true,
+                "label": "code",
+                "multi": false,
+                "name": "code",
+                "options": [ ],
+                "query": "label_values(cluster=\"$cluster\", code)",
+                "refresh": 2,
+                "regex": "",
+                "sort": 1,
+                "tagValuesQuery": "",
+                "tags": [ ],
+                "tagsQuery": "",
+                "type": "query",
+                "useTags": false
+             }
+          ]
+       },
+       "time": {
+          "from": "now-1h",
+          "to": "now"
+       },
+       "timepicker": {
+          "refresh_intervals": [
+             "5s",
+             "10s",
+             "30s",
+             "1m",
+             "5m",
+             "15m",
+             "30m",
+             "1h",
+             "2h",
+             "1d"
           ],
-          "title": "client-go: Requests Rate Per Host and Code and Verb",
-          "type": "timeseries"
-        },
-        {
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 0
-          },
-          "id": 3,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(rate(rest_client_requests_total{code=\"<error>\",host=~\"$host\",method=~\"$http_verb\"}[$__rate_interval])) by (host) / sum(rate(rest_client_requests_total[$__rate_interval])) by (host)",
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "client-go: Requests Networking Error Rate Per Host and Verb",
-          "type": "timeseries"
-        },
-        {
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 8
-          },
-          "id": 5,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "histogram_quantile(0.95,sum(rate(rest_client_request_duration_seconds_bucket{verb=~\"$http_verb\",host=~\"$host\"}[$__rate_interval])) by (le,host,verb))",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "client-go: Request p95 Latency per Host and Verb (sec)",
-          "type": "timeseries"
-        },
-        {
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 8
-          },
-          "id": 6,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "histogram_quantile(0.95,sum(rate(rest_client_rate_limiter_duration_seconds_bucket{verb=~\"$http_verb\",host=~\"$host\"}[$__rate_interval])) by (le,host,verb))",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "client-go: Request Rate Limiter p95 Latency per Host and Verb (sec)",
-          "type": "timeseries"
-        },
-        {
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 16
-          },
-          "id": 7,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "histogram_quantile(0.95,sum(rate(rest_client_request_size_bytes_bucket{verb=~\"$http_verb\",host=~\"$host\"}[$__rate_interval])) by (le,host,verb)) / 1024",
-              "hide": false,
-              "instant": false,
-              "interval": "",
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "client-go: Request p95 Size per Host and Verb (kb)",
-          "type": "timeseries"
-        }
-      ],
-      "refresh": false,
-      "schemaVersion": 33,
-      "style": "dark",
-      "tags": [],
-      "templating": {
-        "list": [
-          {
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "definition": "label_values(code)",
-            "description": "http response status code ",
-            "hide": 0,
-            "includeAll": true,
-            "label": "code",
-            "multi": true,
-            "name": "http_code",
-            "options": [],
-            "query": {
-              "query": "label_values(code)",
-              "refId": "StandardVariableQuery"
-            },
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "definition": "label_values(host)",
-            "description": "URL host",
-            "hide": 0,
-            "includeAll": true,
-            "label": "host",
-            "multi": true,
-            "name": "host",
-            "options": [],
-            "query": {
-              "query": "label_values(host)",
-              "refId": "StandardVariableQuery"
-            },
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          },
-          {
-            "current": {
-              "selected": true,
-              "text": [
-                "All"
-              ],
-              "value": [
-                "$__all"
-              ]
-            },
-            "definition": "label_values(verb)",
-            "description": "http request verb",
-            "hide": 0,
-            "includeAll": true,
-            "label": "verb",
-            "multi": true,
-            "name": "http_verb",
-            "options": [],
-            "query": {
-              "query": "label_values(verb)",
-              "refId": "StandardVariableQuery"
-            },
-            "refresh": 1,
-            "regex": "",
-            "skipUrlSync": false,
-            "sort": 0,
-            "type": "query"
-          }
-        ]
-      },
-      "time": {
-        "from": "now-30m",
-        "to": "now"
-      },
-      "timepicker": {
-        "refresh_intervals": [
-          "5s",
-          "10s",
-          "30s",
-          "1m",
-          "5m",
-          "15m",
-          "30m",
-          "1h",
-          "2h",
-          "1d"
-        ]
-      },
-      "timezone": "",
-      "title": "Client Go",
-      "uid": "9VbZucY7k",
-      "version": 7,
-      "weekStart": ""
+          "time_options": [
+             "5m",
+             "15m",
+             "1h",
+             "6h",
+             "12h",
+             "24h",
+             "2d",
+             "7d",
+             "30d"
+          ]
+       },
+       "timezone": "UTC",
+       "title": "Kubernetes / Client-go",
+       "uid": "388568a8c7852e2be9ebe6a5279a41c6",
+       "version": 0
     }
