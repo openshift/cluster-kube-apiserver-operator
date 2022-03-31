@@ -3,6 +3,8 @@ kind: PrometheusRule
 metadata:
   name: cpu-utilization
   namespace: openshift-kube-apiserver
+  annotations:
+    release.openshift.io/delete: "true"
 spec:
   groups:
     - name: control-plane-cpu-utilization
