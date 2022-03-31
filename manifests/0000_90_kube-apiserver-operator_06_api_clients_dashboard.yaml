@@ -9,7 +9,7 @@ metadata:
     console.openshift.io/dashboard: 'true'
 data:
   api-client-go.json: |-
-    {
+{
        "__inputs": [ ],
        "__requires": [ ],
        "annotations": {
@@ -580,7 +580,7 @@ data:
                 "multi": false,
                 "name": "host",
                 "options": [ ],
-                "query": "label_values(cluster=\"$cluster\", host)",
+                "query": "label_values(rest_client_requests_total{cluster=\"$cluster\"}, host)",
                 "refresh": 2,
                 "regex": "",
                 "sort": 1,
@@ -600,7 +600,7 @@ data:
                 "multi": false,
                 "name": "verb",
                 "options": [ ],
-                "query": "label_values(cluster=\"$cluster\", verb)",
+                "query": "label_values(rest_client_requests_total{cluster=\"$cluster\"}, verb)",
                 "refresh": 2,
                 "regex": "",
                 "sort": 1,
@@ -620,7 +620,7 @@ data:
                 "multi": false,
                 "name": "code",
                 "options": [ ],
-                "query": "label_values(cluster=\"$cluster\", code)",
+                "query": "label_values(rest_client_requests_total{cluster=\"$cluster\"}, code)",
                 "refresh": 2,
                 "regex": "",
                 "sort": 1,
@@ -666,3 +666,4 @@ data:
        "uid": "388568a8c7852e2be9ebe6a5279a41c6",
        "version": 0
     }
+ 
