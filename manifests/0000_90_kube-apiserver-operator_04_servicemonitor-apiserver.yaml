@@ -137,4 +137,4 @@ spec:
       # The following query gives us maximum peak of the apiserver concurrency over a 2-minute window.
     - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
       expr: |
-        max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,requestKind)[2m:])
+        max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,request_kind)[2m:])
