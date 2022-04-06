@@ -24,9 +24,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
-
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
 
@@ -50,9 +47,14 @@ func TestNamedCertificates(t *testing.T) {
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// before starting our test make sure that all apis are on the same revision
 	// a previous test might have triggered a new revision and failed
-	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+	revision, err := test.WaitForAPIServerPodsToStabilizeOnRevision(ctx, kubeClient, test.AnyRevision())
+	require.NoError(t, err)
+	t.Logf("initial revision: %d", revision)
 
 	// create secrets for named serving certificates
 	for _, info := range testCertInfoById {
@@ -205,7 +207,9 @@ func TestNamedCertificates(t *testing.T) {
 	}
 
 	// wait until a new version has been rolled out with the new configuration
-	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+	revision, err = test.WaitForAPIServerPodsToStabilizeOnRevision(ctx, kubeClient, test.LaterRevisionThan(revision))
+	require.NoError(t, err)
+	t.Logf("starting tests with revision %d", revision)
 
 	// execute test cases
 	for _, tc := range testCases {
