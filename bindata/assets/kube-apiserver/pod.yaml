@@ -183,7 +183,6 @@ spec:
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
     args:
-    - --insecure-port=6080
     - --delegate-url=https://localhost:6443/readyz
     ports:
     - containerPort: 6080
