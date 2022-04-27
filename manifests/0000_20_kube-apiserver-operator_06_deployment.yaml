@@ -24,10 +24,19 @@ spec:
       labels:
         app: kube-apiserver-operator
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
       automountServiceAccountToken: false # here to prevent deadlock, remove in 4.9
       serviceAccountName: kube-apiserver-operator
       containers:
       - name: kube-apiserver-operator
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
         imagePullPolicy: IfNotPresent
         ports:
