@@ -24,8 +24,9 @@ func readAllYaml(path string, t *testing.T) {
 			!strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml") &&
 			// there is an alert message containing $labels strings that cause the reader to fail.
 			!strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml") &&
-			// there is an alert message containing $labels strings that cause the reader to fail.
+			// these are alerts with messages containing $labels strings that cause the reader to fail.
 			!strings.HasSuffix(info.Name(), "api-usage.yaml") &&
+			!strings.HasSuffix(info.Name(), "kube-apiserver-webhook.yaml") &&
 			// the kas's pod manifest contains go template values and fails compilation
 			!strings.HasSuffix(info.Name(), "pod.yaml")
 

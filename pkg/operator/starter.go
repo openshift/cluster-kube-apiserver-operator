@@ -153,6 +153,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"assets/alerts/cpu-utilization.yaml",
 		"assets/alerts/kube-apiserver-requests.yaml",
 		"assets/alerts/kube-apiserver-slos-basic.yaml",
+		"assets/alerts/kube-apiserver-webhook.yaml",
 	}
 	infrastructure, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {

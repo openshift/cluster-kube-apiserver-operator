@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: webhooks
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: webhooks
+      rules:
+        - alert: HighAdmissionWebhookLatency
+          annotations:
+            summary: Webhook Latency is high.
+            description: >-
+              The maximum latency of the {{ $labels.name }} (type="{{ $labels.type }}") webhook 
+              has been over 1s for the past five minutes. Review the logs of the webhook workload to 
+              determine the cause of the high latency.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/HighAdmissionWebhookLatency.md
+          expr: |
+            histogram_quantile(0.99, 
+              sum by (le,name)(
+                rate(apiserver_admission_webhook_admission_duration_seconds_bucket[5m])
+              )
+            ) > 1
+          for: 10m
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: critical
