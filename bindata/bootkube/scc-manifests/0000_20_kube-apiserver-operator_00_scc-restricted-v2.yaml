@@ -33,7 +33,7 @@ runAsUser:
   type: MustRunAsRange
 seLinuxContext:
   type: MustRunAs
-seccompProfile:
+seccompProfiles:
 - runtime/default
 supplementalGroups:
   type: RunAsAny
