@@ -75,13 +75,13 @@ In the running cluster [cluster-version-operator](https://github.com/openshift/c
 for maintaining functioning and non-altered elements.  In that case to be able to use custom operator image one has to
 perform one of these operations:
 
-1. Set your operator in umanaged state, see [here](https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusterversion.md) for details, in short:
+1. Set your operator in umanaged state, see [here](https://github.com/openshift/enhancements/blob/master/dev-guide/cluster-version-operator/dev/clusterversion.md) for details, in short:
 
 ```
 oc patch clusterversion/version --type='merge' -p "$(cat <<- EOF
 spec:
   overrides:
-  - group: apps/v1
+  - group: apps
     kind: Deployment
     name: kube-apiserver-operator
     namespace: openshift-kube-apiserver-operator
