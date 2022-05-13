@@ -20,6 +20,7 @@ type Listers struct {
 	InfrastructureLister_ configlistersv1.InfrastructureLister
 	ImageConfigLister     configlistersv1.ImageLister
 	NetworkLister         configlistersv1.NetworkLister
+	NodeLister_           configlistersv1.NodeLister
 	ProxyLister_          configlistersv1.ProxyLister
 	SchedulerLister       configlistersv1.SchedulerLister
 
@@ -53,6 +54,10 @@ func (l Listers) SecretLister() corelistersv1.SecretLister {
 
 func (l Listers) ConfigSecretLister() corelistersv1.SecretLister {
 	return l.ConfigSecretLister_
+}
+
+func (l Listers) NodeLister() configlistersv1.NodeLister {
+	return l.NodeLister_
 }
 
 func (l Listers) ProxyLister() configlistersv1.ProxyLister {

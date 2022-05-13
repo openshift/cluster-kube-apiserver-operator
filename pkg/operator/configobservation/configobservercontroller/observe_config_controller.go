@@ -10,6 +10,7 @@ import (
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	nodeobserver "github.com/openshift/library-go/pkg/operator/configobserver/node"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	encryption "github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -22,6 +23,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
@@ -33,7 +35,7 @@ type ConfigObserver struct {
 }
 
 func NewConfigObserver(
-	operatorClient v1helpers.OperatorClient,
+	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
@@ -63,6 +65,7 @@ func NewConfigObserver(
 		configInformer.Config().V1().Authentications().Informer(),
 		configInformer.Config().V1().APIServers().Informer(),
 		configInformer.Config().V1().Networks().Informer(),
+		configInformer.Config().V1().Nodes().Informer(),
 		configInformer.Config().V1().Proxies().Informer(),
 		configInformer.Config().V1().Schedulers().Informer(),
 	}
@@ -81,6 +84,7 @@ func NewConfigObserver(
 				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
 				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
 				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
+				NodeLister_:           configInformer.Config().V1().Nodes().Lister(),
 				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
@@ -101,6 +105,7 @@ func NewConfigObserver(
 					configInformer.Config().V1().Images().Informer().HasSynced,
 					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
 					configInformer.Config().V1().Networks().Informer().HasSynced,
+					configInformer.Config().V1().Nodes().Informer().HasSynced,
 					configInformer.Config().V1().OAuths().Informer().HasSynced,
 					configInformer.Config().V1().Proxies().Informer().HasSynced,
 					configInformer.Config().V1().Schedulers().Informer().HasSynced,
@@ -138,6 +143,14 @@ func NewConfigObserver(
 			network.ObserveServicesSubnet,
 			network.ObserveExternalIPPolicy,
 			network.ObserveServicesNodePortRange,
+			nodeobserver.NewLatencyProfileObserver(
+				node.LatencyConfigs,
+				nodeobserver.NewSuppressConfigUpdateUntilSameProfileFunc(
+					operatorClient,
+					kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
+					node.LatencyConfigs,
+				),
+			),
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,

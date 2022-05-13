@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/featureupgradablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
@@ -36,6 +37,7 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
@@ -255,6 +257,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			{Group: "admissionregistration.k8s.io", Resource: "validatingwebhookconfigurations"},
 			{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-kube-apiserver"},
 			{Group: "apiserver.openshift.io", Resource: "apirequestcounts"},
+			{Group: "config.openshift.io", Resource: "nodes", Name: "cluster"},
 		},
 
 		configClient.ConfigV1(),
@@ -369,6 +372,19 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	latencyProfileController := latencyprofilecontroller.NewLatencyProfileController(
+		operatorClient,
+		operatorclient.TargetNamespace,
+		node.LatencyConfigs,
+		latencyprofilecontroller.NewInstallerRevisionConfigMatcher(
+			kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
+			node.LatencyConfigs,
+		),
+		configInformers.Config().V1().Nodes(),
+		kubeInformersForNamespaces,
+		controllerContext.EventRecorder,
+	)
+
 	webhookSupportabilityController := webhooksupportabilitycontroller.NewWebhookSupportabilityController(
 		operatorClient,
 		kubeInformersForNamespaces,
@@ -406,6 +422,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go staleConditionsController.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
 	go kubeletVersionSkewController.Run(ctx, 1)
+	go latencyProfileController.Run(ctx, 1)
 	go webhookSupportabilityController.Run(ctx, 1)
 
 	<-ctx.Done()
