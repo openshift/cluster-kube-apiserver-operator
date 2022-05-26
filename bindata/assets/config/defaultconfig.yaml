@@ -20,6 +20,15 @@ admission:
           audit-version: "latest"
           warn: "restricted"
           warn-version: "latest"
+        exemptions:
+          usernames:
+          # The build controller creates pods that are likely to be privileged
+          # based on BuildConfig objects. Access to these build pods is however
+          # still limited by the SCC exec admission and so we can safely add the
+          # build-controller SA here.
+          # This configuration should never be exposed to cluster users as no
+          # such guarantees are made for any other OpenShift SA/user.
+          - system:serviceaccount:openshift-infra:build-controller
 apiServerArguments:
   allow-privileged:
     - "true"
