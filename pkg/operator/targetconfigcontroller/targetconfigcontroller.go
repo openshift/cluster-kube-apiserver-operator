@@ -412,25 +412,21 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	return envVars
 }
 
-func gracefulTerminationDurationFromConfig(operatorSpec *operatorv1.StaticPodOperatorSpec) (int, error) {
+func gracefulTerminationDurationFromConfig(config map[string]interface{}) (int, error) {
+	// 135s is our default value
+	//   the initial 70s is reserved fo the minimal termination period
+	//   additional 60s for finishing all in-flight requests
+	//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
+	const defaultDuration = 135
+
 	var gracefulTerminationDurationPath = []string{"gracefulTerminationDuration"}
 
-	mergedConfigs, err := resourcemerge.MergeProcessConfig(map[string]resourcemerge.MergeFunc{}, operatorSpec.ObservedConfig.Raw, operatorSpec.UnsupportedConfigOverrides.Raw)
-	if err != nil {
-		return 0, err
-	}
-
-	// read the watch termination from the observed configuration
-	observedConfig := map[string]interface{}{}
-	if err := json.NewDecoder(bytes.NewBuffer(mergedConfigs)).Decode(&observedConfig); err != nil {
-		return 0, err
-	}
-	observedGracefulTerminationDurationStr, _, err := unstructured.NestedString(observedConfig, gracefulTerminationDurationPath...)
+	observedGracefulTerminationDurationStr, _, err := unstructured.NestedString(config, gracefulTerminationDurationPath...)
 	if err != nil {
 		return 0, fmt.Errorf("unable to extract gracefulTerminationDuration from the observed config: %v, path = %v", err, gracefulTerminationDurationPath)
 	}
 	if len(observedGracefulTerminationDurationStr) == 0 {
-		return 0, nil
+		return defaultDuration, nil
 	}
 	observedGracefulTerminationDuration, err := strconv.Atoi(observedGracefulTerminationDurationStr)
 	if err != nil {
@@ -440,12 +436,56 @@ func gracefulTerminationDurationFromConfig(operatorSpec *operatorv1.StaticPodOpe
 	return observedGracefulTerminationDuration, nil
 }
 
+func gogcFromConfig(config map[string]interface{}) (int, error) {
+	var gcPercentagePath = []string{"garbageCollectionTargetPercentage"}
+
+	gcPercentage, ok, err := unstructured.NestedString(config, gcPercentagePath...)
+	if err != nil {
+		return 0, fmt.Errorf("unable to extract %q from the observed config: %v", strings.Join(gcPercentagePath, "."), err)
+	}
+	if !ok {
+		return 100, nil
+	}
+
+	// We won't pass along arbitrary GOGC values (like "off"). The configured
+	// garbageCollectionTargetPercentage must be a percentage.
+	gogc, err := strconv.Atoi(gcPercentage)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse observed value of %v: %v", strings.Join(gcPercentagePath, "."), err)
+	}
+
+	// clamped to [63, 100] to limit surprises
+	if gogc > 100 {
+		gogc = 100
+	}
+	if gogc < 63 {
+		gogc = 63
+	}
+
+	return gogc, nil
+}
+
 type kasTemplate struct {
 	Image                         string
 	OperatorImage                 string
 	Verbosity                     string
 	GracefulTerminationDuration   int
 	SetupContainerTimeoutDuration int
+	GOGC                          int
+}
+
+func effectiveConfiguration(spec *operatorv1.StaticPodOperatorSpec) (map[string]interface{}, error) {
+	encodedMergedConfig, err := resourcemerge.MergeProcessConfig(map[string]resourcemerge.MergeFunc{}, spec.ObservedConfig.Raw, spec.UnsupportedConfigOverrides.Raw)
+	if err != nil {
+		return nil, err
+	}
+
+	effectiveConfig := map[string]interface{}{}
+	if err := json.NewDecoder(bytes.NewBuffer(encodedMergedConfig)).Decode(&effectiveConfig); err != nil {
+		return nil, err
+	}
+
+	return effectiveConfig, nil
 }
 
 func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
@@ -463,18 +503,19 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		verbosity = fmt.Sprintf(" -v=%d", 2)
 	}
 
-	gracefulTerminationDuration, err := gracefulTerminationDurationFromConfig(operatorSpec)
+	config, err := effectiveConfiguration(operatorSpec)
 	if err != nil {
 		return "", err
 	}
 
-	if gracefulTerminationDuration == 0 {
-		// apply a default value
-		// 135s is our default value
-		//   the initial 70s is reserved fo the minimal termination period
-		//   additional 60s for finishing all in-flight requests
-		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-		gracefulTerminationDuration = 135
+	gracefulTerminationDuration, err := gracefulTerminationDurationFromConfig(config)
+	if err != nil {
+		return "", err
+	}
+
+	gogc, err := gogcFromConfig(config)
+	if err != nil {
+		return "", err
 	}
 
 	tmplVal := kasTemplate{
@@ -484,6 +525,7 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		GracefulTerminationDuration: gracefulTerminationDuration,
 		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
 		SetupContainerTimeoutDuration: gracefulTerminationDuration + 80 + 5,
+		GOGC:                          gogc,
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {
