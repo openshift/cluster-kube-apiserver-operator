@@ -172,6 +172,49 @@ func TestManageTemplate(t *testing.T) {
 				UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(configWithOverriddenWatchTerminationDuration)},
 			}},
 		},
+		{
+			name:     "default value provided for gogc",
+			template: "{{.GOGC}}",
+			golden:   "100",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+				},
+			},
+		},
+		{
+			name:     "gogc from unsupportedConfigOverrides",
+			template: "{{.GOGC}}",
+			golden:   "76",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig:             runtime.RawExtension{Raw: []byte(`{}`)},
+					UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(`{"garbageCollectionTargetPercentage":"76"}`)},
+				},
+			},
+		},
+		{
+			name:     "gogc from unsupportedConfigOverrides clamped to lower bound",
+			template: "{{.GOGC}}",
+			golden:   "63",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig:             runtime.RawExtension{Raw: []byte(`{}`)},
+					UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(`{"garbageCollectionTargetPercentage":"62"}`)},
+				},
+			},
+		},
+		{
+			name:     "gogc from unsupportedConfigOverrides clamped to upper bound",
+			template: "{{.GOGC}}",
+			golden:   "100",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig:             runtime.RawExtension{Raw: []byte(`{}`)},
+					UnsupportedConfigOverrides: runtime.RawExtension{Raw: []byte(`{"garbageCollectionTargetPercentage":"101"}`)},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {

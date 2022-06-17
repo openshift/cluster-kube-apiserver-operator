@@ -127,6 +127,8 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: status.hostIP
+      - name: GOGC
+        value: "{{ .GOGC }}"
     securityContext:
       privileged: true
   - name: kube-apiserver-cert-syncer
