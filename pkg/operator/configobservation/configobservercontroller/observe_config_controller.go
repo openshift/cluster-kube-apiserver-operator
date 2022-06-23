@@ -145,11 +145,13 @@ func NewConfigObserver(
 			network.ObserveServicesNodePortRange,
 			nodeobserver.NewLatencyProfileObserver(
 				node.LatencyConfigs,
-				nodeobserver.NewSuppressConfigUpdateUntilSameProfileFunc(
-					operatorClient,
-					kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
-					node.LatencyConfigs,
-				),
+				[]nodeobserver.ShouldSuppressConfigUpdatesFunc{
+					nodeobserver.NewSuppressConfigUpdateUntilSameProfileFunc(
+						operatorClient,
+						kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
+						node.LatencyConfigs,
+					),
+				},
 			),
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
