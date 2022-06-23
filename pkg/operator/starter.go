@@ -375,7 +375,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	latencyProfileController := latencyprofilecontroller.NewLatencyProfileController(
 		operatorClient,
 		operatorclient.TargetNamespace,
-		node.LatencyConfigs,
+		nil, // profile rejection logic is not required for this operator
 		latencyprofilecontroller.NewInstallerRevisionConfigMatcher(
 			kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
 			node.LatencyConfigs,
