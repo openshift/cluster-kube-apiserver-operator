@@ -18,7 +18,7 @@ spec:
           Refer to Kubernetes documentation on Pod Security Admission to learn more about these
           violations.
       expr: |
-        sum(increase(pod_security_evaluations_total{decision="deny",mode="audit"}[1d])) by (policy_level) > 0
+        sum(increase(pod_security_evaluations_total{decision="deny",mode="audit",resource="pod"}[1d])) by (policy_level) > 0
       labels:
         namespace: openshift-kube-apiserver
         severity: info
