@@ -125,12 +125,14 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		if err != nil {
 			if i != 2 {
 				// log err since only last one is reported
-				runtime.HandleError(err)
+				runtime.HandleError(fmt.Errorf("failed (%dx) to connect to service %s/%s (%s:%s): %w", i, reference.Namespace, reference.Name, host, port, err))
 			}
 			continue
 		}
 		// error from closing connection should not affect Degraded condition
-		runtime.HandleError(conn.Close())
+		if err := conn.Close(); err != nil {
+			runtime.HandleError(fmt.Errorf("failed to close connection to service %s/%s (%s:%s): %w", reference.Namespace, reference.Name, host, port, err))
+		}
 		break
 	}
 	return err
