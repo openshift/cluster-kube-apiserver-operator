@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
-	github.com/blang/semver v3.5.1+incompatible
+	github.com/blang/semver/v4 v4.0.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/foxcpp/go-mockdns v0.0.0-20210729171921-fb145fc6f897
 	github.com/ghodss/yaml v1.0.0
@@ -35,13 +35,12 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.4
 )
 
-require github.com/blang/semver/v4 v4.0.0
-
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
