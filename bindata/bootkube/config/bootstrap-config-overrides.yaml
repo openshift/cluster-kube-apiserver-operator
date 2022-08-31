@@ -53,10 +53,7 @@ apiServerArguments:
     - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
     - "DownwardAPIHugePages=true"
-    - "PodSecurity=true"
-    - "CSIMigrationAWS=false"
     - "CSIMigrationAzureFile=false"
-    - "CSIMigrationGCE=false"
     - "CSIMigrationvSphere=false"
 {{- if .ServiceCIDR | len | eq 2}}
     - "IPv6DualStack=true"
