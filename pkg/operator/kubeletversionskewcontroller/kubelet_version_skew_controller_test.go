@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/blang/semver"
+	"github.com/blang/semver/v4"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
