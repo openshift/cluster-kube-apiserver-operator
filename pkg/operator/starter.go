@@ -148,6 +148,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	var notOnSingleReplicaTopology resourceapply.ConditionalFunction = func() bool {
 		return infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode
 	}
+	var never resourceapply.ConditionalFunction = func() bool { return false }
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
 		bindata.Asset,
@@ -188,6 +189,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	).
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml"}, notOnSingleReplicaTopology, nil).
+		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos.yaml"}, never, nil). // TODO remove in 4.13
 		AddKubeInformers(kubeInformersForNamespaces)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
