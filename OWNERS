@@ -5,6 +5,9 @@ reviewers:
   - soltysh
   - p0lyn0mial
   - tkashem
+  - benluddy
+  - sanchezl
+  - dgrisonnet
 approvers:
   - deads2k
   - sttts
@@ -12,4 +15,7 @@ approvers:
   - soltysh
   - p0lyn0mial
   - tkashem
+  - benluddy
+  - sanchezl
+  - dgrisonnet
 component: "kube-apiserver"
