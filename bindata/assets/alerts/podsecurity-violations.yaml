@@ -17,6 +17,7 @@ spec:
           local Pod Security labels.
           Refer to Kubernetes documentation on Pod Security Admission to learn more about these
           violations.
+        runbook_url: https://access.redhat.com/solutions/6976583
       expr: |
         sum(increase(pod_security_evaluations_total{decision="deny",mode="audit",resource="pod"}[1d])) by (policy_level) > 0
       labels:
