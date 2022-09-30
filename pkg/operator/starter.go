@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"encoding/json"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	"math/rand"
 	"os"
 	"time"
@@ -11,6 +12,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
@@ -90,6 +92,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -117,10 +123,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
+
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		kubeInformersForNamespaces,
 		configInformers,
+		operatorInformers,
+		operatorV1Client,
 		resourceSyncController,
 		controllerContext.EventRecorder,
 	)
@@ -402,6 +412,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	operatorInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 	apiextensionsInformers.Start(ctx.Done())
 

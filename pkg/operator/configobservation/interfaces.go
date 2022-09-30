@@ -5,6 +5,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	operatorlistersv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -28,8 +30,15 @@ type Listers struct {
 	SecretLister_       corelistersv1.SecretLister
 	ConfigSecretLister_ corelistersv1.SecretLister
 
+	KubeAPIServerOperatorLister_ operatorlistersv1.KubeAPIServerLister
+	KubeAPIServerOperatorClient  operatorv1client.KubeAPIServerInterface
+
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
+}
+
+func (l Listers) KubeAPIServerOperatorLister() operatorlistersv1.KubeAPIServerLister {
+	return l.KubeAPIServerOperatorLister_
 }
 
 func (l Listers) APIServerLister() configlistersv1.APIServerLister {

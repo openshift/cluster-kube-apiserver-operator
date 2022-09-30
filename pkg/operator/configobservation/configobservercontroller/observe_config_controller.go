@@ -5,6 +5,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -34,13 +36,7 @@ type ConfigObserver struct {
 	factory.Controller
 }
 
-func NewConfigObserver(
-	operatorClient v1helpers.StaticPodOperatorClient,
-	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	configInformer configinformers.SharedInformerFactory,
-	resourceSyncer resourcesynccontroller.ResourceSyncer,
-	eventRecorder events.Recorder,
-) *ConfigObserver {
+func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, configInformer configinformers.SharedInformerFactory, operatorInformer operatorv1informers.SharedInformerFactory, operatorV1Client *operatorv1client.Clientset, resourceSyncer resourcesynccontroller.ResourceSyncer, eventRecorder events.Recorder) *ConfigObserver {
 	interestingNamespaces := []string{
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -68,6 +64,7 @@ func NewConfigObserver(
 		configInformer.Config().V1().Nodes().Informer(),
 		configInformer.Config().V1().Proxies().Informer(),
 		configInformer.Config().V1().Schedulers().Informer(),
+		operatorInformer.Operator().V1().KubeAPIServers().Informer(),
 	}
 	for _, ns := range interestingNamespaces {
 		infomers = append(infomers, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer())
@@ -91,6 +88,9 @@ func NewConfigObserver(
 				SecretLister_:       kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				ConfigSecretLister_: kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 				ConfigmapLister_:    kubeInformersForNamespaces.ConfigMapLister(),
+
+				KubeAPIServerOperatorLister_: operatorInformer.Operator().V1().KubeAPIServers().Lister(),
+				KubeAPIServerOperatorClient:  operatorV1Client.OperatorV1().KubeAPIServers(),
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(preRunCacheSynced,

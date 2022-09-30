@@ -1,16 +1,21 @@
 package auth
 
 import (
+	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 	"net/url"
 	"strings"
-
-	"k8s.io/klog/v2"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
@@ -33,7 +38,7 @@ func ObserveServiceAccountIssuer(
 ) (map[string]interface{}, []error) {
 
 	listers := genericListers.(configobservation.Listers)
-	ret, errs := observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get, recorder)
+	ret, errs := observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get, listers.KubeAPIServerOperatorLister().Get, listers.KubeAPIServerOperatorClient, recorder)
 	return configobserver.Pruned(ret, serviceAccountIssuerPath, audiencesPath, jwksURIPath), errs
 }
 
@@ -44,12 +49,20 @@ func observedConfig(
 	existingConfig map[string]interface{},
 	getAuthConfig func(string) (*configv1.Authentication, error),
 	getInfrastructureConfig func(string) (*configv1.Infrastructure, error),
+	getKubeApiserverOperator func(string) (*operatorv1.KubeAPIServer, error),
+	operatorClient operatorclientv1.KubeAPIServerInterface,
 	recorder events.Recorder,
 ) (map[string]interface{}, []error) {
-
 	errs := []error{}
-	var issuerChanged bool
-	var existingIssuer, newIssuer string
+	var (
+		// activeIssuer is the issuer that is now in use (new tokens use this issuer)
+		activeIssuer string
+		// newIssuer is the issuer user desire to use as active issuer now
+		newIssuer string
+		// trustedIssuers represents a list of issuers we "trust", but new tokens don't use
+		trustedIssuers sets.String
+		issuerChanged  bool
+	)
 	// when the issuer will change, indicate that by setting `issuerChanged` to true
 	// to emit the informative event
 	defer func() {
@@ -57,7 +70,7 @@ func observedConfig(
 			recorder.Eventf(
 				"ObserveServiceAccountIssuer",
 				"ServiceAccount issuer changed from %v to %v",
-				existingIssuer, newIssuer,
+				activeIssuer, newIssuer,
 			)
 		}
 	}()
@@ -67,8 +80,26 @@ func observedConfig(
 		errs = append(errs, fmt.Errorf("unable to extract service account issuer from unstructured: %v", err))
 	}
 
-	if len(existingIssuers) > 0 {
-		existingIssuer = existingIssuers[0]
+	// first collect all issuers that are currently being used in KAS config
+	existingIssuerSet := sets.NewString(existingIssuers...)
+	if existingIssuerSet.Len() > 0 {
+		// activeIssuer is the first one in the list
+		activeIssuer = existingIssuerSet.List()[0]
+		// other issuers are trusted
+		if existingIssuerSet.Len() > 1 {
+			trustedIssuers = sets.NewString(existingIssuerSet.List()[1 : existingIssuerSet.Len()-1]...)
+		}
+	}
+
+	// second, collect trusted issuers we track in KAS-O status
+	var existingTrustedIssuers sets.String
+	kubeAPIOperator, err := getKubeApiserverOperator("cluster")
+	if err != nil {
+		return existingConfig, append(errs, err)
+	}
+	for _, issuer := range kubeAPIOperator.Status.ServiceAccountIssuers {
+		// TODO: expiration/prune
+		existingTrustedIssuers.Insert(issuer.Name)
 	}
 
 	authConfig, err := getAuthConfig("cluster")
@@ -80,18 +111,47 @@ func observedConfig(
 		return existingConfig, append(errs, err)
 	}
 
+	// third, get the service account issuer user configured in the auth config
 	newIssuer = authConfig.Spec.ServiceAccountIssuer
 	if err := checkIssuer(newIssuer); err != nil {
 		return existingConfig, append(errs, err)
 	}
 
-	if len(newIssuer) != 0 {
-		issuerChanged = existingIssuer != newIssuer
-		// configure the issuer if set by the user and is a valid issuer
+	// last, if there is an issuer configured in auth config, and the issuer is different than currently active one, we need to update.
+	if len(newIssuer) > 0 && activeIssuer != newIssuer {
+		issuerChanged = true
+
+		// this is the list of new "trusted" issuers, leading with the active issuer that is now being used
+		newTrustedIssuers := append([]string{activeIssuer}, trustedIssuers.List()...)
+
+		// now we need to update the KAS-O status with new list of issuers.
+		// in the new list, the first item without expiration is the desired issuer
+		// the second item is the previously used issuer, with expiration set to 1 day
+		// the rest are issuers we copy from existing KAS-O status.
+		kubeAPIOperatorCopy := kubeAPIOperator.DeepCopy()
+		newServiceAccountIssuerStatus := []operatorv1.ServiceAccountIssuerStatus{
+			{Name: newIssuer},
+			{Name: activeIssuer, ExpirationTime: &metav1.Time{Time: time.Now().Add(24 * time.Hour)}},
+		}
+		for _, prevTrustedIssuer := range kubeAPIOperator.Status.ServiceAccountIssuers {
+			// the previosuly active service account issuer now got expiration timestamp above, skip copying it
+			if prevTrustedIssuer.ExpirationTime == nil {
+				continue
+			}
+			newServiceAccountIssuerStatus = append(newServiceAccountIssuerStatus, prevTrustedIssuer)
+		}
+
+		// now replace the service account issuers in KAS status.
+		// NOTE: this must be done before we make "new" config for KAS, because we don't want conflict on update
+		kubeAPIOperatorCopy.Status.ServiceAccountIssuers = newServiceAccountIssuerStatus
+		if _, err := operatorClient.UpdateStatus(context.TODO(), kubeAPIOperatorCopy, metav1.UpdateOptions{}); err != nil {
+			return existingConfig, append(errs, err)
+		}
+
 		return map[string]interface{}{
 			"apiServerArguments": map[string]interface{}{
 				"service-account-issuer": []interface{}{
-					newIssuer,
+					append([]string{newIssuer}, newTrustedIssuers...),
 				},
 				"api-audiences": []interface{}{
 					newIssuer,
@@ -113,11 +173,11 @@ func observedConfig(
 		return existingConfig, append(errs, fmt.Errorf("APIServerInternalURL missing from infrastructure/cluster"))
 	}
 
-	issuerChanged = existingIssuer != newIssuer
+	issuerChanged = activeIssuer != newIssuer
 	return map[string]interface{}{
 		"apiServerArguments": map[string]interface{}{
 			"service-account-jwks-uri": []interface{}{
-				apiServerInternalURL + "/openid/v1/jwks",
+				apiServerInternalURL + "/openid/operatorclientv1/jwks",
 			},
 		},
 	}, errs
