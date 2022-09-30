@@ -33,6 +33,23 @@ type KubeAPIServerSpec struct {
 
 type KubeAPIServerStatus struct {
 	StaticPodOperatorStatus `json:",inline"`
+
+	// serviceAccountIssuers tracks history of used service account issuers.
+	// The item without expiration time represents the currently used service account issuer.
+	// The other items represents service account issuers that were used previously and are still being trusted.
+	// see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#service-account-token-volume-projection
+	// +optional
+	ServiceAccountIssuers []ServiceAccountIssuerStatus `json:"serviceAccountIssuers,omitempty"`
+}
+
+type ServiceAccountIssuerStatus struct {
+	// name is the name of the service account issuer
+	Name string `json:"string"`
+
+	// expirationTime is the time after which this service account issuer will be pruned and removed from the trusted list
+	// of service account issuers.
+	// +optional
+	ExpirationTime *metav1.Time `json:"expirationTime,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

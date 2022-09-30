@@ -13,7 +13,7 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.25
 	github.com/openshift/api v0.0.0-20220831183848-09c070622e2c
-	github.com/openshift/build-machinery-go v0.0.0-20220720161851-9b4f0386f6b0
+	github.com/openshift/build-machinery-go v0.0.0-20220913142420-e25cf57ea46d
 	github.com/openshift/client-go v0.0.0-20220831193253-4950ae70c8ea
 	github.com/openshift/library-go v0.0.0-20220902131052-245d1ca16d15
 	github.com/pkg/profile v1.5.0 // indirect
@@ -120,3 +120,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
+
+replace github.com/openshift/api => github.com/mfojtik/api v0.0.0-20220929125947-3b2122564796
