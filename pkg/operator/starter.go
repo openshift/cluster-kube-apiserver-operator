@@ -11,6 +11,8 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
@@ -25,6 +27,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/serviceaccountissuercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
@@ -124,6 +127,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		resourceSyncController,
 		controllerContext.EventRecorder,
 	)
+
+	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
+	serviceAccountIssuerController := serviceaccountissuercontroller.NewController(operatorV1Client.OperatorV1().KubeAPIServers(), operatorInformers, configInformers, controllerContext.EventRecorder)
 
 	eventWatcher := eventwatch.New().
 		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
@@ -404,6 +414,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 	apiextensionsInformers.Start(ctx.Done())
+	operatorInformers.Start(ctx.Done())
 
 	go staticPodControllers.Start(ctx)
 	go resourceSyncController.Run(ctx, 1)
@@ -425,6 +436,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go kubeletVersionSkewController.Run(ctx, 1)
 	go latencyProfileController.Run(ctx, 1)
 	go webhookSupportabilityController.Run(ctx, 1)
+	go serviceAccountIssuerController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
