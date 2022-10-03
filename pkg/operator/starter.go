@@ -117,19 +117,21 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	configObserver := configobservercontroller.NewConfigObserver(
-		operatorClient,
-		kubeInformersForNamespaces,
-		configInformers,
-		resourceSyncController,
-		controllerContext.EventRecorder,
-	)
-
 	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
 	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
+
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorClient,
+		kubeInformersForNamespaces,
+		configInformers,
+		operatorInformers,
+		resourceSyncController,
+		controllerContext.EventRecorder,
+	)
+
 	serviceAccountIssuerController := serviceaccountissuercontroller.NewController(operatorV1Client.OperatorV1().KubeAPIServers(), operatorInformers, configInformers, controllerContext.EventRecorder)
 
 	eventWatcher := eventwatch.New().

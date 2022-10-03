@@ -3,7 +3,9 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -23,13 +25,15 @@ func TestObservedConfig(t *testing.T) {
 	expectedErrInfra := fmt.Errorf("bar")
 
 	for _, tc := range []struct {
-		name           string
-		issuer         string
-		existingIssuer string
-		authError      error
-		infraError     error
-		expectedIssuer string
-		expectedChange bool
+		name                   string
+		issuer                 string
+		trustedIssuers         []string
+		existingIssuer         string
+		authError              error
+		infraError             error
+		expectedIssuer         string
+		expectedTrustedIssuers []string
+		expectedChange         bool
 	}{
 		{
 			name:           "no issuer, no previous issuer",
@@ -58,6 +62,14 @@ func TestObservedConfig(t *testing.T) {
 			expectedIssuer: "https://example.com",
 		},
 		{
+			name:                   "issuer set, previous issuer and trusted issuers same",
+			existingIssuer:         "https://example.com",
+			issuer:                 "https://example.com",
+			trustedIssuers:         []string{"https://trusted.example.com"},
+			expectedIssuer:         "https://example.com",
+			expectedTrustedIssuers: []string{"https://trusted.example.com"},
+		},
+		{
 			name:           "issuer set, previous issuer different",
 			existingIssuer: "https://example.com",
 			issuer:         "https://example2.com",
@@ -83,9 +95,9 @@ func TestObservedConfig(t *testing.T) {
 			testRecorder := events.NewInMemoryRecorder("SAIssuerTest")
 
 			newConfig, errs := observedConfig(
-				unstructuredAPIConfigForIssuer(t, tc.existingIssuer),
-				func(_ string) (*configv1.Authentication, error) {
-					return authConfigForIssuer(tc.issuer), tc.authError
+				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers),
+				func(_ string) (*operatorv1.KubeAPIServer, error) {
+					return kasStatusForIssuer(tc.issuer, tc.trustedIssuers...), tc.authError
 				},
 				func(_ string) (*configv1.Infrastructure, error) {
 					return &configv1.Infrastructure{
@@ -101,7 +113,7 @@ func TestObservedConfig(t *testing.T) {
 			if tc.authError == nil && tc.infraError == nil {
 				require.Len(t, errs, 0)
 			}
-			expectedConfig = apiConfigForIssuer(tc.expectedIssuer)
+			expectedConfig = apiConfigForIssuer(tc.expectedIssuer, tc.expectedTrustedIssuers)
 
 			// Check that errors are passed through
 			if tc.authError != nil {
@@ -130,22 +142,34 @@ func TestObservedConfig(t *testing.T) {
 	}
 }
 
-func authConfigForIssuer(issuer string) *configv1.Authentication {
-	return &configv1.Authentication{
-		Spec: configv1.AuthenticationSpec{
-			ServiceAccountIssuer: issuer,
+func kasStatusForIssuer(active string, trustedIssuers ...string) *operatorv1.KubeAPIServer {
+	if len(active) == 0 {
+		return &operatorv1.KubeAPIServer{
+			Status: operatorv1.KubeAPIServerStatus{},
+		}
+	}
+	status := []operatorv1.ServiceAccountIssuerStatus{
+		{
+			Name: active,
+		},
+	}
+	for i := range trustedIssuers {
+		status = append(status, operatorv1.ServiceAccountIssuerStatus{
+			Name:           trustedIssuers[i],
+			ExpirationTime: &metav1.Time{Time: time.Now().Add(12 * time.Hour)},
+		})
+	}
+	return &operatorv1.KubeAPIServer{
+		Status: operatorv1.KubeAPIServerStatus{
+			ServiceAccountIssuers: status,
 		},
 	}
 }
 
-func apiConfigForIssuer(issuer string) *kubecontrolplanev1.KubeAPIServerConfig {
+func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplanev1.KubeAPIServerConfig {
 	args := map[string]kubecontrolplanev1.Arguments{
-		"service-account-issuer": {
-			issuer,
-		},
-		"api-audiences": {
-			issuer,
-		},
+		"service-account-issuer": append([]string{issuer}, trustedIssuers...),
+		"api-audiences":          append([]string{issuer}, trustedIssuers...),
 	}
 	if len(issuer) == 0 {
 		delete(args, "service-account-issuer")
@@ -164,8 +188,8 @@ func apiConfigForIssuer(issuer string) *kubecontrolplanev1.KubeAPIServerConfig {
 // unstructuredAPIConfigForIssuer round-trips through the golang type
 // to ensure the input to the function under test will match what will
 // be received at runtime.
-func unstructuredAPIConfigForIssuer(t *testing.T, issuer string) map[string]interface{} {
-	config := apiConfigForIssuer(issuer)
+func unstructuredAPIConfigForIssuer(t *testing.T, issuer string, trustedIssuers []string) map[string]interface{} {
+	config := apiConfigForIssuer(issuer, trustedIssuers)
 	// Unmarshaling to unstructured requires explicitly setting kind
 	config.TypeMeta = metav1.TypeMeta{
 		Kind: "KubeAPIServerConfig",
