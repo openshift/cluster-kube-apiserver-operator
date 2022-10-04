@@ -1,9 +1,7 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -15,12 +13,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	testlibrary "github.com/openshift/library-go/test/library"
@@ -221,44 +217,4 @@ func TestTokenRequestAndReview(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, trev.Status.Error)
 	require.True(t, trev.Status.Authenticated)
-}
-
-func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, expectedIssuer string) error {
-	return wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
-		configMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(context.TODO(), "config", metav1.GetOptions{})
-		if err != nil {
-			t.Errorf("failed to retrieve apiserver config configmap: %v", err)
-			return false, nil
-		}
-		// key has a .yaml extension but actual format is json
-		rawConfig := configMap.Data["config.yaml"]
-		if len(rawConfig) == 0 {
-			t.Logf("config.yaml is empty in apiserver config configmap")
-			return false, nil
-		}
-		config := map[string]interface{}{}
-		if err := json.NewDecoder(bytes.NewBuffer([]byte(rawConfig))).Decode(&config); err != nil {
-			t.Errorf("error parsing config, %v", err)
-			return false, nil
-		}
-		issuers, found, err := unstructured.NestedStringSlice(config, "apiServerArguments", "service-account-issuer")
-		if !found {
-			t.Log("apiServerArguments.service-account-issuer not found in config")
-			return false, nil
-		}
-		issuer := issuers[0]
-		if !found || expectedIssuer != issuer {
-			t.Logf("expected service account issuer to be %q, got %q", expectedIssuer, issuer)
-			return false, nil
-		}
-		return true, nil
-	})
-}
-
-func setServiceAccountIssuer(t *testing.T, client configclient.ConfigV1Interface, issuer string) {
-	auth, err := client.Authentications().Get(context.TODO(), "cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	auth.Spec.ServiceAccountIssuer = issuer
-	_, err = client.Authentications().Update(context.TODO(), auth, metav1.UpdateOptions{})
-	require.NoError(t, err)
 }
