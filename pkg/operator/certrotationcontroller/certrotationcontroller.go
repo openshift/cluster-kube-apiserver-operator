@@ -2,7 +2,9 @@ package certrotationcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -48,6 +50,7 @@ type CertRotationController struct {
 }
 
 func NewCertRotationController(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configInformer configinformers.SharedInformerFactory,
@@ -56,6 +59,7 @@ func NewCertRotationController(
 	day time.Duration,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
+		ctx,
 		kubeClient,
 		operatorClient,
 		configInformer,
@@ -67,6 +71,7 @@ func NewCertRotationController(
 }
 
 func NewCertRotationControllerOnlyWhenExpired(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configInformer configinformers.SharedInformerFactory,
@@ -75,6 +80,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 	day time.Duration,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
+		ctx,
 		kubeClient,
 		operatorClient,
 		configInformer,
@@ -86,6 +92,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 }
 
 func newCertRotationController(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	configInformer configinformers.SharedInformerFactory,
@@ -123,9 +130,18 @@ func newCertRotationController(
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
 		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	} else {
-		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
-		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		// For the internal CI testing, make the cert rotation much faster.
+		// This is RH infrastructure specific, dirty, but it gets the job done without need to revert/apply this on every dev cycle start
+		if !cache.WaitForCacheSync(ctx.Done(), configInformer.Config().V1().Infrastructures().Informer().HasSynced) {
+			utilruntime.HandleError(fmt.Errorf("caches did not sync"))
+			return nil, errors.New("failed to wait for infrastructure informer")
+		}
+		if infra, err := ret.infrastructureLister.Get("cluster"); err == nil {
+			if strings.HasPrefix(infra.Status.InfrastructureName, "ci-op") && strings.Contains(infra.Status.APIServerURL, "dev.rhcloud.com") {
+				klog.Warningf("OpenShift Test Infrastructure detected, certificate rotation will run every %s", rotationDay/60)
+				rotationDay = rotationDay / 60
+			}
+		}
 	}
 
 	certRotator := certrotation.NewCertRotationController(

@@ -103,6 +103,7 @@ func (o *Options) Run(ctx context.Context) error {
 	}
 
 	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
+		ctx,
 		kubeClient,
 		operatorClient,
 		configInformers,
