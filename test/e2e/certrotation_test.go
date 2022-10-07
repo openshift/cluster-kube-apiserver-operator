@@ -2,11 +2,20 @@ package e2e
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -14,11 +23,6 @@ import (
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 )
 
 func TestCertRotationTimeUpgradeable(t *testing.T) {
@@ -29,12 +33,13 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
-	ctx := context.TODO()
+	ctx := context.Background()
 	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
 
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
+	t.Logf("Creating unsupported-cert-rotation-config...")
 	_, err = kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Create(context.TODO(), &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "unsupported-cert-rotation-config"},
 		Data:       map[string]string{"base": "2y"},
@@ -44,28 +49,56 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 		kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Delete(context.TODO(), "unsupported-cert-rotation-config", metav1.DeleteOptions{})
 	}()
 
-	// TODO better detection maybe someday
-	time.Sleep(5 * time.Second)
+	err = wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+		_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
+		if err != nil {
+			return false, err
+		}
+		clusteroperator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
 
-	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
+		certRotationCondition := v1helpers.FindOperatorCondition(operatorStatus.Conditions, "CertRotationTimeUpgradeable")
+		upgradeableCondition := configv1helpers.FindStatusCondition(clusteroperator.Status.Conditions, "Upgradeable")
+		if certRotationCondition == nil || upgradeableCondition == nil {
+			return false, fmt.Errorf("Couldn't find CertRotationTimeUpgradeable or Upgradeable condition")
+		}
+		if certRotationCondition.Status == operatorv1.ConditionFalse &&
+			upgradeableCondition.Status == configv1.ConditionFalse && strings.Contains(upgradeableCondition.Reason, "CertRotationTime") {
+			return true, nil
+		}
+		t.Logf("\nCertRotationTimeUpgradeable: %#v\nUpgradeable: %#v", certRotationCondition, upgradeableCondition)
+		return false, nil
+	})
 	require.NoError(t, err)
-	require.True(t, v1helpers.IsOperatorConditionFalse(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
-	clusteroperator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
-	require.NoError(t, err)
-	require.True(t, configv1helpers.IsStatusConditionFalse(clusteroperator.Status.Conditions, "Upgradeable"))
 
+	t.Logf("Removing unsupported-cert-rotation-config...")
 	err = kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Delete(context.TODO(), "unsupported-cert-rotation-config", metav1.DeleteOptions{})
 	require.NoError(t, err)
-	// TODO better detection maybe someday
-	time.Sleep(5 * time.Second)
 
-	_, operatorStatus, _, err = operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
+	err = wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
+		_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
+		if err != nil {
+			return false, err
+		}
+		clusteroperator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		certRotationCondition := v1helpers.FindOperatorCondition(operatorStatus.Conditions, "CertRotationTimeUpgradeable")
+		upgradeableCondition := configv1helpers.FindStatusCondition(clusteroperator.Status.Conditions, "Upgradeable")
+		if certRotationCondition == nil || upgradeableCondition == nil {
+			return false, fmt.Errorf("Couldn't find CertRotationTimeUpgradeable or Upgradeable condition")
+		}
+		if certRotationCondition.Status == operatorv1.ConditionTrue &&
+			(upgradeableCondition.Status == configv1.ConditionTrue || !strings.Contains(upgradeableCondition.Reason, "CertRotationTime")) {
+			return true, nil
+		}
+		t.Logf("\nCertRotationTimeUpgradeable: %#v\nUpgradeable: %#v", certRotationCondition, upgradeableCondition)
+		return false, nil
+	})
 	require.NoError(t, err)
-	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
-	clusteroperator, err = configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
-	require.NoError(t, err)
-	require.True(t, configv1helpers.IsStatusConditionTrue(clusteroperator.Status.Conditions, "Upgradeable"))
-
 }
 
 func TestCertRotationStompOnBadType(t *testing.T) {
