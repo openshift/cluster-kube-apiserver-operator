@@ -176,7 +176,7 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20220124143425-d74727069f6f
+# github.com/openshift/api v0.0.0-20221013123533-341d389bd4a7
 ## explicit; go 1.16
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -258,8 +258,20 @@ github.com/openshift/client-go/config/informers/externalversions/config
 github.com/openshift/client-go/config/informers/externalversions/config/v1
 github.com/openshift/client-go/config/informers/externalversions/internalinterfaces
 github.com/openshift/client-go/config/listers/config/v1
+github.com/openshift/client-go/operator/clientset/versioned
+github.com/openshift/client-go/operator/clientset/versioned/fake
 github.com/openshift/client-go/operator/clientset/versioned/scheme
 github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1
+github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1/fake
+github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1alpha1
+github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1alpha1/fake
+github.com/openshift/client-go/operator/informers/externalversions
+github.com/openshift/client-go/operator/informers/externalversions/internalinterfaces
+github.com/openshift/client-go/operator/informers/externalversions/operator
+github.com/openshift/client-go/operator/informers/externalversions/operator/v1
+github.com/openshift/client-go/operator/informers/externalversions/operator/v1alpha1
+github.com/openshift/client-go/operator/listers/operator/v1
+github.com/openshift/client-go/operator/listers/operator/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/scheme
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/typed/operatorcontrolplane/v1alpha1
@@ -311,6 +323,7 @@ github.com/openshift/library-go/pkg/operator/encryption/secrets
 github.com/openshift/library-go/pkg/operator/encryption/state
 github.com/openshift/library-go/pkg/operator/encryption/statemachine
 github.com/openshift/library-go/pkg/operator/events
+github.com/openshift/library-go/pkg/operator/events/eventstesting
 github.com/openshift/library-go/pkg/operator/eventwatch
 github.com/openshift/library-go/pkg/operator/genericoperatorclient
 github.com/openshift/library-go/pkg/operator/loglevel
