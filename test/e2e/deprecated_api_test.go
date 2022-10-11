@@ -51,7 +51,7 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 		return ""
 	}()
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
-	removedRelease := strings.Split(regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`).ReplaceAllString(expr, "$1"), ".")
+	removedRelease := strings.Split(regexp.MustCompile(`(?s).*removed_release="(\d+\.\d+)".*`).ReplaceAllString(expr, "$1"), ".")
 	require.Len(t, removedRelease, 2, "Unable to parse the removed release version from the alert expression.")
 	major, err := strconv.Atoi(removedRelease[0])
 	require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 		return ""
 	}()
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
-	rx := regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`)
+	rx := regexp.MustCompile(`(?s).*removed_release="(\d+\.\d+)".*`)
 	if rx.FindStringIndex(expr) != nil {
 		// kubernetes minor version must be even, otherwise this is an even numbered
 		// OpenShift EUS release and the alert can't match 2 versions using the label
@@ -116,7 +116,7 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 		require.Equal(t, currentMinor+1, minor)
 		return
 	}
-	rx = regexp.MustCompile(`.*removed_release=~"([^"]+)".*`)
+	rx = regexp.MustCompile(`(?s).*removed_release=~"([^"]+)".*`)
 	require.Regexp(t, rx, expr, "Unable to parse the removed release version from the alert expression.")
 	removedRelease := strings.ReplaceAll(rx.ReplaceAllString(expr, "$1"), `\\`, `\`)
 
