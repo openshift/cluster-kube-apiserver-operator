@@ -2,7 +2,10 @@ package auth
 
 import (
 	"fmt"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"net/url"
+	"sort"
 	"strings"
 
 	"k8s.io/klog/v2"
@@ -33,23 +36,20 @@ func ObserveServiceAccountIssuer(
 ) (map[string]interface{}, []error) {
 
 	listers := genericListers.(configobservation.Listers)
-	ret, errs := observedConfig(existingConfig, listers.AuthConfigLister.Get, listers.InfrastructureLister().Get, recorder)
+	ret, errs := observedConfig(existingConfig, listers.KubeAPIServerOperatorLister().Get, listers.InfrastructureLister().Get, recorder)
 	return configobserver.Pruned(ret, serviceAccountIssuerPath, audiencesPath, jwksURIPath), errs
 }
 
 // observedConfig returns an unstructured fragment of KubeAPIServerConfig that may
 // include an override of the default service account issuer if one was set in the
 // Authentication resource.
-func observedConfig(
-	existingConfig map[string]interface{},
-	getAuthConfig func(string) (*configv1.Authentication, error),
-	getInfrastructureConfig func(string) (*configv1.Infrastructure, error),
-	recorder events.Recorder,
-) (map[string]interface{}, []error) {
+func observedConfig(existingConfig map[string]interface{},
+	getOperator func(name string) (*operatorv1.KubeAPIServer, error),
+	getInfrastructureConfig func(string) (*configv1.Infrastructure, error), recorder events.Recorder) (map[string]interface{}, []error) {
 
 	errs := []error{}
 	var issuerChanged bool
-	var existingIssuer, newIssuer string
+	var existingActiveIssuer, newActiveIssuer string
 	// when the issuer will change, indicate that by setting `issuerChanged` to true
 	// to emit the informative event
 	defer func() {
@@ -57,7 +57,7 @@ func observedConfig(
 			recorder.Eventf(
 				"ObserveServiceAccountIssuer",
 				"ServiceAccount issuer changed from %v to %v",
-				existingIssuer, newIssuer,
+				existingActiveIssuer, newActiveIssuer,
 			)
 		}
 	}()
@@ -68,34 +68,38 @@ func observedConfig(
 	}
 
 	if len(existingIssuers) > 0 {
-		existingIssuer = existingIssuers[0]
+		existingActiveIssuer = existingIssuers[0]
 	}
 
-	authConfig, err := getAuthConfig("cluster")
+	operator, err := getOperator("cluster")
 	if apierrors.IsNotFound(err) {
-		klog.Warningf("authentications.config.openshift.io/cluster: not found")
-		// No issuer if the auth config is missing
-		authConfig = &configv1.Authentication{}
+		klog.Warningf("kubeapiserver.operators.openshift.io/cluster: not found")
+		operator = &operatorv1.KubeAPIServer{}
 	} else if err != nil {
 		return existingConfig, append(errs, err)
 	}
 
-	newIssuer = authConfig.Spec.ServiceAccountIssuer
-	if err := checkIssuer(newIssuer); err != nil {
+	newActiveIssuer = getActiveServiceAccountIssuer(operator.Status.ServiceAccountIssuers)
+	if err := checkIssuer(newActiveIssuer); err != nil {
 		return existingConfig, append(errs, err)
 	}
 
-	if len(newIssuer) != 0 {
-		issuerChanged = existingIssuer != newIssuer
+	if len(newActiveIssuer) > 0 {
+		currentTrustedServiceAccountIssuers := getTrustedServiceAccountIssuers(operator.Status.ServiceAccountIssuers)
+		issuerChanged = issuersChanged(
+			existingIssuers,
+			append([]string{newActiveIssuer}, currentTrustedServiceAccountIssuers...)...,
+		)
+
+		value := []interface{}{newActiveIssuer}
+		for _, i := range currentTrustedServiceAccountIssuers {
+			value = append(value, i)
+		}
 		// configure the issuer if set by the user and is a valid issuer
 		return map[string]interface{}{
 			"apiServerArguments": map[string]interface{}{
-				"service-account-issuer": []interface{}{
-					newIssuer,
-				},
-				"api-audiences": []interface{}{
-					newIssuer,
-				},
+				"service-account-issuer": value,
+				"api-audiences":          value,
 			},
 		}, errs
 	}
@@ -113,7 +117,7 @@ func observedConfig(
 		return existingConfig, append(errs, fmt.Errorf("APIServerInternalURL missing from infrastructure/cluster"))
 	}
 
-	issuerChanged = existingIssuer != newIssuer
+	issuerChanged = existingActiveIssuer != newActiveIssuer
 	return map[string]interface{}{
 		"apiServerArguments": map[string]interface{}{
 			"service-account-jwks-uri": []interface{}{
@@ -121,6 +125,34 @@ func observedConfig(
 			},
 		},
 	}, errs
+}
+
+// issuersChanged compares the command line flags used for KAS and the operator status service account issuers.
+// if these two sets are different, we have a change and we need to update the KAS.
+func issuersChanged(kasIssuers []string, trustedOperatorIssuers ...string) bool {
+	sort.Strings(kasIssuers)
+	operatorAllIssuers := trustedOperatorIssuers
+	sort.Strings(operatorAllIssuers)
+	return !sets.NewString(kasIssuers...).Equal(sets.NewString(operatorAllIssuers...))
+}
+
+func getTrustedServiceAccountIssuers(issuers []operatorv1.ServiceAccountIssuerStatus) []string {
+	result := []string{}
+	for i := range issuers {
+		if issuers[i].ExpirationTime != nil {
+			result = append(result, issuers[i].Name)
+		}
+	}
+	return result
+}
+
+func getActiveServiceAccountIssuer(issuers []operatorv1.ServiceAccountIssuerStatus) string {
+	for i := range issuers {
+		if issuers[i].ExpirationTime == nil {
+			return issuers[i].Name
+		}
+	}
+	return ""
 }
 
 // checkIssuer validates the issuer in the same way that it will be validated by

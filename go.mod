@@ -12,8 +12,8 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.25
-	github.com/openshift/api v0.0.0-20220831183848-09c070622e2c
-	github.com/openshift/build-machinery-go v0.0.0-20220720161851-9b4f0386f6b0
+	github.com/openshift/api v0.0.0-20221010120431-ec3e44909d5c
+	github.com/openshift/build-machinery-go v0.0.0-20220913142420-e25cf57ea46d
 	github.com/openshift/client-go v0.0.0-20220831193253-4950ae70c8ea
 	github.com/openshift/library-go v0.0.0-20221004015544-d6c64d0262cc
 	github.com/pkg/profile v1.5.0 // indirect
