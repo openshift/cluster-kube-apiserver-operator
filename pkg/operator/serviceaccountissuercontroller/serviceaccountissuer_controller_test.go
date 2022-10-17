@@ -74,7 +74,7 @@ func TestController(t *testing.T) {
 		expectedErr    bool
 	}{
 		{
-			name: "serviceaccountissuer is not being set and no trusted issuers",
+			name: "serviceaccountissuer is not being set and no trusted issuers should result in default to be set",
 			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
 				ServiceAccountIssuer: "",
 			}},
@@ -83,10 +83,11 @@ func TestController(t *testing.T) {
 					Name: "cluster",
 				},
 			},
-			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{},
+			expectedResync: true,
+			expectedStatus: defaultServiceAccountIssuerValue,
 		},
 		{
-			name: "serviceaccountissuer is set in auth config and should be copied to status",
+			name: "serviceaccountissuer is set in auth config and should be copied to status while making default issuer trusted",
 			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
 				ServiceAccountIssuer: "newIssuer",
 			}},
@@ -94,10 +95,45 @@ func TestController(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
 				},
+				Status: operatorv1.KubeAPIServerStatus{
+					ServiceAccountIssuers: defaultServiceAccountIssuerValue,
+				},
 			},
 			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
 				{
 					Name: "newIssuer",
+				},
+				{
+					Name:           defaultServiceAccountIssuerValue[0].Name,
+					ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
+				},
+			},
+			expectedResync: true,
+		},
+		{
+			name: "serviceaccountissuer is set in auth config to default and previous issuer should be trusted",
+			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
+				ServiceAccountIssuer: defaultServiceAccountIssuerValue[0].Name,
+			}},
+			operator: operatorv1.KubeAPIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: operatorv1.KubeAPIServerStatus{
+					ServiceAccountIssuers: []operatorv1.ServiceAccountIssuerStatus{
+						{
+							Name: "previousIssuer",
+						},
+					},
+				},
+			},
+			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
+				{
+					Name: defaultServiceAccountIssuerValue[0].Name,
+				},
+				{
+					Name:           "previousIssuer",
+					ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
 				},
 			},
 			expectedResync: true,
@@ -146,7 +182,7 @@ func TestController(t *testing.T) {
 			},
 		},
 		{
-			name: "serviceaccountissuer value was set to empty and we need to prune status",
+			name: "serviceaccountissuer value was set to empty and we need to prune status to default issuer",
 			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
 				ServiceAccountIssuer: "",
 			}},
@@ -166,7 +202,7 @@ func TestController(t *testing.T) {
 					},
 				},
 			},
-			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{},
+			expectedStatus: defaultServiceAccountIssuerValue,
 			expectedResync: true,
 		},
 		{
@@ -339,45 +375,40 @@ func TestController(t *testing.T) {
 			}
 
 			err := controller.sync(context.TODO(), factoryContext)
-			if test.expectedErr && err == nil {
-				t.Errorf("expected error, got none")
-				return
-			}
-			if test.expectedErr && err != nil {
+			if test.expectedErr {
+				if err == nil {
+					t.Errorf("expected error, got none")
+					return
+				}
 				t.Logf("got expected error: %v", err)
 				return
 			}
-
-			if !test.expectedErr && err != nil {
-				if err == factory.SyntheticRequeueError {
-					if !test.expectedResync {
-						t.Errorf("unexpected controller sync()")
-						return
-					}
-				} else {
-					t.Errorf("unexpected error: %v", err)
-					return
-				}
+			if err != nil && err != factory.SyntheticRequeueError {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if test.expectedResync && err != factory.SyntheticRequeueError {
+				t.Errorf("expected controller resync, got none")
+				return
+			}
+			if !test.expectedResync && err == factory.SyntheticRequeueError {
+				t.Errorf("not expected resync, but got one")
+				return
 			}
 
-			if err == factory.SyntheticRequeueError {
-				if !test.expectedResync {
-					t.Errorf("unexpected resync")
-					return
-				}
-				operator, err := client.OperatorV1().KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
-				if err != nil {
-					t.Errorf("unexpected error getting config: %v", err)
-				}
-				if !reflect.DeepEqual(operator.Status.ServiceAccountIssuers, test.expectedStatus) {
-					t.Errorf("expected:\n%#v\n\nto match:\n%#v\n\n", test.expectedStatus, operator.Status.ServiceAccountIssuers)
-				}
+			operator, err := client.OperatorV1().KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
+			if err != nil {
+				t.Errorf("unexpected error getting config: %v", err)
+			}
+			t.Logf("o: %#v | %#v", operator.Status.ServiceAccountIssuers, test.expectedStatus)
+			if !reflect.DeepEqual(operator.Status.ServiceAccountIssuers, test.expectedStatus) {
+				t.Errorf("expected:\n%#v\n\nto match:\n%#v\n\n", test.expectedStatus, operator.Status.ServiceAccountIssuers)
 			}
 
 			// resync again, to check we are not changing anything and after first sync we are in steady
 			// this triggers pruning, but no entries should be pruned if they were pruned in first sync.
 			// use the updated operator object for lister
-			operator, err := client.OperatorV1().KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
+			operator, err = client.OperatorV1().KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 			if err != nil || operator == nil {
 				t.Errorf("unexpected error while getting kubeapiserver status: %v", err)
 				return
