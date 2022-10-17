@@ -29,14 +29,14 @@ func TestServiceAccountIssuer(t *testing.T) {
 
 	t.Run("serviceaccountissuer set in authentication config results in apiserver config", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "https://first.foo.bar")
-		if err := pollForOperandIssuer(t, kubeClient, []string{"https://first.foo.bar"}); err != nil {
+		if err := pollForOperandIssuer(t, kubeClient, []string{"https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
 			t.Errorf(err.Error())
 		}
 	})
 
 	t.Run("second serviceaccountissuer set in authentication config results in apiserver config with two issuers", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "https://second.foo.bar")
-		if err := pollForOperandIssuer(t, kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar"}); err != nil {
+		if err := pollForOperandIssuer(t, kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
 			t.Errorf(err.Error())
 		}
 	})
