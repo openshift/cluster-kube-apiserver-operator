@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"strings"
 	"time"
 
@@ -18,7 +17,20 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-const defaultTrustedServiceAccountIssuerExpirationDuration = 24 * time.Hour
+const (
+	// defaultTrustedServiceAccountIssuerExpirationDuration is a duration after trusted issuer will be pruned by this controller.
+	defaultTrustedServiceAccountIssuerExpirationDuration = 24 * time.Hour
+)
+
+// defaultServiceAccountIssuerValue is the default value for service account issuer if not set in authentication config.
+// This is documented in API.
+var (
+	defaultServiceAccountIssuerValue = []operatorv1.ServiceAccountIssuerStatus{
+		{
+			Name: "https://kubernetes.default.svc",
+		},
+	}
+)
 
 // ServiceAccountIssuerController synchronize the authentication.config.openshift.io serviceAccountIssuer field value
 // into a kubeapiserver.operator.openshift.io status field.
@@ -43,7 +55,7 @@ func NewController(kubeAPIServerOperatorClient operatorv1client.KubeAPIServerInt
 	return factory.New().WithInformers(
 		operatorInformers.Operator().V1().KubeAPIServers().Informer(),
 		configInformer.Config().V1().Authentications().Informer(),
-	).ResyncEvery(30*time.Second).WithSync(ret.sync).ToController("ServiceAccountIssuerController", eventRecorder)
+	).ResyncEvery(60*time.Second).WithSync(ret.sync).ToController("ServiceAccountIssuerController", eventRecorder)
 }
 
 func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
@@ -51,43 +63,25 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	if err != nil {
 		return err
 	}
-	currentIssuer := authConfig.Spec.ServiceAccountIssuer
+	authConfigIssuer := authConfig.Spec.ServiceAccountIssuer
 
 	operator, err := c.kubeAPIserverOperatorLister.Get("cluster")
 	if err != nil {
 		return err
 	}
 
-	// there is no service account issuer set and there are no service account issuers in status, no-op.
-	if len(currentIssuer) == 0 && len(operator.Status.ServiceAccountIssuers) == 0 {
+	// this is a case when issuer is not set in auth config and the operator status already has the default issuer set.
+	if isDefaultServiceAccountIssuer(authConfigIssuer, operator.Status.ServiceAccountIssuers) {
 		return nil
 	}
 
-	// if the status is not set, but the current issuer is not empty, update the status and let the controller resync
-	if len(currentIssuer) > 0 && len(operator.Status.ServiceAccountIssuers) == 0 {
+	// there is no service account issuer set and there are no service account issuers in status, no-op.
+	if len(authConfigIssuer) == 0 || len(operator.Status.ServiceAccountIssuers) == 0 {
 		operatorCopy := operator.DeepCopy()
-		operatorCopy.Status.ServiceAccountIssuers = []operatorv1.ServiceAccountIssuerStatus{
-			{
-				Name: currentIssuer,
-			},
-		}
+		operatorCopy.Status.ServiceAccountIssuers = defaultServiceAccountIssuerValue
 		_, statusUpdateErr := c.kubeAPIServerOperatorClient.UpdateStatus(ctx, operatorCopy, metav1.UpdateOptions{})
 		if statusUpdateErr == nil {
-			klog.Infof("ServiceAccountIssuer %q is now set as active issuer", currentIssuer)
-			statusUpdateErr = factory.SyntheticRequeueError
-		}
-		return statusUpdateErr
-	}
-
-	// in this case, user deleted service account issuer value, which means we have to remove all values from the status
-	// if we don't do this and instead just remove first value, the new tokens will be issued with "previous" service
-	// account issuer which is not desired
-	if len(currentIssuer) == 0 && len(operator.Status.ServiceAccountIssuers) != 0 {
-		operatorCopy := operator.DeepCopy()
-		operatorCopy.Status.ServiceAccountIssuers = []operatorv1.ServiceAccountIssuerStatus{}
-		_, statusUpdateErr := c.kubeAPIServerOperatorClient.UpdateStatus(ctx, operatorCopy, metav1.UpdateOptions{})
-		if statusUpdateErr == nil {
-			klog.Infof("ServiceAccountIssuer value is empty, removing all previously used trusted issuers")
+			controllerContext.Recorder().Eventf("ServiceAccountIssuer", "Issuer set to default value %q", defaultServiceAccountIssuerValue[0].Name)
 			statusUpdateErr = factory.SyntheticRequeueError
 		}
 		return statusUpdateErr
@@ -99,10 +93,10 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 		// if we don't it means somebody changed the status deliberately.
 		// in this case, we correct it by setting the configured value as active.
 		// NOTE: this is an error/edge case
-		return c.makeActiveIssuerTrusted(ctx, currentIssuer, currentIssuer, operator)
+		return c.makeActiveIssuerTrusted(ctx, authConfigIssuer, authConfigIssuer, operator)
 	}
 
-	issuerChanged := currentIssuer != activeIssuer
+	issuerChanged := authConfigIssuer != activeIssuer
 
 	// the issuer configured in auth config and the active issuer we have in operator status matches.
 	// this is no-op configuration wise, but we prune the list from expired issuers.
@@ -122,12 +116,12 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	// that means user changed the value in auth config and we need to make the active issuer "trusted".
 	// trusted issuers have expiration time set and they are going to be pruned by this controller when the expiration
 	// timeout.
-	if err := c.makeActiveIssuerTrusted(ctx, activeIssuer, currentIssuer, operator); err != nil {
+	if err := c.makeActiveIssuerTrusted(ctx, activeIssuer, authConfigIssuer, operator); err != nil {
 		// Successful issuer change is event worthy.
 		if err == factory.SyntheticRequeueError {
 			controllerContext.Recorder().Eventf("ServiceAccountIssuer",
 				"Desired ServiceAccountIssuer %q is now active issuer. Previous issuer %q is trusted until %s",
-				currentIssuer, activeIssuer, c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration),
+				authConfigIssuer, activeIssuer, c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration),
 			)
 		}
 		return err
@@ -144,6 +138,15 @@ func getActiveServiceAccountIssuer(issuers []operatorv1.ServiceAccountIssuerStat
 		}
 	}
 	return ""
+}
+
+// isDefaultServiceAccountIssuer returns true only when there is no issuer set in auth config and the operator status only contain
+// the default service account issuer.
+func isDefaultServiceAccountIssuer(currentIssuer string, issuers []operatorv1.ServiceAccountIssuerStatus) bool {
+	if len(issuers) != 1 {
+		return false
+	}
+	return len(currentIssuer) == 0 && issuers[0].Name == defaultServiceAccountIssuerValue[0].Name
 }
 
 // makeActiveIssuerTrusted puts the issuer configured by the user in authentication.config.openshift.io into the list in
