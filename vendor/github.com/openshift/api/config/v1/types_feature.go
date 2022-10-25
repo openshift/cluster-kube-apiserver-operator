@@ -101,7 +101,8 @@ type FeatureGateEnabledDisabled struct {
 // version of this file. In this upgrade scenario the map could return nil.
 //
 // example:
-//   if featureSet, ok := FeatureSets["SomeNewFeature"]; ok { }
+//
+//	if featureSet, ok := FeatureSets["SomeNewFeature"]; ok { }
 //
 // If you put an item in either of these lists, put your area and name on it so we can find owners.
 var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
@@ -111,13 +112,14 @@ var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
 		Disabled: []string{},
 	},
 	TechPreviewNoUpgrade: newDefaultFeatures().
-		with("CSIDriverAzureDisk").    // sig-storage, jsafrane, OCP specific
-		with("CSIDriverVSphere").      // sig-storage, jsafrane, OCP specific
-		with("CSIMigrationAWS").       // sig-storage, jsafrane, Kubernetes feature gate
-		with("CSIMigrationOpenStack"). // sig-storage, jsafrane, Kubernetes feature gate
-		with("CSIMigrationGCE").       // sig-storage, fbertina, Kubernetes feature gate
-		with("CSIMigrationAzureDisk"). // sig-storage, fbertina, Kubernetes feature gate
-		with("ExternalCloudProvider"). // sig-cloud-provider, jspeed, OCP specific
+		with("CSIDriverAzureDisk").         // sig-storage, jsafrane, OCP specific
+		with("CSIDriverVSphere").           // sig-storage, jsafrane, OCP specific
+		with("CSIMigrationAWS").            // sig-storage, jsafrane, Kubernetes feature gate
+		with("CSIMigrationOpenStack").      // sig-storage, jsafrane, Kubernetes feature gate
+		with("CSIMigrationGCE").            // sig-storage, fbertina, Kubernetes feature gate
+		with("CSIMigrationAzureDisk").      // sig-storage, fbertina, Kubernetes feature gate
+		with("ExternalCloudProvider").      // sig-cloud-provider, jspeed, OCP specific
+		with("InsightsOperatorPullingSCA"). // insights-operator/ccx, tremes, OCP specific
 		toFeatures(),
 	LatencySensitive: newDefaultFeatures().
 		with(
