@@ -123,9 +123,18 @@ func newCertRotationController(
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
 		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	} else {
-		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
-		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		accelerationFactor, err := parseCertRotationAccelerator()
+		switch {
+		case err != nil:
+			// cert rotation acceleration factor specified is not valid
+			eventRecorder.Eventf("CertRotation", "dev cert rotation disabled due to error: %s", err.Error())
+		case accelerationFactor > 0:
+			// enable accelerated cert rotation, this should only be done in CI
+			rotationDay = rotationDay / time.Duration(accelerationFactor)
+			eventRecorder.Eventf("CertRotation", fmt.Sprintf("dev cert rotation enabled, rotation factor: %d, rotation period: %s", accelerationFactor, rotationDay))
+		default:
+			eventRecorder.Eventf("CertRotation", fmt.Sprintf("cert rotation has been set, rotation period: %s", rotationDay))
+		}
 	}
 
 	certRotator := certrotation.NewCertRotationController(

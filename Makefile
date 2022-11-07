@@ -100,3 +100,7 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 .PHONY: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
+
+# This should be used by CI only
+build_with_dev_cert_rotation: GO_LD_EXTRAFLAGS :=-X $(GO_PACKAGE)/pkg/operator/certrotationcontroller.certRotationAccelerator="60"
+build_with_dev_cert_rotation: build
