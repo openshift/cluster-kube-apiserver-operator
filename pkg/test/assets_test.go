@@ -18,18 +18,37 @@ func TestYamlCorrectness(t *testing.T) {
 
 func readAllYaml(path string, t *testing.T) {
 	// TODO: validate also recovery manifest but they take different template and are covered by unit tests
-	manifests, err := assets.New(path, render.TemplateData{}, func(info os.FileInfo) bool {
-		return assets.OnlyYaml(info) && !strings.HasPrefix(info.Name(), "recovery-") &&
-			// the dashboard is a ConfigMap yaml but it has an embedded json in data that causes the reader to fail.
-			!strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml") &&
-			// there is an alert message containing $labels strings that cause the reader to fail.
-			!strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml") &&
-			// there is an alert message containing $labels strings that cause the reader to fail.
-			!strings.HasSuffix(info.Name(), "api-usage.yaml") &&
-			// there is an alert message containing $labels strings that cause the reader to fail.
-			!strings.HasSuffix(info.Name(), "podsecurity-violations.yaml") &&
-			// the kas's pod manifest contains go template values and fails compilation
-			!strings.HasSuffix(info.Name(), "pod.yaml")
+	manifests, err := assets.New(path, render.TemplateData{}, nil, func(path string, info os.FileInfo) (bool, error) {
+		ok, err := assets.OnlyYaml(path, info)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+
+		// the dashboard is a ConfigMap yaml but it has an embedded json in data that causes the reader to fail.
+		if strings.HasSuffix(info.Name(), "api_performance_dashboard.yaml") {
+			return false, nil
+		}
+		// there is an alert message containing $labels strings that cause the reader to fail.
+		if strings.HasSuffix(info.Name(), "servicemonitor-apiserver.yaml") {
+			return false, nil
+		}
+		// there is an alert message containing $labels strings that cause the reader to fail.
+		if strings.HasSuffix(info.Name(), "api-usage.yaml") {
+			return false, nil
+		}
+		// there is an alert message containing $labels strings that cause the reader to fail.
+		if strings.HasSuffix(info.Name(), "podsecurity-violations.yaml") {
+			return false, nil
+		}
+		// the kas's pod manifest contains go template values and fails compilation
+		if strings.HasSuffix(info.Name(), "pod.yaml") {
+			return false, nil
+		}
+
+		return true, nil
 
 	})
 	if err != nil {

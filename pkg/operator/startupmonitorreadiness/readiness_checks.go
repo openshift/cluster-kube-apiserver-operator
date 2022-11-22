@@ -244,9 +244,10 @@ func checkRevision(kasPod *corev1.Pod, monitorRevision int) (bool, string, strin
 }
 
 // goodReadyzEndpoint performs HTTP checks against readyz?verbose=true endpoint
-//  returns true, "", "", when we got HTTP 200 "successThreshold" times
-//  returns false, "NotReady", EntireResponseBody (if any) on HTTP != 200
-//  returns false, "NotReadyError", EntireResponseBody (if any) in case of any error or timeout
+//
+//	returns true, "", "", when we got HTTP 200 "successThreshold" times
+//	returns false, "NotReady", EntireResponseBody (if any) on HTTP != 200
+//	returns false, "NotReadyError", EntireResponseBody (if any) in case of any error or timeout
 func goodReadyzEndpoint(client *http.Client, rawURL string, successThreshold int, interval time.Duration) func(ctx context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
 		return doHTTPCheckAndTransform(ctx, client, fmt.Sprintf("%s/readyz?verbose=true", rawURL), "NotReady", doHTTPCheckMultipleTimes(successThreshold, interval))
@@ -254,9 +255,10 @@ func goodReadyzEndpoint(client *http.Client, rawURL string, successThreshold int
 }
 
 // goodHealthzEndpoint performs an HTTP check against healthz?verbose=true endpoint
-//  returns true, "", "", on HTTP 200
-//  returns false, "Unhealthy", EntireResponseBody (if any) on HTTP != 200
-//  returns false, "UnhealthyError", EntireResponseBody (if any) in case of any error or timeout
+//
+//	returns true, "", "", on HTTP 200
+//	returns false, "Unhealthy", EntireResponseBody (if any) on HTTP != 200
+//	returns false, "UnhealthyError", EntireResponseBody (if any) in case of any error or timeout
 func goodHealthzEndpoint(client *http.Client, rawURL string) func(context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
 		return doHTTPCheckAndTransform(ctx, client, fmt.Sprintf("%s/healthz?verbose=true", rawURL), "Unhealthy", doHTTPCheck)
@@ -264,9 +266,10 @@ func goodHealthzEndpoint(client *http.Client, rawURL string) func(context.Contex
 }
 
 // goodHealthzEtcdEndpoint performs an HTTP check against healthz/etcd endpoint
-//  returns true, "", "", on HTTP 200
-//  returns false, "EtcdUnhealthy", EntireResponseBody (if any) on HTTP != 200
-//  returns false, "EtcdUnhealthyError", EntireResponseBody (if any) in case of any error or timeout
+//
+//	returns true, "", "", on HTTP 200
+//	returns false, "EtcdUnhealthy", EntireResponseBody (if any) on HTTP != 200
+//	returns false, "EtcdUnhealthyError", EntireResponseBody (if any) in case of any error or timeout
 func goodHealthzEtcdEndpoint(client *http.Client, rawURL string) func(context.Context) (bool, string, string) {
 	return func(ctx context.Context) (bool, string, string) {
 		return doHTTPCheckAndTransform(ctx, client, fmt.Sprintf("%s/healthz/etcd", rawURL), "EtcdUnhealthy", doHTTPCheck)
