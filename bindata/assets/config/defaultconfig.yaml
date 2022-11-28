@@ -92,6 +92,7 @@ apiServerArguments:
     - security.openshift.io/SCCExecRestrictions
     - security.openshift.io/SecurityContextConstraint
     - security.openshift.io/ValidateSecurityContextConstraints
+    - storage.openshift.io/CSIInlineVolumeSecurity
   # switch to direct pod IP routing for aggregated apiservers to avoid service IPs as on source of instability
   enable-aggregator-routing:
     - "true"
