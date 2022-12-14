@@ -18,7 +18,7 @@ spec:
   initContainers:
   - name: setup
     terminationMessagePolicy: FallbackToLogsOnError
-    image: {{ .Image }}
+    image: '{{ .Image }}'
     imagePullPolicy: IfNotPresent
     volumeMounts:
     - mountPath: /var/log/kube-apiserver
@@ -36,8 +36,8 @@ spec:
         cpu: 5m
   containers:
   - name: kube-apiserver
-    image: {{ .Image }}
-    imagePullPolicy: {{ .ImagePullPolicy }}
+    image: '{{ .Image }}'
+    imagePullPolicy: '{{ .ImagePullPolicy }}'
     terminationMessagePolicy: FallbackToLogsOnError
     command: [ "/bin/bash", "-ec" ]
     args:
@@ -88,10 +88,9 @@ spec:
     - name: HOST_IP
       valueFrom:
         fieldRef:
-          fieldPath: status.hostIP
-  {{if .OperatorImage}}
+          fieldPath: status.hostIP{{if .OperatorImage}}
   - name: kube-apiserver-insecure-readyz
-    image: {{.OperatorImage}}
+    image: '{{.OperatorImage}}'
     imagePullPolicy: IfNotPresent
     terminationMessagePolicy: FallbackToLogsOnError
     command: ["cluster-kube-apiserver-operator", "insecure-readyz"]
@@ -103,18 +102,17 @@ spec:
     resources:
       requests:
         memory: 50Mi
-        cpu: 5m
-{{end}}
-  terminationGracePeriodSeconds: {{ .TerminationGracePeriodSeconds }}
+        cpu: 5m{{end}}
+  terminationGracePeriodSeconds: +{{ .TerminationGracePeriodSeconds }}
   volumes:
   - hostPath:
-      path: {{ .SecretsHostPath }}
+      path: '{{ .SecretsHostPath }}'
     name: secrets
   - hostPath:
-      path: {{ .CloudProviderHostPath }}
+      path: '{{ .CloudProviderHostPath }}'
     name: etc-kubernetes-cloud
   - hostPath:
-      path: {{ .ConfigHostPath }}
+      path: '{{ .ConfigHostPath }}'
     name: config
   - hostPath:
       path: /etc/ssl/certs
