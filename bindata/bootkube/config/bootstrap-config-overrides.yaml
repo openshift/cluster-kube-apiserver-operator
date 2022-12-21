@@ -53,8 +53,6 @@ apiServerArguments:
     - "APIPriorityAndFairness=true"
     - "RotateKubeletServerCertificate=true"
     - "DownwardAPIHugePages=true"
-    - "CSIMigrationAzureFile=false"
-    - "CSIMigrationvSphere=false"
 {{- if .ServiceCIDR | len | eq 2}}
     - "IPv6DualStack=true"
 {{- end}}
