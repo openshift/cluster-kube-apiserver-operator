@@ -208,7 +208,6 @@ spec:
     args:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
-      - --heartbeat-file=/var/log/kube-apiserver/.heartbeat
       - -v=2
     resources:
       requests:
