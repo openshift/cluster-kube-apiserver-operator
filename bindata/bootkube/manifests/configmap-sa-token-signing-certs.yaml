@@ -6,4 +6,4 @@ metadata:
   namespace: openshift-config-managed
 data:
   service-account-001.pub: |
-    '{{ .Assets | load "service-account.pub" | indent 4 }}'
+    {{ .Assets | load "service-account.pub" | indent 4 }}

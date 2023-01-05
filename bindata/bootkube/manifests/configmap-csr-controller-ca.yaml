@@ -6,4 +6,4 @@ metadata:
   namespace: openshift-config-managed
 data:
   ca-bundle.crt: |
-    '{{ .Assets | load "kubelet-client-ca-bundle.crt" | indent 4 }}'
+    {{ .Assets | load "kubelet-client-ca-bundle.crt" | indent 4 }}
