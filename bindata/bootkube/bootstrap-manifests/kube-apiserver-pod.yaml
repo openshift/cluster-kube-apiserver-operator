@@ -45,7 +45,6 @@ spec:
       hyperkube kube-apiserver
       --openshift-config=/etc/kubernetes/config/{{ .ConfigFileName }}
       --v=2
-      --log-file=/var/log/bootstrap-control-plane/kube-apiserver.log
       --advertise-address=${HOST_IP}
     resources:
       requests:
