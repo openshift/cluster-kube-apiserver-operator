@@ -49,13 +49,8 @@ apiServerArguments:
     - /etc/kubernetes/secrets/etcd-client.key
   etcd-servers: {{range .EtcdServerURLs}}
     - {{.}}{{end}}
-  feature-gates:
-    - "APIPriorityAndFairness=true"
-    - "RotateKubeletServerCertificate=true"
-    - "DownwardAPIHugePages=true"
-{{- if .ServiceCIDR | len | eq 2}}
-    - "IPv6DualStack=true"
-{{- end}}
+  feature-gates: {{range .FeatureGates}}
+    - {{.}}{{end}}
   kubelet-certificate-authority:
     - /etc/kubernetes/secrets/kubelet-client-ca-bundle.crt # this is wired to the KCM CSR, which signs serving and client certs for kubelet
   kubelet-client-certificate:
