@@ -118,7 +118,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				Type:    MutatingAdmissionWebhookConfigurationDegradedType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
-				Message: `mw10: unable to find find service svc10.ns10: service "svc10" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
+				Message: `mw10: unable to find service svc10.ns10: service "svc10" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
 			},
 		},
 		{
@@ -324,7 +324,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				Type:    ValidatingAdmissionWebhookConfigurationDegradedType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
-				Message: `mw10: unable to find find service svc10.ns10: service \"svc10\" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
+				Message: `mw10: unable to find service svc10.ns10: service \"svc10\" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
 			},
 		},
 		{

@@ -86,7 +86,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				Type:    CRDConversionWebhookConfigurationDegradedType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
-				Message: `crd10: unable to find find service svc10.ns10: service "svc10" not found\ncrd20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
+				Message: `crd10: unable to find service svc10.ns10: service "svc10" not found\ncrd20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
 			},
 		},
 		{
