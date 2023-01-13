@@ -88,7 +88,7 @@ func (c *webhookSupportabilityController) updateWebhookConfigurationDegraded(ctx
 func (c *webhookSupportabilityController) assertService(reference *serviceReference) error {
 	_, err := c.serviceLister.Services(reference.Namespace).Get(reference.Name)
 	if err != nil {
-		return fmt.Errorf("unable to find find service %s.%s: %v", reference.Name, reference.Namespace, err)
+		return fmt.Errorf("unable to find service %s.%s: %v", reference.Name, reference.Namespace, err)
 	}
 	return nil
 }
