@@ -624,7 +624,7 @@ spec:
 }
 
 func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
-	raw, err := bootstrapDefaultConfig()
+	raw, err := bootstrapDefaultConfig(configv1.Default)
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 

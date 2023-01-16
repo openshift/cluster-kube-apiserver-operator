@@ -129,6 +129,7 @@ func NewConfigObserver(
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
 			auth.ObserveWebhookTokenAuthenticator,
+			auth.ObservePodSecurityAdmissionEnforcement,
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
 				// static path at which we expect to find the encryption config secret
