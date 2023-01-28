@@ -241,6 +241,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"openshift-kube-apiserver-operator",
 			"cluster-kube-apiserver-operator",
 			"6443",
+			"readyz",
 			func() (bool, bool, error) {
 				isSNO, precheckSucceeded, err := guard.IsSNOCheckFnc(configInformers.Config().V1().Infrastructures())()
 				// create only when not a single node topology
