@@ -48,8 +48,8 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 			FeatureGateSelection: configv1.FeatureGateSelection{
 				FeatureSet: "CustomNoUpgrade",
 				CustomNoUpgrade: &configv1.CustomFeatureGates{
-					Enabled:  nil,
-					Disabled: []string{"OpenShiftPodSecurityAdmission"},
+					Enabled:  []string{"OpenShiftPodSecurityAdmission"},
+					Disabled: nil,
 				},
 			},
 		},
@@ -63,11 +63,11 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 		expectedJSON string
 	}{
 		{
-			name:         "enforce",
+			name:         "not enabled",
 			existingJSON: string(privilegedJSON),
 			featureGate:  defaultFeatureSet,
 			expectedErr:  "",
-			expectedJSON: string(restrictedJSON),
+			expectedJSON: string(privilegedJSON),
 		},
 		{
 			name:         "corrupt-1",
@@ -84,11 +84,11 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 			expectedJSON: string(restrictedJSON),
 		},
 		{
-			name:         "disabled",
+			name:         "enabled",
 			existingJSON: string(restrictedJSON),
 			featureGate:  disabledFeatureSet,
 			expectedErr:  "",
-			expectedJSON: string(privilegedJSON),
+			expectedJSON: string(restrictedJSON),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
