@@ -97,19 +97,19 @@ func observePodSecurityAdmissionEnforcement(featureGate *configv1.FeatureGate, r
 
 	errs := []error{}
 
-	_, disabled, err := featuregates.FeaturesGatesFromFeatureSets(featureGate)
+	enabled, _, err := featuregates.FeaturesGatesFromFeatureSets(featureGate)
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
 
 	observedConfig := map[string]interface{}{}
 	switch {
-	case sets.NewString(disabled...).Has("OpenShiftPodSecurityAdmission"):
-		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
+	case sets.NewString(enabled...).Has("OpenShiftPodSecurityAdmission"):
+		if err := SetPodSecurityAdmissionToEnforceRestricted(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	default:
-		if err := SetPodSecurityAdmissionToEnforceRestricted(observedConfig); err != nil {
+		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	}
