@@ -3170,7 +3170,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, max(etcd_object_counts) by (resource))",
+              "expr": "topk(25, max(apiserver_storage_objects) by (resource))",
               "interval": "",
               "legendFormat": "{{resource}}",
               "refId": "A"
