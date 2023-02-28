@@ -2,17 +2,22 @@ package e2e_encryption_rotation
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TestEncryptionRotation first encrypts data with aescbc key
-// then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
+var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
+
+// TestEncryptionRotation first encrypts data then it forces a key
+// rotation by setting the "encyrption.Reason" in the operator's configuration
+// file
 func TestEncryptionRotation(t *testing.T) {
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
@@ -36,5 +41,6 @@ func TestEncryptionRotation(t *testing.T) {
 			_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
 			return err
 		},
+		EncryptionProvider: configv1.EncryptionType(*provider),
 	})
 }
