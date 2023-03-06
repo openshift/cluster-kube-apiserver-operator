@@ -41,12 +41,17 @@ func TestServiceAccountIssuer(t *testing.T) {
 		}
 	})
 
-	t.Run("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set", func(t *testing.T) {
-		setServiceAccountIssuer(t, authConfigClient, "")
-		if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"}); err != nil {
-			t.Errorf(err.Error())
-		}
-	})
+	// TODO: This is disabled as it potentially put cluster into instable state, where some components might already renewed their tokens
+	//       but the test case below will immediatelly revoke those tokens without trusting the existing ones.
+	//       This potentially break e2e tests that run after this test with "unauthorized" errors.
+	/*
+		t.Run("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set", func(t *testing.T) {
+			setServiceAccountIssuer(t, authConfigClient, "")
+			if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"}); err != nil {
+				t.Errorf(err.Error())
+			}
+		})
+	*/
 
 }
 func pollForOperandIssuer(t *testing.T, client clientcorev1.CoreV1Interface, expectedIssuers []string) error {
