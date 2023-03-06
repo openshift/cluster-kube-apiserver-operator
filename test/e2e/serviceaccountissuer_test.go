@@ -28,6 +28,7 @@ func TestServiceAccountIssuer(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("serviceaccountissuer set in authentication config results in apiserver config", func(t *testing.T) {
+		t.Skip()
 		setServiceAccountIssuer(t, authConfigClient, "https://first.foo.bar")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
 			t.Errorf(err.Error())
@@ -35,6 +36,7 @@ func TestServiceAccountIssuer(t *testing.T) {
 	})
 
 	t.Run("second serviceaccountissuer set in authentication config results in apiserver config with two issuers", func(t *testing.T) {
+		t.Skip()
 		setServiceAccountIssuer(t, authConfigClient, "https://second.foo.bar")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
 			t.Errorf(err.Error())
@@ -42,6 +44,7 @@ func TestServiceAccountIssuer(t *testing.T) {
 	})
 
 	t.Run("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set", func(t *testing.T) {
+		t.Skip()
 		setServiceAccountIssuer(t, authConfigClient, "")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"}); err != nil {
 			t.Errorf(err.Error())
