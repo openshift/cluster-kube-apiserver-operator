@@ -15,21 +15,21 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
-	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
-	"k8s.io/klog/v2"
-
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	kyaml "k8s.io/apimachinery/pkg/util/yaml"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	"k8s.io/klog/v2"
 )
 
 // renderOpts holds values to drive the render command.
@@ -260,7 +260,7 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	defaultConfig, err := bootstrapDefaultConfig()
+	defaultConfig, err := bootstrapDefaultConfig(configv1.FeatureSet(r.generic.FeatureSet))
 	if err != nil {
 		return fmt.Errorf("failed to get default config with audit policy - %s", err)
 	}
@@ -278,7 +278,7 @@ func (r *renderOpts) Run() error {
 	return genericrender.WriteFiles(&r.generic, &renderConfig.FileConfig, renderConfig)
 }
 
-func bootstrapDefaultConfig() ([]byte, error) {
+func bootstrapDefaultConfig(featureSet configv1.FeatureSet) ([]byte, error) {
 	asset := filepath.Join("assets", "config", "defaultconfig.yaml")
 	raw, err := bindata.Asset(asset)
 	if err != nil {
@@ -301,6 +301,17 @@ func bootstrapDefaultConfig() ([]byte, error) {
 	}
 	if err := addAuditPolicyToConfig(defaultConfig, policy); err != nil {
 		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
+	}
+
+	// modify config for TechPreviewNoUpgrade here.
+	if sets.NewString(configv1.FeatureSets[featureSet].Enabled...).Has("OpenShiftPodSecurityAdmission") {
+		if err := auth.SetPodSecurityAdmissionToEnforceRestricted(defaultConfig); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	defaultConfigRaw, err := json.Marshal(defaultConfig)
