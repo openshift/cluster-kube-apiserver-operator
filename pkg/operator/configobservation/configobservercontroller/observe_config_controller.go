@@ -37,6 +37,7 @@ type ConfigObserver struct {
 
 func NewConfigObserver(
 	operatorClient v1helpers.StaticPodOperatorClient,
+	featureGateAccessor featuregates.FeatureGateAccess,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformer configinformers.SharedInformerFactory,
 	operatorInformer operatorv1informers.SharedInformerFactory,
@@ -81,6 +82,8 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
+				FeatureGateAccessor: featureGateAccessor,
+
 				APIServerLister_:      configInformer.Config().V1().APIServers().Lister(),
 				AuthConfigLister:      configInformer.Config().V1().Authentications().Lister(),
 				FeatureGateLister_:    configInformer.Config().V1().FeatureGates().Lister(),
@@ -144,6 +147,7 @@ func NewConfigObserver(
 				nil,
 				FeatureBlacklist,
 				[]string{"apiServerArguments", "feature-gates"},
+				featureGateAccessor,
 			),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,

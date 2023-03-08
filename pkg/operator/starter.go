@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -126,8 +128,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
 
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		status.VersionForOperatorFromEnv(),
+		"0.0.1-snapshot", // this is the value for the version if the CVO doesn't replace it in the deployment.
+		configInformers.Config().V1().ClusterVersions(),
+		configInformers.Config().V1().FeatureGates(),
+		controllerContext.EventRecorder,
+	)
+
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
+		featureGateAccessor,
 		kubeInformersForNamespaces,
 		configInformers,
 		operatorInformers,
@@ -422,6 +433,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	apiextensionsInformers.Start(ctx.Done())
 	operatorInformers.Start(ctx.Done())
 
+	go featureGateAccessor.Run(ctx)
 	go staticPodControllers.Start(ctx)
 	go resourceSyncController.Run(ctx, 1)
 	go staticResourceController.Run(ctx, 1)

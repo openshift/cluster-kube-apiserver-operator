@@ -1,6 +1,7 @@
 package configobservation
 
 import (
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -15,6 +16,8 @@ var _ cloudprovider.InfrastructureLister = Listers{}
 var _ libgoetcd.ConfigMapLister = Listers{}
 
 type Listers struct {
+	FeatureGateAccessor featuregates.FeatureGateAccess
+
 	APIServerLister_      configlistersv1.APIServerLister
 	AuthConfigLister      configlistersv1.AuthenticationLister
 	FeatureGateLister_    configlistersv1.FeatureGateLister
@@ -33,6 +36,10 @@ type Listers struct {
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
+}
+
+func (l Listers) FeatureGates() featuregates.FeatureGateAccess {
+	return l.FeatureGateAccessor
 }
 
 func (l Listers) APIServerLister() configlistersv1.APIServerLister {

@@ -3,18 +3,15 @@ package auth
 import (
 	"fmt"
 
-	configv1 "github.com/openshift/api/config/v1"
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type FeatureGateLister interface {
-	FeatureGateLister() configlistersv1.FeatureGateLister
+type FeatureGateAccessor interface {
+	FeatureGates() featuregates.FeatureGateAccess
 }
 
 var configPath = []string{"admission", "pluginConfig", "PodSecurity", "configuration", "defaults"}
@@ -69,35 +66,24 @@ func SetPodSecurityAdmissionToEnforcePrivileged(config map[string]interface{}) e
 
 // ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
 func ObservePodSecurityAdmissionEnforcement(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
-	listers := genericListers.(FeatureGateLister)
-	errs := []error{}
+	listers := genericListers.(FeatureGateAccessor)
 
-	featureGate, err := listers.FeatureGateLister().Get("cluster")
-	// if we have no featuregate, then the installer and MCO probably still have way to reconcile certain custom resources
-	// we will assume that this means the same as default and hope for the best
-	if apierrors.IsNotFound(err) {
-		featureGate = &configv1.FeatureGate{
-			Spec: configv1.FeatureGateSpec{
-				FeatureGateSelection: configv1.FeatureGateSelection{
-					FeatureSet: configv1.Default,
-				},
-			},
-		}
-	} else if err != nil {
-		return existingConfig, append(errs, err)
+	// haven't seen the value yet
+	if !listers.FeatureGates().AreInitialFeatureGatesObserved() {
+		return configobserver.Pruned(existingConfig, configPath), nil
 	}
 
-	return observePodSecurityAdmissionEnforcement(featureGate, recorder, existingConfig)
+	return observePodSecurityAdmissionEnforcement(listers.FeatureGates(), recorder, existingConfig)
 }
 
-func observePodSecurityAdmissionEnforcement(featureGate *configv1.FeatureGate, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+func observePodSecurityAdmissionEnforcement(featureGates featuregates.FeatureGateAccess, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, configPath)
 	}()
 
 	errs := []error{}
 
-	_, disabled, err := featuregates.FeaturesGatesFromFeatureSets(featureGate)
+	_, disabled, err := featureGates.CurrentFeatureGates()
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
