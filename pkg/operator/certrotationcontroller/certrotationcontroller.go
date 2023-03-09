@@ -125,7 +125,8 @@ func newCertRotationController(
 	} else {
 		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
 		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		rotationDay = rotationDay / 2880
+		// 60 times faster * additional 48 times faster = 2880 ("every 15 minutes or so")
 	}
 
 	certRotator := certrotation.NewCertRotationController(
