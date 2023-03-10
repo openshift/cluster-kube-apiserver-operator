@@ -3,6 +3,7 @@ package e2e_encryption_perf
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
@@ -25,9 +27,11 @@ const (
 	secretsStatsKey = "created secrets"
 )
 
-func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
+var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
+
+func TestPerfEncryption(tt *testing.T) {
 	operatorClient := operatorencryption.GetOperator(tt)
-	library.TestPerfEncryptionTypeAESCBC(tt, library.PerfScenario{
+	library.TestPerfEncryption(tt, library.PerfScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -81,6 +85,7 @@ func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
 			waitUntilNamespaceActive,
 			library.DBLoaderRepeatParallel(5010, 50, false, createConfigMap, reportConfigMap),
 			library.DBLoaderRepeatParallel(9010, 50, false, createSecret, reportSecret)),
+		EncryptionProvider: configv1.EncryptionType(*provider),
 	})
 }
 

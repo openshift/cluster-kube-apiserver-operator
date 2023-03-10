@@ -1,13 +1,17 @@
 package e2e_encryption
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
+
+var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
 func TestEncryptionTypeIdentity(t *testing.T) {
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
@@ -49,5 +53,6 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
+		EncryptionProvider:             configv1.EncryptionType(*provider),
 	})
 }
