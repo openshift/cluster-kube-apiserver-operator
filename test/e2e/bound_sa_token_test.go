@@ -17,8 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	testutil "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	testlibrary "github.com/openshift/library-go/test/library"
 	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
@@ -49,9 +51,12 @@ func TestBoundTokenSignerController(t *testing.T) {
 	operatorPublicKey := operatorSecret.Data[tokenctl.PublicKeyKey]
 	operatorPrivateKey := operatorSecret.Data[tokenctl.PrivateKeyKey]
 
+	client, err := configclient.NewForConfig(kubeConfig)
+	require.NoError(t, err)
+
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		t.Skip()
+		testutil.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, client)
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
@@ -60,7 +65,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		t.Skip()
+		testutil.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, client)
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
@@ -77,7 +82,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 	//
 	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		t.Skip()
+		testutil.WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t, client)
 		// Delete the operator secret
 		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
