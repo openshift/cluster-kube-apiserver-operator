@@ -96,6 +96,14 @@ test-e2e: GO_TEST_FLAGS += -p 1
 test-e2e: test-unit
 .PHONY: test-e2e
 
+run-e2e-test: GO_TEST_PACKAGES :=./test/e2e/...
+run-e2e-test: GO_TEST_FLAGS += -timeout 1h
+run-e2e-test: GO_TEST_FLAGS += -run
+run-e2e-test: GO_TEST_FLAGS += ^${WHAT}$$
+run-e2e-test: GO_TEST_PACKAGES += -count 1
+run-e2e-test: test-unit
+.PHONY: run-e2e-test
+
 test-e2e-sno-disruptive: GO_TEST_PACKAGES :=./test/e2e-sno-disruptive/...
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -v
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -timeout 3h
