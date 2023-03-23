@@ -84,7 +84,7 @@ spec:
             cp -f /etc/kubernetes/static-pod-certs/configmaps/trusted-ca-bundle/ca-bundle.crt /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           fi
 
-          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} {{.Verbosity}} --permit-address-sharing
+          exec watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration={{.GracefulTerminationDuration}}s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP} -v=8 --permit-address-sharing
     resources:
       requests:
         memory: 1Gi
@@ -114,7 +114,7 @@ spec:
       timeoutSeconds: 10
     env:
       - name: ETCD_CLIENT_DEBUG
-        value: "enabled"
+        value: "debug"
       - name: POD_NAME
         valueFrom:
           fieldRef:
