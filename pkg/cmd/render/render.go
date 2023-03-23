@@ -304,12 +304,12 @@ func bootstrapDefaultConfig(featureSet configv1.FeatureSet) ([]byte, error) {
 	}
 
 	// modify config for TechPreviewNoUpgrade here.
-	if sets.NewString(configv1.FeatureSets[featureSet].Disabled...).Has("OpenShiftPodSecurityAdmission") {
-		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
+	if sets.NewString(configv1.FeatureSets[featureSet].Enabled...).Has("OpenShiftPodSecurityAdmission") {
+		if err := auth.SetPodSecurityAdmissionToEnforceRestricted(defaultConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := auth.SetPodSecurityAdmissionToEnforceRestricted(defaultConfig); err != nil {
+		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
 			return nil, err
 		}
 	}
