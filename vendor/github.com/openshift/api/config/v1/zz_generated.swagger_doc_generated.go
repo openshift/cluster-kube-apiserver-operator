@@ -791,6 +791,24 @@ func (FeatureGate) SwaggerDoc() map[string]string {
 	return map_FeatureGate
 }
 
+var map_FeatureGateAttributes = map[string]string{
+	"name": "name is the name of the FeatureGate",
+}
+
+func (FeatureGateAttributes) SwaggerDoc() map[string]string {
+	return map_FeatureGateAttributes
+}
+
+var map_FeatureGateDetails = map[string]string{
+	"version":  "version matches the version provided by the ClusterVersion and in the ClusterOperator.Status.Versions field.",
+	"enabled":  "enabled is a list of all feature gates that are enabled in the cluster for the named version",
+	"disabled": "disabled is a list of all feature gates that are disabled in the cluster for the named version",
+}
+
+func (FeatureGateDetails) SwaggerDoc() map[string]string {
+	return map_FeatureGateDetails
+}
+
 var map_FeatureGateList = map[string]string{
 	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 }
@@ -806,6 +824,15 @@ var map_FeatureGateSelection = map[string]string{
 
 func (FeatureGateSelection) SwaggerDoc() map[string]string {
 	return map_FeatureGateSelection
+}
+
+var map_FeatureGateStatus = map[string]string{
+	"conditions":   "conditions represent the observations of the current state. Known .status.conditions.type are: \"DeterminationDegraded\"",
+	"featureGates": "featureGates contains a list of enabled and disabled featureGates that are keyed by payloadVersion. Operators other than the CVO and cluster-config-operator, must read the .status.featureGates, locate the version they are managing, find the enabled/disabled featuregates and make the operand and operator match. The enabled/disabled values for a particular version may change during the life of the cluster as various .spec.featureSet values are selected. Operators may choose to restart their processes to pick up these changes, but remembering past enable/disable lists is beyond the scope of this API and is the responsibility of individual operators. Only featureGates with .version in the ClusterVersion.status will be present in this list.",
+}
+
+func (FeatureGateStatus) SwaggerDoc() map[string]string {
+	return map_FeatureGateStatus
 }
 
 var map_Image = map[string]string{
@@ -1112,6 +1139,15 @@ func (BareMetalPlatformStatus) SwaggerDoc() map[string]string {
 	return map_BareMetalPlatformStatus
 }
 
+var map_CloudControllerManagerSpec = map[string]string{
+	"":      "CloudControllerManagerSpec holds Cloud Controller Manager (a.k.a. CCM or CPI) related settings",
+	"state": "state determines whether or not an external Cloud Controller Manager is expected to be installed within the cluster. https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/#running-cloud-controller-manager\n\nWhen set to \"External\", new nodes will be tainted as uninitialized when created, preventing them from running workloads until they are initialized by the cloud controller manager. When omitted or set to \"None\", new nodes will be not tainted and no extra initialization from the cloud controller manager is expected.",
+}
+
+func (CloudControllerManagerSpec) SwaggerDoc() map[string]string {
+	return map_CloudControllerManagerSpec
+}
+
 var map_EquinixMetalPlatformSpec = map[string]string{
 	"": "EquinixMetalPlatformSpec holds the desired state of the Equinix Metal infrastructure provider. This only includes fields that can be modified in the cluster.",
 }
@@ -1131,8 +1167,9 @@ func (EquinixMetalPlatformStatus) SwaggerDoc() map[string]string {
 }
 
 var map_ExternalPlatformSpec = map[string]string{
-	"":             "ExternalPlatformSpec holds the desired state for the generic External infrastructure provider.",
-	"platformName": "PlatformName holds the arbitrary string representing the infrastructure provider name, expected to be set at the installation time. This field is solely for informational and reporting purposes and is not expected to be used for decision-making.",
+	"":                       "ExternalPlatformSpec holds the desired state for the generic External infrastructure provider.",
+	"platformName":           "PlatformName holds the arbitrary string representing the infrastructure provider name, expected to be set at the installation time. This field is solely for informational and reporting purposes and is not expected to be used for decision-making.",
+	"cloudControllerManager": "CloudControllerManager contains settings specific to the external Cloud Controller Manager (a.k.a. CCM or CPI)",
 }
 
 func (ExternalPlatformSpec) SwaggerDoc() map[string]string {
