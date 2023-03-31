@@ -1226,6 +1226,10 @@ func updatePodSpecWithInternalLoadBalancerKubeService(podSpec *corev1.PodSpec, c
 		}
 	}
 
+	// per conversation from David, needs review
+	podSpec.DNSPolicy = corev1.DNSDefault
+	podSpec.HostNetwork = true
+
 	return nil
 }
 
