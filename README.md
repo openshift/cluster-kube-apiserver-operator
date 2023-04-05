@@ -107,7 +107,7 @@ oc patch pod/kube-apiserver-operator-<rand_digits> -n openshift-kube-apiserver-o
 
 ## Developing and debugging the bootkube bootstrap phase
 
-The operator image version used by the [https://github.com/openshift/installer/blob/master/pkg/asset/ignition/bootstrap/bootstrap.go#L178](installer) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
+The operator image version used by the [installer](https://github.com/openshift/installer/blob/master/data/data/bootstrap/files/usr/local/bin/bootkube.sh.template#L52) bootstrap phase can be overridden by creating a custom origin-release image pointing to the developer's operator `:latest` image:
 
 ```
 $ IMAGE_ORG=sttts make images
