@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -101,6 +102,7 @@ func TestObserveNamedCertificates(t *testing.T) {
 	testCases := []struct {
 		name           string
 		config         *configv1.APIServer
+		missingSecret  string
 		existing       map[string]interface{}
 		expected       map[string]interface{}
 		expectErrs     bool
@@ -446,6 +448,19 @@ func TestObserveNamedCertificates(t *testing.T) {
 			expected:   existingConfig,
 			expectErrs: true,
 		},
+		{
+			name: "NoSuchSecret",
+			config: newAPIServerConfig(
+				withCertificate(
+					withNames("*.foo.org"),
+					withSecret("foo"),
+				),
+			),
+			missingSecret: "foo",
+			existing:      existingConfig,
+			expected:      existingConfig,
+			expectErrs:    true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -459,6 +474,9 @@ func TestObserveNamedCertificates(t *testing.T) {
 			var objs []runtime.Object
 			if tc.config != nil {
 				for _, nc := range tc.config.Spec.ServingCerts.NamedCertificates {
+					if nc.ServingCertificate.Name == tc.missingSecret {
+						continue
+					}
 					objs = append(objs, &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      nc.ServingCertificate.Name,
@@ -471,11 +489,17 @@ func TestObserveNamedCertificates(t *testing.T) {
 					})
 				}
 			}
+			for _, obj := range objs {
+				if err := indexer.Add(obj); err != nil {
+					t.Fatal(err)
+				}
+			}
 
 			synced := map[string]string{}
 			listers := configobservation.Listers{
-				APIServerLister_: configlistersv1.NewAPIServerLister(indexer),
-				ResourceSync:     &mockResourceSyncer{t: t, synced: synced},
+				APIServerLister_:    configlistersv1.NewAPIServerLister(indexer),
+				ResourceSync:        &mockResourceSyncer{t: t, synced: synced},
+				ConfigSecretLister_: corelistersv1.NewSecretLister(indexer),
 			}
 			result, errs := ObserveNamedCertificates(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
 			if tc.expectErrs && len(errs) == 0 {
