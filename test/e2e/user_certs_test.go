@@ -56,13 +56,16 @@ func TestNamedCertificates(t *testing.T) {
 
 	// create secrets for named serving certificates
 	for _, info := range testCertInfoById {
-		defer func(info *testCertInfo) {
-			err := deleteSecret(kubeClient, "openshift-config", info.secretName)
-			require.NoError(t, err)
-		}(info)
 		_, err := createTLSSecret(kubeClient, "openshift-config", info.secretName, info.crypto.PrivateKey, info.crypto.Certificate)
 		require.NoError(t, err)
 	}
+
+	defer func() {
+		for _, info := range testCertInfoById {
+			err := deleteSecret(kubeClient, "openshift-config", info.secretName)
+			require.NoError(t, err)
+		}
+	}()
 
 	// configure named certificates
 	defer func() {
