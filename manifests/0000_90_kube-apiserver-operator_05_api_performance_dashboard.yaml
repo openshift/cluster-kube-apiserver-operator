@@ -720,7 +720,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "group_resource:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
+              "expr": "request_kind:apiserver_dropped_requests_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{group}}:{{resource}}",
               "refId": "A"
@@ -2941,7 +2941,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, group_resource:apiserver_longrunning_requests:sum{apiserver=\"$apiserver\"})",
+              "expr": "topk(25, group_kind:apiserver_registered_watchers:sum{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{group}}:{{resource}}",
