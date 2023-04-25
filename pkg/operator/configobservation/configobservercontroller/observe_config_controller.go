@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
@@ -29,7 +30,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
-var FeatureBlacklist sets.String
+var FeatureBlacklist sets.Set[configv1.FeatureGateName]
 
 type ConfigObserver struct {
 	factory.Controller
@@ -41,6 +42,7 @@ func NewConfigObserver(
 	configInformer configinformers.SharedInformerFactory,
 	operatorInformer operatorv1informers.SharedInformerFactory,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
+	featureGateAccessor featuregates.FeatureGateAccess,
 	eventRecorder events.Recorder,
 ) *ConfigObserver {
 	interestingNamespaces := []string{
@@ -129,7 +131,7 @@ func NewConfigObserver(
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
 			auth.ObserveWebhookTokenAuthenticator,
-			auth.ObservePodSecurityAdmissionEnforcement,
+			auth.NewObservePodSecurityAdmissionEnforcementFunc(featureGateAccessor),
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
 				// static path at which we expect to find the encryption config secret
@@ -144,6 +146,7 @@ func NewConfigObserver(
 				nil,
 				FeatureBlacklist,
 				[]string{"apiServerArguments", "feature-gates"},
+				featureGateAccessor,
 			),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,

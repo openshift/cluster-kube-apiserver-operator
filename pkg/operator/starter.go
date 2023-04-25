@@ -3,6 +3,8 @@ package operator
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"math/rand"
 	"os"
 	"time"
@@ -110,6 +112,27 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	desiredVersion := status.VersionForOperatorFromEnv()
+	missingVersion := "0.0.1-snapshot"
+
+	// By default, this will exit(0) the process if the featuregates ever change to a different set of values.
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion, missingVersion,
+		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
+		controllerContext.EventRecorder,
+	)
+	go featureGateAccessor.Run(ctx)
+	go configInformers.Start(ctx.Done())
+
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		enabled, disabled, _ := featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: enabled=%v  disabled=%v", enabled, disabled)
+	case <-time.After(1 * time.Minute):
+		klog.Errorf("timed out waiting for FeatureGate detection")
+		return fmt.Errorf("timed out waiting for FeatureGate detection")
+	}
+
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
 		kubeInformersForNamespaces,
@@ -132,6 +155,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		configInformers,
 		operatorInformers,
 		resourceSyncController,
+		featureGateAccessor,
 		controllerContext.EventRecorder,
 	)
 
