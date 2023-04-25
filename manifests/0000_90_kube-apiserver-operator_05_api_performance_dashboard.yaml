@@ -81,7 +81,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{apiserver=\"$apiserver\",subresource!=\"log\",verb!~\"WATCH|WATCHLIST|PROXY\"}[$period])) by(verb,le))",
+              "expr": "histogram_quantile(0.99, sum(resource_verb:apiserver_request_duration_seconds_bucket:rate:$period{apiserver=\"$apiserver\"}) by (verb, le))",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{verb}}",
@@ -189,7 +189,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(etcd_request_duration_seconds_bucket[$period])) by(operation,le))",
+              "expr": "histogram_quantile(0.99, operation:etcd_request_duration_seconds_bucket:rate$period)",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{operation}}",
@@ -297,7 +297,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{apiserver=\"$apiserver\",subresource!=\"log\",verb!~\"WATCH|WATCHLIST|PROXY\"}[$period])) by(resource,verb,le)))",
+              "expr": "topk(20, histogram_quantile(0.99, resource_verb:apiserver_request_duration_seconds_bucket:rate:$period{apiserver=\"$apiserver\"}))",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{resource}}-{{verb}}",
@@ -404,7 +404,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, sum(rate(apiserver_request_total{apiserver=\"$apiserver\"}[$period])) by(resource,verb))",
+              "expr": "topk(20, resource_verb:apiserver_request_total:rate$period{apiserver=\"$apiserver\"})",
               "interval": "",
               "legendFormat": "{{resource}}-{{verb}}",
               "refId": "A"
@@ -502,14 +502,14 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{apiserver=\"$apiserver\",verb=~\"LIST|GET\"}[$period])) by(le))",
+              "expr": "histogram_quantile(0.99, list:apiserver_request_duration_seconds_bucket:rate$period{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "read",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_request_duration_seconds_bucket{apiserver=\"$apiserver\",verb=~\"POST|PUT|PATCH|UPDATE|DELETE\"}[$period])) by(le))",
+              "expr": "histogram_quantile(0.99, write:apiserver_request_duration_seconds_bucket:rate$period{apiserver=\"$apiserver\"})",
               "interval": "",
               "legendFormat": "write",
               "refId": "B"
@@ -615,13 +615,13 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_request_total{apiserver=\"$apiserver\",verb=~\"LIST|GET\"}[$period]))",
+              "expr": "read:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "read",
               "refId": "B"
             },
             {
-              "expr": "sum(rate(apiserver_request_total{apiserver=\"$apiserver\",verb=~\"POST|PUT|PATCH|UPDATE|DELETE\"}[$period]))",
+              "expr": "write:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "write",
               "refId": "A"
@@ -718,7 +718,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_dropped_requests_total{apiserver=\"$apiserver\"}[$period])) by (request_kind)",
+              "expr": "request_kind:apiserver_dropped_requests_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{request_kind}}",
               "refId": "A"
@@ -817,7 +817,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_request_terminations_total{apiserver=\"$apiserver\"}[$period])) by(component,resource)",
+              "expr": "component_resource:apiserver_request_terminations_total:rate:$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{component}}-{{resource}}",
               "refId": "A"
@@ -914,7 +914,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_request_total{apiserver=\"$apiserver\"}[$period])) by(code)",
+              "expr": "code:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{code}}",
               "refId": "A"
@@ -1012,7 +1012,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_request_total{apiserver=\"$apiserver\"}[$period])) by(instance)",
+              "expr": "instance:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{instance}}",
               "refId": "A"
@@ -1109,7 +1109,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, sum(apiserver_longrunning_requests{apiserver=\"$apiserver\"}) by(resource))",
+              "expr": "topk(20, resource:apiserver_longrunning_requests:sum{apiserver=\"$apiserver\"})",
               "interval": "",
               "legendFormat": "{{resource}}",
               "refId": "A"
@@ -1206,7 +1206,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_longrunning_requests{apiserver=\"$apiserver\"}) by(instance)",
+              "expr": "instance:apiserver_longrunning_requests:sum{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{instance}}",
               "refId": "A"
@@ -1302,7 +1302,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_current_inflight_requests{apiserver=\"$apiserver\"}) by (instance,request_kind)",
+              "expr": "instance_request_kind:apiserver_current_inflight_requests:sum{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{instance}}:{{request_kind}}",
               "refId": "A"
@@ -1400,7 +1400,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_response_sizes_sum{apiserver=\"$apiserver\"}[$period])) by(instance)",
+              "expr": "instance:apiserver_response_sizes_sum:rate$period{apiserver=\"$apiserver\"}",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{instance}}",
@@ -1508,7 +1508,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(10, sum(rate(apiserver_response_sizes_sum{apiserver=\"$apiserver\"}[$period])) by(resource,verb))",
+              "expr": "topk(10, resource_verb:apiserver_response_sizes_sum:rate$period{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{resource}}:{{verb}}",
@@ -1617,7 +1617,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_flowcontrol_rejected_requests_total{apiserver=\"$apiserver\"}[$period])) by (flow_schema,priority_level,reason)",
+              "expr": "flow_schema_priority_level_reason:apiserver_flowcontrol_rejected_requests_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}:{{reason}}",
               "refId": "A"
@@ -1714,7 +1714,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_wait_duration_seconds_bucket{apiserver=\"$apiserver\",execute=\"true\"}[$period])) by(flow_schema, priority_level, le))",
+              "expr": "histogram_quantile(0.99, flow_schema_priority_level:apiserver_flowcontrol_request_wait_duration_seconds_bucket:rate$period{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -1816,7 +1816,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_queue_length_after_enqueue_bucket{apiserver=\"$apiserver\"}[$period])) by(flow_schema, priority_level, le))",
+              "expr": "histogram_quantile(0.99, flow_schema_priority_reason:apiserver_flowcontrol_request_queue_length_after_enqueue_bucket:rate$period{apiserver=\"$apiserver\"})",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}",
               "refId": "A"
@@ -1913,7 +1913,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_flowcontrol_dispatched_requests_total{apiserver=\"$apiserver\"}[$period])) by(flow_schema,priority_level)",
+              "expr": "flow_schema_priority_level:apiserver_flowcontrol_request_execution_seconds_bucket:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}",
               "refId": "A"
@@ -2010,7 +2010,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(apiserver_flowcontrol_request_execution_seconds_bucket{apiserver=\"$apiserver\"}[$period])) by(flow_schema, priority_level, le)) ",
+              "expr": "histogram_quantile(0.99, flow_schema_priority_level_le:apiserver_flowcontrol_request_execution_seconds_bucket:rate$period{apiserver=\"$apiserver\"}) ",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}",
               "refId": "A"
@@ -2107,7 +2107,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_flowcontrol_current_executing_requests{apiserver=\"$apiserver\"}) by (flow_schema,priority_level)",
+              "expr": "flow_schema_priority_level:apiserver_flowcontrol_current_executing_requests:sum{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}",
               "refId": "A"
@@ -2204,7 +2204,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_flowcontrol_request_concurrency_limit{apiserver=\"$apiserver\"}) by (priority_level)",
+              "expr": "priority_level:apiserver_flowcontrol_request_concurrency_limit:sum{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{priority_level}}",
               "refId": "A"
@@ -2301,7 +2301,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_flowcontrol_current_inqueue_requests{apiserver=\"$apiserver\"}) by (flow_schema,priority_level)",
+              "expr": "flow_schema_priority_level:apiserver_flowcontrol_current_inqueue_requests:sum{apiserver=\"$apiserver\"}",
               "interval": "",
               "legendFormat": "{{flow_schema}}:{{priority_level}}",
               "refId": "A"
@@ -2399,7 +2399,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_selfrequest_total{apiserver=\"$apiserver\"}[$period])) by(resource,verb)",
+              "expr": "resource_verb:apiserver_selfrequest_total:rate$period{apiserver=\"$apiserver\"}",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{resource}}:{{verb}}",
@@ -2507,7 +2507,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_request_aborts_total{apiserver=\"$apiserver\"}[$period])) by(resource,verb)",
+              "expr": "resource_verb:apiserver_request_aborts_total:rate$period{apiserver=\"$apiserver\"}",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{resource}}:{{verb}}",
@@ -2615,7 +2615,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, histogram_quantile(0.99, sum(rate(apiserver_request_filter_duration_seconds_bucket{apiserver=\"$apiserver\"}[$period])) by(filter,le)))",
+              "expr": "topk(20, histogram_quantile(0.99, filter:apiserver_request_filter_duration_seconds_bucket:rate$period{apiserver=\"$apiserver\"}))",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{filter}}",
@@ -2723,7 +2723,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, sum(rate(apiserver_watch_events_total{apiserver=\"$apiserver\"}[$period])) by(group,kind))",
+              "expr": "topk(25, group_kind:apiserver_watch_events_total:rate$period{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{group}}:{{kind}}",
@@ -2831,7 +2831,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, sum(rate(apiserver_watch_events_sizes_sum{apiserver=\"$apiserver\"}[$period])) by(group,kind))",
+              "expr": "topk(20, group_kind:apiserver_watch_events_sizes_sum:rate$period{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{group}}:{{kind}}",
@@ -2939,7 +2939,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, sum(apiserver_registered_watchers{apiserver=\"$apiserver\"}) by(group,kind))",
+              "expr": "topk(25, group_kind:apiserver_registered_watchers:sum{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
               "legendFormat": "{{group}}:{{kind}}",
@@ -3047,7 +3047,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(apiserver_tls_handshake_errors_total{apiserver=\"$apiserver\"}[$period])) by()",
+              "expr": "cluster:apiserver_tls_handshake_errors_total:rate$period{apiserver=\"$apiserver\"}",
               "format": "time_series",
               "interval": "",
               "legendFormat": "",
@@ -3170,7 +3170,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, max(apiserver_storage_objects) by (resource))",
+              "expr": "topk(25, resource:apiserver_storage_objects:max{apiserver=\"$apiserver\"})",
               "interval": "",
               "legendFormat": "{{resource}}",
               "refId": "A"
@@ -3287,11 +3287,6 @@ data:
             "options": [
               {
                 "selected": false,
-                "text": "auto",
-                "value": "$__auto_interval_period"
-              },
-              {
-                "selected": false,
                 "text": "1m",
                 "value": "1m"
               },
@@ -3328,7 +3323,7 @@ data:
         ]
       },
       "timezone": "",
-      "title": "API Performance",
+      "title": "API Performance v2",
       "uid": "X9gzM6XFF",
       "version": 2
     }
