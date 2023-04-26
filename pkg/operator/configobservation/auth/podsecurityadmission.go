@@ -4,17 +4,15 @@ import (
 	"fmt"
 
 	configv1 "github.com/openshift/api/config/v1"
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type FeatureGateLister interface {
-	FeatureGateLister() configlistersv1.FeatureGateLister
+	FeatureGateAccessor() featuregates.FeatureGateAccess
 }
 
 var configPath = []string{"admission", "pluginConfig", "PodSecurity", "configuration", "defaults"}
@@ -67,44 +65,41 @@ func SetPodSecurityAdmissionToEnforcePrivileged(config map[string]interface{}) e
 	return nil
 }
 
-// ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
-func ObservePodSecurityAdmissionEnforcement(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
-	listers := genericListers.(FeatureGateLister)
-	errs := []error{}
-
-	featureGate, err := listers.FeatureGateLister().Get("cluster")
-	// if we have no featuregate, then the installer and MCO probably still have way to reconcile certain custom resources
-	// we will assume that this means the same as default and hope for the best
-	if apierrors.IsNotFound(err) {
-		featureGate = &configv1.FeatureGate{
-			Spec: configv1.FeatureGateSpec{
-				FeatureGateSelection: configv1.FeatureGateSelection{
-					FeatureSet: configv1.Default,
-				},
-			},
-		}
-	} else if err != nil {
-		return existingConfig, append(errs, err)
-	}
-
-	return observePodSecurityAdmissionEnforcement(featureGate, recorder, existingConfig)
+func NewObservePodSecurityAdmissionEnforcementFunc(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+	return (&psaEnforcement{
+		featureGateAccessor: featureGateAccessor,
+	}).ObservePodSecurityAdmissionEnforcement
 }
 
-func observePodSecurityAdmissionEnforcement(featureGate *configv1.FeatureGate, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+type psaEnforcement struct {
+	featureGateAccessor featuregates.FeatureGateAccess
+}
+
+// ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
+func (o *psaEnforcement) ObservePodSecurityAdmissionEnforcement(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	return observePodSecurityAdmissionEnforcement(o.featureGateAccessor, recorder, existingConfig)
+}
+
+func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.FeatureGateAccess, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, configPath)
 	}()
 
 	errs := []error{}
 
-	_, disabled, err := featuregates.FeaturesGatesFromFeatureSets(featureGate)
+	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+		// if we haven't observed featuregates yet, return the existing
+		return existingConfig, nil
+	}
+
+	_, disabled, err := featureGateAccessor.CurrentFeatureGates()
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
 
 	observedConfig := map[string]interface{}{}
 	switch {
-	case sets.NewString(disabled...).Has("OpenShiftPodSecurityAdmission"):
+	case sets.New[configv1.FeatureGateName](disabled...).Has("OpenShiftPodSecurityAdmission"):
 		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}

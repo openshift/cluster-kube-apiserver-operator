@@ -232,7 +232,7 @@ func TestRenderCommand(t *testing.T) {
 
 	tempDisabledFeatureGates := configobservercontroller.FeatureBlacklist
 	if tempDisabledFeatureGates == nil {
-		tempDisabledFeatureGates = sets.NewString()
+		tempDisabledFeatureGates = sets.New[configv1.FeatureGateName]()
 	}
 
 	tests := []struct {
@@ -262,13 +262,13 @@ func TestRenderCommand(t *testing.T) {
 				}
 				expectedGates := []string{}
 				for _, enabledFG := range defaultFG.Enabled {
-					if tempDisabledFeatureGates.Has(enabledFG) {
+					if tempDisabledFeatureGates.Has(configv1.FeatureGateName(enabledFG)) {
 						continue
 					}
 					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG))
 				}
 				for _, disabledFG := range defaultFG.Disabled {
-					if tempDisabledFeatureGates.Has(disabledFG) {
+					if tempDisabledFeatureGates.Has(configv1.FeatureGateName(disabledFG)) {
 						continue
 					}
 					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG))
