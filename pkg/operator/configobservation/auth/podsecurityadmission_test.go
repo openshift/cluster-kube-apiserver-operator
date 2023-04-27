@@ -2,7 +2,7 @@ package auth
 
 import (
 	"encoding/json"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"errors"
 	"strings"
 	"testing"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -28,15 +29,7 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 
 	defaultFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{})
 
-	// TODO provide a hardcoded test harness that allows not-ready and error
-	//corruptFeatureSet := &configv1.FeatureGate{
-	//	Spec: configv1.FeatureGateSpec{
-	//		FeatureGateSelection: configv1.FeatureGateSelection{
-	//			FeatureSet:      "Bad",
-	//			CustomNoUpgrade: nil,
-	//		},
-	//	},
-	//}
+	const sentinelExistingJSON = `{"admission":{"pluginConfig":{"PodSecurity":{"configuration":{"defaults":{"foo":"bar"}}}}}}`
 
 	disabledFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{"OpenShiftPodSecurityAdmission"})
 
@@ -54,26 +47,34 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 			expectedErr:         "",
 			expectedJSON:        string(restrictedJSON),
 		},
-		//{
-		//	name:                "corrupt-1",
-		//	existingJSON:        string(privilegedJSON),
-		//	featureGateAccessor: corruptFeatureSet,
-		//	expectedErr:         "not found",
-		//	expectedJSON:        string(privilegedJSON),
-		//},
-		//{
-		//	name:                "corrupt-2",
-		//	existingJSON:        string(restrictedJSON),
-		//	featureGateAccessor: corruptFeatureSet,
-		//	expectedErr:         "not found",
-		//	expectedJSON:        string(restrictedJSON),
-		//},
 		{
 			name:                "disabled",
 			existingJSON:        string(restrictedJSON),
 			featureGateAccessor: disabledFeatureSet,
 			expectedErr:         "",
 			expectedJSON:        string(privilegedJSON),
+		},
+		{
+			name:                "initial feature gates not observed",
+			existingJSON:        sentinelExistingJSON,
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, make(chan struct{}), nil),
+			expectedJSON:        sentinelExistingJSON,
+		},
+		{
+			name:         "error reading current feature gates",
+			existingJSON: sentinelExistingJSON,
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccessForTesting(
+				nil,
+				nil,
+				func() chan struct{} {
+					c := make(chan struct{})
+					close(c)
+					return c
+				}(),
+				errors.New("test error"),
+			),
+			expectedJSON: sentinelExistingJSON,
+			expectedErr:  "test error",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
