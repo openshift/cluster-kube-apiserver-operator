@@ -126,8 +126,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		enabled, disabled, _ := featureGateAccessor.CurrentFeatureGates()
-		klog.Infof("FeatureGates initialized: enabled=%v  disabled=%v", enabled, disabled)
+		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 	case <-time.After(1 * time.Minute):
 		klog.Errorf("timed out waiting for FeatureGate detection")
 		return fmt.Errorf("timed out waiting for FeatureGate detection")

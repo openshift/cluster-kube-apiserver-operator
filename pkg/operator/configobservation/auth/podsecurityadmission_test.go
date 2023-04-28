@@ -27,11 +27,11 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 	restrictedJSON, err := json.Marshal(restrictedMap)
 	require.NoError(t, err)
 
-	defaultFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{})
+	defaultFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission}, []configv1.FeatureGateName{})
 
 	const sentinelExistingJSON = `{"admission":{"pluginConfig":{"PodSecurity":{"configuration":{"defaults":{"foo":"bar"}}}}}}`
 
-	disabledFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{"OpenShiftPodSecurityAdmission"})
+	disabledFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission})
 
 	for _, tc := range []struct {
 		name                string

@@ -8,7 +8,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type FeatureGateLister interface {
@@ -92,14 +91,14 @@ func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.Fea
 		return existingConfig, nil
 	}
 
-	_, disabled, err := featureGateAccessor.CurrentFeatureGates()
+	featureGates, err := featureGateAccessor.CurrentFeatureGates()
 	if err != nil {
 		return existingConfig, append(errs, err)
 	}
 
 	observedConfig := map[string]interface{}{}
 	switch {
-	case sets.New[configv1.FeatureGateName](disabled...).Has("OpenShiftPodSecurityAdmission"):
+	case !featureGates.Enabled(configv1.FeatureGateOpenShiftPodSecurityAdmission):
 		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}

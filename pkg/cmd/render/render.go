@@ -304,7 +304,11 @@ func bootstrapDefaultConfig(featureSet configv1.FeatureSet) ([]byte, error) {
 	}
 
 	// modify config for TechPreviewNoUpgrade here.
-	if sets.NewString(configv1.FeatureSets[featureSet].Disabled...).Has("OpenShiftPodSecurityAdmission") {
+	disabledFeatures := sets.New[configv1.FeatureGateName]()
+	for _, curr := range configv1.FeatureSets[featureSet].Disabled {
+		disabledFeatures.Insert(curr.FeatureGateAttributes.Name)
+	}
+	if disabledFeatures.Has(configv1.FeatureGateOpenShiftPodSecurityAdmission) {
 		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
 			return nil, err
 		}
@@ -485,10 +489,10 @@ func setFeatureGates(renderConfig *TemplateData, opts *renderOpts) error {
 	}
 	allGates := []string{}
 	for _, enabled := range featureSet.Enabled {
-		allGates = append(allGates, fmt.Sprintf("%v=true", enabled))
+		allGates = append(allGates, fmt.Sprintf("%v=true", enabled.FeatureGateAttributes.Name))
 	}
 	for _, disabled := range featureSet.Disabled {
-		allGates = append(allGates, fmt.Sprintf("%v=false", disabled))
+		allGates = append(allGates, fmt.Sprintf("%v=false", disabled.FeatureGateAttributes.Name))
 	}
 	renderConfig.FeatureGates = allGates
 	return nil
