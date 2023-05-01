@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"io/ioutil"
 	"net"
 	"os"
@@ -177,9 +178,20 @@ func (r *renderOpts) Run() error {
 		TerminationGracePeriodSeconds: 135, // bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
 		ShutdownDelayDuration:         "",  // do not override
 	}
-	if err := setFeatureGates(&renderConfig, r); err != nil {
-		return err
+
+	featureGates, err := r.generic.FeatureGates()
+	if err != nil {
+		klog.Warningf(fmt.Sprintf("error getting FeatureGates: %v", err))
+		if err := setFeatureGates(&renderConfig, r); err != nil {
+			return err
+		}
+
+	} else {
+		if err := setFeatureGatesFromAccessor(&renderConfig, featureGates); err != nil {
+			return err
+		}
 	}
+
 	if len(r.clusterConfigFile) > 0 {
 		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
 		if err != nil {
@@ -493,6 +505,23 @@ func setFeatureGates(renderConfig *TemplateData, opts *renderOpts) error {
 	}
 	for _, disabled := range featureSet.Disabled {
 		allGates = append(allGates, fmt.Sprintf("%v=false", disabled.FeatureGateAttributes.Name))
+	}
+	renderConfig.FeatureGates = allGates
+	return nil
+}
+
+func setFeatureGatesFromAccessor(renderConfig *TemplateData, featureGates featuregates.FeatureGateAccess) error {
+	currFeatureGates, err := featureGates.CurrentFeatureGates()
+	if err != nil {
+		return fmt.Errorf("unable to get FeatureGates: %w", err)
+	}
+	allGates := []string{}
+	for _, featureGateName := range currFeatureGates.KnownFeatures() {
+		if currFeatureGates.Enabled(featureGateName) {
+			allGates = append(allGates, fmt.Sprintf("%v=true", featureGateName))
+		} else {
+			allGates = append(allGates, fmt.Sprintf("%v=false", featureGateName))
+		}
 	}
 	renderConfig.FeatureGates = allGates
 	return nil
