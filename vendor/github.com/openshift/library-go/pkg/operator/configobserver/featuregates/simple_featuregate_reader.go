@@ -44,7 +44,7 @@ type FeatureGateAccess interface {
 	InitialFeatureGatesObserved() <-chan struct{}
 	// CurrentFeatureGates returns the list of enabled and disabled featuregates.
 	// It returns an error if the current set of featuregates is not known.
-	CurrentFeatureGates() (enabled []configv1.FeatureGateName, disabled []configv1.FeatureGateName, err error)
+	CurrentFeatureGates() (FeatureGate, error)
 	// AreInitialFeatureGatesObserved returns true if the initial featuregates have been observed.
 	AreInitialFeatureGatesObserved() bool
 }
@@ -93,8 +93,8 @@ go featureGateAccessor.Run(ctx)
 
 select{
 case <- featureGateAccessor.InitialFeatureGatesObserved():
-	enabled, disabled, _ := featureGateAccessor.CurrentFeatureGates()
-	klog.Infof("FeatureGates initialized: enabled=%v  disabled=%v", enabled, disabled)
+	featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+	klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 case <- time.After(1*time.Minute):
 	klog.Errorf("timed out waiting for FeatureGate detection")
 	return fmt.Errorf("timed out waiting for FeatureGate detection")
@@ -201,25 +201,11 @@ func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
 		return err
 	}
 
-	found := false
-	features := Features{}
-	for _, featureGateValues := range featureGate.Status.FeatureGates {
-		if featureGateValues.Version != desiredVersion {
-			continue
-		}
-		found = true
-		for _, enabled := range featureGateValues.Enabled {
-			features.Enabled = append(features.Enabled, enabled.Name)
-		}
-		for _, disabled := range featureGateValues.Disabled {
-			features.Disabled = append(features.Disabled, disabled.Name)
-		}
-		break
+	features, err := featuresFromFeatureGate(featureGate, desiredVersion)
+	if err != nil {
+		return fmt.Errorf("unable to determine features: %w", err)
 	}
 
-	if !found {
-		return fmt.Errorf("missing desired version %q in featuregates.config.openshift.io/cluster", desiredVersion)
-	}
 	c.setFeatureGates(features)
 
 	return nil
@@ -268,19 +254,19 @@ func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	}
 }
 
-func (c *defaultFeatureGateAccess) CurrentFeatureGates() ([]configv1.FeatureGateName, []configv1.FeatureGateName, error) {
+func (c *defaultFeatureGateAccess) CurrentFeatureGates() (FeatureGate, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if !c.AreInitialFeatureGatesObserved() {
-		return nil, nil, fmt.Errorf("featureGates not yet observed")
+		return nil, fmt.Errorf("featureGates not yet observed")
 	}
 	retEnabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Enabled))
 	retDisabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Disabled))
 	copy(retEnabled, c.currentFeatures.Enabled)
 	copy(retDisabled, c.currentFeatures.Disabled)
 
-	return retEnabled, retDisabled, nil
+	return NewFeatureGate(retEnabled, retDisabled), nil
 }
 
 func (c *defaultFeatureGateAccess) runWorker(ctx context.Context) {
@@ -305,4 +291,28 @@ func (c *defaultFeatureGateAccess) processNextWorkItem(ctx context.Context) bool
 	c.queue.AddRateLimited(dsKey)
 
 	return true
+}
+
+func featuresFromFeatureGate(featureGate *configv1.FeatureGate, desiredVersion string) (Features, error) {
+	found := false
+	features := Features{}
+	for _, featureGateValues := range featureGate.Status.FeatureGates {
+		if featureGateValues.Version != desiredVersion {
+			continue
+		}
+		found = true
+		for _, enabled := range featureGateValues.Enabled {
+			features.Enabled = append(features.Enabled, enabled.Name)
+		}
+		for _, disabled := range featureGateValues.Disabled {
+			features.Disabled = append(features.Disabled, disabled.Name)
+		}
+		break
+	}
+
+	if !found {
+		return Features{}, fmt.Errorf("missing desired version %q in featuregates.config.openshift.io/cluster", desiredVersion)
+	}
+
+	return features, nil
 }

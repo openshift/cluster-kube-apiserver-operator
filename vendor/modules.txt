@@ -201,7 +201,7 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20230424202542-f7a9b7696bc2
+# github.com/openshift/api v0.0.0-20230426193520-54a14470e5dc
 ## explicit; go 1.19
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -324,7 +324,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20230425205800-ab66adbd0bb5
+# github.com/openshift/library-go v0.0.0-20230501134757-c3f6a3f540c5
 ## explicit; go 1.19
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
