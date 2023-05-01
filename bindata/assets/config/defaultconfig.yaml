@@ -52,6 +52,8 @@ apiServerArguments:
     - /etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-audit-policies/policy.yaml
   client-ca-file:
     - /etc/kubernetes/static-pod-certs/configmaps/client-ca/ca-bundle.crt
+  disable-admission-plugins:
+    - PersistentVolumeLabel
   enable-admission-plugins:
     - CertificateApproval
     - CertificateSigning
@@ -65,7 +67,6 @@ apiServerArguments:
     - NodeRestriction
     - OwnerReferencesPermissionEnforcement
     - PersistentVolumeClaimResize
-    - PersistentVolumeLabel
     - PodNodeSelector
     - PodTolerationRestriction
     - Priority
