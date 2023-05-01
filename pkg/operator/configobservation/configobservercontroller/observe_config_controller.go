@@ -141,7 +141,9 @@ func NewConfigObserver(
 			cloudprovider.NewCloudProviderObserver(
 				"openshift-kube-apiserver",
 				[]string{"apiServerArguments", "cloud-provider"},
-				[]string{"apiServerArguments", "cloud-config"}),
+				[]string{"apiServerArguments", "cloud-config"},
+				featureGateAccessor,
+			),
 			featuregates.NewObserveFeatureFlagsFunc(
 				nil,
 				FeatureBlacklist,

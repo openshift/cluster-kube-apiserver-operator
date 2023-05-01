@@ -1,5 +1,12 @@
 package options
 
+import (
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
+)
+
 // ManifestConfig is a struct of values to be used in manifest templates.
 type ManifestConfig struct {
 	// ConfigHostPath is a host path mounted into the controller manager pods to hold the config file.
@@ -27,7 +34,6 @@ type ManifestConfig struct {
 	ImagePullPolicy string
 }
 
-// FileConfig
 type FileConfig struct {
 	// BootstrapConfig holds the rendered control plane component config file for bootstrapping (phase 1).
 	BootstrapConfig []byte
@@ -36,7 +42,46 @@ type FileConfig struct {
 	Assets map[string][]byte
 }
 
+type RenderedManifests []RenderedManifest
+
+type RenderedManifest struct {
+	OriginalFilename string
+	Content          []byte
+
+	// use GetDecodedObj to access
+	decodedObj runtime.Object
+}
+
 type TemplateData struct {
 	ManifestConfig
 	FileConfig
+}
+
+func (c RenderedManifests) ListManifestOfType(gvk schema.GroupVersionKind) []RenderedManifest {
+	ret := []RenderedManifest{}
+	for i := range c {
+		obj, err := c[i].GetDecodedObj()
+		if err != nil {
+			klog.Warningf("failure to read %q: %v", c[i].OriginalFilename, err)
+			continue
+		}
+		if obj.GetObjectKind().GroupVersionKind() == gvk {
+			ret = append(ret, c[i])
+		}
+	}
+
+	return ret
+}
+
+func (c *RenderedManifest) GetDecodedObj() (runtime.Object, error) {
+	if c.decodedObj != nil {
+		return c.decodedObj, nil
+	}
+	obj, err := resourceread.ReadGenericWithUnstructured(c.Content)
+	if err != nil {
+		return nil, err
+	}
+	c.decodedObj = obj
+
+	return c.decodedObj, nil
 }

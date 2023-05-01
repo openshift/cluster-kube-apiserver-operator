@@ -262,16 +262,16 @@ func TestRenderCommand(t *testing.T) {
 				}
 				expectedGates := []string{}
 				for _, enabledFG := range defaultFG.Enabled {
-					if tempDisabledFeatureGates.Has(configv1.FeatureGateName(enabledFG)) {
+					if tempDisabledFeatureGates.Has(enabledFG.FeatureGateAttributes.Name) {
 						continue
 					}
-					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG))
+					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG.FeatureGateAttributes.Name))
 				}
 				for _, disabledFG := range defaultFG.Disabled {
-					if tempDisabledFeatureGates.Has(configv1.FeatureGateName(disabledFG)) {
+					if tempDisabledFeatureGates.Has(disabledFG.FeatureGateAttributes.Name) {
 						continue
 					}
-					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG))
+					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG.FeatureGateAttributes.Name))
 				}
 				if len(actualGates) != len(expectedGates) {
 					return fmt.Errorf("expected to get exactly %d feature gates but found %d: expected=%v got=%v", len(expectedGates), len(actualGates), expectedGates, actualGates)
