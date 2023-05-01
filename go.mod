@@ -15,7 +15,7 @@ require (
 	github.com/openshift/api v0.0.0-20230426193520-54a14470e5dc
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230120202327-72f107311084
-	github.com/openshift/library-go v0.0.0-20230501134757-c3f6a3f540c5
+	github.com/openshift/library-go v0.0.0-20230501171818-442d38f5a55b
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/client v0.45.0
 	github.com/prometheus/client_golang v1.14.0
