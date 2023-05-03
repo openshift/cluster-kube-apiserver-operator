@@ -272,7 +272,11 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	defaultConfig, err := bootstrapDefaultConfig(configv1.FeatureSet(r.generic.FeatureSet))
+	featureSet, err := r.generic.FeatureSetName()
+	if err != nil {
+		return err
+	}
+	defaultConfig, err := bootstrapDefaultConfig(featureSet)
 	if err != nil {
 		return fmt.Errorf("failed to get default config with audit policy - %s", err)
 	}

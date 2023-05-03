@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"text/template"
 
 	"github.com/ghodss/yaml"
@@ -90,10 +89,11 @@ func (o *GenericOptions) Validate() error {
 		return errors.New("missing required flag: --config-output-file")
 	}
 
-	for _, filename := range o.RenderedManifestInputFilenames {
-		_, err := os.Stat(filename)
-		if err != nil {
-			return fmt.Errorf("--rendered-manifest-files, value %q could not be read: %v", filename, err)
+	if renderedManifests, err := o.ReadInputManifests(); err != nil {
+		return fmt.Errorf("--rendered-manifest-files, could not be read: %v", err)
+	} else {
+		if err := renderedManifests.ValidateManifestPredictability(); err != nil {
+			return fmt.Errorf("--rendered-manifest-files, are not consistent so results would be unpredictable depending on apply order: %v", err)
 		}
 	}
 
@@ -102,6 +102,7 @@ func (o *GenericOptions) Validate() error {
 	default:
 		return fmt.Errorf("invalid feature-set specified: %q", o.FeatureSet)
 	}
+
 	return nil
 }
 
@@ -131,6 +132,30 @@ func (o *GenericOptions) FeatureGates() (featuregates.FeatureGateAccess, error) 
 		return nil, fmt.Errorf("cannot return FeatureGate without rendered manifests")
 	}
 
+	manifests, err := o.FeatureGateManifests()
+	if err != nil {
+		return nil, fmt.Errorf("error reading input manifests: %w", err)
+	}
+	// they're all the same, so just get the first
+	featureGate, err := manifests[0].GetDecodedObj()
+	if err != nil {
+		return nil, fmt.Errorf("error decoding FeatureGates: %w", err)
+	}
+
+	ret, err := featuregates.NewHardcodedFeatureGateAccessFromFeatureGate(featureGate.(*configv1.FeatureGate), o.PayloadVersion)
+	if err != nil {
+		return nil, fmt.Errorf("error creating feature accessor: %w", err)
+	}
+
+	return ret, nil
+}
+
+// FeatureGateManifests is exposed for usage in getting FeatureGateAccess and for convenient by cluster-config-operator
+func (o *GenericOptions) FeatureGateManifests() (RenderedManifests, error) {
+	if len(o.RenderedManifestInputFilenames) == 0 {
+		return nil, nil
+	}
+
 	inputManifest, err := o.ReadInputManifests()
 	if err != nil {
 		return nil, fmt.Errorf("error reading input manifests: %w", err)
@@ -139,10 +164,15 @@ func (o *GenericOptions) FeatureGates() (featuregates.FeatureGateAccess, error) 
 	if len(featureGates) == 0 {
 		return nil, fmt.Errorf("no FeatureGates found in manfest dir: %v", o.RenderedManifestInputFilenames)
 	}
+
+	ret := RenderedManifests{}
+
 	var prev *RenderedManifest
 	var featureGate *configv1.FeatureGate
 	for i := range featureGates {
 		curr := featureGates[i]
+		ret = append(ret, curr)
+
 		decodedObj, err := curr.GetDecodedObj()
 		if err != nil {
 			return nil, fmt.Errorf("decoding failure for %q: %w", curr.OriginalFilename, err)
@@ -162,12 +192,25 @@ func (o *GenericOptions) FeatureGates() (featuregates.FeatureGateAccess, error) 
 		}
 	}
 
-	ret, err := featuregates.NewHardcodedFeatureGateAccessFromFeatureGate(featureGate, o.PayloadVersion)
-	if err != nil {
-		return nil, fmt.Errorf("error creating feature accessor: %w", err)
+	return ret, nil
+}
+
+func (o *GenericOptions) FeatureSetName() (configv1.FeatureSet, error) {
+	if len(o.RenderedManifestInputFilenames) == 0 {
+		return configv1.FeatureSet(o.FeatureSet), nil
 	}
 
-	return ret, nil
+	manifests, err := o.FeatureGateManifests()
+	if err != nil {
+		return "MISSING", fmt.Errorf("error reading input manifests: %w", err)
+	}
+	// they're all the same, so just get the first
+	featureGate, err := manifests[0].GetDecodedObj()
+	if err != nil {
+		return "MISSING", fmt.Errorf("error decoding FeatureGates: %w", err)
+	}
+
+	return featureGate.(*configv1.FeatureGate).Spec.FeatureSet, nil
 }
 
 // ApplyTo applies the options to the given config struct using the provided text/template data.
