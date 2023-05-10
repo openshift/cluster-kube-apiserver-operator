@@ -244,24 +244,28 @@ func checkRevision(kasPod *corev1.Pod, monitorRevision int) (bool, string, strin
 }
 
 // goodReadyzEndpoint performs HTTP checks against readyz?verbose=true endpoint
+// some checks may be excluded - see getExcludedChecks func
 //
 //	returns true, "", "", when we got HTTP 200 "successThreshold" times
 //	returns false, "NotReady", EntireResponseBody (if any) on HTTP != 200
 //	returns false, "NotReadyError", EntireResponseBody (if any) in case of any error or timeout
 func goodReadyzEndpoint(client *http.Client, rawURL string, successThreshold int, interval time.Duration) func(ctx context.Context) (bool, string, string) {
+	readyzURL := appendExcludedChecksToAddress(fmt.Sprintf("%s/readyz?verbose=true", rawURL))
 	return func(ctx context.Context) (bool, string, string) {
-		return doHTTPCheckAndTransform(ctx, client, fmt.Sprintf("%s/readyz?verbose=true", rawURL), "NotReady", doHTTPCheckMultipleTimes(successThreshold, interval))
+		return doHTTPCheckAndTransform(ctx, client, readyzURL, "NotReady", doHTTPCheckMultipleTimes(successThreshold, interval))
 	}
 }
 
 // goodHealthzEndpoint performs an HTTP check against healthz?verbose=true endpoint
+// some checks may be excluded - see getExcludedChecks func
 //
 //	returns true, "", "", on HTTP 200
 //	returns false, "Unhealthy", EntireResponseBody (if any) on HTTP != 200
 //	returns false, "UnhealthyError", EntireResponseBody (if any) in case of any error or timeout
 func goodHealthzEndpoint(client *http.Client, rawURL string) func(context.Context) (bool, string, string) {
+	healthzURL := appendExcludedChecksToAddress(fmt.Sprintf("%s/healthz?verbose=true", rawURL))
 	return func(ctx context.Context) (bool, string, string) {
-		return doHTTPCheckAndTransform(ctx, client, fmt.Sprintf("%s/healthz?verbose=true", rawURL), "Unhealthy", doHTTPCheck)
+		return doHTTPCheckAndTransform(ctx, client, healthzURL, "Unhealthy", doHTTPCheck)
 	}
 }
 
@@ -376,4 +380,27 @@ func filterByNodeName(kasPods []corev1.Pod, currentNodeName string) []corev1.Pod
 	}
 
 	return filteredKasPods
+}
+
+func getExcludedChecks() []string {
+	// Speed up SNO install by declaring kube-apiserver healthy before openshift-apiserver is ready
+	// so that CVO could proceed with other components sooner
+	return []string{
+		// Defined at https://github.com/openshift/kubernetes/blob/53f3066f47d3a594d6b93843916e8711ee673715/openshift-kube-apiserver/openshiftkubeapiserver/sdn_readyz_wait.go#L22
+		"api-openshift-apiserver-available",
+		// Defined at https://github.com/openshift/kubernetes/blob/53f3066f47d3a594d6b93843916e8711ee673715/openshift-kube-apiserver/openshiftkubeapiserver/sdn_readyz_wait.go#L26
+		"api-openshift-oauth-apiserver-available",
+		// Defined at https://github.com/openshift/kubernetes/blob/53f3066f47d3a594d6b93843916e8711ee673715/openshift-kube-apiserver/openshiftkubeapiserver/patch.go#L119
+		"poststarthook/openshift.io-openshift-apiserver-reachable",
+		// Defined at https://github.com/openshift/kubernetes/blob/53f3066f47d3a594d6b93843916e8711ee673715/openshift-kube-apiserver/openshiftkubeapiserver/patch.go#L123
+		"poststarthook/openshift.io-oauth-apiserver-reachable",
+	}
+}
+
+func appendExcludedChecksToAddress(rawURL string) string {
+	newURL := rawURL
+	for _, excludedCheck := range getExcludedChecks() {
+		newURL = fmt.Sprintf("%s&exclude=%s", newURL, excludedCheck)
+	}
+	return newURL
 }
