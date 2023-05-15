@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/probes"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -26,7 +26,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,6 +127,7 @@ func isRequiredConfigPresent(config []byte) error {
 		{"servingInfo", "namedCertificates"},
 		{"apiServerArguments", "etcd-servers"},
 		{"admission", "pluginConfig", "network.openshift.io/RestrictedEndpointsAdmission"},
+		probes.ProbeExclusionPath,
 	}
 	for _, requiredPath := range requiredPaths {
 		configVal, found, err := unstructured.NestedFieldNoCopy(existingConfig, requiredPath...)
@@ -243,10 +243,22 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isSta
 	if err != nil {
 		return nil, false, fmt.Errorf("couldn't get the proxy config from observedConfig: %v", err)
 	}
-
 	proxyEnvVars := proxyMapToEnvVars(proxyConfig)
 	for i, container := range required.Spec.Containers {
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
+	}
+
+	exclusionPath, _, err := unstructured.NestedFieldCopy(observedConfig, probes.ProbeExclusionPath...)
+	if err != nil {
+		return nil, false, fmt.Errorf("couldn't get the probe exclusion config from observedConfig: %v", err)
+	}
+	for i, container := range required.Spec.Containers {
+		if container.Name != "kube-apiserver" {
+			continue
+		}
+		required.Spec.Containers[i].LivenessProbe.HTTPGet.Path = fmt.Sprintf("%s?%s", required.Spec.Containers[i].LivenessProbe.HTTPGet.Path, exclusionPath)
+		required.Spec.Containers[i].ReadinessProbe.HTTPGet.Path = fmt.Sprintf("%s?%s", required.Spec.Containers[i].ReadinessProbe.HTTPGet.Path, exclusionPath)
+		required.Spec.Containers[i].StartupProbe.HTTPGet.Path = fmt.Sprintf("%s?%s", required.Spec.Containers[i].StartupProbe.HTTPGet.Path, exclusionPath)
 	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))

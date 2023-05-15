@@ -103,15 +103,31 @@ spec:
         scheme: HTTPS
         port: 6443
         path: livez
-      initialDelaySeconds: 45
-      timeoutSeconds: 10
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 3
     readinessProbe:
       httpGet:
         scheme: HTTPS
         port: 6443
         path: readyz
-      initialDelaySeconds: 10
-      timeoutSeconds: 10
+        initialDelaySeconds: 0
+        periodSeconds: 5
+        timeoutSeconds: 5
+        successThreshold: 1
+        failureThreshold: 3
+    startupProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 6443
+        path: healthz
+      initialDelaySeconds: 0
+      periodSeconds: 5
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 30
     env:
       - name: POD_NAME
         valueFrom:

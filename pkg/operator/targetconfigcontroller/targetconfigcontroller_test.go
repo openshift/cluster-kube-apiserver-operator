@@ -102,6 +102,9 @@ func TestIsRequiredConfigPresent(t *testing.T) {
          "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
 		 "apiServerArguments": {
 		   "etcd-servers": [ "val" ]
+		 },
+		 "targetconfigcontroller": {
+		   "probeExclusion": "exclude=ping"
 		 }
 		}
 		`,

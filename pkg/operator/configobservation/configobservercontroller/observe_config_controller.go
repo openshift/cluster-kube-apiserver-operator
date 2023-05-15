@@ -2,11 +2,18 @@ package configobservercontroller
 
 import (
 	configv1 "github.com/openshift/api/config/v1"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/cache"
-
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/probes"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -18,16 +25,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/images"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/network"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 )
 
 var FeatureBlacklist sets.Set[configv1.FeatureGateName]
@@ -169,6 +168,7 @@ func NewConfigObserver(
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
 			scheduler.ObserveDefaultNodeSelector,
+			probes.ObserveProbeExclusions,
 		),
 	}
 
