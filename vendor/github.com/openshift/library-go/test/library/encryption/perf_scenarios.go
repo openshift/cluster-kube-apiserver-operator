@@ -18,17 +18,16 @@ type PerfScenario struct {
 	AssertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
 	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
-	DBLoaderWorkers    int
-	EncryptionProvider configv1.EncryptionType
+	DBLoaderWorkers int
 }
 
-func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
+func TestPerfEncryptionTypeAESCBC(t *testing.T, scenario PerfScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	migrationStartedCh := make(chan time.Time, 1)
 
 	populateDatabase(e, scenario.DBLoaderWorkers, scenario.DBLoaderFunc, scenario.AssertDBPopulatedFunc)
 	watchForMigrationControllerProgressingConditionAsync(e, scenario.GetOperatorConditionsFunc, migrationStartedCh)
-	endTimeStamp := runTestEncryption(t, scenario)
+	endTimeStamp := runTestEncryptionTypeAESCBCScenario(t, scenario.BasicScenario)
 
 	select {
 	case migrationStarted := <-migrationStartedCh:
@@ -38,9 +37,9 @@ func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
 	}
 }
 
-func runTestEncryption(tt *testing.T, scenario PerfScenario) time.Time {
+func runTestEncryptionTypeAESCBCScenario(tt *testing.T, scenario BasicScenario) time.Time {
 	var ts time.Time
-	TestEncryptionType(tt, BasicScenario{
+	TestEncryptionTypeAESCBC(tt, BasicScenario{
 		Namespace:                       scenario.Namespace,
 		LabelSelector:                   scenario.LabelSelector,
 		EncryptionConfigSecretName:      scenario.EncryptionConfigSecretName,
@@ -51,8 +50,8 @@ func runTestEncryption(tt *testing.T, scenario PerfScenario) time.Time {
 			// Note that AssertFunc is executed after an encryption secret has been annotated
 			ts = time.Now()
 			scenario.AssertFunc(t, clientSet, expectedMode, scenario.Namespace, scenario.LabelSelector)
-			t.Logf("AssertFunc for TestEncryption scenario with %q provider took %v", scenario.EncryptionProvider, time.Since(ts))
+			t.Logf("AssertFunc for TestEncryptionTypeAESCBC scenario took %v", time.Now().Sub(ts))
 		},
-	}, scenario.EncryptionProvider)
+	})
 	return ts
 }
