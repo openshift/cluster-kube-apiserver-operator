@@ -127,6 +127,7 @@ func NewConfigObserver(
 			apiserver.ObserveAdditionalCORSAllowedOrigins,
 			apiserver.ObserveShutdownDelayDuration,
 			apiserver.ObserveGracefulTerminationDuration,
+			apiserver.ObserveSendRetryAfterWhileNotReadyOnce,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
