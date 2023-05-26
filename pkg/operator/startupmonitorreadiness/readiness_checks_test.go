@@ -273,7 +273,6 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 			name:    "scenario 1: happy path, HTTP 200, empty reason and msg",
 			healthy: true,
 		},
-
 		{
 			name: "scenario 2: HTTP 500, unhealthy reason and msg",
 			rspWriterFn: func(w http.ResponseWriter) {
@@ -330,6 +329,16 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 			msg:       "waiting for kube-apiserver static pod to listen on port 6443",
 			customURL: "https://localhost:1234",
 		},
+		{
+			name: "scenario 6: unexpected err from the server",
+			rspWriterFn: func(w http.ResponseWriter) {
+				panic("bum")
+			},
+			healthy: false,
+			reason:  "NetworkError",
+			// we don't check the entire rsp from the server
+			msg: fmt.Sprintf("%s\": EOF", appendExcludedChecksToAddress("/readyz?verbose=true")),
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -345,7 +354,7 @@ func TestGoodReadyzEndpoint(t *testing.T) {
 					w.Write([]byte(fmt.Sprintf("a req received at unexpected path: %v", r.URL.Path)))
 					return
 				}
-				if r.URL.RawQuery != "verbose=true" {
+				if r.URL.RawQuery != appendExcludedChecksToAddress("verbose=true") {
 					w.WriteHeader(http.StatusBadRequest)
 					w.Write([]byte(fmt.Sprintf("unexpected query params received: %v", r.URL.RawQuery)))
 					return
@@ -405,7 +414,7 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 			healthy: false,
 			reason:  "NetworkError",
 			// we don't check the entire rsp from the server
-			msg: "/healthz?verbose=true\": EOF",
+			msg: fmt.Sprintf("%s\": EOF", appendExcludedChecksToAddress("/healthz?verbose=true")),
 		},
 		{
 			name: "scenario 4: no rsp from the server",
@@ -438,7 +447,7 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 					w.Write([]byte(fmt.Sprintf("a req received at unexpected path: %v", r.URL.Path)))
 					return
 				}
-				if r.URL.RawQuery != "verbose=true" {
+				if r.URL.RawQuery != appendExcludedChecksToAddress("verbose=true") {
 					w.WriteHeader(http.StatusBadRequest)
 					w.Write([]byte(fmt.Sprintf("unexpected query params received: %v", r.URL.RawQuery)))
 					return
@@ -458,7 +467,9 @@ func TestGoodHealthzEndpoint(t *testing.T) {
 			}
 
 			// act and validate
-			doCheckAndValidate(t, func() (bool, string, string) { return goodHealthzEndpoint(client, url)(context.TODO()) }, scenario.healthy, scenario.reason, scenario.msg)
+			doCheckAndValidate(t, func() (bool, string, string) {
+				return goodHealthzEndpoint(client, url)(context.TODO())
+			}, scenario.healthy, scenario.reason, scenario.msg)
 		})
 	}
 }
