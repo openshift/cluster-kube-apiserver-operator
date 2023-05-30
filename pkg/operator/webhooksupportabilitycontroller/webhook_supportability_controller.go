@@ -7,6 +7,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	apiextensionslistersv1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	admissionregistrationlistersv1 "k8s.io/client-go/listers/admissionregistration/v1"
@@ -43,14 +45,19 @@ func NewWebhookSupportabilityController(
 			kubeInformersForAllNamespaces.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 			kubeInformersForAllNamespaces.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 			kubeInformersForAllNamespaces.Core().V1().Services().Informer(),
-			apiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer(),
 		).
+		WithFilteredEventsInformers(func(obj interface{}) bool {
+			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
+				return hasCRDConversionWebhookConfiguration(crd)
+			}
+			return true // re-queue just in case, the checks are fairly cheap
+		}, apiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer()).
 		WithSync(c.sync).
 		ToController("webhookSupportabilityController", recorder)
 	return c
 }
 
-func (c *webhookSupportabilityController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
+func (c *webhookSupportabilityController) sync(ctx context.Context, _ factory.SyncContext) error {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
