@@ -11,18 +11,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -235,6 +234,8 @@ func TestRenderCommand(t *testing.T) {
 		tempDisabledFeatureGates = sets.New[configv1.FeatureGateName]()
 	}
 
+	defaultFGDir := filepath.Join("testdata", "rendered", "default-fg")
+
 	tests := []struct {
 		// note the name is used as a name for a temporary directory
 		name            string
@@ -250,29 +251,15 @@ func TestRenderCommand(t *testing.T) {
 				"--templates-input-dir=" + templateDir,
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				actualGates, ok := cfg.APIServerArguments["feature-gates"]
 				if !ok {
 					return fmt.Errorf("missing \"feature-gates\" entry in APIServerArguments")
 				}
-				defaultFG, ok := configv1.FeatureSets[configv1.Default]
-				if !ok {
-					t.Fatalf("configv1.FeatureSets doesn't contain entries under %s (Default) key", configv1.Default)
-				}
-				expectedGates := []string{}
-				for _, enabledFG := range defaultFG.Enabled {
-					if tempDisabledFeatureGates.Has(enabledFG.FeatureGateAttributes.Name) {
-						continue
-					}
-					expectedGates = append(expectedGates, fmt.Sprintf("%s=true", enabledFG.FeatureGateAttributes.Name))
-				}
-				for _, disabledFG := range defaultFG.Disabled {
-					if tempDisabledFeatureGates.Has(disabledFG.FeatureGateAttributes.Name) {
-						continue
-					}
-					expectedGates = append(expectedGates, fmt.Sprintf("%s=false", disabledFG.FeatureGateAttributes.Name))
-				}
+				expectedGates := []string{"Bar=false", "Foo=true", "OpenShiftPodSecurityAdmission=true"}
 				if len(actualGates) != len(expectedGates) {
 					return fmt.Errorf("expected to get exactly %d feature gates but found %d: expected=%v got=%v", len(expectedGates), len(actualGates), expectedGates, actualGates)
 				}
@@ -300,6 +287,8 @@ func TestRenderCommand(t *testing.T) {
 				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-v6.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v6.yaml"), []byte(networkConfigV6), 0644)
@@ -322,6 +311,8 @@ func TestRenderCommand(t *testing.T) {
 				"--cluster-config-file=" + filepath.Join(assetsInputDir, "config-dual.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
@@ -347,6 +338,8 @@ func TestRenderCommand(t *testing.T) {
 				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				issuer := cfg.APIServerArguments["service-account-issuer"]
@@ -365,6 +358,8 @@ func TestRenderCommand(t *testing.T) {
 				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				data := ``
@@ -387,6 +382,8 @@ func TestRenderCommand(t *testing.T) {
 				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				data := `apiVersion: config.openshift.io/v1
@@ -413,6 +410,8 @@ spec: {}`
 				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "authentication.yaml"),
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				data := `apiVersion: config.openshift.io/v1
@@ -440,6 +439,8 @@ spec:
 				"--templates-input-dir=" + templateDir,
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 		},
 		{
@@ -449,6 +450,8 @@ spec:
 				"--templates-input-dir=" + templateDir,
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				data := `DUMMY DATA`
@@ -486,6 +489,8 @@ spec:
 				"--templates-input-dir=" + templateDir,
 				"--asset-output-dir=",
 				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
@@ -514,6 +519,8 @@ spec:
 				"--asset-output-dir=",
 				"--config-output-file=",
 				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureHA), 0644)
@@ -545,6 +552,8 @@ spec:
 				"--asset-output-dir=",
 				"--config-output-file=",
 				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir,
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureSNO), 0644)
@@ -624,7 +633,7 @@ spec:
 }
 
 func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
-	raw, err := bootstrapDefaultConfig(configv1.Default)
+	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission}, nil))
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 
