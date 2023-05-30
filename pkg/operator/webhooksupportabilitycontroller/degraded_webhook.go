@@ -49,7 +49,7 @@ func (c *webhookSupportabilityController) updateWebhookConfigurationDegraded(ctx
 				serviceMsgs = append(serviceMsgs, msg)
 				continue
 			}
-			err = c.assertConnect(ctx, webhook.Service, webhook.CABundle)
+			err = c.assertConnect(ctx, webhook.Name, webhook.Service, webhook.CABundle)
 			if err != nil {
 				msg := fmt.Sprintf("%s: %s", webhook.Name, err)
 				if webhook.FailurePolicyIsIgnore {
@@ -94,7 +94,7 @@ func (c *webhookSupportabilityController) assertService(reference *serviceRefere
 }
 
 // assertConnect performs a dns lookup of service, opens a tcp connection, and performs a tls handshake.
-func (c *webhookSupportabilityController) assertConnect(ctx context.Context, reference *serviceReference, caBundle []byte) error {
+func (c *webhookSupportabilityController) assertConnect(ctx context.Context, webhookName string, reference *serviceReference, caBundle []byte) error {
 	host := reference.Name + "." + reference.Namespace + ".svc"
 	port := "443"
 	if reference.Port != nil {
@@ -125,7 +125,7 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		if err != nil {
 			if i != 2 {
 				// log err since only last one is reported
-				runtime.HandleError(err)
+				runtime.HandleError(fmt.Errorf("%s: %v", webhookName, err))
 			}
 			continue
 		}
