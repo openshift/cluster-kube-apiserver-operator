@@ -1,5 +1,7 @@
 package kmsencstatecontroller
 
+// adapted from: https://github.com/openshift/cluster-kube-apiserver-operator/blob/release-4.13/vendor/github.com/openshift/library-go/pkg/operator/encryption/controllers/state_controller.go
+
 import (
 	"context"
 	"fmt"

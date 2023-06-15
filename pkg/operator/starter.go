@@ -23,6 +23,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
+	kmse "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kmsencstatecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -40,6 +41,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
@@ -357,6 +359,32 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	// --- KMS enc ---
+	encryptionConfigLabelSelector := metav1.ListOptions{LabelSelector: secrets.EncryptionKeySecretsLabel + "=" + operatorclient.TargetNamespace}
+	encryptionPreconditionChecker, err := kmse.NewEncryptionEnabledPrecondition(
+		configInformers.Config().V1().APIServers().Lister(),
+		kubeInformersForNamespaces, encryptionConfigLabelSelector.LabelSelector,
+		operatorclient.TargetNamespace)
+	if err != nil {
+		return err
+	}
+	encryptionStateController := kmse.NewStateController(
+		operatorclient.TargetNamespace,
+		encryption.StaticEncryptionProvider{
+			schema.GroupResource{Group: "", Resource: "secrets"},
+			schema.GroupResource{Group: "", Resource: "configmaps"},
+		},
+		deployer,
+		encryptionPreconditionChecker.PreconditionFulfilled,
+		operatorClient,
+		configInformers.Config().V1().APIServers(),
+		kubeInformersForNamespaces,
+		kubeClient.CoreV1(),
+		encryptionConfigLabelSelector,
+		controllerContext.EventRecorder,
+	)
+	// ---
+
 	certRotationTimeUpgradeableController := certrotationtimeupgradeablecontroller.NewCertRotationTimeUpgradeableController(
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
@@ -459,7 +487,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go configObserver.Run(ctx, 1)
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
+
+	// --- KMS enc ---
 	go encryptionControllers.Run(ctx, 1)
+	go encryptionStateController.Run(ctx, 1)
+	// ---
+
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
 	go eventWatcher.Run(ctx, 1)
