@@ -262,6 +262,22 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
+  - image: quay.io/swghosh/gcp-cloud-kms
+    name: cloud-kms-plugin
+    args:
+    - -key-uri=projects/openshift-gce-devel/locations/asia-south1/keyRings/swghosh-okd-2703/cryptoKeys/okd-secret-enc-key
+    - -path-to-unix-socket=/var/kms-plugin/socket.sock
+    - -v=5
+    ports:
+    - containerPort: 8081
+      protocol: TCP
+    volumeMounts:
+    - mountPath: /var/kms-plugin
+      name: var-kms-plugin
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 200m
   terminationGracePeriodSeconds: {{.GracefulTerminationDuration}}
   hostNetwork: true
   priorityClassName: system-node-critical
@@ -277,3 +293,7 @@ spec:
   - hostPath:
       path: /var/log/kube-apiserver
     name: audit-dir
+  - hostPath:
+      path: /var/kms-plugin
+      type: DirectoryOrCreate
+    name: var-kms-plugin
