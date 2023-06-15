@@ -98,6 +98,8 @@ spec:
       name: cert-dir
     - mountPath: /var/log/kube-apiserver
       name: audit-dir
+    - mountPath: /var/kms-plugin
+      name: var-kms-plugin
     livenessProbe:
       httpGet:
         scheme: HTTPS
