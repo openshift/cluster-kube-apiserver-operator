@@ -254,6 +254,35 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClie
 	return preconditionsFulfilledFn()
 }
 
+// func patchEncryptionConfigForDecryptingKMS(existingConfig *apiserverconfigv1.EncryptionConfiguration) *apiserverconfigv1.EncryptionConfiguration {
+// 	newConfig := existingConfig.DeepCopy()
+// 	for i := range newConfig.Resources {
+// 		kmsProvider := apiserverconfigv1.ProviderConfiguration{
+// 			KMS: &apiserverconfigv1.KMSConfiguration{
+// 				Name:      "gcp-kms-encryption",
+// 				Endpoint:  "unix:///var/kms-plugin/socket.sock",
+// 				CacheSize: pointer.Int32(1000),
+// 				Timeout: &metav1.Duration{
+// 					Duration: 5 * time.Second,
+// 				},
+// 			},
+// 		}
+
+// 		newProviders := []apiserverconfigv1.ProviderConfiguration{}
+// 		remainingProviders := []apiserverconfigv1.ProviderConfiguration{}
+// 		for _, provider := range newConfig.Resources[i].Providers {
+// 			if provider.Identity != nil {
+// 				newProviders = append(newProviders, provider)
+// 			} else {
+// 				remainingProviders = append(remainingProviders, provider)
+// 			}
+// 		}
+// 		newProviders = append(newProviders, kmsProvider)
+// 		newConfig.Resources[i].Providers = append(newProviders, remainingProviders...)
+// 	}
+// 	return newConfig
+// }
+
 func patchEncryptionConfigForKMS(existingConfig *apiserverconfigv1.EncryptionConfiguration) *apiserverconfigv1.EncryptionConfiguration {
 	newConfig := existingConfig.DeepCopy()
 	for i := range newConfig.Resources {
