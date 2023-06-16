@@ -1,0 +1,46 @@
+{
+    "kind": "EncryptionConfiguration",
+    "apiVersion": "apiserver.config.k8s.io/v1",
+    "resources": [
+        {
+            "resources": [
+                "configmaps"
+            ],
+            "providers": [
+                {
+                    "identity": {}
+                },
+                {
+                    "aescbc": {
+                        "keys": [
+                            {
+                                "name": "1",
+                                "secret": "fttcMWlNpNa7BIP6/P2kMEPJoTW72A5HdCEyOBX92lc="
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "resources": [
+                "secrets"
+            ],
+            "providers": [
+                {
+                    "identity": {}
+                },
+                {
+                    "aescbc": {
+                        "keys": [
+                            {
+                                "name": "1",
+                                "secret": "fttcMWlNpNa7BIP6/P2kMEPJoTW72A5HdCEyOBX92lc="
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
