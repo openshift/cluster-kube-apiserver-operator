@@ -12,6 +12,7 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/pointer"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
@@ -139,6 +140,10 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 	}
 
 	desiredEncryptionConfig := encryptionconfig.FromEncryptionState(desiredEncryptionState)
+
+	// change desiredEncryptionConfig to use kms instead of aescbc/aesgcm
+	desiredEncryptionConfig = patchEncryptionConfigForKMS(desiredEncryptionConfig)
+
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
 	if err != nil {
 		return err
@@ -247,4 +252,24 @@ func shouldRunEncryptionController(operatorClient operatorv1helpers.OperatorClie
 	}
 
 	return preconditionsFulfilledFn()
+}
+
+func patchEncryptionConfigForKMS(existingConfig *apiserverconfigv1.EncryptionConfiguration) *apiserverconfigv1.EncryptionConfiguration {
+	newConfig := existingConfig.DeepCopy()
+	for i := range newConfig.Resources {
+		kmsProvider := apiserverconfigv1.ProviderConfiguration{
+			KMS: &apiserverconfigv1.KMSConfiguration{
+				Name:      "gcp-kms-encryption",
+				Endpoint:  "unix:///var/kms-plugin/socket.sock",
+				CacheSize: pointer.Int32(1000),
+				Timeout: &metav1.Duration{
+					Duration: 5 * time.Second,
+				},
+			},
+		}
+
+		newProviders := []apiserverconfigv1.ProviderConfiguration{kmsProvider}
+		newConfig.Resources[i].Providers = append(newProviders, newConfig.Resources[i].Providers...)
+	}
+	return newConfig
 }
