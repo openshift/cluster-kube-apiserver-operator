@@ -51,7 +51,7 @@ spec:
           Cluster has enabled Technology Preview features that cannot be undone and will prevent upgrades.
           The TechPreviewNoUpgrade feature set is not recommended on production clusters.
       expr: |
-        cluster_feature_set{name!="", namespace="openshift-kube-apiserver-operator"} == 0
+        cluster_feature_set{name=~"TechPreviewNoUpgrade|CustomNoUpgrade", namespace="openshift-kube-apiserver-operator"} == 0
       for: 10m
       labels:
         severity: warning
