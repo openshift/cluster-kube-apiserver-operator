@@ -43,3 +43,21 @@ spec:
           labels:
             namespace: openshift-kube-apiserver
             severity: info
+        - alert: DeprecatedAPIInUse
+          annotations:
+            summary: Deprecated API that might be removed in the next version is being used.
+            description: >-
+              Deprecated API that might be removed in the next version is being used. Removing the workload that is using
+              the {{ $labels.group }}.{{ $labels.version }}/{{ $labels.resource }} API might be necessary for
+              a successful upgrade to the next cluster version with Kubernetes {{ $labels.removed_release }}.
+              Refer to `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` to identify the workload.
+          expr: >-
+            group by (group,version,resource,removed_release) (apiserver_requested_deprecated_apis{removed_release=""})
+            * on (group,version,resource) group_left ()
+            sum by (group,version,resource) (
+            rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h])
+            ) > 0
+          for: 1h
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: info
