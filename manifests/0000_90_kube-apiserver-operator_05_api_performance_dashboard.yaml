@@ -1109,7 +1109,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(20, sum(apiserver_longrunning_gauge{apiserver=\"$apiserver\"}) by(resource))",
+              "expr": "topk(20, sum(apiserver_longrunning_requests{apiserver=\"$apiserver\"}) by(resource))",
               "interval": "",
               "legendFormat": "{{resource}}",
               "refId": "A"
@@ -1206,7 +1206,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(apiserver_longrunning_gauge{apiserver=\"$apiserver\"}) by(instance)",
+              "expr": "sum(apiserver_longrunning_requests{apiserver=\"$apiserver\"}) by(instance)",
               "interval": "",
               "legendFormat": "{{instance}}",
               "refId": "A"
