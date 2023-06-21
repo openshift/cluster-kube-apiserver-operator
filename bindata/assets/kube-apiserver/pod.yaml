@@ -102,8 +102,8 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: healthz
-      initialDelaySeconds: 45
+        path: livez
+      initialDelaySeconds: 0
       periodSeconds: 10
       timeoutSeconds: 10
       successThreshold: 1
@@ -113,7 +113,7 @@ spec:
         scheme: HTTPS
         port: 6443
         path: readyz
-      initialDelaySeconds: 10
+      initialDelaySeconds: 0
       periodSeconds: 5
       timeoutSeconds: 10
       successThreshold: 1
