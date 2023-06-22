@@ -52,7 +52,7 @@ type resourceSyncFunc func(destination, source resourcesynccontroller.ResourceLo
 // resources to sync.
 // It returns the observed config, sync rules and possibly an error. Nil sync rules mean to ignore all resources
 // in case of error. Otherwise, resources are deleted by default and the returned sync rules are taken as overrides of that.
-type observeAPIServerConfigFunc func(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error)
+type observeAPIServerConfigFunc func(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}, listers *configobservation.Listers) (map[string]interface{}, syncActionRules, []error)
 
 // ObserveUserClientCABundle returns an ObserveConfigFunc that observes a user managed certificate bundle containing
 // signers that will be recognized for incoming client certificates in addition to the operator managed signers.
@@ -74,7 +74,7 @@ var ObserveNamedCertificates configobserver.ObserveConfigFunc = (&apiServerObser
 
 // observeUserClientCABundle observes a user managed ConfigMap containing a certificate bundle for the signers that will
 // be recognized for incoming client certificates in addition to the operator managed signers.
-func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}, listers *configobservation.Listers) (map[string]interface{}, syncActionRules, []error) {
 	configMapName := apiServer.Spec.ClientCA.Name
 	if len(configMapName) == 0 {
 		return nil, nil, nil // previously observed resource (if any) should be deleted
@@ -88,7 +88,7 @@ func observeUserClientCABundle(apiServer *configv1.APIServer, recorder events.Re
 
 // observeNamedCertificates observes user managed Secrets containing TLS cert info for serving secure traffic to
 // specific hostnames.
-func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}) (map[string]interface{}, syncActionRules, []error) {
+func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Recorder, previouslyObservedConfig map[string]interface{}, listers *configobservation.Listers) (map[string]interface{}, syncActionRules, []error) {
 	var errs []error
 	observedConfig := map[string]interface{}{}
 
@@ -140,6 +140,11 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		if len(sourceSecretName) == 0 {
 			err := fmt.Errorf("spec.servingCerts.namedCertificates[%d].servingCertificate.name cannot be empty", index)
 			recorder.Warningf("ObserveNamedCertificatesFailed", err.Error())
+			return previouslyObservedConfig, nil, append(errs, err)
+		}
+
+		// check that secret exists and readable by operator
+		if _, err := listers.ConfigSecretLister().Secrets(operatorclient.GlobalUserSpecifiedConfigNamespace).Get(namedCertificate.ServingCertificate.Name); err != nil {
 			return previouslyObservedConfig, nil, append(errs, err)
 		}
 		// pick one of the available target resource names
@@ -209,7 +214,7 @@ func (o *apiServerObserver) observe(genericListers configobserver.Listers, recor
 		return previouslyObservedConfig, append(errs, err)
 	}
 
-	observedConfig, observedResources, errs := o.observerFunc(apiServer, recorder, previouslyObservedConfig)
+	observedConfig, observedResources, errs := o.observerFunc(apiServer, recorder, previouslyObservedConfig, &listers)
 
 	// if we get error during observation, skip the merging and return previous config and errors.
 	if len(errs) > 0 {
