@@ -3,6 +3,8 @@ kind: Service
 metadata:
   namespace: openshift-kube-apiserver
   name: apiserver
+  labels:
+    app: kube-apiserver
 spec:
   type: ClusterIP
   selector:

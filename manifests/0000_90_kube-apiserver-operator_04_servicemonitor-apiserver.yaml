@@ -110,11 +110,10 @@ spec:
   jobLabel: component
   namespaceSelector:
     matchNames:
-    - default
+    - openshift-kube-apiserver
   selector:
     matchLabels:
-      component: apiserver
-      provider: kubernetes
+      app: kube-apiserver
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
