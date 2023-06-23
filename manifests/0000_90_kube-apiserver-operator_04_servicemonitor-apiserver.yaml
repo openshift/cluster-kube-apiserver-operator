@@ -172,10 +172,10 @@ spec:
       expr: sum(rate(apiserver_request_total{apiserver=~"openshift-apiserver|kube-apiserver",verb=~"POST|PUT|PATCH|UPDATE|DELETE"}[1m])) by (apiserver)
     - record: write:apiserver_request_total:rate5m
       expr: sum(rate(apiserver_request_total{apiserver=~"openshift-apiserver|kube-apiserver",verb=~"POST|PUT|PATCH|UPDATE|DELETE"}[5m])) by (apiserver)
-    - record: request_kind:apiserver_dropped_requests_total:rate1m
-      expr: sum(rate(apiserver_dropped_requests_total{apiserver=~"openshift-apiserver|kube-apiserver"}[1m])) by (apiserver, request_kind)
-    - record: request_kind:apiserver_dropped_requests_total:rate5m
-      expr: sum(rate(apiserver_dropped_requests_total{apiserver=~"openshift-apiserver|kube-apiserver"}[5m])) by (apiserver, request_kind)
+    - record: group_resource:apiserver_request_total:rate1m
+      expr: sum(rate(apiserver_request_total{apiserver=~"openshift-apiserver|kube-apiserver",code="429"}[1m])) by (apiserver, group, resource)
+    - record: group_resource:apiserver_request_total:rate5m
+      expr: sum(rate(apiserver_request_total{apiserver=~"openshift-apiserver|kube-apiserver",code="429"}[5m])) by (apiserver, group, resource)
     - record: component_resource:apiserver_request_terminations_total:rate:1m
       expr: sum(rate(apiserver_request_terminations_total{apiserver=~"openshift-apiserver|kube-apiserver"}[1m])) by (apiserver, component, resource)
     - record: component_resource:apiserver_request_terminations_total:rate:5m

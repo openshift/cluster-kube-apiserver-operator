@@ -718,9 +718,9 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "request_kind:apiserver_dropped_requests_total:rate$period{apiserver=\"$apiserver\"}",
+              "expr": "group_resource:apiserver_request_total:rate$period{apiserver=\"$apiserver\"}",
               "interval": "",
-              "legendFormat": "{{request_kind}}",
+              "legendFormat": "{{group}}:{{resource}}",
               "refId": "A"
             }
           ],
