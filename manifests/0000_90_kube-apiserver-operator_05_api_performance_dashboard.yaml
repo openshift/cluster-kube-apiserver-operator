@@ -2939,10 +2939,10 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(25, group_kind:apiserver_registered_watchers:sum{apiserver=\"$apiserver\"})",
+              "expr": "topk(25, group_resource:apiserver_longrunning_requests:sum{apiserver=\"$apiserver\"})",
               "format": "time_series",
               "interval": "",
-              "legendFormat": "{{group}}:{{kind}}",
+              "legendFormat": "{{group}}:{{resource}}",
               "refId": "A"
             }
           ],
