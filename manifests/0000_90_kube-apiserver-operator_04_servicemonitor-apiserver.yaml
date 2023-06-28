@@ -138,6 +138,18 @@ spec:
     - record: cluster:apiserver_current_inflight_requests:sum:max_over_time:2m
       expr: |
         max_over_time(sum(apiserver_current_inflight_requests{apiserver=~"openshift-apiserver|kube-apiserver"}) by (apiserver,request_kind)[2m:])
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-recording-rules
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
+spec:
+  groups:
   - name: api-performance
     rules:
     - record: resource_verb:apiserver_request_duration_seconds_bucket:rate:1m
