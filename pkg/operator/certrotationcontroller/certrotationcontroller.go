@@ -25,7 +25,7 @@ import (
 )
 
 // defaultRotationDay is the default rotation base for all cert rotation operations.
-const defaultRotationDay = 2 * time.Hour
+const defaultRotationDay = 3 * time.Hour
 
 type CertRotationController struct {
 	certRotators []factory.Controller
