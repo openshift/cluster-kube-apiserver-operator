@@ -25,7 +25,7 @@ import (
 )
 
 // defaultRotationDay is the default rotation base for all cert rotation operations.
-const defaultRotationDay = 3 * time.Hour
+const defaultRotationDay = 24 * time.Hour
 
 type CertRotationController struct {
 	certRotators []factory.Controller
@@ -117,7 +117,7 @@ func newCertRotationController(
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
 
-	rotationDay := defaultRotationDay
+	rotationDay := 10 * time.Minute // revert this to defaultRotationDay if cluster fails again.
 	if day != time.Duration(0) {
 		rotationDay = day
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
@@ -125,7 +125,7 @@ func newCertRotationController(
 	} else {
 		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
 		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		rotationDay = 10 * time.Minute
 		// 60 times faster * additional 48 times faster = 2880 ("every 15 minutes or so")
 		// update: that 2880 thing didn't seem to work so i changed defaultRotationDay to be 5 minutes and reverted to 60
 	}
