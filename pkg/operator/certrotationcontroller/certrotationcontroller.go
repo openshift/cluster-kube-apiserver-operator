@@ -117,7 +117,7 @@ func newCertRotationController(
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
 
-	rotationDay := 10 * time.Minute // revert this to defaultRotationDay if cluster fails again.
+	rotationDay := defaultRotationDay
 	if day != time.Duration(0) {
 		rotationDay = day
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
