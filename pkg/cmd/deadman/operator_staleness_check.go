@@ -85,6 +85,16 @@ func isCheckingForStaleness(clusterOperator *configv1.ClusterOperator) bool {
 	return false
 }
 
+func isMarkedAsStale(clusterOperator *configv1.ClusterOperator) bool {
+	for _, condition := range clusterOperator.Status.Conditions {
+		if strings.HasPrefix(condition.Message, "Operator has not fixed status in at least") {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (c *OperatorStalenessChecker) syncHandler(ctx context.Context, key string) error {
 	clusterOperator, err := c.clusterOperatorLister.Get(key)
 	if apierrors.IsNotFound(err) {

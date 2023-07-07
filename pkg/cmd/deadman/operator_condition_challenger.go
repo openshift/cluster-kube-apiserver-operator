@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/events"
-
 	configv1 "github.com/openshift/api/config/v1"
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configv1versionedtypes "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1lister "github.com/openshift/client-go/config/listers/config/v1"
+	clusteroperatorhelpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
+	"github.com/openshift/library-go/pkg/operator/events"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -96,8 +96,14 @@ func (c *OperatorConditionChallenger) syncHandler(ctx context.Context, key strin
 		return err
 	}
 
-	if isCheckingForStaleness(clusterOperator) {
+	if isCheckingForStaleness(clusterOperator) || isMarkedAsStale(clusterOperator) {
 		// staleness check is in progress already, just return
+		// operator was marked as stale already, just return
+		return nil
+	}
+
+	if clusteroperatorhelpers.IsStatusConditionTrue(clusterOperator.Status.Conditions, "Disabled") {
+		// some operator use this fake condition to indicate they aren't doing work.  Skip in that case.
 		return nil
 	}
 
