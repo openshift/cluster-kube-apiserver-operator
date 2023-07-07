@@ -62,7 +62,7 @@ func TestOperatorConditionChallenger_syncHandler(t *testing.T) {
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Degraded", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+				newCondition("Degraded", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 			},
 			wantErr: "",
 		},
@@ -102,7 +102,7 @@ func TestOperatorConditionChallenger_syncHandler(t *testing.T) {
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Degraded", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+				newCondition("Degraded", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 			},
 			wantErr: "",
 		},
@@ -133,7 +133,7 @@ func TestOperatorConditionChallenger_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Degraded", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Degraded", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},

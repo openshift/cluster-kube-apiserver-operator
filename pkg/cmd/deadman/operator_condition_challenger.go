@@ -21,6 +21,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	challengePrefix = "Requesting that the operator update this condition. "
+)
+
 type OperatorConditionChallenger struct {
 	// operatorToTimeToCheckForStaleness is a map from operator name to the time at which the condition messages will be
 	// reset to a "checking for activity" message.
@@ -136,7 +140,7 @@ func (c *OperatorConditionChallenger) syncHandler(ctx context.Context, key strin
 	// are properly managing their status.
 	clusterOperatorToWriteAsStale := clusterOperator.DeepCopy()
 	for i, condition := range clusterOperator.Status.Conditions {
-		clusterOperatorToWriteAsStale.Status.Conditions[i].Message = "Checking for stale status, the active operator will reset this message: " + condition.Message
+		clusterOperatorToWriteAsStale.Status.Conditions[i].Message = challengePrefix + condition.Message
 	}
 
 	klog.V(2).Infof("Challenging clusteroperator/%v for status write", clusterOperator.Name)

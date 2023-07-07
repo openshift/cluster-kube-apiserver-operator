@@ -21,6 +21,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	stalePrefix = "Operator has not updated status. "
+)
+
 type OperatorStalenessChecker struct {
 	// operatorToDeadlineForResponse is a map from operator name to the time at which the condition will be considered stale
 	// and the condition will be reset to unknown.
@@ -77,7 +81,7 @@ func NewOperatorStalenessChecker(
 
 func isCheckingForStaleness(clusterOperator *configv1.ClusterOperator) bool {
 	for _, condition := range clusterOperator.Status.Conditions {
-		if strings.HasPrefix(condition.Message, "Checking for stale status") {
+		if strings.HasPrefix(condition.Message, challengePrefix) {
 			return true
 		}
 	}
@@ -85,9 +89,17 @@ func isCheckingForStaleness(clusterOperator *configv1.ClusterOperator) bool {
 	return false
 }
 
+func removeChallengePrefix(in string) string {
+	if !strings.HasPrefix(in, challengePrefix) {
+		return in
+	}
+
+	return in[len(challengePrefix):]
+}
+
 func isMarkedAsStale(clusterOperator *configv1.ClusterOperator) bool {
 	for _, condition := range clusterOperator.Status.Conditions {
-		if strings.HasPrefix(condition.Message, "Operator has not fixed status in at least") {
+		if strings.HasPrefix(condition.Message, stalePrefix) {
 			return true
 		}
 	}
@@ -142,7 +154,10 @@ func (c *OperatorStalenessChecker) syncHandler(ctx context.Context, key string) 
 			clusterOperatorToWriteAsStale.Status.Conditions[i].LastTransitionTime = metav1.Time{Time: now}
 		}
 		clusterOperatorToWriteAsStale.Status.Conditions[i].Reason = "OperatorFailedStalenessCheck"
-		clusterOperatorToWriteAsStale.Status.Conditions[i].Message = fmt.Sprintf("Operator has not fixed status in at least %v.  Last reason was %q, last status was: %v", c.durationAllowedForOperatorResponse, condition.Reason, condition.Message)
+		clusterOperatorToWriteAsStale.Status.Conditions[i].Message = fmt.Sprintf(
+			stalePrefix+"Last reason was %q, last status was: %v",
+			condition.Reason,
+			removeChallengePrefix(condition.Message))
 	}
 
 	msg := fmt.Sprintf("clusteroperator/%v has not fixed status in at least %v, marking stale and degraded.", clusterOperator.Name, c.durationAllowedForOperatorResponse)

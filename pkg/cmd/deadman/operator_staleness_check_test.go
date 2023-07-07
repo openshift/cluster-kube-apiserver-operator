@@ -47,12 +47,12 @@ func TestOperatorStaleness_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Progressing", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Progressing", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Progressing", configv1.ConditionUnknown, "OperatorFailedStalenessCheck", "Operator has not fixed status in at least 1m0s.  Last reason was \"OkReason\", last status was: Checking for stale status, the active operator will reset this message: cool message", nowish),
+				newCondition("Progressing", configv1.ConditionUnknown, "OperatorFailedStalenessCheck", stalePrefix+"Last reason was \"OkReason\", last status was: cool message", nowish),
 			},
 			wantedNumEvents: 1,
 			wantErr:         "",
@@ -67,8 +67,8 @@ func TestOperatorStaleness_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Degraded", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
-						newCondition("Progressing", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Degraded", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
+						newCondition("Progressing", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},
@@ -88,12 +88,12 @@ func TestOperatorStaleness_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Degraded", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Degraded", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Degraded", configv1.ConditionTrue, "OperatorFailedStalenessCheck", "Operator has not fixed status in at least 1m0s.  Last reason was \"OkReason\", last status was: Checking for stale status, the active operator will reset this message: cool message", nowish),
+				newCondition("Degraded", configv1.ConditionTrue, "OperatorFailedStalenessCheck", stalePrefix+"Last reason was \"OkReason\", last status was: cool message", nowish),
 			},
 			wantedNumEvents: 1,
 			wantErr:         "",
@@ -110,12 +110,12 @@ func TestOperatorStaleness_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Upgradeable", configv1.ConditionFalse, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Upgradeable", configv1.ConditionFalse, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Upgradeable", configv1.ConditionFalse, "OperatorFailedStalenessCheck", "Operator has not fixed status in at least 1m0s.  Last reason was \"OkReason\", last status was: Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+				newCondition("Upgradeable", configv1.ConditionFalse, "OperatorFailedStalenessCheck", stalePrefix+"Last reason was \"OkReason\", last status was: cool message", ninetySecondsAgo),
 			},
 			wantedNumEvents: 1,
 			wantErr:         "",
@@ -132,12 +132,12 @@ func TestOperatorStaleness_syncHandler(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "operator"},
 				Status: configv1.ClusterOperatorStatus{
 					Conditions: []configv1.ClusterOperatorStatusCondition{
-						newCondition("Upgradeable", configv1.ConditionTrue, "OkReason", "Checking for stale status, the active operator will reset this message: cool message", ninetySecondsAgo),
+						newCondition("Upgradeable", configv1.ConditionTrue, "OkReason", challengePrefix+"cool message", ninetySecondsAgo),
 					},
 				},
 			},
 			wantedConditions: []configv1.ClusterOperatorStatusCondition{
-				newCondition("Upgradeable", configv1.ConditionUnknown, "OperatorFailedStalenessCheck", "Operator has not fixed status in at least 1m0s.  Last reason was \"OkReason\", last status was: Checking for stale status, the active operator will reset this message: cool message", nowish),
+				newCondition("Upgradeable", configv1.ConditionUnknown, "OperatorFailedStalenessCheck", stalePrefix+"Last reason was \"OkReason\", last status was: cool message", nowish),
 			},
 			wantedNumEvents: 1,
 			wantErr:         "",
