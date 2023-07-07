@@ -171,10 +171,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"KubeAPIServerToKubeletClientCert",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "kube-apiserver-to-kubelet-signer",
-			Validity:               1 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay, // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-apiserver-to-kubelet-signer",
+			Validity:  1 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			Refresh:                292 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -211,10 +213,14 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "localhost-serving-signer",
-			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-serving-signer",
+			Validity:  10 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -251,10 +257,14 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"ServiceNetworkServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "service-network-serving-signer",
-			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "service-network-serving-signer",
+			Validity:  10 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -292,10 +302,14 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"ExternalLoadBalancerServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "loadbalancer-serving-signer",
-			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-signer",
+			Validity:  10 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -333,10 +347,14 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"InternalLoadBalancerServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "loadbalancer-serving-signer",
-			Validity:               10 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:                8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-signer",
+			Validity:  10 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -374,10 +392,14 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostRecoveryServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "localhost-recovery-serving-signer",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
-			Refresh:       8 * 365 * defaultRotationDay,  // this means we effectively do not rotate
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-recovery-serving-signer",
+			Validity:  10 * 365 * defaultRotationDay, // this comes from the installer
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh:       8 * 365 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -395,7 +417,11 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-recovery-serving-certkey",
 			Validity:  10 * 365 * defaultRotationDay,
-			Refresh:   8 * 365 * defaultRotationDay, // this means we effectively do not rotate
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
+			// Given that in this case rotation will be after 8y,
+			// it means we effectively do not rotate.
+			Refresh: 8 * 365 * defaultRotationDay,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames: func() []string { return []string{"localhost-recovery"} },
 			},
@@ -572,9 +598,11 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"NodeSystemAdminClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "node-system-admin-signer",
-			Validity:               1 * 365 * defaultRotationDay,
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "node-system-admin-signer",
+			Validity:  1 * 365 * defaultRotationDay,
+			// Refresh set to 80% of the validity.
+			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                292 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
