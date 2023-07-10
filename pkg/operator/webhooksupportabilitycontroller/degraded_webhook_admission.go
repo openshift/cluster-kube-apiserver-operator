@@ -27,7 +27,6 @@ func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigur
 				Name:                  webhook.Name,
 				CABundle:              webhook.ClientConfig.CABundle,
 				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && *webhook.FailurePolicy == admissionregistrationv1.Ignore,
-				TimeoutSeconds:        webhook.TimeoutSeconds,
 			}
 			if webhook.ClientConfig.Service != nil {
 				info.Service = &serviceReference{
@@ -59,7 +58,6 @@ func (c *webhookSupportabilityController) updateValidatingAdmissionWebhookConfig
 				Name:                  webhook.Name,
 				CABundle:              webhook.ClientConfig.CABundle,
 				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && (*webhook.FailurePolicy == v1.Ignore),
-				TimeoutSeconds:        webhook.TimeoutSeconds,
 			}
 
 			if webhook.ClientConfig.Service != nil {
