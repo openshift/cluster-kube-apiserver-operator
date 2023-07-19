@@ -131,8 +131,8 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 		conn, err = dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
 		if err != nil {
 			if i != 2 {
-				// log err since only last one is reported
-				runtime.HandleError(fmt.Errorf("%s: %v", webhookName, err))
+				// log warning since only last one is reported
+				klog.Warningf("failed to connect to webhook %q via service %q: %v", webhookName, net.JoinHostPort(host, port), err)
 			}
 			continue
 		}
