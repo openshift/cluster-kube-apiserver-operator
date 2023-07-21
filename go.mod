@@ -17,7 +17,6 @@ require (
 	github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb
 	github.com/openshift/library-go v0.0.0-20230531082824-be85f8400975
 	github.com/pkg/profile v1.5.0 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/client v0.45.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
@@ -79,7 +78,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.44.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect

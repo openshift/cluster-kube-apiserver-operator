@@ -10,11 +10,13 @@ import (
 	"time"
 
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
-	monitoringclient "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 )
 
 func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
@@ -34,22 +36,12 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 	// NOTE: the alert major and minor version is hardcoded
 	// this test will fail in each version bump until the alert is updated
 	// xref: https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/assets/alerts/api-usage.yaml
-	monitoringClient, err := monitoringclient.NewForConfig(kubeConfig)
+	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rule, err := monitoringClient.MonitoringV1().PrometheusRules("openshift-kube-apiserver").Get(ctx, "api-usage", v1.GetOptions{})
 	require.NoError(t, err)
-	expr := func() string {
-		for _, group := range rule.Spec.Groups {
-			for _, rule := range group.Rules {
-				if rule.Alert == "APIRemovedInNextReleaseInUse" {
-					return strings.TrimSpace(rule.Expr.StrVal)
-				}
-			}
-		}
-		return ""
-	}()
+	expr := retrieveAlertExpression(t, ctx, dynamicClient, "APIRemovedInNextReleaseInUse")
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
 	removedRelease := strings.Split(regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`).ReplaceAllString(expr, "$1"), ".")
 	require.Len(t, removedRelease, 2, "Unable to parse the removed release version from the alert expression.")
@@ -80,22 +72,12 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 	// NOTE: the alert major and minor version is hardcoded
 	// this test will fail in each version bump until the alert is updated
 	// xref: https://github.com/openshift/cluster-kube-apiserver-operator/blob/master/bindata/assets/alerts/api-usage.yaml
-	monitoringClient, err := monitoringclient.NewForConfig(kubeConfig)
+	dynamicClient, err := dynamic.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	rule, err := monitoringClient.MonitoringV1().PrometheusRules("openshift-kube-apiserver").Get(ctx, "api-usage", v1.GetOptions{})
 	require.NoError(t, err)
-	expr := func() string {
-		for _, group := range rule.Spec.Groups {
-			for _, rule := range group.Rules {
-				if rule.Alert == "APIRemovedInNextEUSReleaseInUse" {
-					return strings.TrimSpace(rule.Expr.StrVal)
-				}
-			}
-		}
-		return ""
-	}()
+	expr := retrieveAlertExpression(t, ctx, dynamicClient, "APIRemovedInNextEUSReleaseInUse")
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
 	rx := regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`)
 	if rx.FindStringIndex(expr) != nil {
@@ -133,4 +115,26 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 		assert.Regexp(t, removedRelease, fmt.Sprintf("%d.%d", currentMajor, currentMinor+2))
 	}
 
+}
+
+func retrieveAlertExpression(t *testing.T, ctx context.Context, client *dynamic.DynamicClient, alertName string) string {
+	prometheusRulesGVR := schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
+	prometheusRule, err := client.Resource(prometheusRulesGVR).Namespace("openshift-kube-apiserver").Get(ctx, "api-usage", metav1.GetOptions{})
+	require.NoError(t, err)
+	groups, _, err := unstructured.NestedSlice(prometheusRule.UnstructuredContent(), "spec", "groups")
+	require.NoError(t, err)
+	for _, group := range groups {
+		rules, _, err := unstructured.NestedSlice(group.(map[string]interface{}), "rules")
+		require.NoError(t, err)
+		for _, rule := range rules {
+			alert, _, err := unstructured.NestedString(rule.(map[string]interface{}), "alert")
+			require.NoError(t, err)
+			if alert == alertName {
+				expr, _, err := unstructured.NestedString(rule.(map[string]interface{}), "expr")
+				require.NoError(t, err)
+				return strings.TrimSpace(expr)
+			}
+		}
+	}
+	return ""
 }
