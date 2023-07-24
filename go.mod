@@ -12,26 +12,26 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.25
-	github.com/openshift/api v0.0.0-20230509100629-894b49f57a15
+	github.com/openshift/api v0.0.0-20230613151523-ba04973d3ed1
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb
-	github.com/openshift/library-go v0.0.0-20230531082824-be85f8400975
+	github.com/openshift/library-go v0.0.0-20230724150037-c515269de16e
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus/client_golang v1.14.0
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.1
 	go.etcd.io/etcd/client/v3 v3.5.7
 	golang.org/x/sys v0.6.0
-	k8s.io/api v0.27.1
-	k8s.io/apiextensions-apiserver v0.27.1
-	k8s.io/apimachinery v0.27.1
-	k8s.io/apiserver v0.27.1
-	k8s.io/client-go v0.27.1
-	k8s.io/component-base v0.27.1
+	k8s.io/api v0.27.4
+	k8s.io/apiextensions-apiserver v0.27.4
+	k8s.io/apimachinery v0.27.4
+	k8s.io/apiserver v0.27.4
+	k8s.io/client-go v0.27.4
+	k8s.io/component-base v0.27.4
 	k8s.io/klog/v2 v2.90.1
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	sigs.k8s.io/kube-storage-version-migrator v0.0.4
+	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
 require (
@@ -115,10 +115,10 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/kms v0.27.1 // indirect
-	k8s.io/kube-aggregator v0.27.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.1 // indirect
+	k8s.io/kms v0.27.4 // indirect
+	k8s.io/kube-aggregator v0.27.4 // indirect
+	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
