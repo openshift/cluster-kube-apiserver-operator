@@ -83,7 +83,7 @@ func getMostRecentConditionTransitionTime(clusterOperator *configv1.ClusterOpera
 	}
 
 	newestTime := time.Time{}
-	for _, condition := range clusterOperator.Status.Conditions {
+	for _, condition := range filteredConditions(clusterOperator.Status.Conditions) {
 		if condition.LastTransitionTime.After(newestTime) {
 			newestTime = condition.LastTransitionTime.Time
 		}
@@ -139,7 +139,7 @@ func (c *OperatorConditionChallenger) syncHandler(ctx context.Context, key strin
 	// only modify the message to avoid changing machine-readable reasons or status in the common case when operators
 	// are properly managing their status.
 	clusterOperatorToWriteAsStale := clusterOperator.DeepCopy()
-	for i, condition := range clusterOperator.Status.Conditions {
+	for i, condition := range filteredConditions(clusterOperator.Status.Conditions) {
 		clusterOperatorToWriteAsStale.Status.Conditions[i].Message = challengePrefix + condition.Message
 	}
 

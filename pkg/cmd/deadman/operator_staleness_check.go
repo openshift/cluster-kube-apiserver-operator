@@ -80,7 +80,7 @@ func NewOperatorStalenessChecker(
 }
 
 func isCheckingForStaleness(clusterOperator *configv1.ClusterOperator) bool {
-	for _, condition := range clusterOperator.Status.Conditions {
+	for _, condition := range filteredConditions(clusterOperator.Status.Conditions) {
 		if strings.HasPrefix(condition.Message, challengePrefix) {
 			return true
 		}
@@ -98,7 +98,7 @@ func removeChallengePrefix(in string) string {
 }
 
 func isMarkedAsStale(clusterOperator *configv1.ClusterOperator) bool {
-	for _, condition := range clusterOperator.Status.Conditions {
+	for _, condition := range filteredConditions(clusterOperator.Status.Conditions) {
 		if strings.HasPrefix(condition.Message, stalePrefix) {
 			return true
 		}
@@ -133,7 +133,7 @@ func (c *OperatorStalenessChecker) syncHandler(ctx context.Context, key string) 
 	// if we're past the deadline and some messsages still indicate we're checking for staleness, every condition should
 	// be marked as unknown and indicated as stale.
 	clusterOperatorToWriteAsStale := clusterOperator.DeepCopy()
-	for i, condition := range clusterOperator.Status.Conditions {
+	for i, condition := range filteredConditions(clusterOperator.Status.Conditions) {
 		switch condition.Type {
 		case configv1.OperatorDegraded:
 			// if the operator is not setting status, it is Degraded.
