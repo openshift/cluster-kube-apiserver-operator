@@ -29,6 +29,9 @@ admission:
           # This configuration should never be exposed to cluster users as no
           # such guarantees are made for any other OpenShift SA/user.
           - system:serviceaccount:openshift-infra:build-controller
+          # the following namespaces are considered privileged in terms of SCCs, which
+          # are disabled there, too
+          namespaces: ["default", "kube-system", "kube-public"]
 apiServerArguments:
   allow-privileged:
     - "true"
