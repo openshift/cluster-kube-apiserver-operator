@@ -22,6 +22,9 @@ type webhookInfo struct {
 	Service               *serviceReference
 	CABundle              []byte
 	FailurePolicyIsIgnore bool
+	// TimeoutSeconds specifies the timeout for a webhook.
+	// After the timeout passes, the webhook call will be ignored or the API call will fail
+	TimeoutSeconds *int32
 }
 
 // serviceReference generically represents a service reference
@@ -49,7 +52,7 @@ func (c *webhookSupportabilityController) updateWebhookConfigurationDegraded(ctx
 				serviceMsgs = append(serviceMsgs, msg)
 				continue
 			}
-			err = c.assertConnect(ctx, webhook.Service, webhook.CABundle)
+			err = c.assertConnect(ctx, webhook.Name, webhook.Service, webhook.CABundle, webhook.TimeoutSeconds)
 			if err != nil {
 				msg := fmt.Sprintf("%s: %s", webhook.Name, err)
 				if webhook.FailurePolicyIsIgnore {
@@ -94,7 +97,7 @@ func (c *webhookSupportabilityController) assertService(reference *serviceRefere
 }
 
 // assertConnect performs a dns lookup of service, opens a tcp connection, and performs a tls handshake.
-func (c *webhookSupportabilityController) assertConnect(ctx context.Context, reference *serviceReference, caBundle []byte) error {
+func (c *webhookSupportabilityController) assertConnect(ctx context.Context, webhookName string, reference *serviceReference, caBundle []byte, webhookTimeoutSeconds *int32) error {
 	host := reference.Name + "." + reference.Namespace + ".svc"
 	port := "443"
 	if reference.Port != nil {
@@ -103,6 +106,10 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 	rootCAs := x509.NewCertPool()
 	if len(caBundle) > 0 {
 		rootCAs.AppendCertsFromPEM(caBundle)
+	}
+	timeout := 10 * time.Second
+	if webhookTimeoutSeconds != nil {
+		timeout = time.Duration(*webhookTimeoutSeconds) * time.Second
 	}
 	// the last error that occurred in the loop below
 	var err error
@@ -114,7 +121,7 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		case <-time.After(time.Duration(i) * time.Second):
 		}
 		dialer := &tls.Dialer{
-			NetDialer: &net.Dialer{Timeout: 1 * time.Second},
+			NetDialer: &net.Dialer{Timeout: timeout},
 			Config: &tls.Config{
 				ServerName: host,
 				RootCAs:    rootCAs,
@@ -124,8 +131,8 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, ref
 		conn, err = dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
 		if err != nil {
 			if i != 2 {
-				// log err since only last one is reported
-				runtime.HandleError(err)
+				// log warning since only last one is reported
+				klog.Warningf("failed to connect to webhook %q via service %q: %v", webhookName, net.JoinHostPort(host, port), err)
 			}
 			continue
 		}
