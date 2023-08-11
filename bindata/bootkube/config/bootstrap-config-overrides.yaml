@@ -63,6 +63,8 @@ apiServerArguments:
     - /etc/kubernetes/secrets/apiserver-proxy.key
   requestheader-client-ca-file:
     - /etc/kubernetes/secrets/aggregator-signer.crt
+  runtime-config: {{range .RuntimeConfig}}
+    - {{.}}{{end}}
   service-account-key-file:
     - /etc/kubernetes/secrets/service-account.pub
     - /etc/kubernetes/secrets/bound-service-account-signing-key.pub

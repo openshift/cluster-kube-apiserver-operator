@@ -13,7 +13,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
@@ -21,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -229,17 +228,13 @@ func TestRenderCommand(t *testing.T) {
 	}
 	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
 
-	tempDisabledFeatureGates := configobservercontroller.FeatureBlacklist
-	if tempDisabledFeatureGates == nil {
-		tempDisabledFeatureGates = sets.New[configv1.FeatureGateName]()
-	}
-
 	defaultFGDir := filepath.Join("testdata", "rendered", "default-fg")
 
 	tests := []struct {
 		// note the name is used as a name for a temporary directory
 		name            string
 		args            []string
+		overrides       []func(*renderOpts)
 		setupFunction   func() error
 		testFunction    func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
 		podTestFunction func(cfg *corev1.Pod) error
@@ -253,6 +248,13 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+			},
+			overrides: []func(*renderOpts){
+				func(opts *renderOpts) {
+					opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{
+						"Foo": {{Group: "foos.example.com", Version: "v4alpha7"}},
+					}
+				},
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				actualGates, ok := cfg.APIServerArguments["feature-gates"]
@@ -276,6 +278,21 @@ func TestRenderCommand(t *testing.T) {
 						return fmt.Errorf("%q not found on the list of expected feature gates %v", actualGate, expectedGates)
 					}
 				}
+
+				actualRuntimeConfig, ok := cfg.APIServerArguments["runtime-config"]
+				if !ok {
+					return fmt.Errorf(`missing expected "runtime-config" entry in APIServerArguments`)
+				}
+				expectedRuntimeConfig := []string{"foos.example.com/v4alpha7=true"}
+				if len(expectedRuntimeConfig) != len(actualRuntimeConfig) {
+					return fmt.Errorf("expected runtime-config of len %d, got: %v (len %d)", len(expectedRuntimeConfig), actualRuntimeConfig, len(actualRuntimeConfig))
+				}
+				for i := 0; i < len(expectedRuntimeConfig); i++ {
+					if expectedRuntimeConfig[i] != actualRuntimeConfig[i] {
+						return fmt.Errorf("expected %dth runtime-config entry %q, got %q", i+1, expectedRuntimeConfig[i], actualRuntimeConfig[i])
+					}
+				}
+
 				return nil
 			},
 		},
@@ -595,7 +612,7 @@ spec:
 			}
 
 			test.args = setOutputFlags(test.args, outputDir)
-			err = runRender(test.args...)
+			err = runRender(test.args, test.overrides)
 			if err != nil {
 				t.Fatalf("%s: got unexpected error %v", test.name, err)
 			}
@@ -698,9 +715,14 @@ func setOutputFlags(args []string, dir string) []string {
 	return newArgs
 }
 
-func runRender(args ...string) error {
-	c := NewRenderCommand()
-	os.Args = append([]string{""}, args...)
+func runRender(args []string, overrides []func(*renderOpts)) error {
+	defaultTestOverrides := []func(*renderOpts){
+		func(opts *renderOpts) {
+			opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{}
+		},
+	}
+	c := newRenderCommand(append(defaultTestOverrides, overrides...)...)
+	c.SetArgs(args)
 	return c.Execute()
 }
 
