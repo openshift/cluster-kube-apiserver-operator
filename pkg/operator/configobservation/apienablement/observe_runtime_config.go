@@ -16,6 +16,7 @@ import (
 
 var DefaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{
 	"ValidatingAdmissionPolicy": {{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
+	"DynamicResourceAllocation": {{Group: "resource.k8s.io", Version: "v1alpha2"}},
 }
 
 var (
