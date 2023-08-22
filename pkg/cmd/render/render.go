@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"io/ioutil"
 	"net"
 	"os"
@@ -18,17 +19,14 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
@@ -45,16 +43,10 @@ type renderOpts struct {
 	clusterConfigFile string
 	clusterAuthFile   string
 	infraConfigFile   string
-
-	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
 }
 
 // NewRenderCommand creates a render command.
 func NewRenderCommand() *cobra.Command {
-	return newRenderCommand()
-}
-
-func newRenderCommand(testOverrides ...func(*renderOpts)) *cobra.Command {
 	renderOpts := renderOpts{
 		generic:  *genericrenderoptions.NewGenericOptions(),
 		manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hyperkube:latest"),
@@ -62,9 +54,6 @@ func newRenderCommand(testOverrides ...func(*renderOpts)) *cobra.Command {
 		lockHostPath:   "/var/run/kubernetes/lock",
 		etcdServerURLs: []string{"https://127.0.0.1:2379"},
 		etcdServingCA:  "root-ca.crt",
-	}
-	for _, f := range testOverrides {
-		f(&renderOpts)
 	}
 	cmd := &cobra.Command{
 		Use:   "render",
@@ -137,9 +126,6 @@ func (r *renderOpts) Complete() error {
 	if err := r.generic.Complete(); err != nil {
 		return err
 	}
-	if r.groupVersionsByFeatureGate == nil {
-		r.groupVersionsByFeatureGate = apienablement.DefaultGroupVersionsByFeatureGate
-	}
 	return nil
 }
 
@@ -161,9 +147,6 @@ type TemplateData struct {
 
 	// FeatureGates is list of featuregates to apply
 	FeatureGates []string
-
-	// RuntimeConfig is a list of API group-versions to enable or disable.
-	RuntimeConfig []string
 
 	// ServiceClusterIPRange is the IP range for service IPs.
 	ServiceCIDR []string
@@ -207,8 +190,6 @@ func (r *renderOpts) Run() error {
 	if err := setFeatureGatesFromAccessor(&renderConfig, featureGates); err != nil {
 		return err
 	}
-
-	renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGates(featureGates, r.groupVersionsByFeatureGate)
 
 	if len(r.clusterConfigFile) > 0 {
 		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
