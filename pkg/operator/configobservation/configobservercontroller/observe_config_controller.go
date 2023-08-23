@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apiserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
@@ -145,11 +146,11 @@ func NewConfigObserver(
 				[]string{"apiServerArguments", "cloud-config"},
 				featureGateAccessor,
 			),
-			featuregates.NewObserveFeatureFlagsFunc(
+			apienablement.NewFeatureGateObserverWithRuntimeConfig(
 				nil,
 				FeatureBlacklist,
-				[]string{"apiServerArguments", "feature-gates"},
 				featureGateAccessor,
+				apienablement.DefaultGroupVersionsByFeatureGate,
 			),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,
