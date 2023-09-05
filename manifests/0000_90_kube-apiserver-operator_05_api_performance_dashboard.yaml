@@ -5,6 +5,7 @@ metadata:
   namespace: openshift-config-managed
   annotations:
     include.release.openshift.io/self-managed-high-availability: 'true'
+    capability.openshift.io/name: Console
   labels:
     console.openshift.io/dashboard: 'true'
 data:
