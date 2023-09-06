@@ -88,6 +88,8 @@ github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ3
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dgrisonnet/library-go v0.0.0-20230906113335-bb628916da72 h1:4NiDaHkzUSbx5OmFHANDByurqz48NSmYlpkbXRop8ck=
+github.com/dgrisonnet/library-go v0.0.0-20230906113335-bb628916da72/go.mod h1:jPcIZk2ReAozFTDX2s9peO5at1Hs1BS6JvoASSk6NqQ=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
 github.com/emicklei/go-restful/v3 v3.9.0 h1:XwGDlfxEnQZzuopoqxwSEllNcCOM9DhhFyhFIIGKwxE=
@@ -293,8 +295,6 @@ github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479 h1:IU
 github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb h1:Nij5OnaECrkmcRQMAE9LMbQXPo95aqFnf+12B7SyFVI=
 github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb/go.mod h1:Rhb3moCqeiTuGHAbXBOlwPubUMlOZEkrEWTRjIF3jzs=
-github.com/openshift/library-go v0.0.0-20230724150037-c515269de16e h1:E8KSHPb3c68Bjf7I7+A6B5M3j7q3qB1r4or94P8Hqd8=
-github.com/openshift/library-go v0.0.0-20230724150037-c515269de16e/go.mod h1:jPcIZk2ReAozFTDX2s9peO5at1Hs1BS6JvoASSk6NqQ=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
