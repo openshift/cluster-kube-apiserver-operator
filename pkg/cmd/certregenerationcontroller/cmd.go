@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -123,10 +124,19 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
+	kubeInformers := informers.NewSharedInformerFactory(kubeClient, 10*time.Minute)
+	masterCSRController := NewControlPlaneCSRController(
+		ctx,
+		kubeClient,
+		kubeInformers,
+		o.controllerContext.EventRecorder,
+	)
+
 	// We can't start informers until after the resources have been requested. Now is the time.
 	configInformers.Start(ctx.Done())
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	kubeInformers.Start(ctx.Done())
 
 	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
 	// (@deads2k wants time to think it through)
@@ -137,6 +147,10 @@ func (o *Options) Run(ctx context.Context) error {
 
 	go func() {
 		caBundleController.Run(ctx)
+	}()
+
+	go func() {
+		masterCSRController.Run(ctx, 1)
 	}()
 
 	<-ctx.Done()
