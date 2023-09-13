@@ -96,6 +96,10 @@ spec:
       sourceLabels:
       - __name__
       - le
+    - action: drop
+      regex: apiserver_request_slo_duration_seconds_.*
+      sourceLabels:
+      - __name__
     relabelings:
     - action: replace
       targetLabel: apiserver
