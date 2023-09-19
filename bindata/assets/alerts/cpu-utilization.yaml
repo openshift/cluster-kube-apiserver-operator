@@ -21,8 +21,16 @@ spec:
               To fix this, increase the CPU and memory on your control plane nodes.
           expr: |
             sum(
-              100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100)
-              AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+              100 - (
+                avg by (instance) (
+                  sum without (mode) (
+                    rate(
+                      node_cpu_seconds_total{mode=~"idle|iowait|steal"}[1m]
+                    )
+                  )
+                ) * 100
+              )
+              AND on (instance) label_replace(kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
             )
             /
             count(kube_node_role{role="master"})
@@ -45,7 +53,16 @@ spec:
               kube-apiservers are also under-provisioned.
               To fix this, increase the CPU and memory on your control plane nodes.
           expr: |
-            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 90 AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+            100 - (
+              avg by (instance) (
+                sum without (mode) (
+                  rate(
+                    node_cpu_seconds_total{mode=~"idle|iowait|steal"}[1m]
+                  )
+                )
+              ) * 100
+            ) > 90
+            AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
           for: 5m
           labels:
             namespace: openshift-kube-apiserver
@@ -64,7 +81,16 @@ spec:
               kube-apiservers are also under-provisioned.
               To fix this, increase the CPU and memory on your control plane nodes.
           expr: |
-            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 90 AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
+            100 - (
+              avg by (instance) (
+                sum without (mode) (
+                  rate(
+                    node_cpu_seconds_total{mode=~"idle|iowait|steal"}[1m]
+                  )
+                )
+              ) * 100
+            ) > 90
+            AND on (instance) label_replace(kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
           for: 1h
           labels:
             namespace: openshift-kube-apiserver
