@@ -219,6 +219,8 @@ github.com/imdario/mergo v0.3.8 h1:CGgOkSJeqMRmt0D9XLWExdT4m4F1vd3FV3VPt+0VxkQ=
 github.com/imdario/mergo v0.3.8/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+github.com/ingvagabund/library-go v0.0.0-20230921075622-f29ec1981a64 h1:yYwymampOtQ5UTkWLTxWxrvOKhbg1QOfbc3z1rvre3c=
+github.com/ingvagabund/library-go v0.0.0-20230921075622-f29ec1981a64/go.mod h1:Y3kMcQhx+oARET073sjj5YruA6Ef4zdAbh9w/ikU7DA=
 github.com/jonboulle/clockwork v0.2.2 h1:UOGuzwb1PwsrDAObMuhUnj0p5ULPj8V/xJ7Kx9qUBdQ=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
@@ -256,8 +258,6 @@ github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479 h1:IU
 github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20230915115245-53bd8980dfb7 h1:+5WyBC1jCqbMwFNn+uW71zcarZshuD5NCnU0/tHHn+0=
 github.com/openshift/client-go v0.0.0-20230915115245-53bd8980dfb7/go.mod h1:ihUJrhBcYAGYQrJu/gP2OMgfVds5f5z5kbeLNBqjHLo=
-github.com/openshift/library-go v0.0.0-20230915122714-b753831a0dce h1:5ULL0+VCFzIXma7o0wnDddfVQ60/tNVv1uVvL2Ucm4M=
-github.com/openshift/library-go v0.0.0-20230915122714-b753831a0dce/go.mod h1:Y3kMcQhx+oARET073sjj5YruA6Ef4zdAbh9w/ikU7DA=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
