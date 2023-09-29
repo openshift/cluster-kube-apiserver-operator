@@ -25,6 +25,12 @@ func (c *CertRotationController) syncServiceHostnames() error {
 	if err != nil {
 		return err
 	}
+
+	// skip when the status.serviceNetwork is nil
+	if networkConfig.Status.ServiceNetwork == nil || len(networkConfig.Status.ServiceNetwork) == 0 {
+		return fmt.Errorf("empty networkConfig ServiceNetwork, can't generate cert")
+	}
+
 	for _, cidrString := range networkConfig.Status.ServiceNetwork {
 		_, serviceCIDR, err := net.ParseCIDR(cidrString)
 		if err != nil {
