@@ -142,7 +142,7 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kube-apiserver-recording-rules
+  name: kube-apiserver-performance-recording-rules
   namespace: openshift-kube-apiserver
   annotations:
     include.release.openshift.io/self-managed-high-availability: "true"
@@ -267,3 +267,12 @@ spec:
       expr: sum(rate(apiserver_tls_handshake_errors_total{apiserver=~"openshift-apiserver|kube-apiserver|openshift-oauth-apiserver"}[5m])) by (apiserver)
     - record: resource:apiserver_storage_objects:max
       expr: max(apiserver_storage_objects{apiserver=~"openshift-apiserver|kube-apiserver|openshift-oauth-apiserver"}) by (apiserver, resource)
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-recording-rules
+  namespace: openshift-kube-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    release.openshift.io/delete: "true"
