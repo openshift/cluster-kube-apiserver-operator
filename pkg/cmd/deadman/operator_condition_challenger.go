@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	challengePrefix = "Requesting that the operator update this condition. "
+	zeroWidthNonBreakingSpace = '\ufeff'
+	challengePrefix           = string(zeroWidthNonBreakingSpace)
 )
 
 type OperatorConditionChallenger struct {
