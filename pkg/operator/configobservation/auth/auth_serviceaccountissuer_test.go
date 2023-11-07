@@ -3,9 +3,10 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	operatorv1 "github.com/openshift/api/operator/v1"
 	"testing"
 	"time"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -116,7 +117,7 @@ func TestObservedConfig(t *testing.T) {
 				func(_ string) (*configv1.Infrastructure, error) {
 					return &configv1.Infrastructure{
 						Status: configv1.InfrastructureStatus{
-							APIServerInternalURL: "https://lb.example.com",
+							APIServerURL: "https://lb.example.com",
 						},
 					}, tc.infraError
 				},
