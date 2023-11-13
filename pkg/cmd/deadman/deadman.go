@@ -84,8 +84,8 @@ func (o *Options) Run(ctx context.Context) error {
 	conditionChallenger := NewOperatorConditionChallenger(configClient, configInformers, o.challengeInterval, o.controllerContext.EventRecorder)
 	stalenessChecker := NewOperatorStalenessChecker(configClient, configInformers, o.controllerResponseGracePeriod, o.controllerContext.EventRecorder)
 
-	go conditionChallenger.Run(ctx, 5)
-	go stalenessChecker.Run(ctx, 5)
+	go conditionChallenger.Run(ctx, 1)
+	go stalenessChecker.Run(ctx, 1)
 	go configInformers.Start(ctx.Done())
 
 	<-ctx.Done()
