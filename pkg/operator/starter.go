@@ -170,6 +170,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	var notOnSingleReplicaTopology resourceapply.ConditionalFunction = func() bool {
 		return infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode
 	}
+
+	// onSingleReplicaTopology represents SNO deployments
+	var onSingleReplicaTopology resourceapply.ConditionalFunction = func() bool {
+		return infrastructure.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode
+	}
+
 	var never resourceapply.ConditionalFunction = func() bool { return false }
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
@@ -197,7 +203,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 			"assets/alerts/api-usage.yaml",
 			"assets/alerts/audit-errors.yaml",
-			"assets/alerts/cpu-utilization.yaml",
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
@@ -212,6 +217,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	).
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml"}, notOnSingleReplicaTopology, nil).
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos.yaml"}, never, nil). // TODO remove in 4.13
+		WithConditionalResources(bindata.Asset, []string{"assets/alerts/cpu-utilization.yaml"}, notOnSingleReplicaTopology, nil).
+		WithConditionalResources(bindata.Asset, []string{"assets/alerts/cpu-utilization-sno.yaml"}, onSingleReplicaTopology, nil).
 		AddKubeInformers(kubeInformersForNamespaces)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(

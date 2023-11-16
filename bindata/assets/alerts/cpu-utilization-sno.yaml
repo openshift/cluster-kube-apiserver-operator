@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cpu-utilization
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: control-plane-cpu-utilization
+      rules:
+        - alert: ExtremelyHighIndividualControlPlaneCPU
+          annotations:
+            summary: >-
+              CPU utilization across plane pods is high; a control plane pods outage may cause a cascading failure;
+              check control plane logs for possible issues and/or add more CPU.
+            runbook_url: PASS
+            description: >-
+              Usually, when control plane pods start to utilize more CPU, this means that there are might be
+              a issue at them. It's recommended to check pods and their logs to verify that there are not issues.
+              To fix this, increase the CPU and memory on your control plane nodes.
+          expr: | 
+            sum(
+              rate(
+                container_cpu_system_seconds_total{namespace=~"openshift-etcd|openshift-kube-apiserver|openshift-kube-controller-manager|openshift-kube-scheduler|openshift-apiserver|openshift-controller-manager|openshift-authentication",image!=""
+                }[5m]
+              )
+            ) / sum(machine_cpu_cores) * 100 
+            > 50
+          for: 10m
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: warning
+        - alert: ExtremelyHighIndividualControlPlaneCPU
+          annotations:
+            summary: >-
+              CPU utilization on a control plane pods is very high, more CPU pressure is likely to cause a failover; increase available CPU.
+            runbook_url: PASS
+            description: >-
+              Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
+              When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
+              causing even more CPU pressure.
+              It can also cause failing liveness probes due to slow etcd responsiveness on the backend.
+              If one kube-apiserver fails under this condition, chances are you will experience a cascade as the remaining
+              kube-apiservers are also under-provisioned. To fix this, increase the CPU and memory on your control plane nodes.
+          expr: |
+            sum(
+              rate(
+                container_cpu_system_seconds_total{namespace=~"openshift-etcd|openshift-kube-apiserver|openshift-kube-controller-manager|openshift-kube-scheduler|openshift-apiserver|openshift-controller-manager|openshift-authentication",image!=""
+                }[5m]
+              )
+            ) / sum(machine_cpu_cores) * 100
+            > 70
+          for: 5m
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: critical
