@@ -4,6 +4,8 @@ kind: ConfigMap
 metadata:
   name: csr-controller-ca
   namespace: openshift-config-managed
+  annotations:
+    "openshift.io/owning-component": "kube-controller-manager"
 data:
   ca-bundle.crt: |
     {{ .Assets | load "kubelet-client-ca-bundle.crt" | indent 4 }}

@@ -3,5 +3,7 @@ kind: ConfigMap
 metadata:
   namespace: openshift-kube-apiserver
   name: trusted-ca-bundle
+  annotations:
+    "openshift.io/owning-component": "Networking / cluster-network-operator"
   labels:
     config.openshift.io/inject-trusted-cabundle: "true"
