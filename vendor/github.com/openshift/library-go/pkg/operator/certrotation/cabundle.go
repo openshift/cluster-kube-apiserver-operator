@@ -30,6 +30,10 @@ type CABundleConfigMap struct {
 	Name string
 	// Owner is an optional reference to add to the secret that this rotator creates.
 	Owner *metav1.OwnerReference
+	// JiraComponent annotates tls artifacts so that owner could be easily found
+	JiraComponent string
+	// Description is a human-readable one sentence description of certificate purpose
+	Description string
 
 	// Plumbing:
 	Informer      corev1informers.ConfigMapInformer
@@ -53,6 +57,8 @@ func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingC
 	if c.Owner != nil {
 		ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
 	}
+	ensureTLSMetadata(&caBundleConfigMap.ObjectMeta, c.JiraComponent, c.Description)
+
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
 		return nil, err

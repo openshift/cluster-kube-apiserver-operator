@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -44,6 +45,11 @@ type RotatedSigningCASecret struct {
 	// is used, early deletion will be catastrophic.
 	Owner *metav1.OwnerReference
 
+	// JiraComponent annotates tls artifacts so that owner could be easily found
+	JiraComponent string
+
+	// Description is a human-readable one sentence description of certificate purpose
+	Description string
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
 	Lister        corev1listers.SecretLister
@@ -66,6 +72,7 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	if c.Owner != nil {
 		ensureOwnerReference(&signingCertKeyPairSecret.ObjectMeta, c.Owner)
 	}
+	ensureTLSMetadata(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description)
 
 	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
@@ -101,6 +108,16 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	}
 	if !found {
 		meta.OwnerReferences = append(meta.OwnerReferences, *owner)
+	}
+}
+
+// ensureTLSMetadata adds annotations in meta, if necessary
+func ensureTLSMetadata(meta *metav1.ObjectMeta, jiraComponent, description string) {
+	if len(jiraComponent) > 0 {
+		meta.Annotations[annotations.OpenShiftComponent] = jiraComponent
+	}
+	if len(description) > 0 {
+		meta.Annotations[annotations.OpenShiftDescription] = description
 	}
 }
 
@@ -178,6 +195,5 @@ func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validi
 	signingCertKeyPairSecret.Annotations[CertificateNotAfterAnnotation] = ca.Certs[0].NotAfter.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateNotBeforeAnnotation] = ca.Certs[0].NotBefore.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateIssuer] = ca.Certs[0].Issuer.CommonName
-
 	return nil
 }

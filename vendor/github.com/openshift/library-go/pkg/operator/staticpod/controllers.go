@@ -27,7 +27,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
@@ -69,12 +68,11 @@ type staticPodOperatorControllerBuilder struct {
 	staticPodPrefix string
 
 	// guard infomation
-	operatorName                  string
-	operatorNamespace             string
-	readyzPort                    string
-	readyzEndpoint                string
-	pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType
-	guardCreateConditionalFunc    func() (bool, bool, error)
+	operatorName               string
+	operatorNamespace          string
+	readyzPort                 string
+	readyzEndpoint             string
+	guardCreateConditionalFunc func() (bool, bool, error)
 }
 
 func NewBuilder(
@@ -106,14 +104,7 @@ type Builder interface {
 	// the installer pod is created for a revision.
 	WithCustomInstaller(command []string, installerPodMutationFunc installer.InstallerPodMutationFunc) Builder
 	WithPruning(command []string, staticPodPrefix string) Builder
-
-	// WithPodDisruptionBudgetGuard manages guard pods and high available pod disruption budget
-	//
-	// optionally pdbUnhealthyPodEvictionPolicy can be set to AlwaysAllow to allows eviction of unhealthy (not ready) pods
-	// even if there are no disruptions allowed on a PodDisruptionBudget.
-	// This can help to drain/maintain a node and recover without a manual intervention when multiple instances of nodes or pods are misbehaving.
-	// Use this with caution, as this option can disrupt perspective pods that have not yet had a chance to become healthy.
-	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType, createConditionalFunc func() (bool, bool, error)) Builder
+	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, createConditionalFunc func() (bool, bool, error)) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
 
@@ -180,18 +171,11 @@ func (b *staticPodOperatorControllerBuilder) WithPruning(command []string, stati
 	return b
 }
 
-// WithPodDisruptionBudgetGuard manages guard pods and high available pod disruption budget
-//
-// optionally pdbUnhealthyPodEvictionPolicy can be set to AlwaysAllow to allows eviction of unhealthy (not ready) pods
-// even if there are no disruptions allowed on a PodDisruptionBudget.
-// This can help to drain/maintain a node and recover without a manual intervention when multiple instances of nodes or pods are misbehaving.
-// Use this with caution, as this option can disrupt perspective pods that have not yet had a chance to become healthy.
-func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType, createConditionalFunc func() (bool, bool, error)) Builder {
+func (b *staticPodOperatorControllerBuilder) WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, createConditionalFunc func() (bool, bool, error)) Builder {
 	b.operatorNamespace = operatorNamespace
 	b.operatorName = operatorName
 	b.readyzPort = readyzPort
 	b.readyzEndpoint = readyzEndpoint
-	b.pdbUnhealthyPodEvictionPolicy = pdbUnhealthyPodEvictionPolicy
 	b.guardCreateConditionalFunc = createConditionalFunc
 	return b
 }
@@ -356,7 +340,6 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			b.operatorName,
 			b.readyzPort,
 			b.readyzEndpoint,
-			b.pdbUnhealthyPodEvictionPolicy,
 			operandInformers,
 			clusterInformers,
 			b.staticPodOperatorClient,
