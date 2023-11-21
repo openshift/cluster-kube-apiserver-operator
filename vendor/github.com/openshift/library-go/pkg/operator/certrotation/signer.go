@@ -58,6 +58,7 @@ type RotatedSigningCASecret struct {
 }
 
 func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*crypto.CA, error) {
+	newSecretExists := true
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -66,13 +67,19 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: c.Namespace, Name: c.Name}}
+		newSecretExists = false
 	}
 	signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
 	if c.Owner != nil {
 		ensureOwnerReference(&signingCertKeyPairSecret.ObjectMeta, c.Owner)
 	}
-	ensureTLSMetadata(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description)
+	if needsTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description) && newSecretExists {
+		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
@@ -111,17 +118,24 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	}
 }
 
-// ensureTLSMetadata adds annotations in meta, if necessary
-func ensureTLSMetadata(meta *metav1.ObjectMeta, jiraComponent, description string) {
+// needsTLSMetadataUpdate adds annotations in meta, if necessary
+func needsTLSMetadataUpdate(meta *metav1.ObjectMeta, jiraComponent, description string) bool {
+	modified := false
 	if len(meta.Annotations) == 0 {
-		meta.Annotations = map[string]string{}
+		meta.Annotations = map[string]string{
+			annotations.OpenShiftComponent:   "",
+			annotations.OpenShiftDescription: "",
+		}
 	}
-	if len(jiraComponent) > 0 {
+	if len(jiraComponent) > 0 && meta.Annotations[annotations.OpenShiftComponent] != jiraComponent {
 		meta.Annotations[annotations.OpenShiftComponent] = jiraComponent
+		modified = true
 	}
-	if len(description) > 0 {
+	if len(description) > 0 && meta.Annotations[annotations.OpenShiftDescription] != description {
 		meta.Annotations[annotations.OpenShiftDescription] = description
+		modified = true
 	}
+	return modified
 }
 
 func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {

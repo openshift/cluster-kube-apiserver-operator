@@ -45,6 +45,7 @@ type CABundleConfigMap struct {
 func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
+	newSecretExists := true
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -53,11 +54,17 @@ func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingC
 	if apierrors.IsNotFound(err) {
 		// create an empty one
 		caBundleConfigMap = &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Namespace: c.Namespace, Name: c.Name}}
+		newSecretExists = false
 	}
 	if c.Owner != nil {
 		ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
 	}
-	ensureTLSMetadata(&caBundleConfigMap.ObjectMeta, c.JiraComponent, c.Description)
+	if needsTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta, c.JiraComponent, c.Description) && newSecretExists {
+		_, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
