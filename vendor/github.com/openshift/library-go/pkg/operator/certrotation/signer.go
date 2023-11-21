@@ -113,6 +113,9 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 
 // ensureTLSMetadata adds annotations in meta, if necessary
 func ensureTLSMetadata(meta *metav1.ObjectMeta, jiraComponent, description string) {
+	if len(meta.Annotations) == 0 {
+		meta.Annotations = map[string]string{}
+	}
 	if len(jiraComponent) > 0 {
 		meta.Annotations[annotations.OpenShiftComponent] = jiraComponent
 	}
