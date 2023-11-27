@@ -26,8 +26,9 @@ func (c *webhookSupportabilityController) updateCRDConversionWebhookConfiguratio
 			continue
 		}
 		info := webhookInfo{
-			Name:     crd.Name,
-			CABundle: crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
+			Name:                   crd.Name,
+			CABundle:               crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
+			HasServiceCaAnnotation: hasServiceCaAnnotation(crd.Annotations),
 			Service: &serviceReference{
 				Namespace: crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace,
 				Name:      crd.Spec.Conversion.Webhook.ClientConfig.Service.Name,

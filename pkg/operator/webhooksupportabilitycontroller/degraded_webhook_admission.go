@@ -24,10 +24,11 @@ func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigur
 	for _, webhookConfiguration := range webhookConfigurations {
 		for _, webhook := range webhookConfiguration.Webhooks {
 			info := webhookInfo{
-				Name:                  webhook.Name,
-				CABundle:              webhook.ClientConfig.CABundle,
-				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && *webhook.FailurePolicy == admissionregistrationv1.Ignore,
-				TimeoutSeconds:        webhook.TimeoutSeconds,
+				Name:                   webhook.Name,
+				CABundle:               webhook.ClientConfig.CABundle,
+				HasServiceCaAnnotation: hasServiceCaAnnotation(webhookConfiguration.Annotations),
+				FailurePolicyIsIgnore:  webhook.FailurePolicy != nil && *webhook.FailurePolicy == admissionregistrationv1.Ignore,
+				TimeoutSeconds:         webhook.TimeoutSeconds,
 			}
 			if webhook.ClientConfig.Service != nil {
 				info.Service = &serviceReference{
@@ -56,10 +57,11 @@ func (c *webhookSupportabilityController) updateValidatingAdmissionWebhookConfig
 	for _, webhookConfiguration := range webhookConfigurations {
 		for _, webhook := range webhookConfiguration.Webhooks {
 			info := webhookInfo{
-				Name:                  webhook.Name,
-				CABundle:              webhook.ClientConfig.CABundle,
-				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && (*webhook.FailurePolicy == v1.Ignore),
-				TimeoutSeconds:        webhook.TimeoutSeconds,
+				Name:                   webhook.Name,
+				CABundle:               webhook.ClientConfig.CABundle,
+				HasServiceCaAnnotation: hasServiceCaAnnotation(webhookConfiguration.Annotations),
+				FailurePolicyIsIgnore:  webhook.FailurePolicy != nil && (*webhook.FailurePolicy == v1.Ignore),
+				TimeoutSeconds:         webhook.TimeoutSeconds,
 			}
 
 			if webhook.ClientConfig.Service != nil {
