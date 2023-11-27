@@ -2,11 +2,12 @@ package auth
 
 import (
 	"fmt"
-	operatorv1 "github.com/openshift/api/operator/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"net/url"
 	"sort"
 	"strings"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/klog/v2"
 
@@ -132,10 +133,10 @@ func observedConfig(existingConfig map[string]interface{},
 		if err != nil {
 			return existingConfig, append(errs, err)
 		}
-		if apiServerInternalURL := infrastructureConfig.Status.APIServerInternalURL; len(apiServerInternalURL) == 0 {
-			return existingConfig, append(errs, fmt.Errorf("APIServerInternalURL missing from infrastructure/cluster"))
+		if apiServerExternalURL := infrastructureConfig.Status.APIServerURL; len(apiServerExternalURL) == 0 {
+			return existingConfig, append(errs, fmt.Errorf("APIServerURL missing from infrastructure/cluster"))
 		} else {
-			apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerInternalURL + "/openid/v1/jwks"}
+			apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerExternalURL + "/openid/v1/jwks"}
 		}
 	}
 
