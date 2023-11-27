@@ -12,7 +12,7 @@ import (
 
 func (c *webhookSupportabilityController) updateCRDConversionWebhookConfigurationDegraded(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   CRDConversionWebhookConfigurationDegradedType,
+		Type:   CRDConversionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	crds, err := c.crdLister.List(labels.Everything())
