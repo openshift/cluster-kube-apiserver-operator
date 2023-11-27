@@ -179,6 +179,27 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				Message: `mw10: (?:.*)?x509: certificate signed by unknown authority`,
 			},
 		},
+		{
+			name: "CABundleNotYetProvided",
+			webhookConfigs: []*admissionregistrationv1.MutatingWebhookConfiguration{
+				mutatingWebhookConfiguration("mwc10",
+					withMutatingWebhook("mw10", withMutatingServiceReference("ns10", "svc10")),
+					withMutatingWebhookAnnotatedWithServiceCABundleInjection,
+				),
+			},
+			services: []*corev1.Service{
+				service("ns10", "svc10"),
+			},
+			webhookServers: []*mockWebhookServer{
+				webhookServer("mwc10", "ns10", "svc10", withEmptyCABundle),
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  WebhookServiceConnectionErrorReason,
+				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -385,6 +406,27 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				Message: `mw10: (?:.*)?x509: certificate signed by unknown authority`,
 			},
 		},
+		{
+			name: "CABundleNotYetProvided",
+			webhookConfigs: []*admissionregistrationv1.ValidatingWebhookConfiguration{
+				validatingWebhookConfiguration("mwc10",
+					withValidatingWebhook("mw10", withValidatingServiceReference("ns10", "svc10")),
+					withValidatingWebhookAnnotatedWithServiceCABundleInjection,
+				),
+			},
+			services: []*corev1.Service{
+				service("ns10", "svc10"),
+			},
+			webhookServers: []*mockWebhookServer{
+				webhookServer("mwc10", "ns10", "svc10", withEmptyCABundle),
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  WebhookServiceConnectionErrorReason,
+				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -464,6 +506,13 @@ func mutatingWebhookConfiguration(n string, options ...func(*admissionregistrati
 		o(c)
 	}
 	return c
+}
+
+func withMutatingWebhookAnnotatedWithServiceCABundleInjection(c *admissionregistrationv1.MutatingWebhookConfiguration) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[injectCABundleAnnotationName] = "true"
 }
 
 func withMutatingWebhook(n string, options ...func(*admissionregistrationv1.MutatingWebhook)) func(*admissionregistrationv1.MutatingWebhookConfiguration) {
@@ -552,6 +601,13 @@ func withValidatingServiceReference(ns, n string) func(*admissionregistrationv1.
 			},
 		}
 	}
+}
+
+func withValidatingWebhookAnnotatedWithServiceCABundleInjection(c *admissionregistrationv1.ValidatingWebhookConfiguration) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[injectCABundleAnnotationName] = "true"
 }
 
 func service(ns, n string) *corev1.Service {
