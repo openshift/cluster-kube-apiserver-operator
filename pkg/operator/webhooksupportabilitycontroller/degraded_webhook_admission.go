@@ -12,7 +12,7 @@ import (
 
 func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigurationDegraded(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   MutatingAdmissionWebhookConfigurationDegradedType,
+		Type:   MutatingAdmissionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	webhookConfigurations, err := c.mutatingWebhookLister.List(labels.Everything())
@@ -44,7 +44,7 @@ func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigur
 
 func (c *webhookSupportabilityController) updateValidatingAdmissionWebhookConfigurationDegradedStatus(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   ValidatingAdmissionWebhookConfigurationDegradedType,
+		Type:   ValidatingAdmissionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	webhookConfigurations, err := c.validatingWebhookLister.List(labels.Everything())

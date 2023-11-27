@@ -30,7 +30,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 		{
 			name: "None",
 			expected: operatorv1.OperatorCondition{
-				Type:   CRDConversionWebhookConfigurationDegradedType,
+				Type:   CRDConversionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -58,7 +58,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("crd30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   CRDConversionWebhookConfigurationDegradedType,
+				Type:   CRDConversionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -83,7 +83,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("crd30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    CRDConversionWebhookConfigurationDegradedType,
+				Type:    CRDConversionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
 				Message: `crd10: unable to find service svc10.ns10: service "svc10" not found\ncrd20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
@@ -101,7 +101,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 			},
 			webhookServers: nil,
 			expected: operatorv1.OperatorCondition{
-				Type:    CRDConversionWebhookConfigurationDegradedType,
+				Type:    CRDConversionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `crd10: (?:.*)?dial tcp: lookup svc10.ns10.svc on .+: no such host`,
@@ -121,7 +121,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("crd10", "ns10", "svc10", doNotStart()),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    CRDConversionWebhookConfigurationDegradedType,
+				Type:    CRDConversionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `crd10: (?:.*)?dial tcp 127.0.0.1:[0-9]+: connect: connection refused`,
@@ -141,7 +141,7 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("crd10", "ns10", "svc10", withWrongCABundle(t)),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    CRDConversionWebhookConfigurationDegradedType,
+				Type:    CRDConversionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `crd10: (?:.*)?x509: certificate signed by unknown authority`,
