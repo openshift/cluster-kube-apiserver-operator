@@ -147,6 +147,27 @@ func TestUpdateCRDConversionWebhookConfigurationDegraded(t *testing.T) {
 				Message: `crd10: (?:.*)?x509: certificate signed by unknown authority`,
 			},
 		},
+		{
+			name: "CABundleNotYetProvided",
+			crds: []*apiextensionsv1.CustomResourceDefinition{
+				customResourceDefinition("crd10",
+					withConversionServiceReference("ns10", "svc10"),
+					withCRDAnnotatedWithServiceCABundleInjection,
+				),
+			},
+			services: []*corev1.Service{
+				service("ns10", "svc10"),
+			},
+			webhookServers: []*mockWebhookServer{
+				webhookServer("crd10", "ns10", "svc10", withEmptyCABundle),
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    CRDConversionWebhookConfigurationErrorType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  WebhookServiceConnectionErrorReason,
+				Message: `crd10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -241,4 +262,11 @@ func withConversionServiceReference(ns, n string) func(*apiextensionsv1.CustomRe
 		}
 		crd.Spec.Conversion = c
 	}
+}
+
+func withCRDAnnotatedWithServiceCABundleInjection(crd *apiextensionsv1.CustomResourceDefinition) {
+	if crd.Annotations == nil {
+		crd.Annotations = map[string]string{}
+	}
+	crd.Annotations[injectCABundleAnnotationName] = "true"
 }
