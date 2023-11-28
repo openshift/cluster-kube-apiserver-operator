@@ -163,8 +163,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -205,8 +205,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -249,8 +249,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -294,8 +294,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -339,8 +339,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -384,8 +384,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -430,8 +430,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -470,8 +470,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -510,8 +510,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -550,8 +550,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -590,8 +590,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -639,8 +639,8 @@ func newCertRotationController(
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
-		operatorClient,
 		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
