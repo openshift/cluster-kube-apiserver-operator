@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/api/annotations"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -58,7 +57,6 @@ type RotatedSigningCASecret struct {
 }
 
 func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*crypto.CA, error) {
-	newSecretExists := true
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -66,15 +64,23 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
-		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: c.Namespace, Name: c.Name}}
-		newSecretExists = false
+		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: NewTLSArtifactObjectMeta(
+			c.Name,
+			c.Namespace,
+			c.JiraComponent,
+			c.Description,
+		)}
 	}
 	signingCertKeyPairSecret.Type = corev1.SecretTypeTLS
 
+	needsMetadataUpdate := false
 	if c.Owner != nil {
-		ensureOwnerReference(&signingCertKeyPairSecret.ObjectMeta, c.Owner)
+		needsMetadataUpdate = ensureOwnerReference(&signingCertKeyPairSecret.ObjectMeta, c.Owner)
 	}
-	if needsTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description) && newSecretExists {
+	if len(c.JiraComponent) > 0 || len(c.Description) > 0 {
+		needsMetadataUpdate = EnsureTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description) || needsMetadataUpdate
+	}
+	if needsMetadataUpdate && len(signingCertKeyPairSecret.ResourceVersion) > 0 {
 		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
 			return nil, err
@@ -105,7 +111,7 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 }
 
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
-func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) {
+func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) bool {
 	var found bool
 	for _, ref := range meta.OwnerReferences {
 		if ref == *owner {
@@ -115,27 +121,9 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	}
 	if !found {
 		meta.OwnerReferences = append(meta.OwnerReferences, *owner)
+		return true
 	}
-}
-
-// needsTLSMetadataUpdate adds annotations in meta, if necessary
-func needsTLSMetadataUpdate(meta *metav1.ObjectMeta, jiraComponent, description string) bool {
-	modified := false
-	if len(meta.Annotations) == 0 {
-		meta.Annotations = map[string]string{
-			annotations.OpenShiftComponent:   "",
-			annotations.OpenShiftDescription: "",
-		}
-	}
-	if len(jiraComponent) > 0 && meta.Annotations[annotations.OpenShiftComponent] != jiraComponent {
-		meta.Annotations[annotations.OpenShiftComponent] = jiraComponent
-		modified = true
-	}
-	if len(description) > 0 && meta.Annotations[annotations.OpenShiftDescription] != description {
-		meta.Annotations[annotations.OpenShiftDescription] = description
-		modified = true
-	}
-	return modified
+	return false
 }
 
 func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
@@ -212,5 +200,6 @@ func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validi
 	signingCertKeyPairSecret.Annotations[CertificateNotAfterAnnotation] = ca.Certs[0].NotAfter.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateNotBeforeAnnotation] = ca.Certs[0].NotBefore.Format(time.RFC3339)
 	signingCertKeyPairSecret.Annotations[CertificateIssuer] = ca.Certs[0].Issuer.CommonName
+
 	return nil
 }

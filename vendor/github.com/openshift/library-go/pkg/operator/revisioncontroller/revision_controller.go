@@ -115,7 +115,7 @@ func (c RevisionController) createRevisionIfNeeded(ctx context.Context, recorder
 	if _, updated, updateError := c.operatorClient.UpdateLatestRevisionOperatorStatus(ctx, nextRevision, v1helpers.UpdateConditionFn(cond)); updateError != nil {
 		return true, updateError
 	} else if updated {
-		recorder.Eventf("RevisionCreate", "Revision %d created because %s", latestAvailableRevision, reason)
+		recorder.Eventf("RevisionCreate", "Revision %d created because %s", nextRevision, reason)
 	}
 
 	return false, nil
@@ -289,6 +289,8 @@ func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContex
 	if !management.IsOperatorManaged(operatorSpec.ManagementState) {
 		return nil
 	}
+
+	klog.V(2).Infof("status.LatestAvailableRevision: %v, resourceVersion: %v", latestAvailableRevision, resourceVersion)
 
 	// If the operator status has 0 as its latest available revision, this is either the first revision
 	// or possibly the operator resource was deleted and reset back to 0, which is not what we want so check configmaps
