@@ -12,7 +12,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 )
 
@@ -100,6 +99,7 @@ func (c *webhookSupportabilityController) assertService(reference *serviceRefere
 func (c *webhookSupportabilityController) assertConnect(ctx context.Context, webhookName string, reference *serviceReference, caBundle []byte, webhookTimeoutSeconds *int32) error {
 	host := reference.Name + "." + reference.Namespace + ".svc"
 	port := "443"
+	address := net.JoinHostPort(host, port)
 	if reference.Port != nil {
 		port = fmt.Sprintf("%d", *reference.Port)
 	}
@@ -120,24 +120,34 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 			return nil
 		case <-time.After(time.Duration(i) * time.Second):
 		}
-		dialer := &tls.Dialer{
-			NetDialer: &net.Dialer{Timeout: timeout},
-			Config: &tls.Config{
-				ServerName: host,
-				RootCAs:    rootCAs,
-			},
+		dialer := &net.Dialer{
+			Timeout: timeout,
 		}
 		var conn net.Conn
-		conn, err = dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
+		conn, err = dialer.DialContext(ctx, "tcp", address)
 		if err != nil {
 			if i != 2 {
 				// log warning since only last one is reported
-				klog.Warningf("failed to connect to webhook %q via service %q: %v", webhookName, net.JoinHostPort(host, port), err)
+				klog.V(4).InfoS("Could not open TCP connection to webhook", "webhook", webhookName, "address", address, "error", err)
 			}
+			err = fmt.Errorf("could not connect to webhook: %w", err)
 			continue
 		}
+
+		// perform tls handshake to avoid spamming the logs of webhooks
+		tlsConn := tls.Client(conn, &tls.Config{ServerName: host, RootCAs: rootCAs})
+		if err = tlsConn.HandshakeContext(ctx); err != nil {
+			if i != 2 {
+				// log warning since only last one is reported
+				klog.V(4).InfoS("Could not perform TLS handshake over connection to webhook", "webhook", webhookName, "address", address, "error", err)
+			}
+			_ = tlsConn.Close()
+			err = fmt.Errorf("could not perform tls handshake over connection to webhook: %w", err)
+			continue
+		}
+
 		// error from closing connection should not affect Degraded condition
-		runtime.HandleError(conn.Close())
+		_ = tlsConn.Close()
 		break
 	}
 	return err
