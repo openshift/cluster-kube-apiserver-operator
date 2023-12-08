@@ -12,10 +12,10 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.25
-	github.com/openshift/api v0.0.0-20231010075512-1ccc6058c62d
+	github.com/openshift/api v0.0.0-20231129134630-a782d1c1541c
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230926161409-848405da69e1
-	github.com/openshift/library-go v0.0.0-20231128230659-785a9313da6c
+	github.com/openshift/library-go v0.0.0-20231130112926-2285c05489d7
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/cobra v1.7.0
@@ -30,6 +30,7 @@ require (
 	k8s.io/client-go v0.28.2
 	k8s.io/component-base v0.28.2
 	k8s.io/klog/v2 v2.100.1
+	k8s.io/pod-security-admission v0.28.2
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )

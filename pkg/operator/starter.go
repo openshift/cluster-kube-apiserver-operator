@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/podsecurityreadinesscontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/serviceaccountissuercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
@@ -428,6 +429,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	podSecurityReadinessController, err := podsecurityreadinesscontroller.NewPodSecurityReadinessController(
+		controllerContext.ProtoKubeConfig,
+		operatorClient,
+		controllerContext.EventRecorder,
+	)
+	if err != nil {
+		return err
+	}
+
 	// register termination metrics
 	terminationobserver.RegisterMetrics()
 
@@ -461,6 +471,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go latencyProfileController.Run(ctx, 1)
 	go webhookSupportabilityController.Run(ctx, 1)
 	go serviceAccountIssuerController.Run(ctx, 1)
+	go podSecurityReadinessController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
