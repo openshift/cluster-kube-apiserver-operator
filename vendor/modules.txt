@@ -324,7 +324,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20231020125026-aa39c7c45714
+# github.com/openshift/library-go v0.0.0-20231103161457-114eb65eb2d3
 ## explicit; go 1.19
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
