@@ -30,6 +30,7 @@ require (
 	k8s.io/client-go v0.27.4
 	k8s.io/component-base v0.27.4
 	k8s.io/klog/v2 v2.100.1
+	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
