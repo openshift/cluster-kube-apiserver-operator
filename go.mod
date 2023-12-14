@@ -15,7 +15,7 @@ require (
 	github.com/openshift/api v0.0.0-20230810152202-3e3f07aadec4
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb
-	github.com/openshift/library-go v0.0.0-20231103161458-0ec67489d123
+	github.com/openshift/library-go v0.0.0-20231213084759-840298df1eee
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/cobra v1.6.1
@@ -30,6 +30,7 @@ require (
 	k8s.io/client-go v0.27.4
 	k8s.io/component-base v0.27.4
 	k8s.io/klog/v2 v2.100.1
+	k8s.io/pod-security-admission v0.27.4
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
