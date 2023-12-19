@@ -68,10 +68,6 @@ func (c *FakeOperatorV1) KubeStorageVersionMigrators() v1.KubeStorageVersionMigr
 	return &FakeKubeStorageVersionMigrators{c}
 }
 
-func (c *FakeOperatorV1) MachineConfigurations() v1.MachineConfigurationInterface {
-	return &FakeMachineConfigurations{c}
-}
-
 func (c *FakeOperatorV1) Networks() v1.NetworkInterface {
 	return &FakeNetworks{c}
 }
