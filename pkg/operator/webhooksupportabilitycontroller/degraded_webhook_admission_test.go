@@ -31,7 +31,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 		{
 			name: "None",
 			expected: operatorv1.OperatorCondition{
-				Type:   MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:   MutatingAdmissionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -65,7 +65,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("mwc30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:   MutatingAdmissionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -90,7 +90,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 			},
 			webhookServers: []*mockWebhookServer{},
 			expected: operatorv1.OperatorCondition{
-				Type:   MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:   MutatingAdmissionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -115,7 +115,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("mwc30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
 				Message: `mw10: unable to find service svc10.ns10: service "svc10" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
@@ -133,7 +133,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 			},
 			webhookServers: nil,
 			expected: operatorv1.OperatorCondition{
-				Type:    MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?dial tcp: lookup svc10.ns10.svc on .+: no such host`,
@@ -153,7 +153,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("mwc10", "ns10", "svc10", doNotStart()),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?dial tcp 127.0.0.1:[0-9]+: connect: connection refused`,
@@ -173,10 +173,31 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				webhookServer("mwc10", "ns10", "svc10", withWrongCABundle(t)),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    MutatingAdmissionWebhookConfigurationDegradedType,
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?x509: certificate signed by unknown authority`,
+			},
+		},
+		{
+			name: "CABundleNotYetProvided",
+			webhookConfigs: []*admissionregistrationv1.MutatingWebhookConfiguration{
+				mutatingWebhookConfiguration("mwc10",
+					withMutatingWebhook("mw10", withMutatingServiceReference("ns10", "svc10")),
+					withMutatingWebhookAnnotatedWithServiceCABundleInjection,
+				),
+			},
+			services: []*corev1.Service{
+				service("ns10", "svc10"),
+			},
+			webhookServers: []*mockWebhookServer{
+				webhookServer("mwc10", "ns10", "svc10", withEmptyCABundle),
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    MutatingAdmissionWebhookConfigurationErrorType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  WebhookServiceConnectionErrorReason,
+				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
 			},
 		},
 	}
@@ -262,7 +283,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 		{
 			name: "None",
 			expected: operatorv1.OperatorCondition{
-				Type:   ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:   ValidatingAdmissionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -296,7 +317,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				webhookServer("mwc30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:   ValidatingAdmissionWebhookConfigurationErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -321,7 +342,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				webhookServer("mwc30", "ns30", "svc30"),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceNotReadyReason,
 				Message: `mw10: unable to find service svc10.ns10: service \"svc10\" not found\nmw20: (?:.*)?dial tcp: lookup svc20.ns20.svc on .+: no such host`,
@@ -339,7 +360,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 			},
 			webhookServers: nil,
 			expected: operatorv1.OperatorCondition{
-				Type:    ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?dial tcp: lookup svc10.ns10.svc on .+: no such host`,
@@ -359,7 +380,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				webhookServer("mwc10", "ns10", "svc10", doNotStart()),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?dial tcp 127.0.0.1:[0-9]+: connect: connection refused`,
@@ -379,10 +400,31 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				webhookServer("mwc10", "ns10", "svc10", withWrongCABundle(t)),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:    ValidatingAdmissionWebhookConfigurationDegradedType,
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
 				Message: `mw10: (?:.*)?x509: certificate signed by unknown authority`,
+			},
+		},
+		{
+			name: "CABundleNotYetProvided",
+			webhookConfigs: []*admissionregistrationv1.ValidatingWebhookConfiguration{
+				validatingWebhookConfiguration("mwc10",
+					withValidatingWebhook("mw10", withValidatingServiceReference("ns10", "svc10")),
+					withValidatingWebhookAnnotatedWithServiceCABundleInjection,
+				),
+			},
+			services: []*corev1.Service{
+				service("ns10", "svc10"),
+			},
+			webhookServers: []*mockWebhookServer{
+				webhookServer("mwc10", "ns10", "svc10", withEmptyCABundle),
+			},
+			expected: operatorv1.OperatorCondition{
+				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
+				Status:  operatorv1.ConditionTrue,
+				Reason:  WebhookServiceConnectionErrorReason,
+				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
 			},
 		},
 	}
@@ -464,6 +506,13 @@ func mutatingWebhookConfiguration(n string, options ...func(*admissionregistrati
 		o(c)
 	}
 	return c
+}
+
+func withMutatingWebhookAnnotatedWithServiceCABundleInjection(c *admissionregistrationv1.MutatingWebhookConfiguration) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[injectCABundleAnnotationName] = "true"
 }
 
 func withMutatingWebhook(n string, options ...func(*admissionregistrationv1.MutatingWebhook)) func(*admissionregistrationv1.MutatingWebhookConfiguration) {
@@ -552,6 +601,13 @@ func withValidatingServiceReference(ns, n string) func(*admissionregistrationv1.
 			},
 		}
 	}
+}
+
+func withValidatingWebhookAnnotatedWithServiceCABundleInjection(c *admissionregistrationv1.ValidatingWebhookConfiguration) {
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[injectCABundleAnnotationName] = "true"
 }
 
 func service(ns, n string) *corev1.Service {

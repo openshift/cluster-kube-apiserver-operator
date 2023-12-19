@@ -109,13 +109,18 @@ func withWrongCABundle(t *testing.T) func(*mockWebhookServer) {
 	}
 }
 
+func withEmptyCABundle(s *mockWebhookServer) {
+	s.skipCABundleInjection = true
+}
+
 type mockWebhookServer struct {
-	Config     string
-	Service    serviceReference
-	Hostname   string
-	Port       *int32
-	CABundle   []byte
-	doNotStart bool
+	Config                string
+	Service               serviceReference
+	Hostname              string
+	Port                  *int32
+	CABundle              []byte
+	skipCABundleInjection bool
+	doNotStart            bool
 }
 
 // Run starts the mock server. Port and CABundle are available after this method returns.
@@ -128,6 +133,12 @@ func (s *mockWebhookServer) Run(t *testing.T, ctx context.Context) {
 	rootCA := &crypto.CA{SerialGenerator: &crypto.RandomSerialGenerator{}, Config: rootCACertCfg}
 	if len(s.CABundle) == 0 {
 		s.CABundle, _, err = rootCA.Config.GetPEMBytes()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if s.skipCABundleInjection {
+		s.CABundle = []byte{}
 	}
 	// server certs
 	serverCertCfg, err := rootCA.MakeServerCert(sets.NewString(s.Hostname, "127.0.0.1"), 10)

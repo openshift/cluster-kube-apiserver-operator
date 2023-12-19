@@ -12,7 +12,7 @@ import (
 
 func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigurationDegraded(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   MutatingAdmissionWebhookConfigurationDegradedType,
+		Type:   MutatingAdmissionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	webhookConfigurations, err := c.mutatingWebhookLister.List(labels.Everything())
@@ -24,10 +24,11 @@ func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigur
 	for _, webhookConfiguration := range webhookConfigurations {
 		for _, webhook := range webhookConfiguration.Webhooks {
 			info := webhookInfo{
-				Name:                  webhook.Name,
-				CABundle:              webhook.ClientConfig.CABundle,
-				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && *webhook.FailurePolicy == admissionregistrationv1.Ignore,
-				TimeoutSeconds:        webhook.TimeoutSeconds,
+				Name:                   webhook.Name,
+				CABundle:               webhook.ClientConfig.CABundle,
+				HasServiceCaAnnotation: hasServiceCaAnnotation(webhookConfiguration.Annotations),
+				FailurePolicyIsIgnore:  webhook.FailurePolicy != nil && *webhook.FailurePolicy == admissionregistrationv1.Ignore,
+				TimeoutSeconds:         webhook.TimeoutSeconds,
 			}
 			if webhook.ClientConfig.Service != nil {
 				info.Service = &serviceReference{
@@ -44,7 +45,7 @@ func (c *webhookSupportabilityController) updateMutatingAdmissionWebhookConfigur
 
 func (c *webhookSupportabilityController) updateValidatingAdmissionWebhookConfigurationDegradedStatus(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   ValidatingAdmissionWebhookConfigurationDegradedType,
+		Type:   ValidatingAdmissionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	webhookConfigurations, err := c.validatingWebhookLister.List(labels.Everything())
@@ -56,10 +57,11 @@ func (c *webhookSupportabilityController) updateValidatingAdmissionWebhookConfig
 	for _, webhookConfiguration := range webhookConfigurations {
 		for _, webhook := range webhookConfiguration.Webhooks {
 			info := webhookInfo{
-				Name:                  webhook.Name,
-				CABundle:              webhook.ClientConfig.CABundle,
-				FailurePolicyIsIgnore: webhook.FailurePolicy != nil && (*webhook.FailurePolicy == v1.Ignore),
-				TimeoutSeconds:        webhook.TimeoutSeconds,
+				Name:                   webhook.Name,
+				CABundle:               webhook.ClientConfig.CABundle,
+				HasServiceCaAnnotation: hasServiceCaAnnotation(webhookConfiguration.Annotations),
+				FailurePolicyIsIgnore:  webhook.FailurePolicy != nil && (*webhook.FailurePolicy == v1.Ignore),
+				TimeoutSeconds:         webhook.TimeoutSeconds,
 			}
 
 			if webhook.ClientConfig.Service != nil {
