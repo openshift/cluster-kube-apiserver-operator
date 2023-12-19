@@ -23,6 +23,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"k8s.io/klog/v2"
 	kmsapi "k8s.io/kms/apis/v2"
 )
 
@@ -44,6 +45,8 @@ func NewGRPCService(
 
 	kmsService Service,
 ) *GRPCService {
+	klog.V(4).InfoS("KMS plugin configured", "address", address, "timeout", timeout)
+
 	return &GRPCService{
 		addr:       address,
 		timeout:    timeout,
@@ -67,12 +70,14 @@ func (s *GRPCService) ListenAndServe() error {
 
 	kmsapi.RegisterKeyManagementServiceServer(gs, s)
 
+	klog.V(4).InfoS("kms plugin serving", "address", s.addr)
 	return gs.Serve(ln)
 }
 
 // Shutdown performs a graceful shutdown. Doesn't accept new connections and
 // blocks until all pending RPCs are finished.
 func (s *GRPCService) Shutdown() {
+	klog.V(4).InfoS("kms plugin shutdown", "address", s.addr)
 	if s.server != nil {
 		s.server.GracefulStop()
 	}
@@ -81,6 +86,7 @@ func (s *GRPCService) Shutdown() {
 // Close stops the server by closing all connections immediately and cancels
 // all active RPCs.
 func (s *GRPCService) Close() {
+	klog.V(4).InfoS("kms plugin close", "address", s.addr)
 	if s.server != nil {
 		s.server.Stop()
 	}
@@ -102,6 +108,8 @@ func (s *GRPCService) Status(ctx context.Context, _ *kmsapi.StatusRequest) (*kms
 
 // Decrypt sends a decryption request to specified kms service.
 func (s *GRPCService) Decrypt(ctx context.Context, req *kmsapi.DecryptRequest) (*kmsapi.DecryptResponse, error) {
+	klog.V(4).InfoS("decrypt request received", "id", req.Uid)
+
 	plaintext, err := s.kmsService.Decrypt(ctx, req.Uid, &DecryptRequest{
 		Ciphertext:  req.Ciphertext,
 		KeyID:       req.KeyId,
@@ -118,6 +126,8 @@ func (s *GRPCService) Decrypt(ctx context.Context, req *kmsapi.DecryptRequest) (
 
 // Encrypt sends an encryption request to specified kms service.
 func (s *GRPCService) Encrypt(ctx context.Context, req *kmsapi.EncryptRequest) (*kmsapi.EncryptResponse, error) {
+	klog.V(4).InfoS("encrypt request received", "id", req.Uid)
+
 	encRes, err := s.kmsService.Encrypt(ctx, req.Uid, req.Plaintext)
 	if err != nil {
 		return nil, err

@@ -264,7 +264,6 @@ func (c *Client) getToken(ctx context.Context) error {
 	resp, err := c.Auth.Authenticate(ctx, c.Username, c.Password)
 	if err != nil {
 		if err == rpctypes.ErrAuthNotEnabled {
-			c.authTokenBundle.UpdateAuthToken("")
 			return nil
 		}
 		return err
@@ -502,7 +501,7 @@ func (c *Client) checkVersion() (err error) {
 					return
 				}
 			}
-			if maj < 3 || (maj == 3 && min < 4) {
+			if maj < 3 || (maj == 3 && min < 2) {
 				rerr = ErrOldCluster
 			}
 			errc <- rerr
@@ -510,7 +509,7 @@ func (c *Client) checkVersion() (err error) {
 	}
 	// wait for success
 	for range eps {
-		if err = <-errc; err != nil {
+		if err = <-errc; err == nil {
 			break
 		}
 	}

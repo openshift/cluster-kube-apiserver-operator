@@ -512,42 +512,6 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         scalar: string
       default: ""
-- name: com.github.openshift.api.config.v1.CloudLoadBalancerConfig
-  map:
-    fields:
-    - name: clusterHosted
-      type:
-        namedType: com.github.openshift.api.config.v1.CloudLoadBalancerIPs
-    - name: dnsType
-      type:
-        scalar: string
-      default: PlatformDefault
-    unions:
-    - discriminator: dnsType
-      fields:
-      - fieldName: clusterHosted
-        discriminatorValue: ClusterHosted
-- name: com.github.openshift.api.config.v1.CloudLoadBalancerIPs
-  map:
-    fields:
-    - name: apiIntLoadBalancerIPs
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: associative
-    - name: apiLoadBalancerIPs
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: associative
-    - name: ingressLoadBalancerIPs
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: associative
 - name: com.github.openshift.api.config.v1.ClusterCondition
   map:
     fields:
@@ -1233,11 +1197,10 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: com.github.openshift.api.config.v1.GCPPlatformStatus
   map:
     fields:
-    - name: cloudLoadBalancerConfig
+    - name: clusterHostedDNS
       type:
-        namedType: com.github.openshift.api.config.v1.CloudLoadBalancerConfig
-      default:
-        dnsType: PlatformDefault
+        scalar: string
+      default: Disabled
     - name: projectID
       type:
         scalar: string

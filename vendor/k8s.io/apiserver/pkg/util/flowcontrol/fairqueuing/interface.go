@@ -18,6 +18,7 @@ package fairqueuing
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apiserver/pkg/util/flowcontrol/debug"
 	"k8s.io/apiserver/pkg/util/flowcontrol/metrics"
@@ -116,7 +117,7 @@ type QueuingConfig struct {
 
 	// DesiredNumQueues is the number of queues that the API says
 	// should exist now.  This may be non-positive, in which case
-	// QueueLengthLimit, and HandSize are ignored.
+	// QueueLengthLimit, HandSize, and RequestWaitLimit are ignored.
 	// A value of zero means to respect the ConcurrencyLimit of the DispatchingConfig.
 	// A negative value means to always dispatch immediately upon arrival
 	// (i.e., the requests are "exempt" from limitation).
@@ -128,6 +129,10 @@ type QueuingConfig struct {
 	// HandSize is a parameter of shuffle sharding.  Upon arrival of a request, a queue is chosen by randomly
 	// dealing a "hand" of this many queues and then picking one of minimum length.
 	HandSize int
+
+	// RequestWaitLimit is the maximum amount of time that a request may wait in a queue.
+	// If, by the end of that time, the request has not been dispatched then it is rejected.
+	RequestWaitLimit time.Duration
 }
 
 // DispatchingConfig defines the configuration of the dispatching aspect of a QueueSet.
