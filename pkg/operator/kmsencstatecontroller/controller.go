@@ -143,6 +143,7 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 
 	// change desiredEncryptionConfig to use kms instead of aescbc/aesgcm
 	desiredEncryptionConfig = patchEncryptionConfigForKMS(desiredEncryptionConfig)
+	// desiredEncryptionConfig = patchEncryptionConfigForDecryptingKMS(desiredEncryptionConfig)
 
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredEncryptionConfig, recorder)
 	if err != nil {
