@@ -123,9 +123,9 @@ func newCertRotationController(
 		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
 		klog.Warningf("Certificate rotation base set to %q", rotationDay)
 	} else {
-		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
+		// for the development cycle, make the rotation every minutes
 		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+		rotationDay = time.Minute
 	}
 
 	certRotator := certrotation.NewCertRotationController(
