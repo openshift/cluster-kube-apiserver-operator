@@ -824,9 +824,9 @@ func newCertRotationController(
 			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
 			// because of expired certs these are still valid to use for collecting data using localhost-recovery
 			// endpoint with long lived serving certs for localhost.
-			Validity: 2 * 365 * defaultRotationDay,
+			Validity: 120 * rotationDay,
 			// We rotate sooner so certs are always valid for 90 days (30 days more then kube-control-plane-signer)
-			Refresh:                30 * defaultRotationDay,
+			Refresh:                30 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{
