@@ -163,8 +163,8 @@ github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479 h1:IU
 github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20231218155125-ff7d9f9bf415 h1:wfnn3E0Z62bB3wYM5eO1AZ9EYZpFd7M1p4PclcIyVv0=
 github.com/openshift/client-go v0.0.0-20231218155125-ff7d9f9bf415/go.mod h1:5W+xoimHjRdZ0dI/yeQR0ANRNLK9mPmXMzUWPAIPADo=
-github.com/openshift/library-go v0.0.0-20231219145842-6c315b5f5029 h1:+pX04GmRvwBqivuQqqURYFZBHEQukdakz+kBnVYQ9x8=
-github.com/openshift/library-go v0.0.0-20231219145842-6c315b5f5029/go.mod h1:82B0gt8XawdXWRtKMrm3jSMTeRsiOSYKCi4F0fvPjG0=
+github.com/openshift/library-go v0.0.0-20240108202620-5674ec6ced1c h1:zGVuYVRf/tflaFHbpyce/12QSQ5K0OElDhVdnEPtHB8=
+github.com/openshift/library-go v0.0.0-20240108202620-5674ec6ced1c/go.mod h1:82B0gt8XawdXWRtKMrm3jSMTeRsiOSYKCi4F0fvPjG0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
