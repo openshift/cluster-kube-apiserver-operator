@@ -193,10 +193,10 @@ func newCertRotationController(
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 			},
-			Validity: 60 * defaultRotationDay, // this comes from the installer
+			Validity: 48 * rotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                48 * defaultRotationDay,
+			Refresh:                48 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
