@@ -334,7 +334,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20240108202620-5674ec6ced1c
+# github.com/openshift/library-go v0.0.0-20240108202620-5674ec6ced1c => github.com/Juneezee/library-go v0.0.0-20240109101959-b6f03a46fdd2
 ## explicit; go 1.21
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -1467,3 +1467,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# github.com/openshift/library-go => github.com/Juneezee/library-go v0.0.0-20240109101959-b6f03a46fdd2
