@@ -181,6 +181,8 @@ type TemplateData struct {
 	ShutdownDelayDuration string
 
 	ServiceAccountIssuer string
+
+	BootstrapInPlace bool
 }
 
 // Run contains the logic of the render command.
@@ -283,6 +285,7 @@ func (r *renderOpts) Run() error {
 		case configv1.SingleReplicaTopologyMode:
 			renderConfig.TerminationGracePeriodSeconds = 15
 			renderConfig.ShutdownDelayDuration = "0s"
+			renderConfig.BootstrapInPlace = true
 		}
 	}
 

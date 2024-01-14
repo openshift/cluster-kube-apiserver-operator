@@ -41,6 +41,57 @@ apiServerArguments:
   - {{ or .ServiceAccountIssuer "https://kubernetes.default.svc" }}
   client-ca-file:
     - /etc/kubernetes/secrets/kube-apiserver-complete-client-ca-bundle.crt
+{{- if .BootstrapInPlace}}
+  disable-admission-plugins:
+    - ValidatingAdmissionWebhook
+  enable-admission-plugins:
+    - CertificateApproval
+    - CertificateSigning
+    - CertificateSubjectRestriction
+    - DefaultIngressClass
+    - DefaultStorageClass
+    - DefaultTolerationSeconds
+    - LimitRanger
+    - MutatingAdmissionWebhook
+    - NamespaceLifecycle
+    - NodeRestriction
+    - OwnerReferencesPermissionEnforcement
+    - PersistentVolumeClaimResize
+    - PersistentVolumeLabel
+    - PodNodeSelector
+    - PodTolerationRestriction
+    - Priority
+    - ResourceQuota
+    - RuntimeClass
+    - ServiceAccount
+    - StorageObjectInUseProtection
+    - TaintNodesByCondition
+    # - ValidatingAdmissionWebhook
+    - ValidatingAdmissionPolicy
+    - authorization.openshift.io/RestrictSubjectBindings
+    - authorization.openshift.io/ValidateRoleBindingRestriction
+    - config.openshift.io/DenyDeleteClusterConfiguration
+    - config.openshift.io/ValidateAPIServer
+    - config.openshift.io/ValidateAuthentication
+    - config.openshift.io/ValidateConsole
+    - config.openshift.io/ValidateFeatureGate
+    - config.openshift.io/ValidateImage
+    - config.openshift.io/ValidateOAuth
+    - config.openshift.io/ValidateProject
+    - config.openshift.io/ValidateScheduler
+    - image.openshift.io/ImagePolicy
+    - network.openshift.io/ExternalIPRanger
+    - network.openshift.io/RestrictedEndpointsAdmission
+    - quota.openshift.io/ClusterResourceQuota
+    - quota.openshift.io/ValidateClusterResourceQuota
+    - route.openshift.io/IngressAdmission
+    - scheduling.openshift.io/OriginPodNodeEnvironment
+    - security.openshift.io/DefaultSecurityContextConstraints
+    - security.openshift.io/SCCExecRestrictions
+    - security.openshift.io/SecurityContextConstraint
+    - security.openshift.io/ValidateSecurityContextConstraints
+    - storage.openshift.io/CSIInlineVolumeSecurity
+{{end}}
   etcd-cafile:
     - /etc/kubernetes/secrets/{{.EtcdServingCA}}
   etcd-certfile:

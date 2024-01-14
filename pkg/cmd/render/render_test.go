@@ -582,6 +582,20 @@ spec:
 				if got, expected := cfg.APIServerArguments["shutdown-delay-duration"][0], "0s"; got != expected {
 					return fmt.Errorf("expected shutdown-delay-duration=%q, but found %s", expected, got)
 				}
+				for _, plugin := range cfg.APIServerArguments["enable-admission-plugins"] {
+					if strings.Compare(plugin, "ValidatingAdmissionWebhook") == 0 {
+						return fmt.Errorf("expected %s to not be enabled for bootstrap in place", plugin)
+					}
+				}
+				var disableValidatingWebhookPlugin bool
+				for _, plugin := range cfg.APIServerArguments["disable-admission-plugins"] {
+					if strings.Compare(plugin, "ValidatingAdmissionWebhook") == 0 {
+						disableValidatingWebhookPlugin = true
+					}
+				}
+				if !disableValidatingWebhookPlugin {
+					return fmt.Errorf("expected ValidatingAdmissionWebhook to be disabled for bootstrap in place")
+				}
 				return nil
 			},
 			podTestFunction: func(pod *corev1.Pod) error {
