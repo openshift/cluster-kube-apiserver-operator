@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kms-script
+  namespace: kube-system
+data:
+  policy.json: |-
+    {
+        "Id": "key-policy-01",
+        "Statement": [
+            {
+                "Sid": "Enable IAM User Permissions",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::<AWS_ACCOUNT_ID>:root"
+                },
+                "Action": "kms:*",
+                "Resource": "*"
+            },
+            {
+                "Sid": "Allow use of the key",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<OPENSHIFT_INFRA_NAME>-master-role"
+                },
+                "Action": [
+                    "kms:Encrypt",
+                    "kms:Decrypt",
+                    "kms:ReEncrypt*",
+                    "kms:GenerateDataKey*",
+                    "kms:DescribeKey"
+                ],
+                "Resource": "*"
+            },
+            {
+                "Sid": "Allow attachment of persistent resources",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<OPENSHIFT_INFRA_NAME>-master-role"
+                },
+                "Action": [
+                    "kms:CreateGrant",
+                    "kms:ListGrants",
+                    "kms:RevokeGrant"
+                ],
+                "Resource": "*",
+                "Condition": {
+                    "Bool": {
+                        "kms:GrantIsForAWSResource": "true"
+                    }
+                }
+            }
+        ]
+    }
+  setup-kms.sh: |-
+    #!/bin/bash
+    AWS_REGION=${AWS_DEFAULT_REGION}
+    KMS_KEY_NAME=${OPENSHIFT_INFRA_NAME}-master-kek
+
+    # create an AWS KMS key
+    KMS_KEY_ID=$(aws kms create-key \
+        --region ${AWS_REGION} \
+        --query KeyMetadata.KeyId \
+        --output text \
+        --description "used with k8s encryption provider" \
+        --key-usage ENCRYPT_DECRYPT)
+
+    aws kms describe-key \
+        --region ${AWS_REGION} \
+        --key-id "${KMS_KEY_ID}"
+
+    # shows the KMS key name on the AWS console, and so 
+    # key is search-able by name specified
+    aws kms create-alias \
+        --region ${AWS_REGION} \
+        --alias-name "alias/${KMS_KEY_NAME}" \
+        --target-key-id "${KMS_KEY_ID}"
+    
+    aws iam list-role-policies \
+      --role-name "${OPENSHIFT_INFRA_NAME}"-master-role \
+      --region ${AWS_REGION}
+
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
+      --region ${AWS_REGION} \
+      --query "Account" \
+      --output text)
+    BASE_DIR=$(dirname $0)
+
+    cat "${BASE_DIR}"/policy.json | sed "s/<AWS_ACCOUNT_ID>/${AWS_ACCOUNT_ID}/g" | sed "s/<OPENSHIFT_INFRA_NAME>/${OPENSHIFT_INFRA_NAME}/g" > /tmp/policy-rendered.json
+
+    aws kms put-key-policy \
+      --region ${AWS_REGION} \
+      --key-id "${KMS_KEY_ID}" \
+      --policy-name default \
+      --policy file:///tmp/policy-rendered.json \
+
+    # prints ARN of the KMS key so it can be 
+    # later used with kms plugin
+    aws kms describe-key \
+        --region ${AWS_REGION} \
+        --key-id "${KMS_KEY_ID}" \
+        --query KeyMetadata.Arn \
+        --output text
+
+    echo '{"kind": "ConfigMap", "metadata": {"name": "kms-key"}, "data": {"aws_kms_arn": "'"${KMS_KEY_ID}"'"}}' > /tmp/kms-cm.json
+
+    SA=/var/run/secrets/kubernetes.io/serviceaccount
+    while true; do
+        sleep 5;
+        curl -sS \
+            --cacert ${SA}/ca.crt \
+            -H "Authorization: Bearer $(cat ${SA}/token)" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            --data-binary "@/tmp/kms-cm.json" \
+            https://$KUBERNETES_SERVICE_HOST/api/v1/namespaces/kube-system/configmaps
+    done
