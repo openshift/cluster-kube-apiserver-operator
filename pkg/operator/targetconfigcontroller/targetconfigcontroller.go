@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -284,8 +285,9 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
 		lister,
-		"kube-apiserver",
-		"",
+		certrotation.AdditionalAnnotations{
+			JiraComponent: "kube-apiserver",
+		},
 		// this is from the installer and contains the value to verify the admin.kubeconfig user
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
 		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images
@@ -317,8 +319,9 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
 		lister,
-		"kube-apiserver",
-		"",
+		certrotation.AdditionalAnnotations{
+			JiraComponent: "kube-apiserver",
+		},
 		// this bundle is what this operator uses to mint loadbalancers certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "loadbalancer-serving-ca"},
 		// this bundle is what this operator uses to mint localhost certs
