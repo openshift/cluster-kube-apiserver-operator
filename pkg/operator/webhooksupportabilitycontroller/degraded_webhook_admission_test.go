@@ -197,7 +197,7 @@ func TestUpdateMutatingAdmissionWebhookConfigurationDegraded(t *testing.T) {
 				Type:    MutatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
-				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
+				Message: `mw10: skipping checking the webhook \"mw10\" via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
 			},
 		},
 	}
@@ -424,7 +424,7 @@ func TestUpdateValidatingAdmissionWebhookConfigurationDegradedStatus(t *testing.
 				Type:    ValidatingAdmissionWebhookConfigurationErrorType,
 				Status:  operatorv1.ConditionTrue,
 				Reason:  WebhookServiceConnectionErrorReason,
-				Message: `mw10: skipping checking the webhook via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
+				Message: `mw10: skipping checking the webhook \"mw10\" via \"([^"]+)\" service because the caBundle \(provided by the service-ca-operator\) is empty. Please check the service-ca's logs if the issue persists`,
 			},
 		},
 	}
