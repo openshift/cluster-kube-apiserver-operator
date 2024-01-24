@@ -96,22 +96,28 @@ data:
 
     # prints ARN of the KMS key so it can be 
     # later used with kms plugin
-    aws kms describe-key \
+    KMS_KEY_ARN=$(aws kms describe-key \
         --region ${AWS_REGION} \
         --key-id "${KMS_KEY_ID}" \
         --query KeyMetadata.Arn \
-        --output text
+        --output text)
+    echo ${KMS_KEY_ARN}
 
-    echo '{"kind": "ConfigMap", "metadata": {"name": "kms-key"}, "data": {"aws_kms_arn": "'"${KMS_KEY_ID}"'"}}' > /tmp/kms-cm.json
+    echo '{"kind": "ConfigMap", "metadata": {"name": "kms-key"}, "data": {"aws_kms_arn": "'"${KMS_KEY_ARN}"'"}}' > /tmp/kms-cm.json
 
     SA=/var/run/secrets/kubernetes.io/serviceaccount
-    while true; do
-        sleep 5;
-        curl -sS \
+    for i in {1..10}; 
+    do
+        echo "writing configmap, attempt ${i}"
+        if curl -sS \
             --cacert ${SA}/ca.crt \
             -H "Authorization: Bearer $(cat ${SA}/token)" \
             -H "Content-Type: application/json" \
             -X POST \
             --data-binary "@/tmp/kms-cm.json" \
-            https://$KUBERNETES_SERVICE_HOST/api/v1/namespaces/kube-system/configmaps
+            https://$KUBERNETES_SERVICE_HOST/api/v1/namespaces/kube-system/configmaps | grep '"kind": "ConfigMap"';
+        then
+            break
+        fi
+        sleep 5;
     done

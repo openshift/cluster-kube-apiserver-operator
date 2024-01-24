@@ -485,6 +485,11 @@ type kasTemplate struct {
 	GracefulTerminationDuration   int
 	SetupContainerTimeoutDuration int
 	GOGC                          int
+
+	// hack: KMS
+	KMSPluginImage string
+	AWSKMSKeyARN   string
+	AWSRegion      string
 }
 
 func effectiveConfiguration(spec *operatorv1.StaticPodOperatorSpec) (map[string]interface{}, error) {
@@ -539,6 +544,11 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
 		SetupContainerTimeoutDuration: gracefulTerminationDuration + 80 + 5,
 		GOGC:                          gogc,
+
+		// hack: KMS
+		KMSPluginImage: "quay.io/swghosh/aws-cloud-kms",
+		AWSKMSKeyARN:   "arn:aws:kms:eu-west-3:<REDACTED>:key/<REDACTED>",
+		AWSRegion:      "eu-west-3",
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {

@@ -31,6 +31,10 @@ spec:
         - "bash"
         args:
         - "/var/src/kms/setup-kms.sh"
+        # command:
+        # - "sleep"
+        # args:
+        # - "600"
         resources:
           limits:
             memory: "128Mi"

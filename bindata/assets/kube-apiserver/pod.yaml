@@ -264,15 +264,32 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
-  - image: quay.io/swghosh/gcp-cloud-kms:gcp
+  - image: {{.KMSPluginImage}}
     name: cloud-kms-plugin
     args:
-    - -key-uri=projects/openshift-gce-devel/locations/asia-south1/keyRings/swghosh-20230810-c21e-wsm7s-kms/cryptoKeys/kube-encryption
-    - -path-to-unix-socket=/var/kms-plugin/socket.sock
-    - -v=5
+    - --debug
+    - --health-port=":18081"
+    - --key="{{.AWSKMSKeyARN}}"
+    - --listen="/var/kms-plugin/socket.sock"
+    - --region="{{.AWSRegion}}"
     ports:
-    - containerPort: 8081
+    - containerPort: 18081
       protocol: TCP
+      name: check-kms
+    livenessProbe:
+      httpGet:
+        scheme: HTTP
+        port: 18081
+        path: livez
+      initialDelaySeconds: 15
+      timeoutSeconds: 15
+    readinessProbe:
+      httpGet:
+        scheme: HTTP
+        port: 18081
+        path: healthz
+      initialDelaySeconds: 10
+      timeoutSeconds: 10
     volumeMounts:
     - mountPath: /var/kms-plugin
       name: var-kms-plugin
