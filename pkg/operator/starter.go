@@ -206,6 +206,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
+
+			// hack: KMS
+			"assets/kms/job-sh-cm.yaml",
+			"assets/kms/job-sa.yaml",
+			"assets/kms/job-sa-role.yaml",
+			"assets/kms/job-sa-rolebinding.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
@@ -228,6 +234,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeClient,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
 		controllerContext.EventRecorder,
+
+		// hack: kms
+		"<kms-key-arn>", // TODO: fill value here
+		infrastructure.Status.PlatformStatus.AWS.Region,
 	)
 
 	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(

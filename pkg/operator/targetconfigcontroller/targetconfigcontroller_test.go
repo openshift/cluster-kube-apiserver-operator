@@ -224,6 +224,8 @@ func TestManageTemplate(t *testing.T) {
 				scenario.template,
 				"CaptainAmerica",
 				"Piper",
+				"",
+				"",
 				scenario.operatorSpec)
 
 			// validate
