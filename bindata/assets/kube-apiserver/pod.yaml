@@ -268,10 +268,10 @@ spec:
     name: cloud-kms-plugin
     args:
     - --debug
-    - --health-port=":18081"
-    - --key="{{.AWSKMSKeyARN}}"
-    - --listen="/var/kms-plugin/socket.sock"
-    - --region="{{.AWSRegion}}"
+    - --health-port=:18081
+    - --key={{.AWSKMSKeyARN}}
+    - --listen=/var/kms-plugin/socket.sock
+    - --region={{.AWSRegion}}
     ports:
     - containerPort: 18081
       protocol: TCP
@@ -282,7 +282,8 @@ spec:
         port: 18081
         path: livez
       initialDelaySeconds: 15
-      timeoutSeconds: 15
+      timeoutSeconds: 10
+      periodSeconds: 60
     readinessProbe:
       httpGet:
         scheme: HTTP
