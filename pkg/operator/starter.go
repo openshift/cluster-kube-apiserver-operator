@@ -206,12 +206,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
-
-			// hack: KMS
-			"assets/kms/job-sh-cm.yaml",
-			"assets/kms/job-sa.yaml",
-			"assets/kms/job-sa-role.yaml",
-			"assets/kms/job-sa-rolebinding.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
@@ -225,6 +219,33 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos.yaml"}, never, nil). // TODO remove in 4.13
 		AddKubeInformers(kubeInformersForNamespaces)
 
+	// hack: KMS
+	kmsAssets := NewKMSAssetClass(infrastructure.Status.InfrastructureName, infrastructure.Status.PlatformStatus.AWS.Region)
+	kmsJobStaticResourceController := staticresourcecontroller.NewStaticResourceController(
+		"KMSJobStaticResources",
+		kmsAssets.Asset,
+		[]string{
+			"assets/kms/job-sh-cm.yaml",
+			"assets/kms/job-sa.yaml",
+			"assets/kms/job-sa-role.yaml",
+			"assets/kms/job-sa-rolebinding.yaml",
+
+			"assets/kms/job-pod.yaml",
+		},
+		(&resourceapply.ClientHolder{}).
+			WithKubernetes(kubeClient).
+			WithDynamicClient(dynamicClient),
+		operatorClient,
+		controllerContext.EventRecorder,
+	)
+	go kmsJobStaticResourceController.Run(ctx, 1)
+	// ^ you don't need this extra kmsJobStaticResourceController,
+	// if you wish to create the AWS KMS instance yourself, once created
+	// manually please place the AWS KMS Key ARN value with key "aws_kms_arn",
+	// onto the kms-key config-map in the kube-system namespace,
+	// and everything else should work as expected.
+	// eg. '{"kind": "ConfigMap", "metadata": {"name": "kms-key", "namespace": "kube-system"}, "data": {"aws_kms_arn": "arn:aws:kms:eu-west-3:<AWS-ACC-ID>:key/<KMS-KEY-ID>"}}'
+
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
@@ -236,7 +257,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 
 		// hack: kms
-		"<kms-key-arn>", // TODO: fill value here
+		AWSKMSKeyARNGetter(kubeClient),
 		infrastructure.Status.PlatformStatus.AWS.Region,
 	)
 
