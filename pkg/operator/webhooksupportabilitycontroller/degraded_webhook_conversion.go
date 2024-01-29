@@ -12,7 +12,7 @@ import (
 
 func (c *webhookSupportabilityController) updateCRDConversionWebhookConfigurationDegraded(ctx context.Context) v1helpers.UpdateStatusFunc {
 	condition := operatorv1.OperatorCondition{
-		Type:   CRDConversionWebhookConfigurationDegradedType,
+		Type:   CRDConversionWebhookConfigurationErrorType,
 		Status: operatorv1.ConditionUnknown,
 	}
 	crds, err := c.crdLister.List(labels.Everything())
@@ -26,8 +26,9 @@ func (c *webhookSupportabilityController) updateCRDConversionWebhookConfiguratio
 			continue
 		}
 		info := webhookInfo{
-			Name:     crd.Name,
-			CABundle: crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
+			Name:                   crd.Name,
+			CABundle:               crd.Spec.Conversion.Webhook.ClientConfig.CABundle,
+			HasServiceCaAnnotation: hasServiceCaAnnotation(crd.Annotations),
 			Service: &serviceReference{
 				Namespace: crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace,
 				Name:      crd.Spec.Conversion.Webhook.ClientConfig.Service.Name,
