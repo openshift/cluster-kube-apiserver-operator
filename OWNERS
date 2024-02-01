@@ -8,6 +8,8 @@ reviewers:
   - benluddy
   - sanchezl
   - dgrisonnet
+  - dinhxuanvu
+  - vrutkovs
 approvers:
   - deads2k
   - sttts
@@ -18,4 +20,6 @@ approvers:
   - benluddy
   - sanchezl
   - dgrisonnet
+  - dinhxuanvu
+  - vrutkovs
 component: "kube-apiserver"
