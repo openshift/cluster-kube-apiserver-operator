@@ -18,8 +18,8 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 		infrastructureLister: configInformer.Config().V1().Infrastructures().Lister(),
 		cloudProvider: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cluster_infrastructure_provider",
-			Help: "Reports whether the cluster is configured with an infrastructure provider. type is unset if no cloud provider is recognized or set to the constant used by the Infrastructure config. region is set when the cluster clearly identifies a region within the provider. The value is 1 if a cloud provider is set or 0 if it is unset.",
-		}, []string{"type", "region"}),
+			Help: "Reports whether the cluster is configured with an infrastructure provider. type is unset if no cloud provider is recognized or set to the constant used by the Infrastructure config. region is set when the cluster clearly identifies a region within the provider. external is the external platform name when present. The value is 1 if a cloud provider is set or 0 if it is unset.",
+		}, []string{"type", "region", "external"}),
 		featuregateLister: configInformer.Config().V1().FeatureGates().Lister(),
 		featureSet: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "cluster_feature_set",
@@ -49,9 +49,20 @@ func (m *configMetrics) Create(version *semver.Version) bool {
 
 // Describe reports the metadata for metrics to the prometheus collector.
 func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
-	ch <- m.cloudProvider.WithLabelValues("", "").Desc()
+	ch <- m.cloudProvider.WithLabelValues("", "", "").Desc()
 	ch <- m.featureSet.WithLabelValues("").Desc()
 	ch <- m.proxyEnablement.WithLabelValues("").Desc()
+}
+
+// Returns external platform name if present, empty string otherwise
+func getExternalPlatformName(infra *configv1.Infrastructure) string {
+	if infra == nil {
+		return ""
+	}
+	if infra.Spec.PlatformSpec.External == nil {
+		return ""
+	}
+	return infra.Spec.PlatformSpec.External.PlatformName
 }
 
 // Collect calculates metrics from the cached config and reports them to the prometheus collector.
@@ -64,14 +75,18 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 			// it is illegal to set type to empty string, so let the default case handle
 			// empty string (so we can detect it) while preserving the constant None here
 			case status.Type == configv1.NonePlatformType:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), "")
+				g = m.cloudProvider.WithLabelValues(string(status.Type), "", "")
 				value = 0
 			case status.AWS != nil:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), status.AWS.Region)
+				g = m.cloudProvider.WithLabelValues(string(status.Type), status.AWS.Region, "")
 			case status.GCP != nil:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), status.GCP.Region)
+				g = m.cloudProvider.WithLabelValues(string(status.Type), status.GCP.Region, "")
+			case status.Type == configv1.ExternalPlatformType:
+				// Third party providers can integrate with external platform.
+				platformName := getExternalPlatformName(infra)
+				g = m.cloudProvider.WithLabelValues(string(status.Type), "", platformName)
 			default:
-				g = m.cloudProvider.WithLabelValues(string(status.Type), "")
+				g = m.cloudProvider.WithLabelValues(string(status.Type), "", "")
 			}
 			g.Set(value)
 			ch <- g
