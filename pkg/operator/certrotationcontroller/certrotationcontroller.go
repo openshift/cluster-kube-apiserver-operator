@@ -365,12 +365,12 @@ func newCertRotationController(
 			Namespace:     operatorclient.OperatorNamespace,
 			Name:          "loadbalancer-serving-signer",
 			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Validity:      2 * time.Hour, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:                8 * 365 * defaultRotationDay,
+			Refresh:                100 * time.Minute,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
