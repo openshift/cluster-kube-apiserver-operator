@@ -45,8 +45,10 @@ type CABundleConfigMap struct {
 func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
+	klog.V(2).Infof("ensureConfigMapCABundle %s+", c.Name)
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
+		klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, err)
 		return nil, err
 	}
 	caBundleConfigMap := originalCABundleConfigMap.DeepCopy()
@@ -68,22 +70,28 @@ func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingC
 		needsMetadataUpdate = EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta, c.JiraComponent, c.Description) || needsMetadataUpdate
 	}
 	if needsMetadataUpdate && len(caBundleConfigMap.ResourceVersion) > 0 {
+		klog.V(2).Infof("ensureConfigMapCABundle: %s metadata update", c.Name)
 		_, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {
+			klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, err)
 			return nil, err
 		}
 	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
+		klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, err)
 		return nil, err
 	}
 	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil || !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
+		klog.V(2).Infof("ensureConfigMapCABundle %s: requires a new cert %s", c.Name, certs.CertificateBundleToString(updatedCerts))
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
+		klog.V(2).Infof("ensureConfigMapCABundle: %s content update", c.Name)
 		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {
+			klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, err)
 			return nil, err
 		}
 		if modified {
@@ -95,13 +103,16 @@ func (c CABundleConfigMap) ensureConfigMapCABundle(ctx context.Context, signingC
 
 	caBundle := caBundleConfigMap.Data["ca-bundle.crt"]
 	if len(caBundle) == 0 {
+		klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, fmt.Errorf("configmap/%s -n%s missing ca-bundle.crt", caBundleConfigMap.Name, caBundleConfigMap.Namespace))
 		return nil, fmt.Errorf("configmap/%s -n%s missing ca-bundle.crt", caBundleConfigMap.Name, caBundleConfigMap.Namespace)
 	}
 	certificates, err := cert.ParseCertsPEM([]byte(caBundle))
 	if err != nil {
+		klog.V(2).Infof("ensureConfigMapCABundle %s-: err %v", c.Name, err)
 		return nil, err
 	}
 
+	klog.V(2).Infof("ensureConfigMapCABundle %s-", c.Name)
 	return certificates, nil
 }
 

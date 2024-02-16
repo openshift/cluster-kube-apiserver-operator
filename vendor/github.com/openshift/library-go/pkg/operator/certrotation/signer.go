@@ -15,6 +15,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 // RotatedSigningCASecret rotates a self-signed signing CA stored in a secret. It creates a new one when
@@ -57,12 +58,15 @@ type RotatedSigningCASecret struct {
 }
 
 func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*crypto.CA, error) {
+	klog.V(2).Infof("ensureSigningCertKeyPair %s+", c.Name)
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
+		klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 		return nil, err
 	}
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
+		klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 		// create an empty one
 		signingCertKeyPairSecret = &corev1.Secret{ObjectMeta: NewTLSArtifactObjectMeta(
 			c.Name,
@@ -81,8 +85,10 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 		needsMetadataUpdate = EnsureTLSMetadataUpdate(&signingCertKeyPairSecret.ObjectMeta, c.JiraComponent, c.Description) || needsMetadataUpdate
 	}
 	if needsMetadataUpdate && len(signingCertKeyPairSecret.ResourceVersion) > 0 {
+		klog.V(2).Infof("ensureSigningCertKeyPair: %s metadata update", c.Name)
 		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
+			klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 			return nil, err
 		}
 	}
@@ -90,13 +96,16 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
+			klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 			return nil, err
 		}
 
 		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
 
 		actualSigningCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
-		if err != nil {
+		klog.V(2).Infof("ensureSigningCertKeyPair: actualSigningCertKeyPairSecret %v", actualSigningCertKeyPairSecret.Annotations)
+		if err != nil && !apierrors.IsConflict(err) {
+			klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 			return nil, err
 		}
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
@@ -104,9 +113,11 @@ func (c RotatedSigningCASecret) ensureSigningCertKeyPair(ctx context.Context) (*
 	// at this point, the secret has the correct signer, so we should read that signer to be able to sign
 	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
 	if err != nil {
+		klog.V(2).Infof("ensureSigningCertKeyPair %s-: err %v", c.Name, err)
 		return nil, err
 	}
 
+	klog.V(2).Infof("ensureSigningCertKeyPair %s-", c.Name)
 	return signingCertKeyPair, nil
 }
 

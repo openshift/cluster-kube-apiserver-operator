@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
@@ -94,8 +95,11 @@ func (c RotatedSelfSignedCertKeySecret) ensureTargetCertKeyPair(ctx context.Cont
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
 	// and need to mint one
 	// TODO do the cross signing thing, but this shows the API consumers want and a very simple impl.
+
+	klog.V(2).Infof("ensureTargetCertKeyPair %s+", c.Name)
 	originalTargetCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
+		klog.V(2).Infof("ensureTargetCertKeyPair %s-: err %v", c.Name, err)
 		return err
 	}
 	targetCertKeyPairSecret := originalTargetCertKeyPairSecret.DeepCopy()
@@ -119,7 +123,9 @@ func (c RotatedSelfSignedCertKeySecret) ensureTargetCertKeyPair(ctx context.Cont
 	}
 	if needsMetadataUpdate && len(targetCertKeyPairSecret.ResourceVersion) > 0 {
 		_, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
+		klog.V(2).Infof("ensureTargetCertKeyPair: %s metadata update", c.Name)
 		if err != nil {
+			klog.V(2).Infof("ensureTargetCertKeyPair %s-: err %v", c.Name, err)
 			return err
 		}
 	}
@@ -127,13 +133,15 @@ func (c RotatedSelfSignedCertKeySecret) ensureTargetCertKeyPair(ctx context.Cont
 	if reason := needNewTargetCertKeyPair(targetCertKeyPairSecret.Annotations, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setTargetCertKeyPairSecret(targetCertKeyPairSecret, c.Validity, signingCertKeyPair, c.CertCreator, c.JiraComponent, c.Description); err != nil {
+			klog.V(2).Infof("ensureTargetCertKeyPair %s-: err %v", c.Name, err)
 			return err
 		}
 
+		klog.V(2).Infof("ensureTargetCertKeyPair: %s ApplySecret", c.Name)
 		LabelAsManagedSecret(targetCertKeyPairSecret, CertificateTypeTarget)
-
 		actualTargetCertKeyPairSecret, _, err := resourceapply.ApplySecret(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
 		if err != nil {
+			klog.V(2).Infof("ensureTargetCertKeyPair %s-: err %v", c.Name, err)
 			return err
 		}
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
