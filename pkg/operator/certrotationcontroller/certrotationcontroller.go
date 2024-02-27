@@ -134,7 +134,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "aggregator-client-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions openshift-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -148,7 +149,8 @@ func newCertRotationController(
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-apiserver-aggregator-client-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions openshift-apiserver'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Lister(),
@@ -159,7 +161,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "aggregator-client",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions openshift-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -183,7 +186,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-apiserver-to-kubelet-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 			},
 			Validity: 1 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
@@ -199,7 +203,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-apiserver-to-kubelet-client-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -210,7 +215,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "kubelet-client",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -263,7 +269,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-serving-cert-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -316,7 +323,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "service-network-serving-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -370,7 +378,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "external-loadbalancer-serving-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -424,7 +433,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "internal-loadbalancer-serving-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[bz-kube-apiserver] kube-apiserver should be accessible by clients using internal load balancer without iptables issues'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -504,7 +514,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-controller-manager'",
 			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
@@ -518,7 +529,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-controller-manager'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -529,7 +541,8 @@ func newCertRotationController(
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-controller-manager-client-cert-key",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-controller-manager'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -553,7 +566,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-scheduler'",
 			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
@@ -567,7 +581,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-scheduler'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -578,7 +593,8 @@ func newCertRotationController(
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-scheduler-client-cert-key",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-scheduler'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -602,7 +618,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
@@ -616,7 +633,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -627,7 +645,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "control-plane-node-admin-client-cert-key",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -651,7 +670,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
@@ -665,7 +685,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -676,7 +697,8 @@ func newCertRotationController(
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "check-endpoints-client-cert-key",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
@@ -700,7 +722,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Validity: 1 * 365 * defaultRotationDay,
 			// Refresh set to 80% of the validity.
@@ -716,7 +739,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -727,7 +751,8 @@ func newCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-client",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
+				JiraComponent:                    "kube-apiserver",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
 			},
 			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
 			// because of expired certs these are still valid to use for collecting data using localhost-recovery
