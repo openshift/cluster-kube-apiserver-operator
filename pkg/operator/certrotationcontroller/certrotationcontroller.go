@@ -131,9 +131,11 @@ func newCertRotationController(
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "aggregator-client-signer",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "aggregator-client-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -143,18 +145,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:          "kube-apiserver-aggregator-client-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Name:      "kube-apiserver-aggregator-client-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "aggregator-client",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "aggregator-client",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -174,10 +180,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"KubeAPIServerToKubeletClientCert",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-apiserver-to-kubelet-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      1 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-apiserver-to-kubelet-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 1 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                292 * defaultRotationDay,
@@ -188,18 +196,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-apiserver-to-kubelet-client-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-apiserver-to-kubelet-client-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "kubelet-client",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "kubelet-client",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -219,10 +231,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "localhost-serving-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-serving-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -235,18 +249,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "localhost-serving-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-serving-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "localhost-serving-cert-certkey",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "localhost-serving-cert-certkey",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -266,10 +284,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"ServiceNetworkServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "service-network-serving-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "service-network-serving-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -282,18 +302,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "service-network-serving-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "service-network-serving-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "service-network-serving-certkey",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "service-network-serving-certkey",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -314,10 +338,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"ExternalLoadBalancerServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "loadbalancer-serving-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -330,18 +356,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "loadbalancer-serving-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "external-loadbalancer-serving-certkey",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "external-loadbalancer-serving-certkey",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -362,10 +392,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"InternalLoadBalancerServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "loadbalancer-serving-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -378,18 +410,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "loadbalancer-serving-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "loadbalancer-serving-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "internal-loadbalancer-serving-certkey",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "internal-loadbalancer-serving-certkey",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -410,10 +446,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostRecoveryServing",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "localhost-recovery-serving-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay, // this comes from the installer
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-recovery-serving-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -425,19 +463,23 @@ func newCertRotationController(
 			EventRecorder: eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "localhost-recovery-serving-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "localhost-recovery-serving-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:     operatorclient.TargetNamespace,
-			Name:          "localhost-recovery-serving-certkey",
-			JiraComponent: "kube-apiserver",
-			Validity:      10 * 365 * defaultRotationDay,
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "localhost-recovery-serving-certkey",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 10 * 365 * defaultRotationDay,
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
@@ -459,9 +501,11 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"KubeControllerManagerClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "kube-control-plane-signer",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -471,18 +515,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-control-plane-signer-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:                   "kube-controller-manager-client-cert-key",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Name:      "kube-controller-manager-client-cert-key",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -502,9 +550,11 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"KubeSchedulerClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "kube-control-plane-signer",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -514,18 +564,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-control-plane-signer-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:                   "kube-scheduler-client-cert-key",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Name:      "kube-scheduler-client-cert-key",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -545,9 +599,11 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"ControlPlaneNodeAdminClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "kube-control-plane-signer",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -557,18 +613,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-control-plane-signer-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "control-plane-node-admin-client-cert-key",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "control-plane-node-admin-client-cert-key",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -588,9 +648,11 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"CheckEndpointsClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:              operatorclient.OperatorNamespace,
-			Name:                   "kube-control-plane-signer",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               60 * defaultRotationDay,
 			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -600,18 +662,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "kube-control-plane-signer-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:              operatorclient.TargetNamespace,
-			Name:                   "check-endpoints-client-cert-key",
-			JiraComponent:          "kube-apiserver",
+			Namespace: operatorclient.TargetNamespace,
+			Name:      "check-endpoints-client-cert-key",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Validity:               30 * rotationDay,
 			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
@@ -631,10 +697,12 @@ func newCertRotationController(
 	certRotator = certrotation.NewCertRotationController(
 		"NodeSystemAdminClient",
 		certrotation.RotatedSigningCASecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "node-system-admin-signer",
-			JiraComponent: "kube-apiserver",
-			Validity:      1 * 365 * defaultRotationDay,
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "node-system-admin-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity: 1 * 365 * defaultRotationDay,
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                292 * defaultRotationDay,
@@ -645,18 +713,22 @@ func newCertRotationController(
 			EventRecorder:          eventRecorder,
 		},
 		certrotation.CABundleConfigMap{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "node-system-admin-ca",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "node-system-admin-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
 		},
 		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace:     operatorclient.OperatorNamespace,
-			Name:          "node-system-admin-client",
-			JiraComponent: "kube-apiserver",
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "node-system-admin-client",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
 			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
 			// because of expired certs these are still valid to use for collecting data using localhost-recovery
 			// endpoint with long lived serving certs for localhost.
