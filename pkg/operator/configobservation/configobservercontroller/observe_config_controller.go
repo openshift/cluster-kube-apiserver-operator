@@ -144,7 +144,6 @@ func NewConfigObserver(
 				"openshift-kube-apiserver", true,
 				[]string{"apiServerArguments", "cloud-provider"},
 				[]string{"apiServerArguments", "cloud-config"},
-				featureGateAccessor,
 			),
 			apienablement.NewFeatureGateObserverWithRuntimeConfig(
 				nil,
