@@ -21,7 +21,7 @@ func TestUpdateVirtualResourceAdmissionDegraded(t *testing.T) {
 		{
 			name: "NoHooks",
 			expected: operatorv1.OperatorCondition{
-				Type:   VirtualResourceAdmissionDegradedType,
+				Type:   VirtualResourceAdmissionErrorType,
 				Status: operatorv1.ConditionFalse,
 			},
 		},
@@ -38,7 +38,7 @@ func TestUpdateVirtualResourceAdmissionDegraded(t *testing.T) {
 				),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   VirtualResourceAdmissionDegradedType,
+				Type:   VirtualResourceAdmissionErrorType,
 				Status: operatorv1.ConditionTrue,
 				Reason: AdmissionWebhookMatchesVirtualResourceReason,
 				Message: "Mutating webhook mw10 matches multiple virtual resources: " +
@@ -80,7 +80,7 @@ func TestUpdateVirtualResourceAdmissionDegraded(t *testing.T) {
 				),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   VirtualResourceAdmissionDegradedType,
+				Type:   VirtualResourceAdmissionErrorType,
 				Status: operatorv1.ConditionTrue,
 				Reason: AdmissionWebhookMatchesVirtualResourceReason,
 				Message: "Mutating webhook mw10 matches a virtual resource subjectaccessreviews.authorization.openshift.io/v1.\n" +
@@ -95,7 +95,7 @@ func TestUpdateVirtualResourceAdmissionDegraded(t *testing.T) {
 				),
 			},
 			expected: operatorv1.OperatorCondition{
-				Type:   VirtualResourceAdmissionDegradedType,
+				Type:   VirtualResourceAdmissionErrorType,
 				Status: operatorv1.ConditionTrue,
 				Reason: AdmissionWebhookMatchesVirtualResourceReason,
 				Message: "Mutating webhook mw10 matches multiple virtual resources: " +

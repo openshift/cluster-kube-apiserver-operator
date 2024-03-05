@@ -16,6 +16,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	// injectCABundleAnnotationName is the annotation used by the
+	// service-ca-operator to indicate which resources it should inject the CA into.
+	injectCABundleAnnotationName = "service.beta.openshift.io/inject-cabundle"
+)
+
 // webhookInfo generically represents a webhook
 type webhookInfo struct {
 	Name                  string
@@ -25,6 +31,9 @@ type webhookInfo struct {
 	// TimeoutSeconds specifies the timeout for a webhook.
 	// After the timeout passes, the webhook call will be ignored or the API call will fail
 	TimeoutSeconds *int32
+	// HasServiceCaAnnotation indicates whether a webhook
+	// resource has been annotated for CABundle injection by the service-ca-operator
+	HasServiceCaAnnotation bool
 }
 
 // serviceReference generically represents a service reference
@@ -52,7 +61,7 @@ func (c *webhookSupportabilityController) updateWebhookConfigurationDegraded(ctx
 				serviceMsgs = append(serviceMsgs, msg)
 				continue
 			}
-			err = c.assertConnect(ctx, webhook.Name, webhook.Service, webhook.CABundle, webhook.TimeoutSeconds)
+			err = c.assertConnect(ctx, webhook.Name, webhook.Service, webhook.CABundle, webhook.HasServiceCaAnnotation, webhook.TimeoutSeconds)
 			if err != nil {
 				msg := fmt.Sprintf("%s: %s", webhook.Name, err)
 				if webhook.FailurePolicyIsIgnore {
@@ -97,7 +106,7 @@ func (c *webhookSupportabilityController) assertService(reference *serviceRefere
 }
 
 // assertConnect performs a dns lookup of service, opens a tcp connection, and performs a tls handshake.
-func (c *webhookSupportabilityController) assertConnect(ctx context.Context, webhookName string, reference *serviceReference, caBundle []byte, webhookTimeoutSeconds *int32) error {
+func (c *webhookSupportabilityController) assertConnect(ctx context.Context, webhookName string, reference *serviceReference, caBundle []byte, caBundleProvidedByServiceCA bool, webhookTimeoutSeconds *int32) error {
 	host := reference.Name + "." + reference.Namespace + ".svc"
 	port := "443"
 	if reference.Port != nil {
@@ -106,6 +115,9 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 	rootCAs := x509.NewCertPool()
 	if len(caBundle) > 0 {
 		rootCAs.AppendCertsFromPEM(caBundle)
+	} else if caBundleProvidedByServiceCA {
+		err := fmt.Errorf("skipping checking the webhook via %q service because the caBundle (provided by the service-ca-operator) is empty. Please check the service-ca's logs if the issue persists", net.JoinHostPort(host, port))
+		return err
 	}
 	timeout := 10 * time.Second
 	if webhookTimeoutSeconds != nil {
@@ -141,4 +153,11 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 		break
 	}
 	return err
+}
+
+func hasServiceCaAnnotation(annotations map[string]string) bool {
+	if annotations == nil {
+		return false
+	}
+	return strings.EqualFold(annotations[injectCABundleAnnotationName], "true")
 }
