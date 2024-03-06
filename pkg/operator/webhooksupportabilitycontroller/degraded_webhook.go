@@ -116,7 +116,7 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 	if len(caBundle) > 0 {
 		rootCAs.AppendCertsFromPEM(caBundle)
 	} else if caBundleProvidedByServiceCA {
-		err := fmt.Errorf("skipping checking the webhook via %q service because the caBundle (provided by the service-ca-operator) is empty. Please check the service-ca's logs if the issue persists", net.JoinHostPort(host, port))
+		err := fmt.Errorf("skipping checking the webhook %q via %q service because the caBundle (provided by the service-ca-operator) is empty. Please check the service-ca's logs if the issue persists", webhookName, net.JoinHostPort(host, port))
 		return err
 	}
 	timeout := 10 * time.Second
