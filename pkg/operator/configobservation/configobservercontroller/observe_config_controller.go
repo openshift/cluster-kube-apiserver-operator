@@ -142,8 +142,6 @@ func NewConfigObserver(
 			etcdendpoints.ObserveStorageURLs,
 			cloudprovider.NewCloudProviderObserver(
 				"openshift-kube-apiserver", true,
-				[]string{"apiServerArguments", "cloud-provider"},
-				[]string{"apiServerArguments", "cloud-config"},
 			),
 			apienablement.NewFeatureGateObserverWithRuntimeConfig(
 				nil,
