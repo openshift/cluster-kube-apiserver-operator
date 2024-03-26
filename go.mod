@@ -15,7 +15,7 @@ require (
 	github.com/openshift/api v0.0.0-20231219140051-ddc590a81acb
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20231218155125-ff7d9f9bf415
-	github.com/openshift/library-go v0.0.0-20240305144041-18ee8279b4e3
+	github.com/openshift/library-go v0.0.0-20240312152318-4109a9e7a437
 	github.com/pkg/profile v1.5.0 // indirect
 	github.com/prometheus/client_golang v1.16.0
 	github.com/spf13/cobra v1.7.0
@@ -125,3 +125,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/openshift/library-go => github.com/nrb/library-go v0.0.0-20240326171036-6488b2bddbd5
