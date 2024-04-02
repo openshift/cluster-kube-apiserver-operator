@@ -292,7 +292,7 @@ func patchEncryptionConfigForKMS(existingConfig *apiserverconfigv1.EncryptionCon
 		kmsProvider := apiserverconfigv1.ProviderConfiguration{
 			KMS: &apiserverconfigv1.KMSConfiguration{
 				APIVersion: "v2",
-				Name:       "cloud-kms-plugin",
+				Name:       fmt.Sprintf("cloud-kms-%03d", i+1),
 				Endpoint:   "unix:///var/kms-plugin/socket.sock",
 				Timeout: &metav1.Duration{
 					Duration: 5 * time.Second,
