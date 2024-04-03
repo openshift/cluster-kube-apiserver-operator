@@ -33,6 +33,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhooksupportabilitycontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/workloadpartitioning"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
@@ -200,7 +201,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 			"assets/alerts/api-usage.yaml",
 			"assets/alerts/audit-errors.yaml",
-			"assets/alerts/cpu-utilization.yaml",
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
@@ -213,9 +213,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorClient,
 		controllerContext.EventRecorder,
 	).
-		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml"}, notOnSingleReplicaTopology, nil).
+		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml", "assets/alerts/cpu-utilization.yaml"}, notOnSingleReplicaTopology, nil).
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos.yaml"}, never, nil). // TODO remove in 4.13
 		AddKubeInformers(kubeInformersForNamespaces)
+
+	err = workloadpartitioning.CreateSNOAlert(ctx, dynamicClient, infrastructure.Status, controllerContext.EventRecorder)
+	if err != nil {
+		klog.Errorln("Failed to create workload partition based sno cpu alert", err)
+	}
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
