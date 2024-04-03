@@ -25,6 +25,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/highcpuusagealertcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -66,6 +67,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
@@ -115,7 +117,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"openshift-apiserver",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
 	if err != nil {
 		return err
 	}
@@ -175,6 +177,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
 		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
+	// TODO: use informer instead of direct api call
+	// Also, in the future there is a plan to make infrastructure type dynamic
 	infrastructure, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -182,6 +186,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	var notOnSingleReplicaTopology resourceapply.ConditionalFunction = func() bool {
 		return infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode
 	}
+
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
 		bindata.Asset,
@@ -208,7 +213,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 			"assets/alerts/api-usage.yaml",
 			"assets/alerts/audit-errors.yaml",
-			"assets/alerts/cpu-utilization.yaml",
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
@@ -223,6 +227,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	).
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml"}, notOnSingleReplicaTopology, nil).
 		AddKubeInformers(kubeInformersForNamespaces)
+
+	dynamicInformersForTargetNamespace := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 12*time.Hour, operatorclient.TargetNamespace, nil)
+
+	highCpuUsageAlertController := highcpuusagealertcontroller.NewHighCPUUsageAlertController(
+		configInformers.Config().V1(),
+		dynamicInformersForTargetNamespace,
+		dynamicClient,
+		controllerContext.EventRecorder)
 
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
@@ -459,7 +471,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	kubeInformersForNamespaces.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
+	dynamicInformersForAllNamespaces.Start(ctx.Done())
+	dynamicInformersForTargetNamespace.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 	apiextensionsInformers.Start(ctx.Done())
 	operatorInformers.Start(ctx.Done())
@@ -486,6 +499,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go webhookSupportabilityController.Run(ctx, 1)
 	go serviceAccountIssuerController.Run(ctx, 1)
 	go podSecurityReadinessController.Run(ctx, 1)
+	go highCpuUsageAlertController.Run(ctx, 1)
 	go sccReconcileController.Run(ctx, 1)
 
 	<-ctx.Done()
