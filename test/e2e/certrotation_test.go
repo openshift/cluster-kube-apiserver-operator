@@ -113,7 +113,7 @@ func TestCertRotationStompOnBadType(t *testing.T) {
 		}
 		if _, err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Create(context.TODO(), &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{Namespace: operatorclient.OperatorNamespace, Name: "aggregator-client-signer"},
-			Type:       "Opaque",
+			Type:       "SecretTypeTLS",
 		}, metav1.CreateOptions{}); err != nil {
 			return false, nil
 		}
