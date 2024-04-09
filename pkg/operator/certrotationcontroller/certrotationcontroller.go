@@ -139,6 +139,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -167,6 +171,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -190,6 +198,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -218,6 +230,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -243,6 +259,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -271,6 +291,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -296,6 +320,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -325,6 +353,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -350,6 +382,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -379,6 +415,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -404,6 +444,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -433,6 +477,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -457,6 +505,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -488,6 +540,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -509,6 +565,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -537,6 +597,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -558,6 +622,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -586,6 +654,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -607,6 +679,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -635,6 +711,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -656,6 +736,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -684,6 +768,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -707,6 +795,10 @@ func newCertRotationController(
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
 			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
@@ -742,6 +834,10 @@ func newCertRotationController(
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
 			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
