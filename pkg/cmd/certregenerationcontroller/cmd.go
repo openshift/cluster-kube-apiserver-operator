@@ -10,6 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	_ "github.com/openshift/api/operator/v1/zz_generated.crd-manifests"
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configexternalinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
