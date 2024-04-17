@@ -206,7 +206,7 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20231219140051-ddc590a81acb
+# github.com/openshift/api v0.0.0-20240405095747-3e50337fcaea
 ## explicit; go 1.21
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -257,6 +257,7 @@ github.com/openshift/api/operator/v1
 github.com/openshift/api/operator/v1alpha1
 github.com/openshift/api/operatorcontrolplane
 github.com/openshift/api/operatorcontrolplane/v1alpha1
+github.com/openshift/api/operatorcontrolplane/v1alpha1/zz_generated.crd-manifests
 github.com/openshift/api/osin
 github.com/openshift/api/osin/v1
 github.com/openshift/api/pkg/serialization
@@ -278,7 +279,7 @@ github.com/openshift/api/template
 github.com/openshift/api/template/v1
 github.com/openshift/api/user
 github.com/openshift/api/user/v1
-# github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
+# github.com/openshift/build-machinery-go v0.0.0-20231128094528-1e9b1b0595c8
 ## explicit; go 1.13
 github.com/openshift/build-machinery-go
 github.com/openshift/build-machinery-go/make
@@ -288,7 +289,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20231218155125-ff7d9f9bf415
+# github.com/openshift/client-go v0.0.0-20240405120947-c67c8325cdd8
 ## explicit; go 1.21
 github.com/openshift/client-go/config/applyconfigurations/config/v1
 github.com/openshift/client-go/config/applyconfigurations/config/v1alpha1
@@ -331,7 +332,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20240402180049-f5bf38712dca
+# github.com/openshift/library-go v0.0.0-20240402180049-f5bf38712dca => github.com/vrutkovs/library-go v0.0.0-20240417082029-a25d287f0c52
 ## explicit; go 1.21
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -1464,3 +1465,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# github.com/openshift/library-go => github.com/vrutkovs/library-go v0.0.0-20240417082029-a25d287f0c52
