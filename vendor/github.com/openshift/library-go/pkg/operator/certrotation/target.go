@@ -96,6 +96,8 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	// validity percentage.  We always check to see if we need to sign.  Often we are signing with an old key or we have no target
 	// and need to mint one
 	// TODO do the cross signing thing, but this shows the API consumers want and a very simple impl.
+
+	modified := false
 	originalTargetCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -111,6 +113,7 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 			),
 			Type: corev1.SecretTypeTLS,
 		}
+		modified = true
 	}
 
 	applyFn := resourceapply.ApplySecret
@@ -120,13 +123,9 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) {
-		actualTargetCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
-		if err != nil {
-			return nil, err
-		}
-		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
-	}
+	needsMetadataUpdate := ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	needsSecretTypeUpdate := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
+	modified = needsMetadataUpdate || needsSecretTypeUpdate || modified
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
@@ -136,6 +135,10 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 		LabelAsManagedSecret(targetCertKeyPairSecret, CertificateTypeTarget)
 
+		modified = true
+	}
+
+	if modified {
 		actualTargetCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
 		if err != nil {
 			return nil, err
@@ -281,7 +284,7 @@ func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Durati
 	if len(r.Hostnames()) == 0 {
 		return nil, fmt.Errorf("no hostnames set")
 	}
-	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames()...), validity, r.CertificateExtensionFn...)
+	return signer.MakeServerCertForDuration(sets.New(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
 
 func (r *ServingRotation) RecheckChannel() <-chan struct{} {
@@ -298,19 +301,19 @@ func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Sec
 }
 
 func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
-	existingHostnames := sets.NewString(strings.Split(annotations[CertificateHostnames], ",")...)
-	requiredHostnames := sets.NewString(r.Hostnames()...)
+	existingHostnames := sets.New(strings.Split(annotations[CertificateHostnames], ",")...)
+	requiredHostnames := sets.New(r.Hostnames()...)
 	if !existingHostnames.Equal(requiredHostnames) {
 		existingNotRequired := existingHostnames.Difference(requiredHostnames)
 		requiredNotExisting := requiredHostnames.Difference(existingHostnames)
-		return fmt.Sprintf("%q are existing and not required, %q are required and not existing", strings.Join(existingNotRequired.List(), ","), strings.Join(requiredNotExisting.List(), ","))
+		return fmt.Sprintf("%q are existing and not required, %q are required and not existing", strings.Join(sets.List(existingNotRequired), ","), strings.Join(sets.List(requiredNotExisting), ","))
 	}
 
 	return ""
 }
 
 func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	hostnames := sets.String{}
+	hostnames := sets.Set[string]{}
 	for _, ip := range cert.Certs[0].IPAddresses {
 		hostnames.Insert(ip.String())
 	}
@@ -319,7 +322,7 @@ func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, anno
 	}
 
 	// List does a sort so that we have a consistent representation
-	annotations[CertificateHostnames] = strings.Join(hostnames.List(), ",")
+	annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
 	return annotations
 }
 
