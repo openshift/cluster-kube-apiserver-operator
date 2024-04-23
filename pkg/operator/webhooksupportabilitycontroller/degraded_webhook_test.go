@@ -141,7 +141,7 @@ func (s *mockWebhookServer) Run(t *testing.T, ctx context.Context) {
 		s.CABundle = []byte{}
 	}
 	// server certs
-	serverCertCfg, err := rootCA.MakeServerCert(sets.NewString(s.Hostname, "127.0.0.1"), 10)
+	serverCertCfg, err := rootCA.MakeServerCert(sets.New(s.Hostname, "127.0.0.1"), 10)
 	if err != nil {
 		t.Fatal(err)
 	}
