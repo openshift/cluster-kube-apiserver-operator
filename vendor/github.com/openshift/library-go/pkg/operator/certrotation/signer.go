@@ -19,23 +19,18 @@ import (
 
 // RotatedSigningCASecret rotates a self-signed signing CA stored in a secret. It creates a new one when
 // - refresh duration is over
-// - or 80% of validity is over (if RefreshOnlyWhenExpired is false)
+// - or 80% of validity is over
 // - or the CA is expired.
 type RotatedSigningCASecret struct {
 	// Namespace is the namespace of the Secret.
 	Namespace string
 	// Name is the name of the Secret.
 	Name string
-	// Validity is the duration from time.Now() until the signing CA expires. If RefreshOnlyWhenExpired
-	// is false, the signing cert is rotated when 80% of validity is reached.
+	// Validity is the duration from time.Now() until the signing CA expires.
+	// The signing cert is rotated when 80% of validity is reached.
 	Validity time.Duration
-	// Refresh is the duration after signing CA creation when it is rotated at the latest. It is ignored
-	// if RefreshOnlyWhenExpired is true, or if Refresh > Validity.
+	// Refresh is the duration after signing CA creation when it is rotated at the latest
 	Refresh time.Duration
-	// RefreshOnlyWhenExpired set to true means to ignore 80% of validity and the Refresh duration for rotation,
-	// but only rotate when the signing CA expires. This is useful for auto-recovery when we want to enforce
-	// rotation on expiration only, but not interfere with the ordinary rotation controller.
-	RefreshOnlyWhenExpired bool
 
 	// Owner is an optional reference to add to the secret that this rotator creates. Use this when downstream
 	// consumers of the signer CA need to be aware of changes to the object.
@@ -94,7 +89,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	modified = needsMetadataUpdate || needsTypeChange || modified
 
 	signerUpdated := false
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
+	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
 			return nil, false, err
@@ -139,7 +134,7 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	return false
 }
 
-func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration) (bool, string) {
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return true, reason
@@ -147,10 +142,6 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 
 	if time.Now().After(notAfter) {
 		return true, "already expired"
-	}
-
-	if refreshOnlyWhenExpired {
-		return false, ""
 	}
 
 	validity := notAfter.Sub(notBefore)
