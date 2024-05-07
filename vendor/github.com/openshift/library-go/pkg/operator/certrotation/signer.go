@@ -53,17 +53,19 @@ type RotatedSigningCASecret struct {
 	Client        corev1client.SecretsGetter
 	EventRecorder events.Recorder
 
-	// Deprecated: DO NOT eanble, it is intended as a short term hack for a very specific use case,
+	// Deprecated: DO NOT enable, it is intended as a short term hack for a very specific use case,
 	// and it works in tandem with a particular carry patch applied to the openshift kube-apiserver.
 	// we will remove this when we migrate all of the affected secret
 	// objects to their intended type: https://issues.redhat.com/browse/API-1800
 	UseSecretUpdateOnly bool
 }
 
-func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, error) {
+// EnsureSigningCertKeyPair manages the entire lifecycle of a signer cert as a secret, from creation to continued rotation.
+// It always returns the currently used CA pair, a bool indicating whether it was created/updated within this function call and an error.
+func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, bool, error) {
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
+		return nil, false, err
 	}
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
@@ -88,32 +90,34 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	if ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(signingCertKeyPairSecret) {
 		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
+	signerUpdated := false
+	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret, c.Refresh, c.RefreshOnlyWhenExpired); needed {
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
 
 		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
+		signerUpdated = true
 	}
 	// at this point, the secret has the correct signer, so we should read that signer to be able to sign
 	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
 	if err != nil {
-		return nil, err
+		return nil, signerUpdated, err
 	}
 
-	return signingCertKeyPair, nil
+	return signingCertKeyPair, signerUpdated, nil
 }
 
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
@@ -132,7 +136,12 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 	return false
 }
 
-func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+	if secret.ResourceVersion == "" {
+		return true, "secret doesn't exist"
+	}
+
+	annotations := secret.Annotations
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return true, reason
@@ -149,7 +158,7 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 	validity := notAfter.Sub(notBefore)
 	at80Percent := notAfter.Add(-validity / 5)
 	if time.Now().After(at80Percent) {
-		return true, fmt.Sprintf("past its latest possible time %v", at80Percent)
+		return true, fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
 	}
 
 	developerSpecifiedRefresh := notBefore.Add(refresh)

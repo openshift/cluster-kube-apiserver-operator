@@ -146,7 +146,12 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	return targetCertKeyPairSecret, nil
 }
 
-func needNewTargetCertKeyPair(annotations map[string]string, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired bool) string {
+func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired bool) string {
+	if secret.ResourceVersion == "" {
+		return "secret doesn't exist"
+	}
+
+	annotations := secret.Annotations
 	if reason := needNewTargetCertKeyPairForTime(annotations, signer, refresh, refreshOnlyWhenExpired); len(reason) > 0 {
 		return reason
 	}
@@ -203,7 +208,7 @@ func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *cryp
 	validity := notAfter.Sub(notBefore)
 	at80Percent := notAfter.Add(-validity / 5)
 	if time.Now().After(at80Percent) {
-		return fmt.Sprintf("past its latest possible time %v", at80Percent)
+		return fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
 	}
 
 	// If Certificate is past its refresh time, we may have action to take. We only do this if the signer is old enough.
@@ -264,7 +269,7 @@ func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 }
 
 func (r *ClientRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired bool) string {
-	return needNewTargetCertKeyPair(currentCertSecret.Annotations, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
+	return needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
 }
 
 func (r *ClientRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
@@ -281,7 +286,7 @@ func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Durati
 	if len(r.Hostnames()) == 0 {
 		return nil, fmt.Errorf("no hostnames set")
 	}
-	return signer.MakeServerCertForDuration(sets.NewString(r.Hostnames()...), validity, r.CertificateExtensionFn...)
+	return signer.MakeServerCertForDuration(sets.New(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
 
 func (r *ServingRotation) RecheckChannel() <-chan struct{} {
@@ -289,7 +294,7 @@ func (r *ServingRotation) RecheckChannel() <-chan struct{} {
 }
 
 func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired bool) string {
-	reason := needNewTargetCertKeyPair(currentCertSecret.Annotations, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
+	reason := needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
 	if len(reason) > 0 {
 		return reason
 	}
@@ -298,19 +303,19 @@ func (r *ServingRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Sec
 }
 
 func (r *ServingRotation) missingHostnames(annotations map[string]string) string {
-	existingHostnames := sets.NewString(strings.Split(annotations[CertificateHostnames], ",")...)
-	requiredHostnames := sets.NewString(r.Hostnames()...)
+	existingHostnames := sets.New(strings.Split(annotations[CertificateHostnames], ",")...)
+	requiredHostnames := sets.New(r.Hostnames()...)
 	if !existingHostnames.Equal(requiredHostnames) {
 		existingNotRequired := existingHostnames.Difference(requiredHostnames)
 		requiredNotExisting := requiredHostnames.Difference(existingHostnames)
-		return fmt.Sprintf("%q are existing and not required, %q are required and not existing", strings.Join(existingNotRequired.List(), ","), strings.Join(requiredNotExisting.List(), ","))
+		return fmt.Sprintf("%q are existing and not required, %q are required and not existing", strings.Join(sets.List(existingNotRequired), ","), strings.Join(sets.List(requiredNotExisting), ","))
 	}
 
 	return ""
 }
 
 func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
-	hostnames := sets.String{}
+	hostnames := sets.Set[string]{}
 	for _, ip := range cert.Certs[0].IPAddresses {
 		hostnames.Insert(ip.String())
 	}
@@ -319,7 +324,7 @@ func (r *ServingRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, anno
 	}
 
 	// List does a sort so that we have a consistent representation
-	annotations[CertificateHostnames] = strings.Join(hostnames.List(), ",")
+	annotations[CertificateHostnames] = strings.Join(sets.List(hostnames), ",")
 	return annotations
 }
 
@@ -335,7 +340,7 @@ func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duratio
 }
 
 func (r *SignerRotation) NeedNewTargetCertKeyPair(currentCertSecret *corev1.Secret, signer *crypto.CA, caBundleCerts []*x509.Certificate, refresh time.Duration, refreshOnlyWhenExpired bool) string {
-	return needNewTargetCertKeyPair(currentCertSecret.Annotations, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
+	return needNewTargetCertKeyPair(currentCertSecret, signer, caBundleCerts, refresh, refreshOnlyWhenExpired)
 }
 
 func (r *SignerRotation) SetAnnotations(cert *crypto.TLSCertificateConfig, annotations map[string]string) map[string]string {
