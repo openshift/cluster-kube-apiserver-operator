@@ -56,6 +56,9 @@ func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 	// TODO: Remove when the internal logic can start serving without extension-apiserver-authentication
 	//  	 and live reload extension-apiserver-authentication after it is available
 	ccc.DisableServing = true
+	ccc.LeaseDuration.Duration = 68 * time.Second
+	ccc.RenewDeadline.Duration = 53 * time.Second
+	ccc.RetryPeriod.Duration = 13 * time.Second
 
 	cmd := ccc.NewCommandWithContext(ctx)
 	cmd.Use = "cert-regeneration-controller"
