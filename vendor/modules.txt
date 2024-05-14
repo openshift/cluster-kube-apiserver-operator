@@ -331,6 +331,16 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
+github.com/openshift/client-go/security/applyconfigurations/internal
+github.com/openshift/client-go/security/applyconfigurations/security/v1
+github.com/openshift/client-go/security/clientset/versioned
+github.com/openshift/client-go/security/clientset/versioned/scheme
+github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
+github.com/openshift/client-go/security/informers/externalversions
+github.com/openshift/client-go/security/informers/externalversions/internalinterfaces
+github.com/openshift/client-go/security/informers/externalversions/security
+github.com/openshift/client-go/security/informers/externalversions/security/v1
+github.com/openshift/client-go/security/listers/security/v1
 # github.com/openshift/library-go v0.0.0-20240402180049-f5bf38712dca
 ## explicit; go 1.21
 github.com/openshift/library-go/pkg/assets
