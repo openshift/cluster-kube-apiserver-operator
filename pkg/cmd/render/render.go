@@ -16,6 +16,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
@@ -333,7 +334,7 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
 	}
 
-	if !featureGates.Enabled(configv1.FeatureGateOpenShiftPodSecurityAdmission) {
+	if !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission) {
 		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
 			return nil, err
 		}
