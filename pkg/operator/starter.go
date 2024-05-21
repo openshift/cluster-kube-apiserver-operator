@@ -15,6 +15,8 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	securityclient "github.com/openshift/client-go/security/clientset/versioned"
+	securityvnformers "github.com/openshift/client-go/security/informers/externalversions"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
@@ -29,6 +31,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/podsecurityreadinesscontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/sccreconcilecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/serviceaccountissuercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
@@ -83,6 +86,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	securityClient, err := securityclient.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
 	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
@@ -111,6 +118,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+
+	securityInformers := securityvnformers.NewSharedInformerFactory(securityClient, 10*time.Minute)
 
 	desiredVersion := status.VersionForOperatorFromEnv()
 	missingVersion := "0.0.1-snapshot"
@@ -433,6 +442,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	sccReconcileController, err := sccreconcilecontroller.NewSCCReconcileController(
+		securityClient.SecurityV1(),
+		securityInformers.Security().V1().SecurityContextConstraints(),
+		controllerContext.EventRecorder,
+	)
+
 	podSecurityReadinessController, err := podsecurityreadinesscontroller.NewPodSecurityReadinessController(
 		controllerContext.ProtoKubeConfig,
 		operatorClient,
@@ -454,6 +469,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer.Start(ctx.Done())
 	apiextensionsInformers.Start(ctx.Done())
 	operatorInformers.Start(ctx.Done())
+	securityInformers.Start(ctx.Done())
 
 	go staticPodControllers.Start(ctx)
 	go resourceSyncController.Run(ctx, 1)
@@ -477,6 +493,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go webhookSupportabilityController.Run(ctx, 1)
 	go serviceAccountIssuerController.Run(ctx, 1)
 	go podSecurityReadinessController.Run(ctx, 1)
+	go sccReconcileController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
