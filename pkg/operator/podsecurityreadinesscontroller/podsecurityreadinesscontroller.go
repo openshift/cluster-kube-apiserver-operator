@@ -79,7 +79,7 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 				return err
 			}
 			if isViolating {
-				conditions.addViolation(ns.Name)
+				conditions.addViolation(&ns)
 			}
 
 			return nil
