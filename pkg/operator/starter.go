@@ -204,8 +204,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/kube-apiserver/localhost-recovery-sa.yaml",
 			"assets/kube-apiserver/localhost-recovery-token.yaml",
 			"assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml",
-			"assets/kube-apiserver/storage-version-migration-flowschema.yaml",
-			"assets/kube-apiserver/storage-version-migration-prioritylevelconfiguration.yaml",
 			"assets/alerts/api-usage.yaml",
 			"assets/alerts/audit-errors.yaml",
 			"assets/alerts/cpu-utilization.yaml",
