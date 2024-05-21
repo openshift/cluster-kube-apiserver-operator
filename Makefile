@@ -114,7 +114,7 @@ export TP_CMD_PATH ?=./cmd/cluster-kube-apiserver-operator
 
 # ensure the apirequestcounts crd is included in bindata
 APIREQUESTCOUNT_CRD_TARGET := bindata/assets/kube-apiserver/apiserver.openshift.io_apirequestcount.yaml
-APIREQUESTCOUNT_CRD_SOURCE := vendor/github.com/openshift/api/apiserver/v1/apiserver.openshift.io_apirequestcount.yaml
+APIREQUESTCOUNT_CRD_SOURCE := vendor/github.com/openshift/api/apiserver/v1/zz_generated.crd-manifests/kube-apiserver_apirequestcounts.crd.yaml
 update-bindata-v4.1.0: $(APIREQUESTCOUNT_CRD_TARGET)
 $(APIREQUESTCOUNT_CRD_TARGET): $(APIREQUESTCOUNT_CRD_SOURCE)
 	cp $< $@
