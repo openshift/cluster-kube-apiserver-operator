@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
@@ -47,6 +48,9 @@ type renderOpts struct {
 	infraConfigFile   string
 
 	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
+
+	// so we can override bootstrap kube-apiserver argument 'shutdown-delay-duration'
+	shutdownDelayDuration time.Duration
 }
 
 // NewRenderCommand creates a render command.
@@ -62,6 +66,11 @@ func newRenderCommand(testOverrides ...func(*renderOpts)) *cobra.Command {
 		lockHostPath:   "/var/run/kubernetes/lock",
 		etcdServerURLs: []string{"https://127.0.0.1:2379"},
 		etcdServingCA:  "root-ca.crt",
+
+		// by default, we are giving the load balancer 20s to remove the
+		// bootstrap kube-apiserver from its pool after TERM signal is
+		// sent to the kube-apiserver on the bootstrap node.
+		shutdownDelayDuration: 20 * time.Second,
 	}
 	for _, f := range testOverrides {
 		f(&renderOpts)
@@ -97,6 +106,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
 	fs.StringVar(&r.clusterAuthFile, "cluster-auth-file", r.clusterAuthFile, "Openshift Cluster Authentication API Config file.")
 	fs.StringVar(&r.infraConfigFile, "infra-config-file", "", "File containing infrastructure.config.openshift.io manifest.")
+	fs.DurationVar(&r.shutdownDelayDuration, "shutdown-delay-duration", r.shutdownDelayDuration, "shutdown-delay-duration argument for the bootstrap kube-apiserver.")
 }
 
 // Validate verifies the inputs.
@@ -124,6 +134,10 @@ func (r *renderOpts) Validate() error {
 
 	if err := validateBoundSATokensSigningKeys(r.generic.AssetInputDir); err != nil {
 		return err
+	}
+
+	if r.shutdownDelayDuration <= 0 {
+		return errors.New("--shutdown-delay-duration must be a positive time duration")
 	}
 
 	return nil
@@ -192,7 +206,7 @@ func (r *renderOpts) Run() error {
 		BindAddress:                   "0.0.0.0:6443",
 		BindNetwork:                   "tcp4",
 		TerminationGracePeriodSeconds: 135, // bit more than 70s (minimal termination period) + 60s (apiserver graceful termination)
-		ShutdownDelayDuration:         "",  // do not override
+		ShutdownDelayDuration:         r.shutdownDelayDuration.String(),
 	}
 
 	featureGateAccessor, err := r.generic.FeatureGates()
