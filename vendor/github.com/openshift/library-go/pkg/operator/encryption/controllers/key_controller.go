@@ -15,10 +15,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apiserverv1 "k8s.io/apiserver/pkg/apis/config/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -182,7 +182,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		if commonReason == nil {
 			commonReason = &internalReason
 		} else if *commonReason != internalReason {
-			commonReason = pointer.StringPtr("") // this means we have no common reason
+			commonReason = ptr.To("") // this means we have no common reason
 		}
 
 		newKeyRequired = true
