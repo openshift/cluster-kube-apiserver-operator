@@ -1,9 +1,0 @@
-apiVersion: migration.k8s.io/v1alpha1
-kind: StorageVersionMigration
-metadata:
-  name: flowcontrol-flowschema-storage-version-migration
-spec:
-  resource:
-    group: flowcontrol.apiserver.k8s.io
-    version: v1beta1
-    resource: flowschemas
