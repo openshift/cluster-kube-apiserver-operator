@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cpu-utilization
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+    - name: control-plane-cpu-utilization
+      rules:
+        - alert: HighOverallControlPlaneCPU
+          annotations:
+            summary: >-
+              CPU utilization across control plane pods is more than 60% of total CPU. High CPU usage usually means that something goes wrong.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/ExtremelyHighIndividualControlPlaneCPU.md
+            description: >-
+              This level of CPU utlization of an control plane is probably not a problem under most circumstances, but high levels of utilization may indicate
+              problems with cluster or control plane pods. To manage this alert or modify threshold it in case of false positives see the following link:
+              https://docs.openshift.com/container-platform/latest/monitoring/managing-alerts.html
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / 8 * 100 > 60
+          for: 10m
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: warning
+        - alert: ExtremelyHighIndividualControlPlaneCPU
+          annotations:
+            summary: >-
+              CPU utilization across control plane pods is more than 90% of total CPU. High CPU usage usually means that something goes wrong.
+            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/ExtremelyHighIndividualControlPlaneCPU.md
+            description: >-
+              This level of CPU utlization of an control plane is probably not a problem under most circumstances, but high levels of utilization may indicate
+              problems with cluster or control plane pods. When workload partitioning is enabled,
+              Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
+              When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
+              causing even more CPU pressure.
+              It can also cause failing liveness probes due to slow etcd responsiveness on the backend.
+              If one kube-apiserver fails under this condition, chances are you will experience a cascade as the remaining
+              kube-apiservers are also under-provisioned.
+              To fix this, increase the CPU and memory on your control plane nodes.
+              To manage this alert or modify threshold it in case of false positives see the following link: 
+              https://docs.openshift.com/container-platform/latest/monitoring/managing-alerts.html
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / 8 * 100 > 90
+          for: 1h
+          labels:
+            namespace: openshift-kube-apiserver
+            severity: critical
