@@ -1,8 +1,8 @@
 module github.com/openshift/cluster-kube-apiserver-operator
 
-go 1.22.0
+go 1.21
 
-toolchain go1.22.1
+toolchain go1.21.7
 
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
