@@ -17,8 +17,10 @@ const (
 	syncerControllerName  = "pod-security-admission-label-synchronization-controller"
 	policyControllerName  = "cluster-policy-controller"
 	labelSyncControlLabel = "security.openshift.io/scc.podSecurityLabelSync"
+)
 
-	alertLabels = []stirng{
+var (
+	alertLabels = []string{
 		psapi.WarnLevelLabel,
 		psapi.AuditLevelLabel,
 	}
@@ -36,7 +38,7 @@ func isNSControlled(ns *corev1.Namespace) bool {
 	}
 
 	// Check who is managing the labels.
-	foundLabels := sets.New[string]()
+	ownedLabels := sets.New[string]()
 	for _, fieldEntry := range ns.ManagedFields {
 		if !isSyncController(fieldEntry.Manager) {
 			continue
@@ -52,25 +54,12 @@ func isNSControlled(ns *corev1.Namespace) bool {
 		}
 
 		if managedLabels.Len() > 0 {
-			foundLabels.Union(managedLabels)
+			ownedLabels = ownedLabels.Union(managedLabels)
 		}
 	}
 
 	// Verify that alert labels, that are used to check for violation are owned by us.
-	for _, l := range alertLabels {
-		if !foundLabels.Has(l) {
-			return false
-		}
-	}
-
-	// We own the alert labels.
-	return true
-}
-
-func isSyncController(name string) bool {
-	return len(fieldEntry.Manager) == 0 ||
-		fieldEntry.Manager == policyControllerName ||
-		fieldEntry.Manager == syncerControllerName
+	return ownedLabels.HasAll(alertLabels...)
 }
 
 func isAlertLabel(label string) bool {
@@ -81,6 +70,12 @@ func isAlertLabel(label string) bool {
 	}
 
 	return false
+}
+
+func isSyncController(name string) bool {
+	return len(name) == 0 ||
+		name == policyControllerName ||
+		name == syncerControllerName
 }
 
 // managedLabels extract the metadata.labels from the JSON in the managedEntry.FieldsV1

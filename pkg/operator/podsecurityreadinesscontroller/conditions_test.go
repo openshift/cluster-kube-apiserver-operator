@@ -71,36 +71,64 @@ func TestOperatorStatus(t *testing.T) {
 		Manager: "kubectl-edit",
 		FieldsV1: &metav1.FieldsV1{
 			Raw: []byte(`{
-					"f:metadata": {
-						"f:labels": {
-							"f:pod-security.kubernetes.io/audit": {},
-						  	"f:pod-security.kubernetes.io/audit-version": {},
-						  	"f:pod-security.kubernetes.io/enforce": {},
-						  	"f:pod-security.kubernetes.io/enforce-version": {},
-						  	"f:pod-security.kubernetes.io/warn": {},
-						  	"f:pod-security.kubernetes.io/warn-version": {}
-						  	"f:pod-security.kubernetes.io/enforce": {},
-						  	"f:pod-security.kubernetes.io/enforce-version": {}
-						}
+				"f:metadata": {
+					"f:labels": {
+						"f:pod-security.kubernetes.io/audit": {},
+						"f:pod-security.kubernetes.io/audit-version": {},
+						"f:pod-security.kubernetes.io/enforce": {},
+						"f:pod-security.kubernetes.io/enforce-version": {},
+						"f:pod-security.kubernetes.io/warn": {},
+						"f:pod-security.kubernetes.io/warn-version": {}
+						"f:pod-security.kubernetes.io/enforce": {},
+						"f:pod-security.kubernetes.io/enforce-version": {}
 					}
-				}`),
+				}
+			}`),
 		},
 	}
+
 	syncFields := metav1.ManagedFieldsEntry{
 		Manager: "pod-security-admission-label-synchronization-controller",
 		FieldsV1: &metav1.FieldsV1{
 			Raw: []byte(`{
+				"f:metadata": {
+					"f:labels": {
+						"f:pod-security.kubernetes.io/audit": {},
+						"f:pod-security.kubernetes.io/audit-version": {},
+						"f:pod-security.kubernetes.io/warn": {},
+						"f:pod-security.kubernetes.io/warn-version": {}
+					}
+				}
+			}`),
+		},
+	}
+
+	mixedFields := []metav1.ManagedFieldsEntry{
+		{
+			Manager: "kubectl-edit",
+			FieldsV1: &metav1.FieldsV1{
+				Raw: []byte(`{
 					"f:metadata": {
 						"f:labels": {
-						  	"f:pod-security.kubernetes.io/audit": {},
-						  	"f:pod-security.kubernetes.io/audit-version": {},
-						  	"f:pod-security.kubernetes.io/enforce": {},
-						  	"f:pod-security.kubernetes.io/enforce-version": {},
-						  	"f:pod-security.kubernetes.io/warn": {},
-						  	"f:pod-security.kubernetes.io/warn-version": {}
+							"f:pod-security.kubernetes.io/warn": {},
+							"f:pod-security.kubernetes.io/warn-version": {}
 						}
 					}
 				}`),
+			},
+		},
+		{
+			Manager: "pod-security-admission-label-synchronization-controller",
+			FieldsV1: &metav1.FieldsV1{
+				Raw: []byte(`{
+					"f:metadata": {
+						"f:labels": {
+							"f:pod-security.kubernetes.io/audit": {},
+							"f:pod-security.kubernetes.io/audit-version": {}
+						}
+					}
+				}`),
+			},
 		},
 	}
 
@@ -114,7 +142,7 @@ func TestOperatorStatus(t *testing.T) {
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "syncer-yes-plz",
+						Name: "syncer-by-default",
 						ManagedFields: []metav1.ManagedFieldsEntry{
 							syncFields,
 						},
@@ -136,11 +164,11 @@ func TestOperatorStatus(t *testing.T) {
 		},
 
 		{
-			name: "with customer managed labels",
+			name: "with customer is managing all labels",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "i-manage-by-hand",
+						Name: "i-manage-all-by-hand",
 						ManagedFields: []metav1.ManagedFieldsEntry{
 							userFields,
 						},
@@ -151,6 +179,30 @@ func TestOperatorStatus(t *testing.T) {
 							"pod-security.kubernetes.io/warn-version":    "latest",
 							"pod-security.kubernetes.io/enforce":         "restricted",
 							"pod-security.kubernetes.io/enforce-version": "latest",
+						},
+					},
+				},
+			},
+			expected: map[string]operatorv1.ConditionStatus{
+				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
+				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
+				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
+			},
+		},
+
+		{
+			name: "with customer is managing some labels",
+			namespace: []*corev1.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:          "i-manage-some-by-hand",
+						ManagedFields: mixedFields,
+						Labels: map[string]string{
+							"pod-security.kubernetes.io/audit":         "restricted",
+							"pod-security.kubernetes.io/audit-version": "latest",
+							"pod-security.kubernetes.io/warn":          "restricted",
+							"pod-security.kubernetes.io/warn-version":  "latest",
 						},
 					},
 				},
@@ -178,8 +230,6 @@ func TestOperatorStatus(t *testing.T) {
 							"pod-security.kubernetes.io/audit-version":       "v1.24",
 							"pod-security.kubernetes.io/warn":                "restricted",
 							"pod-security.kubernetes.io/warn-version":        "v1.24",
-							"pod-security.kubernetes.io/enforce":             "restricted",
-							"pod-security.kubernetes.io/enforce-version":     "v1.24",
 						},
 					},
 				},
@@ -197,7 +247,7 @@ func TestOperatorStatus(t *testing.T) {
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "i-want-syncer-back",
+						Name: "syncer-yes-plz",
 						ManagedFields: []metav1.ManagedFieldsEntry{
 							userFields,
 						},
@@ -271,7 +321,7 @@ func TestOperatorStatus(t *testing.T) {
 					if condition.Type == expectedType {
 						found = true
 						if condition.Status != expectedStatus {
-							t.Errorf("expected status %v, got %v", expectedStatus, condition.Status)
+							t.Errorf("expected %s to be %v, have %v", expectedType, expectedStatus, condition.Status)
 						}
 					}
 				}
