@@ -15,7 +15,13 @@ import (
 
 const (
 	syncerControllerName  = "pod-security-admission-label-synchronization-controller"
+	policyControllerName  = "cluster-policy-controller"
 	labelSyncControlLabel = "security.openshift.io/scc.podSecurityLabelSync"
+
+	alertLabels = []stirng{
+		psapi.WarnLevelLabel,
+		psapi.AuditLevelLabel,
+	}
 )
 
 func isNSControlled(ns *corev1.Namespace) bool {
@@ -30,51 +36,56 @@ func isNSControlled(ns *corev1.Namespace) bool {
 	}
 
 	// Check who is managing the labels.
-	extractedPerManager, err := newLabelsToManager(ns)
-	if err != nil {
-		klog.Errorf("ns extraction failed: %v", err)
-		return false
-	}
+	foundLabels := sets.New[string]()
+	for _, fieldEntry := range ns.ManagedFields {
+		if !isSyncController(fieldEntry.Manager) {
+			continue
+		}
 
-	for _, labelName := range []string{
-		psapi.EnforceLevelLabel, psapi.WarnLevelLabel, psapi.AuditLevelLabel,
-	} {
-		if _, ok := ns.Labels[labelName]; ok {
-			// If the label is set, we need to verify that it is managed by us.
-			manager := extractedPerManager[labelName]
-			if len(manager) > 0 && manager != "cluster-policy-controller" && manager != syncerControllerName {
-				// The customer is managing at least one of the labels.
-				return false
-			}
+		managedLabels, err := managedLabels(fieldEntry, isAlertLabel)
+		if err != nil {
+			klog.Errorf("failed to extract managed fields for NS %q: %v", ns.Name, err)
+			// In case of doubt, assume we manage the namespace. Clusters that
+			// are having `isNSControlled(ns) == false` only violations will be
+			// ignored.
+			return true
+		}
+
+		if managedLabels.Len() > 0 {
+			foundLabels.Union(managedLabels)
 		}
 	}
 
-	// We manage all labels.
+	// Verify that alert labels, that are used to check for violation are owned by us.
+	for _, l := range alertLabels {
+		if !foundLabels.Has(l) {
+			return false
+		}
+	}
+
+	// We own the alert labels.
 	return true
 }
 
-type labelsToManager map[string]string
+func isSyncController(name string) bool {
+	return len(fieldEntry.Manager) == 0 ||
+		fieldEntry.Manager == policyControllerName ||
+		fieldEntry.Manager == syncerControllerName
+}
 
-func newLabelsToManager(ns *corev1.Namespace) (labelsToManager, error) {
-	m := labelsToManager{}
-
-	for _, fieldEntry := range ns.ManagedFields {
-		managedLabels, err := managedLabels(fieldEntry)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract managed fields for NS %q: %v", ns.Name, err)
-		}
-
-		for label := range managedLabels {
-			m[label] = fieldEntry.Manager
+func isAlertLabel(label string) bool {
+	for _, l := range alertLabels {
+		if label == l {
+			return true
 		}
 	}
 
-	return m, nil
+	return false
 }
 
 // managedLabels extract the metadata.labels from the JSON in the managedEntry.FieldsV1
 // that describes the object's field ownership
-func managedLabels(fieldsEntry metav1.ManagedFieldsEntry) (sets.Set[string], error) {
+func managedLabels(fieldsEntry metav1.ManagedFieldsEntry, filter func(string) bool) (sets.Set[string], error) {
 	managedUnstructured := map[string]interface{}{}
 	err := json.Unmarshal(fieldsEntry.FieldsV1.Raw, &managedUnstructured)
 	if err != nil {
@@ -92,7 +103,10 @@ func managedLabels(fieldsEntry metav1.ManagedFieldsEntry) (sets.Set[string], err
 	}
 
 	for l := range labels {
-		ret.Insert(strings.Replace(l, "f:", "", 1))
+		label := strings.Replace(l, "f:", "", 1)
+		if filter(label) {
+			ret.Insert(label)
+		}
 	}
 
 	return ret, nil
