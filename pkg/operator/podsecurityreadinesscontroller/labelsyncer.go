@@ -19,42 +19,38 @@ const (
 )
 
 func isNSControlled(ns *corev1.Namespace) bool {
+	// The customer explicitly tells us to manage the namespace.
 	if ns.Labels[labelSyncControlLabel] == "true" {
 		return true
 	}
 
-	if strings.HasPrefix(ns.Name, "openshift") {
+	// The customer explicitly tells us to not manage the namespace.
+	if ns.Labels[labelSyncControlLabel] == "false" {
 		return false
 	}
 
+	// Check who is managing the labels.
 	extractedPerManager, err := newLabelsToManager(ns)
 	if err != nil {
 		klog.Errorf("ns extraction failed: %v", err)
 		return false
 	}
 
-	var owningAtLeastOneLabel bool
 	for _, labelName := range []string{
-		psapi.EnforceLevelLabel, psapi.EnforceVersionLabel,
-		psapi.WarnLevelLabel, psapi.WarnVersionLabel,
-		psapi.AuditLevelLabel, psapi.AuditVersionLabel,
+		psapi.EnforceLevelLabel, psapi.WarnLevelLabel, psapi.AuditLevelLabel,
 	} {
 		if _, ok := ns.Labels[labelName]; ok {
+			// If the label is set, we need to verify that it is managed by us.
 			manager := extractedPerManager[labelName]
 			if len(manager) > 0 && manager != "cluster-policy-controller" && manager != syncerControllerName {
-				continue
+				// The customer is managing at least one of the labels.
+				return false
 			}
 		}
-
-		// a label is either not set or is directly owned by us
-		owningAtLeastOneLabel = true
 	}
 
-	if !owningAtLeastOneLabel {
-		return false
-	}
-
-	return ns.Labels[labelSyncControlLabel] != "false"
+	// We manage all labels.
+	return true
 }
 
 type labelsToManager map[string]string
