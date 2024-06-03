@@ -9,7 +9,7 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/config /usr/share/bootkube/manifests/config/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/manifests /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/scc-manifests /usr/share/bootkube/manifests/manifests/
-COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/vendor/github.com/openshift/api/apiserver/v1/apiserver.openshift.io_apirequestcount.yaml /usr/share/bootkube/manifests/manifests/
+COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/vendor/github.com/openshift/api/apiserver/v1/zz_generated.featuregated-crd-manifests.yaml /usr/share/bootkube/manifests/manifests/zz_generated.featuregated-crd-manifests.yaml
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
 COPY manifests /manifests
 COPY bindata/bootkube/scc-manifests /manifests
