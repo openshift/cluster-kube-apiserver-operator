@@ -101,7 +101,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 				return false, nil
 			}
 			if err != nil {
-				t.Errorf("failed to retrieve template secret: %v", err)
+				t.Errorf("[TEST] failed to retrieve template secret: %v", err)
 				return false, nil
 			}
 			return true, nil
