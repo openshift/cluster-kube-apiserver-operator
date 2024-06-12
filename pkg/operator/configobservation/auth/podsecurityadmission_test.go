@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
@@ -27,11 +28,11 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 	restrictedJSON, err := json.Marshal(restrictedMap)
 	require.NoError(t, err)
 
-	defaultFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission}, []configv1.FeatureGateName{})
+	defaultFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission}, []configv1.FeatureGateName{})
 
 	const sentinelExistingJSON = `{"admission":{"pluginConfig":{"PodSecurity":{"configuration":{"defaults":{"foo":"bar"}}}}}}`
 
-	disabledFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission})
+	disabledFeatureSet := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{}, []configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission})
 
 	for _, tc := range []struct {
 		name                string
