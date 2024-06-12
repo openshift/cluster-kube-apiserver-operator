@@ -1,0 +1,21 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+    - configmaps
+    providers:
+    - kms:
+        name: gcp-kms-encryption
+        endpoint: unix:///var/kms-plugin/socket.sock
+        cachesize: 1000
+        timeout: 5s
+    - identity: {}
+  - resources:
+    - secrets
+    providers:
+    - kms:
+        name: gcp-kms-encryption
+        endpoint: unix:///var/kms-plugin/socket.sock
+        cachesize: 1000
+        timeout: 5s
+    - identity: {}
