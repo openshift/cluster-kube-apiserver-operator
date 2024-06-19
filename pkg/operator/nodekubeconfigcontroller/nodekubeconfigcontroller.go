@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift/api/annotations"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
@@ -146,6 +147,11 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 
 		requiredSecret.StringData[k] = data
 	}
+
+	if requiredSecret.Annotations == nil {
+		requiredSecret.Annotations = map[string]string{}
+	}
+	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
 
 	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
 	if err != nil {
