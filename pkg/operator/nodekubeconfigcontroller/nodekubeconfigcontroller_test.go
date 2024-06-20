@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -140,6 +141,9 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: "openshift-kube-apiserver",
 							Name:      "node-kubeconfigs",
+							Annotations: map[string]string{
+								annotations.OpenShiftComponent: "kube-apiserver",
+							},
 						},
 						Data: map[string][]byte{
 							"localhost.kubeconfig": []byte(`apiVersion: v1
