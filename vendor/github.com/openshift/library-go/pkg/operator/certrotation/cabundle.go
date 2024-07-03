@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,6 +35,9 @@ type CABundleConfigMap struct {
 	Owner *metav1.OwnerReference
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
+	// Lock is an optional mutex that protects the EnsureConfigMapCABundle method.
+	// Use it only when this instance is shared across multiple controllers.
+	Lock *sync.Mutex
 	// Plumbing:
 	Informer      corev1informers.ConfigMapInformer
 	Lister        corev1listers.ConfigMapLister
@@ -42,8 +46,14 @@ type CABundleConfigMap struct {
 }
 
 func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+	if c.Lock != nil {
+		c.Lock.Lock()
+		defer c.Lock.Unlock()
+	}
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
+	modified := false
+
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -56,19 +66,15 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 			c.Namespace,
 			c.AdditionalAnnotations,
 		)}
+		modified = true
 	}
 
-	needsMetadataUpdate := false
+	needsOwnerUpdate := false
 	if c.Owner != nil {
-		needsMetadataUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
+		needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
 	}
-	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta) || needsMetadataUpdate
-	if needsMetadataUpdate && len(caBundleConfigMap.ResourceVersion) > 0 {
-		_, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
-		if err != nil {
-			return nil, err
-		}
-	}
+	needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
+	modified = needsOwnerUpdate || needsMetadataUpdate || modified
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
@@ -78,14 +84,18 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
-		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
+		modified = true
+	}
+
+	if modified {
+
+		actualCABundleConfigMap, updated, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
 		if err != nil {
 			return nil, err
 		}
-		if modified {
+		if updated {
 			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
 		}
-
 		caBundleConfigMap = actualCABundleConfigMap
 	}
 
