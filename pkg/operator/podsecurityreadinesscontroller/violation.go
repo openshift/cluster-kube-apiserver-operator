@@ -5,57 +5,42 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	applyconfiguration "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/klog/v2"
 	psapi "k8s.io/pod-security-admission/api"
 )
 
-var podSecurityAlertLabels = []string{
-	psapi.AuditLevelLabel,
-	psapi.WarnLevelLabel,
-}
+const (
+	syncerControllerName = "pod-security-admission-label-synchronization-controller"
+)
+
+var (
+	alertLabels = sets.New(psapi.WarnLevelLabel, psapi.AuditLevelLabel)
+)
 
 func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, error) {
-	if ns.Labels[psapi.EnforceLevelLabel] != "" {
-		// If someone has taken care of the enforce label, we don't need to
-		// check for violations. Global Config nor PS-Label-Syncer will modify
-		// it.
+	nsApplyConfig, err := applyconfiguration.ExtractNamespace(ns, syncerControllerName)
+	if err != nil {
+		return false, err
+	}
+
+	viableLabels := map[string]string{}
+	for alertLabel := range alertLabels {
+		if value, ok := nsApplyConfig.Labels[alertLabel]; ok {
+			viableLabels[alertLabel] = value
+		}
+	}
+	if len(viableLabels) == 0 {
+		// If there are no labels managed by the syncer, we can't make a decision.
 		return false, nil
 	}
 
-	targetLevel := ""
-	for _, label := range podSecurityAlertLabels {
-		levelStr, ok := ns.Labels[label]
-		if !ok {
-			continue
-		}
-
-		level, err := psapi.ParseLevel(levelStr)
-		if err != nil {
-			klog.V(4).InfoS("invalid level", "namespace", ns.Name, "level", levelStr)
-			continue
-		}
-
-		if targetLevel == "" {
-			targetLevel = levelStr
-			continue
-		}
-
-		if psapi.CompareLevels(psapi.Level(targetLevel), level) < 0 {
-			targetLevel = levelStr
-		}
-	}
-
-	if targetLevel == "" {
-		// Global Config will set it to "restricted".
-		targetLevel = string(psapi.LevelRestricted)
-	}
-
 	nsApply := applyconfiguration.Namespace(ns.Name).WithLabels(map[string]string{
-		psapi.EnforceLevelLabel: string(targetLevel),
+		psapi.EnforceLevelLabel: pickStrictest(viableLabels),
 	})
 
-	_, err := c.kubeClient.CoreV1().
+	_, err = c.kubeClient.CoreV1().
 		Namespaces().
 		Apply(ctx, nsApply, metav1.ApplyOptions{
 			DryRun:       []string{metav1.DryRunAll},
@@ -65,8 +50,33 @@ func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Contex
 		return false, err
 	}
 
-	// The information we want is in the warnings. It collects violations.
-	warnings := c.warningsHandler.PopAll()
+	// If there are warnings, the namespace is violating.
+	return len(c.warningsHandler.PopAll()) > 0, nil
+}
 
-	return len(warnings) > 0, nil
+func pickStrictest(viableLabels map[string]string) string {
+	targetLevel := ""
+	for label, value := range viableLabels {
+		level, err := psapi.ParseLevel(value)
+		if err != nil {
+			klog.V(4).InfoS("invalid level", "label", label, "value", value)
+			continue
+		}
+
+		if targetLevel == "" {
+			targetLevel = value
+			continue
+		}
+
+		if psapi.CompareLevels(psapi.Level(targetLevel), level) < 0 {
+			targetLevel = value
+		}
+	}
+
+	if targetLevel == "" {
+		// Global Config will set it to "restricted", but shouldn't happen.
+		return string(psapi.LevelRestricted)
+	}
+
+	return targetLevel
 }
