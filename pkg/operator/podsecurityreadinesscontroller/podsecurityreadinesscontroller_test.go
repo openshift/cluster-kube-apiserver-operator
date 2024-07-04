@@ -189,3 +189,49 @@ func TestPodSecurityViolationController(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceSelector(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "ns-without-enforce",
+				Labels: map[string]string{},
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ns-with-enforce",
+				Labels: map[string]string{
+					psapi.EnforceLevelLabel: "restricted",
+				},
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "another-ns-without-enforce",
+				Labels: map[string]string{},
+			},
+		},
+	)
+
+	selector, err := nonEnforcingSelector()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nsList, err := fakeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(nsList.Items) != 2 {
+		t.Errorf("expected 2 namespaces, got %d", len(nsList.Items))
+	}
+
+	for _, ns := range nsList.Items {
+		label, ok := ns.Labels[psapi.EnforceLevelLabel]
+		if ok {
+			t.Error("unexpected enforce label", label)
+		}
+	}
+}
