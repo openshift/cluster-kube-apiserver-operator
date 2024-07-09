@@ -343,7 +343,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20240619120114-0c65da30ad30 => github.com/vrutkovs/library-go v0.0.0-20240627065337-f64ca1e209ba
+# github.com/openshift/library-go v0.0.0-20240619120114-0c65da30ad30 => github.com/vrutkovs/library-go v0.0.0-20240710190445-8aaf652a1c2b
 ## explicit; go 1.22.0
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -1492,4 +1492,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/openshift/library-go => github.com/vrutkovs/library-go v0.0.0-20240627065337-f64ca1e209ba
+# github.com/openshift/library-go => github.com/vrutkovs/library-go v0.0.0-20240710190445-8aaf652a1c2b
