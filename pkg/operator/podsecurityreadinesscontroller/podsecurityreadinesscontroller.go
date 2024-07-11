@@ -4,12 +4,10 @@ import (
 	"context"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
-	applyconfiguration "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
@@ -24,11 +22,6 @@ import (
 const (
 	checkInterval = 240 * time.Minute // Adjust the interval as needed.
 )
-
-var podSecurityAlertLabels = []string{
-	psapi.AuditLevelLabel,
-	psapi.WarnLevelLabel,
-}
 
 // PodSecurityReadinessController checks if namespaces are ready for Pod Security Admission enforcement.
 type PodSecurityReadinessController struct {
@@ -46,19 +39,12 @@ func NewPodSecurityReadinessController(
 ) (factory.Controller, error) {
 	warningsHandler := &warningsHandler{}
 
-	kubeClientCopy := rest.CopyConfig(kubeConfig)
-	kubeClientCopy.WarningHandler = warningsHandler
-	// We don't want to overwhelm the apiserver with requests. On a cluster with
-	// 10k namespaces, we would send 10k + 1 requests to the apiserver.
-	kubeClientCopy.QPS = 2
-	kubeClientCopy.Burst = 2
-	kubeClient, err := kubernetes.NewForConfig(kubeClientCopy)
+	kubeClient, err := newWarningAwareKubeClient(warningsHandler, kubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	selector := labels.NewSelector()
-	labelsRequirement, err := labels.NewRequirement(psapi.EnforceLevelLabel, selection.DoesNotExist, []string{})
+	selector, err := nonEnforcingSelector()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +53,7 @@ func NewPodSecurityReadinessController(
 		operatorClient:    operatorClient,
 		kubeClient:        kubeClient,
 		warningsHandler:   warningsHandler,
-		namespaceSelector: selector.Add(*labelsRequirement).String(),
+		namespaceSelector: selector,
 	}
 
 	return factory.New().
@@ -93,7 +79,7 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 				return err
 			}
 			if isViolating {
-				conditions.addViolation(ns.Name)
+				conditions.addViolation(&ns)
 			}
 
 			return nil
@@ -114,58 +100,23 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 	return err
 }
 
-func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, error) {
-	if ns.Labels[psapi.EnforceLevelLabel] != "" {
-		// If someone has taken care of the enforce label, we don't need to
-		// check for violations. Global Config nor PS-Label-Syncer will modify
-		// it.
-		return false, nil
-	}
-
-	targetLevel := ""
-	for _, label := range podSecurityAlertLabels {
-		levelStr, ok := ns.Labels[label]
-		if !ok {
-			continue
-		}
-
-		level, err := psapi.ParseLevel(levelStr)
-		if err != nil {
-			klog.V(4).InfoS("invalid level", "namespace", ns.Name, "level", levelStr)
-			continue
-		}
-
-		if targetLevel == "" {
-			targetLevel = levelStr
-			continue
-		}
-
-		if psapi.CompareLevels(psapi.Level(targetLevel), level) < 0 {
-			targetLevel = levelStr
-		}
-	}
-
-	if targetLevel == "" {
-		// Global Config will set it to "restricted".
-		targetLevel = string(psapi.LevelRestricted)
-	}
-
-	nsApply := applyconfiguration.Namespace(ns.Name).WithLabels(map[string]string{
-		psapi.EnforceLevelLabel: string(targetLevel),
-	})
-
-	_, err := c.kubeClient.CoreV1().
-		Namespaces().
-		Apply(ctx, nsApply, metav1.ApplyOptions{
-			DryRun:       []string{metav1.DryRunAll},
-			FieldManager: "pod-security-readiness-controller",
-		})
+func nonEnforcingSelector() (string, error) {
+	selector := labels.NewSelector()
+	labelsRequirement, err := labels.NewRequirement(psapi.EnforceLevelLabel, selection.DoesNotExist, []string{})
 	if err != nil {
-		return false, err
+		return "", err
 	}
 
-	// The information we want is in the warnings. It collects violations.
-	warnings := c.warningsHandler.PopAll()
+	return selector.Add(*labelsRequirement).String(), nil
+}
 
-	return len(warnings) > 0, nil
+func newWarningAwareKubeClient(warningsHandler *warningsHandler, kubeConfig *rest.Config) (*kubernetes.Clientset, error) {
+	kubeClientCopy := rest.CopyConfig(kubeConfig)
+	kubeClientCopy.WarningHandler = warningsHandler
+	// We don't want to overwhelm the apiserver with requests. On a cluster with
+	// 10k namespaces, we would send 10k + 1 requests to the apiserver.
+	kubeClientCopy.QPS = 2
+	kubeClientCopy.Burst = 2
+
+	return kubernetes.NewForConfig(kubeClientCopy)
 }
