@@ -848,6 +848,64 @@ func newCertRotationController(
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
+	// add etcd cert
+	certRotator = certrotation.NewCertRotationController(
+		"etcdBackupServerCert",
+		certrotation.RotatedSigningCASecret{
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:                 kubeClient.CoreV1(),
+			EventRecorder:          eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
+		},
+		certrotation.CABundleConfigMap{
+			Namespace: operatorclient.OperatorNamespace,
+			Name:      "kube-control-plane-signer-ca",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+		},
+		certrotation.RotatedSelfSignedCertKeySecret{
+			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Name:      "etcd-backup-client-cert-key",
+			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+				JiraComponent: "kube-apiserver",
+			},
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
+			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertCreator: &certrotation.ClientRotation{
+				UserInfo: &user.DefaultInfo{Name: "system:etcd-backup"},
+			},
+			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
+			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
+			Client:        kubeClient.CoreV1(),
+			EventRecorder: eventRecorder,
+
+			// we will remove this when we migrate all of the affected secret
+			// objects to their intended type: https://issues.redhat.com/browse/API-1800
+			UseSecretUpdateOnly: true,
+		},
+		eventRecorder,
+		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+	)
+	ret.certRotators = append(ret.certRotators, certRotator)
+
 	return ret, nil
 }
 
