@@ -34,25 +34,6 @@ spec:
         - alert: ExtremelyHighIndividualControlPlaneCPU
           annotations:
             summary: >-
-              CPU utilization on a single control plane node is very high, more CPU pressure is likely to cause a failover; increase available CPU.
-            runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/ExtremelyHighIndividualControlPlaneCPU.md
-            description: >-
-              Extreme CPU pressure can cause slow serialization and poor performance from the kube-apiserver and etcd.
-              When this happens, there is a risk of clients seeing non-responsive API requests which are issued again
-              causing even more CPU pressure.
-              It can also cause failing liveness probes due to slow etcd responsiveness on the backend.
-              If one kube-apiserver fails under this condition, chances are you will experience a cascade as the remaining
-              kube-apiservers are also under-provisioned.
-              To fix this, increase the CPU and memory on your control plane nodes.
-          expr: |
-            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 90 AND on (instance) label_replace( kube_node_role{role="master"}, "instance", "$1", "node", "(.+)" )
-          for: 5m
-          labels:
-            namespace: openshift-kube-apiserver
-            severity: warning
-        - alert: ExtremelyHighIndividualControlPlaneCPU
-          annotations:
-            summary: >-
               Sustained high CPU utilization on a single control plane node, more CPU pressure is likely to cause a failover; increase available CPU.
             runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/ExtremelyHighIndividualControlPlaneCPU.md
             description: >-
