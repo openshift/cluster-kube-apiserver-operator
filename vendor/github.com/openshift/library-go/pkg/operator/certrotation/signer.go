@@ -63,10 +63,12 @@ type RotatedSigningCASecret struct {
 // EnsureSigningCertKeyPair manages the entire lifecycle of a signer cert as a secret, from creation to continued rotation.
 // It always returns the currently used CA pair, a bool indicating whether it was created/updated within this function call and an error.
 func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, bool, error) {
+	modified := false
 	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, false, err
 	}
+	var signerExists = true
 	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
 	if apierrors.IsNotFound(err) {
 		// create an empty one
@@ -78,6 +80,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			),
 			Type: corev1.SecretTypeTLS,
 		}
+		signerExists = false
 	}
 
 	applyFn := resourceapply.ApplySecret
@@ -87,16 +90,18 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	if ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(signingCertKeyPairSecret) {
-		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
-		if err != nil {
-			return nil, false, err
-		}
-		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
+	needsMetadataUpdate, err := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+	if err != nil {
+		return nil, false, err
 	}
+	needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
+	modified = needsMetadataUpdate || needsTypeChange || modified
 
 	signerUpdated := false
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret.Annotations, c.Refresh, c.RefreshOnlyWhenExpired); needed {
+	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret, c.Refresh, c.RefreshOnlyWhenExpired); needed || !signerExists {
+		if !signerExists {
+			reason = "secret doesn't exist"
+		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity); err != nil {
 			return nil, false, err
@@ -104,13 +109,18 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
 
+		modified = true
+		signerUpdated = true
+	}
+
+	if modified {
 		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
 		if err != nil {
 			return nil, false, err
 		}
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
-		signerUpdated = true
 	}
+
 	// at this point, the secret has the correct signer, so we should read that signer to be able to sign
 	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
 	if err != nil {
@@ -121,7 +131,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 }
 
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
-func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) bool {
+func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference) (bool, error) {
 	var found bool
 	for _, ref := range meta.OwnerReferences {
 		if ref == *owner {
@@ -129,14 +139,18 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 			break
 		}
 	}
-	if !found {
-		meta.OwnerReferences = append(meta.OwnerReferences, *owner)
-		return true
+	if !found && len(meta.OwnerReferences) > 0 {
+		return true, fmt.Errorf("attempting to add a new owner when it already exists: %#v", meta.OwnerReferences)
 	}
-	return false
+	if found {
+		return false, nil
+	}
+	meta.OwnerReferences = append(meta.OwnerReferences, *owner)
+	return true, nil
 }
 
-func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
+	annotations := secret.Annotations
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return true, reason
@@ -153,7 +167,7 @@ func needNewSigningCertKeyPair(annotations map[string]string, refresh time.Durat
 	validity := notAfter.Sub(notBefore)
 	at80Percent := notAfter.Add(-validity / 5)
 	if time.Now().After(at80Percent) {
-		return true, fmt.Sprintf("past its latest possible time %v", at80Percent)
+		return true, fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
 	}
 
 	developerSpecifiedRefresh := notBefore.Add(refresh)
