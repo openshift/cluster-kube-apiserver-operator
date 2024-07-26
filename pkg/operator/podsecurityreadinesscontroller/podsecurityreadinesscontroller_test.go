@@ -15,6 +15,70 @@ import (
 )
 
 func TestPodSecurityViolationController(t *testing.T) {
+	userFields := []metav1.ManagedFieldsEntry{{
+		Manager: "kubectl-edit",
+		FieldsV1: &metav1.FieldsV1{
+			Raw: []byte(`{
+				"f:metadata": {
+					"f:labels": {
+						"f:pod-security.kubernetes.io/audit": {},
+						"f:pod-security.kubernetes.io/audit-version": {},
+						"f:pod-security.kubernetes.io/warn": {},
+						"f:pod-security.kubernetes.io/warn-version": {}
+					}
+				}
+			}`),
+		},
+	}}
+
+	syncFields := []metav1.ManagedFieldsEntry{{
+		Manager: "pod-security-admission-label-synchronization-controller",
+		FieldsV1: &metav1.FieldsV1{
+			Raw: []byte(`{
+				"f:metadata": {
+					"f:labels": {
+						"f:pod-security.kubernetes.io/audit": {},
+						"f:pod-security.kubernetes.io/audit-version": {},
+						"f:pod-security.kubernetes.io/warn": {},
+						"f:pod-security.kubernetes.io/warn-version": {}
+					}
+				}
+			}`),
+		},
+		Operation: metav1.ManagedFieldsOperationApply,
+	}}
+
+	mixedFields := []metav1.ManagedFieldsEntry{
+		{
+			Manager: "kubectl-edit",
+			FieldsV1: &metav1.FieldsV1{
+				Raw: []byte(`{
+					"f:metadata": {
+						"f:labels": {
+							"f:pod-security.kubernetes.io/warn": {},
+							"f:pod-security.kubernetes.io/warn-version": {}
+						}
+					}
+				}`),
+			},
+			Operation: metav1.ManagedFieldsOperationApply,
+		},
+		{
+			Manager: "pod-security-admission-label-synchronization-controller",
+			FieldsV1: &metav1.FieldsV1{
+				Raw: []byte(`{
+					"f:metadata": {
+						"f:labels": {
+							"f:pod-security.kubernetes.io/audit": {},
+							"f:pod-security.kubernetes.io/audit-version": {}
+						}
+					}
+				}`),
+			},
+			Operation: metav1.ManagedFieldsOperationApply,
+		},
+	}
+
 	for _, tt := range []struct {
 		name string
 
@@ -37,6 +101,7 @@ func TestPodSecurityViolationController(t *testing.T) {
 						psapi.AuditLevelLabel: "restricted",
 						psapi.WarnLevelLabel:  "restricted",
 					},
+					ManagedFields: syncFields,
 				},
 			},
 			expectedViolation:    true,
@@ -55,6 +120,7 @@ func TestPodSecurityViolationController(t *testing.T) {
 						psapi.AuditLevelLabel: "baseline",
 						psapi.WarnLevelLabel:  "baseline",
 					},
+					ManagedFields: syncFields,
 				},
 			},
 			expectedViolation:    true,
@@ -70,23 +136,11 @@ func TestPodSecurityViolationController(t *testing.T) {
 						psapi.AuditLevelLabel: "privileged",
 						psapi.WarnLevelLabel:  "privileged",
 					},
+					ManagedFields: syncFields,
 				},
 			},
+			expectedViolation:    false,
 			expectedEnforceLabel: "privileged",
-		},
-		{
-			name: "violating against unset namespace",
-			warnings: []string{
-				"existing pods in namespace \"violating-namespace\" violate the new PodSecurity enforce level \"restricted:latest\"",
-				"violating-pod: allowPrivilegeEscalation != false, unrestricted capabilities, runAsNonRoot != true, seccompProfile",
-			},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "violating-namespace",
-				},
-			},
-			expectedViolation:    true,
-			expectedEnforceLabel: "restricted",
 		},
 		{
 			name: "violating against mixed alert labels namespace",
@@ -101,27 +155,14 @@ func TestPodSecurityViolationController(t *testing.T) {
 						psapi.AuditLevelLabel: "privileged",
 						psapi.WarnLevelLabel:  "restricted",
 					},
+					ManagedFields: syncFields,
 				},
 			},
 			expectedViolation:    true,
 			expectedEnforceLabel: "restricted",
 		},
 		{
-			name:     "non-violating against enforced namespace",
-			warnings: []string{},
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "violating-namespace",
-					Labels: map[string]string{
-						psapi.EnforceLevelLabel: "privileged",
-					},
-				},
-			},
-			expectedViolation:    false,
-			expectedEnforceLabel: "",
-		},
-		{
-			name: "violating against enforced namespace",
+			name: "violating against mixed ownership namespace",
 			warnings: []string{
 				"existing pods in namespace \"violating-namespace\" violate the new PodSecurity enforce level \"restricted:latest\"",
 				"violating-pod: allowPrivilegeEscalation != false, unrestricted capabilities, runAsNonRoot != true, seccompProfile",
@@ -130,8 +171,42 @@ func TestPodSecurityViolationController(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "violating-namespace",
 					Labels: map[string]string{
-						psapi.EnforceLevelLabel: "privileged",
+						psapi.AuditLevelLabel: "restricted",
+						psapi.WarnLevelLabel:  "privileged",
 					},
+					ManagedFields: mixedFields,
+				},
+			},
+			expectedViolation:    true,
+			expectedEnforceLabel: "restricted",
+		},
+		{
+			name:     "non violating against mixed ownership namespace",
+			warnings: []string{},
+			namespace: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "violating-namespace",
+					Labels: map[string]string{
+						psapi.AuditLevelLabel: "privileged",
+						psapi.WarnLevelLabel:  "restricted",
+					},
+					ManagedFields: mixedFields,
+				},
+			},
+			expectedViolation:    false,
+			expectedEnforceLabel: "privileged",
+		},
+		{
+			name:     "non violating against no-ownership namespace",
+			warnings: []string{},
+			namespace: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "violating-namespace",
+					Labels: map[string]string{
+						psapi.AuditLevelLabel: "privileged",
+						psapi.WarnLevelLabel:  "restricted",
+					},
+					ManagedFields: userFields,
 				},
 			},
 			expectedViolation:    false,
@@ -187,5 +262,51 @@ func TestPodSecurityViolationController(t *testing.T) {
 				t.Errorf("expected violation %v, got %v", tt.expectedViolation, isViolating)
 			}
 		})
+	}
+}
+
+func TestNamespaceSelector(t *testing.T) {
+	fakeClient := fake.NewSimpleClientset(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "ns-without-enforce",
+				Labels: map[string]string{},
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ns-with-enforce",
+				Labels: map[string]string{
+					psapi.EnforceLevelLabel: "restricted",
+				},
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "another-ns-without-enforce",
+				Labels: map[string]string{},
+			},
+		},
+	)
+
+	selector, err := nonEnforcingSelector()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nsList, err := fakeClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(nsList.Items) != 2 {
+		t.Errorf("expected 2 namespaces, got %d", len(nsList.Items))
+	}
+
+	for _, ns := range nsList.Items {
+		label, ok := ns.Labels[psapi.EnforceLevelLabel]
+		if ok {
+			t.Error("unexpected enforce label", label)
+		}
 	}
 }
