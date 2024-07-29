@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +46,9 @@ type CertRotationController struct {
 	recorder events.Recorder
 
 	cachesToSync []cache.InformerSynced
+
+	ControlledSecrets    []metav1.ObjectMeta
+	ControlledConfigMaps []metav1.ObjectMeta
 }
 
 func NewCertRotationController(
@@ -88,6 +92,9 @@ func NewCertRotationController(
 		// This must be reverted before we ship
 		rotationDay = rotationDay / 60
 	}
+
+	ret.ControlledSecrets = []metav1.ObjectMeta{}
+	ret.ControlledConfigMaps = []metav1.ObjectMeta{}
 
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
@@ -144,6 +151,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -204,6 +212,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -264,6 +273,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -325,6 +335,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -410,6 +421,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -473,6 +485,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -596,6 +609,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -663,6 +677,7 @@ func NewCertRotationController(
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		&ret.ControlledSecrets, &ret.ControlledConfigMaps,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
