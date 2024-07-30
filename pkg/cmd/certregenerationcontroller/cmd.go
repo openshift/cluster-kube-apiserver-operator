@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/clock"
@@ -14,8 +15,9 @@ import (
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configexternalinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
@@ -86,6 +88,23 @@ func (o *Options) Run(ctx context.Context) error {
 
 	configInformers := configexternalinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
+	desiredVersion := status.VersionForOperatorFromEnv()
+	missingVersion := "0.0.1-snapshot"
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion, missingVersion,
+		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
+		o.controllerContext.EventRecorder,
+	)
+
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
+	case <-time.After(1 * time.Minute):
+		klog.Errorf("timed out waiting for FeatureGate detection")
+		return fmt.Errorf("timed out waiting for FeatureGate detection")
+	}
+
 	kubeAPIServerInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -106,18 +125,13 @@ func (o *Options) Run(ctx context.Context) error {
 		return err
 	}
 
-	certRotationScale, err := certrotation.GetCertRotationScale(ctx, kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
-	if err != nil {
-		return err
-	}
-
 	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
 		kubeClient,
 		operatorClient,
 		configInformers,
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
-		certRotationScale,
+		featureGateAccessor,
 	)
 	if err != nil {
 		return err
@@ -146,6 +160,10 @@ func (o *Options) Run(ctx context.Context) error {
 
 	go func() {
 		caBundleController.Run(ctx)
+	}()
+
+	go func() {
+		featureGateAccessor.Run(ctx)
 	}()
 
 	<-ctx.Done()
