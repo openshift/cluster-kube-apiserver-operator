@@ -44,7 +44,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhooksupportabilitycontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -356,18 +355,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.Clock,
 	)
 
-	certRotationScale, err := certrotation.GetCertRotationScale(ctx, kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
-	if err != nil {
-		return err
-	}
-
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
 		operatorClient,
 		configInformers,
 		kubeInformersForNamespaces,
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
-		certRotationScale,
+		featureGateAccessor,
 	)
 	if err != nil {
 		return err

@@ -14,12 +14,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	features "github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/controller/factory"
 
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -53,7 +55,7 @@ func NewCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	day time.Duration,
+	featureGateAccessor featuregates.FeatureGateAccess,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -61,7 +63,7 @@ func NewCertRotationController(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		day,
+		featureGateAccessor,
 		false,
 	)
 }
@@ -72,7 +74,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	day time.Duration,
+	featureGateAccessor featuregates.FeatureGateAccess,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -80,7 +82,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		day,
+		featureGateAccessor,
 		true,
 	)
 }
@@ -91,7 +93,7 @@ func newCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	day time.Duration,
+	featureGateAccessor featuregates.FeatureGateAccess,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
@@ -118,14 +120,18 @@ func newCertRotationController(
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
 
 	rotationDay := defaultRotationDay
-	if day != time.Duration(0) {
-		rotationDay = day
-		klog.Warningf("!!! UNSUPPORTED VALUE SET !!!")
-		klog.Warningf("Certificate rotation base set to %q", rotationDay)
-	} else {
-		// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
-		// This must be reverted before we ship
-		rotationDay = rotationDay / 60
+	// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
+	// This must be reverted before we ship
+	rotationDay = rotationDay / 60
+
+	// Set custom rotation duration when FeatureShortCertRotation is enabled
+	featureGates, err := featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get FeatureGates: %w", err)
+	}
+
+	if featureGates.Enabled(features.FeatureShortCertRotation) {
+		rotationDay = time.Minute
 	}
 
 	certRotator := certrotation.NewCertRotationController(
