@@ -21,7 +21,6 @@ import (
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 )
 
 // CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from RotatedSigningCASecret, and by removing expired old ones.
@@ -64,10 +63,12 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	}
 	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta) || needsMetadataUpdate
 	if needsMetadataUpdate && len(caBundleConfigMap.ResourceVersion) > 0 {
-		_, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
+		copiedCABundleConfigMap := caBundleConfigMap.DeepCopy()
+		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, copiedCABundleConfigMap, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, err
 		}
+		caBundleConfigMap = actualCABundleConfigMap
 	}
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
@@ -78,15 +79,23 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
-		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
-		if err != nil {
-			return nil, err
+		if len(caBundleConfigMap.ResourceVersion) == 0 {
+			actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Create(ctx, caBundleConfigMap, metav1.CreateOptions{})
+			if err != nil {
+				return nil, err
+			}
+			caBundleConfigMap = actualCABundleConfigMap
+		} else {
+			copiedCABundleConfigMap := caBundleConfigMap.DeepCopy()
+			actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, copiedCABundleConfigMap, metav1.UpdateOptions{})
+			if err != nil {
+				return nil, err
+			}
+			if !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
+				klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+			}
+			caBundleConfigMap = actualCABundleConfigMap
 		}
-		if modified {
-			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
-		}
-
-		caBundleConfigMap = actualCABundleConfigMap
 	}
 
 	caBundle := caBundleConfigMap.Data["ca-bundle.crt"]

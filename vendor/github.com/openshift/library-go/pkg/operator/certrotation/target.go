@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -112,16 +111,11 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 			Type: corev1.SecretTypeTLS,
 		}
 	}
-
-	applyFn := resourceapply.ApplySecret
-	if c.UseSecretUpdateOnly {
-		applyFn = resourceapply.ApplySecretDoNotUse
-	}
-
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
-	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) {
-		actualTargetCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
+	if ensureMetadataUpdate(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(targetCertKeyPairSecret) && len(targetCertKeyPairSecret.ResourceVersion) > 0 {
+		copiedSigningCertKeyPairSecret := targetCertKeyPairSecret.DeepCopy()
+		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, copiedSigningCertKeyPairSecret, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -136,9 +130,18 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 
 		LabelAsManagedSecret(targetCertKeyPairSecret, CertificateTypeTarget)
 
-		actualTargetCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, targetCertKeyPairSecret)
-		if err != nil {
-			return nil, err
+		var actualTargetCertKeyPairSecret *corev1.Secret
+		if len(targetCertKeyPairSecret.ResourceVersion) == 0 {
+			actualTargetCertKeyPairSecret, err = c.Client.Secrets(c.Namespace).Create(ctx, targetCertKeyPairSecret, metav1.CreateOptions{})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			copiedSigningCertKeyPairSecret := targetCertKeyPairSecret.DeepCopy()
+			actualTargetCertKeyPairSecret, err = c.Client.Secrets(c.Namespace).Update(ctx, copiedSigningCertKeyPairSecret, metav1.UpdateOptions{})
+			if err != nil {
+				return nil, err
+			}
 		}
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	}
