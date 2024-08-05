@@ -587,6 +587,9 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	{Name: "sa-token-signing-certs"},
 
 	{Name: "kube-apiserver-audit-policies"},
+
+	// optional CA bundle of the external OIDC provider, if configured; meant to be used with the --oidc-ca-file KAS arg
+	{Name: "oidc-serving-ca", Optional: true},
 }
 
 // RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
