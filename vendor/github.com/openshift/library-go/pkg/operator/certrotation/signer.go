@@ -88,7 +88,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	// apply necessary metadata (possibly via delete+recreate) if secret exists
 	// this is done before content update to prevent unexpected rollouts
 	if ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations) && ensureSecretTLSTypeSet(signingCertKeyPairSecret) {
-		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
+		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret, true)
 		if err != nil {
 			return nil, false, err
 		}
@@ -104,7 +104,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
 
-		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret)
+		actualSigningCertKeyPairSecret, _, err := applyFn(ctx, c.Client, c.EventRecorder, signingCertKeyPairSecret, true)
 		if err != nil {
 			return nil, false, err
 		}

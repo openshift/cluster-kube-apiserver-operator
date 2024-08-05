@@ -79,21 +79,21 @@ func ApplyServiceAccount(ctx context.Context, client coreclientv1.ServiceAccount
 }
 
 // ApplyConfigMap merges objectmeta, requires data
-func ApplyConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap) (*corev1.ConfigMap, bool, error) {
-	return ApplyConfigMapImproved(ctx, client, recorder, required, noCache)
+func ApplyConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, skipInitialGet bool) (*corev1.ConfigMap, bool, error) {
+	return ApplyConfigMapImproved(ctx, client, recorder, required, noCache, skipInitialGet)
 }
 
 // ApplySecret merges objectmeta, requires data
-func ApplySecret(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret) (*corev1.Secret, bool, error) {
-	return applySecretImproved(ctx, client, recorder, required, noCache, false)
+func ApplySecret(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret, skipInitialGet bool) (*corev1.Secret, bool, error) {
+	return applySecretImproved(ctx, client, recorder, required, noCache, false, skipInitialGet)
 }
 
 // ApplySecretDoNotUse is depreated and will be removed
 // Deprecated: DO NOT USE, it is intended as a short term hack for a very specific use case,
 // and it works in tandem with a particular carry patch applied to the openshift kube-apiserver.
 // Use ApplySecret instead.
-func ApplySecretDoNotUse(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret) (*corev1.Secret, bool, error) {
-	return applySecretImproved(ctx, client, recorder, required, noCache, true)
+func ApplySecretDoNotUse(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, required *corev1.Secret, skipInitialGet bool) (*corev1.Secret, bool, error) {
+	return applySecretImproved(ctx, client, recorder, required, noCache, true, skipInitialGet)
 }
 
 // ApplyNamespace merges objectmeta, does not worry about anything else
@@ -270,8 +270,14 @@ func ApplyServiceAccountImproved(ctx context.Context, client coreclientv1.Servic
 }
 
 // ApplyConfigMap merges objectmeta, requires data
-func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache) (*corev1.ConfigMap, bool, error) {
-	existing, err := client.ConfigMaps(required.Namespace).Get(ctx, required.Name, metav1.GetOptions{})
+func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, required *corev1.ConfigMap, cache ResourceCache, skipInitialGet bool) (*corev1.ConfigMap, bool, error) {
+	var existing *corev1.ConfigMap
+	var err error
+	if skipInitialGet {
+		existing, err = client.ConfigMaps(required.Namespace).Get(ctx, required.Name, metav1.GetOptions{})
+	} else {
+		existing = required
+	}
 	if apierrors.IsNotFound(err) {
 		requiredCopy := required.DeepCopy()
 		actual, err := client.ConfigMaps(requiredCopy.Namespace).
@@ -365,13 +371,18 @@ func ApplyConfigMapImproved(ctx context.Context, client coreclientv1.ConfigMapsG
 
 // ApplySecret merges objectmeta, requires data
 func ApplySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret, cache ResourceCache) (*corev1.Secret, bool, error) {
-	return applySecretImproved(ctx, client, recorder, requiredInput, cache, false)
+	return applySecretImproved(ctx, client, recorder, requiredInput, cache, false, false)
 }
 
-func applySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret, cache ResourceCache, updateOnly bool) (*corev1.Secret, bool, error) {
+func applySecretImproved(ctx context.Context, client coreclientv1.SecretsGetter, recorder events.Recorder, requiredInput *corev1.Secret, cache ResourceCache, updateOnly bool, skipInitialGet bool) (*corev1.Secret, bool, error) {
 	// copy the stringData to data.  Error on a data content conflict inside required.  This is usually a bug.
-
-	existing, err := client.Secrets(requiredInput.Namespace).Get(ctx, requiredInput.Name, metav1.GetOptions{})
+	var existing *corev1.Secret
+	var err error
+	if skipInitialGet {
+		existing, err = client.Secrets(requiredInput.Namespace).Get(ctx, requiredInput.Name, metav1.GetOptions{})
+	} else {
+		existing = requiredInput
+	}
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, false, err
 	}
@@ -517,7 +528,7 @@ func SyncPartialConfigMap(ctx context.Context, client coreclientv1.ConfigMapsGet
 		source.Name = targetName
 		source.ResourceVersion = ""
 		source.OwnerReferences = ownerRefs
-		return ApplyConfigMap(ctx, client, recorder, source)
+		return ApplyConfigMap(ctx, client, recorder, source, false)
 	}
 }
 
@@ -596,7 +607,7 @@ func SyncPartialSecret(ctx context.Context, client coreclientv1.SecretsGetter, r
 		source.Name = targetName
 		source.ResourceVersion = ""
 		source.OwnerReferences = ownerRefs
-		return ApplySecret(ctx, client, recorder, source)
+		return ApplySecret(ctx, client, recorder, source, false)
 	}
 }
 

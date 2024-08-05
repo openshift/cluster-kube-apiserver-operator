@@ -123,6 +123,6 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 		},
 	}
 
-	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, cm)
+	_, _, err = resourceapply.ApplyConfigMap(ctx, c.kubeClient.CoreV1(), recorder, cm, false)
 	return err
 }
