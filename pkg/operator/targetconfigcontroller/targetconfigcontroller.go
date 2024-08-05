@@ -227,7 +227,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap, false)
 }
 
 func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
@@ -263,7 +263,7 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isSta
 	if optionalStartupMonitor != nil {
 		configMap.Data[startupMonitorPodKey] = resourceread.WritePodV1OrDie(optionalStartupMonitor)
 	}
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, configMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, configMap, false)
 }
 
 func generateOptionalStartupMonitorPod(isStartupMonitorEnabledFn func() (bool, error), operatorSpec *operatorv1.StaticPodOperatorSpec, operatorImagePullSpec string) (string, *corev1.Pod, error) {
@@ -312,7 +312,7 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 	}
 	requiredConfigMap.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
 
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap, false)
 }
 
 func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
@@ -339,7 +339,7 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 	}
 	requiredConfigMap.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
 
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap, false)
 }
 
 func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {

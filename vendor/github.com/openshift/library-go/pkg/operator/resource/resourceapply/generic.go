@@ -131,7 +131,7 @@ func ApplyDirectly(ctx context.Context, clients *ClientHolder, recorder events.R
 			if client == nil {
 				result.Error = fmt.Errorf("missing kubeClient")
 			} else {
-				result.Result, result.Changed, result.Error = ApplyConfigMapImproved(ctx, client, recorder, t, cache)
+				result.Result, result.Changed, result.Error = ApplyConfigMapImproved(ctx, client, recorder, t, cache, false)
 			}
 		case *corev1.Secret:
 			client := clients.secretsGetter()

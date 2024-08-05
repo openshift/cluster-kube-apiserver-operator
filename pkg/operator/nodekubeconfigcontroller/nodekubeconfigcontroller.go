@@ -153,7 +153,7 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 	}
 	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
 
-	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
+	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret, false)
 	if err != nil {
 		return err
 	}

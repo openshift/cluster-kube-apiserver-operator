@@ -154,7 +154,7 @@ func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, encry
 		return false, err
 	}
 
-	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
+	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s, false)
 	return changed, applyErr
 }
 
