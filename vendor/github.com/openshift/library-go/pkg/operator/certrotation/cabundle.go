@@ -21,7 +21,6 @@ import (
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 )
 
 // CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from RotatedSigningCASecret, and by removing expired old ones.
@@ -41,9 +40,11 @@ type CABundleConfigMap struct {
 	EventRecorder events.Recorder
 }
 
-func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA) ([]*x509.Certificate, error) {
+func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA, signingCertKeyPairLocation string) ([]*x509.Certificate, error) {
 	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
 	// doesn't have any expired certs
+	modified := false
+
 	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -56,36 +57,48 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 			c.Namespace,
 			c.AdditionalAnnotations,
 		)}
+		modified = true
 	}
 
-	needsMetadataUpdate := false
+	needsOwnerUpdate := false
 	if c.Owner != nil {
-		needsMetadataUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
+		needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
 	}
-	needsMetadataUpdate = c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta) || needsMetadataUpdate
-	if needsMetadataUpdate && len(caBundleConfigMap.ResourceVersion) > 0 {
-		_, _, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
-		if err != nil {
-			return nil, err
-		}
-	}
+	needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
+	modified = needsOwnerUpdate || needsMetadataUpdate || modified
 
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
 		return nil, err
 	}
 	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil || !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
-		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert", c.Name, c.Namespace)
+		reason := ""
+		if originalCABundleConfigMap == nil {
+			reason = "configmap doesn't exist"
+		} else if originalCABundleConfigMap.Data == nil {
+			reason = "configmap is empty"
+		} else if !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
+			reason = fmt.Sprintf("signer update %s", signingCertKeyPairLocation)
+		}
+		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert: %s", c.Name, c.Namespace, reason)
 		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 
-		actualCABundleConfigMap, modified, err := resourceapply.ApplyConfigMap(ctx, c.Client, c.EventRecorder, caBundleConfigMap)
+		modified = true
+	}
+
+	if modified {
+		var actualCABundleConfigMap *corev1.ConfigMap
+		if len(caBundleConfigMap.ResourceVersion) == 0 {
+			actualCABundleConfigMap, err = c.Client.ConfigMaps(c.Namespace).Create(ctx, caBundleConfigMap, metav1.CreateOptions{})
+		} else {
+			actualCABundleConfigMap, err = c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap.DeepCopy(), metav1.UpdateOptions{})
+		}
 		if err != nil {
 			return nil, err
 		}
-		if modified {
+		if equality.Semantic.DeepEqual(actualCABundleConfigMap.Data, caBundleConfigMap.Data) {
 			klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
 		}
-
 		caBundleConfigMap = actualCABundleConfigMap
 	}
 
