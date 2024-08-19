@@ -28,7 +28,7 @@ ENCRYPTION_PROVIDER?=aescbc
 # $2 - image ref
 # $3 - Dockerfile path
 # $4 - context directory for image build
-$(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3:cluster-kube-apiserver-operator, ./Dockerfile.rhel7,.)
+$(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3:cluster-kube-apiserver-operator, ./Dockerfile.ocp,.)
 
 # This will call a macro called "add-crd-gen" will will generate crd manifests based on the parameters:
 # $1 - target name
@@ -37,7 +37,7 @@ $(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3
 # $4 - output
 $(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 
-$(call verify-golang-versions,Dockerfile.rhel7)
+$(call verify-golang-versions,Dockerfile.ocp)
 
 TEST_E2E_ENCRYPTION_TARGETS=$(addprefix test-e2e-encryption-,$(ENCRYPTION_PROVIDERS))
 
