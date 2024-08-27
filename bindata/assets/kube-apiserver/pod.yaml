@@ -102,7 +102,7 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: livez
+        path: livez?verbose&exclude=etcd
       initialDelaySeconds: 0
       periodSeconds: 10
       timeoutSeconds: 10
