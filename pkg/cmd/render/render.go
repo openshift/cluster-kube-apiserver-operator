@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
@@ -47,7 +46,7 @@ type renderOpts struct {
 	clusterAuthFile   string
 	infraConfigFile   string
 
-	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
+	groupVersionsByFeatureGate map[configv1.FeatureGateName][]apienablement.GroupVersion
 }
 
 // NewRenderCommand creates a render command.
@@ -209,6 +208,7 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
+	apiServerVersion := ?
 	renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGates(featureGates, r.groupVersionsByFeatureGate)
 
 	if len(r.clusterConfigFile) > 0 {
