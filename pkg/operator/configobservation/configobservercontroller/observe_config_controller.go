@@ -1,12 +1,13 @@
 package configobservercontroller
 
 import (
-	configv1 "github.com/openshift/api/config/v1"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
+	configv1 "github.com/openshift/api/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -37,15 +38,7 @@ type ConfigObserver struct {
 	factory.Controller
 }
 
-func NewConfigObserver(
-	operatorClient v1helpers.StaticPodOperatorClient,
-	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	configInformer configinformers.SharedInformerFactory,
-	operatorInformer operatorv1informers.SharedInformerFactory,
-	resourceSyncer resourcesynccontroller.ResourceSyncer,
-	featureGateAccessor featuregates.FeatureGateAccess,
-	eventRecorder events.Recorder,
-) *ConfigObserver {
+func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, configInformer configinformers.SharedInformerFactory, operatorInformer operatorv1informers.SharedInformerFactory, resourceSyncer resourcesynccontroller.ResourceSyncer, featureGateAccessor featuregates.FeatureGateAccess, eventRecorder events.Recorder, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) *ConfigObserver {
 	interestingNamespaces := []string{
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -147,7 +140,7 @@ func NewConfigObserver(
 				nil,
 				FeatureBlacklist,
 				featureGateAccessor,
-				apienablement.DefaultGroupVersionsByFeatureGate,
+				groupVersionsByFeatureGate,
 			),
 			network.ObserveRestrictedCIDRs,
 			network.ObserveServicesSubnet,

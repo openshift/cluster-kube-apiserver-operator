@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
@@ -39,6 +40,8 @@ import (
 type renderOpts struct {
 	manifest genericrenderoptions.ManifestOptions
 	generic  genericrenderoptions.GenericOptions
+
+	operandKubernetesVersion string
 
 	lockHostPath      string
 	etcdServerURLs    []string
@@ -98,6 +101,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.clusterConfigFile, "cluster-config-file", r.clusterConfigFile, "Openshift Cluster API Config file.")
 	fs.StringVar(&r.clusterAuthFile, "cluster-auth-file", r.clusterAuthFile, "Openshift Cluster Authentication API Config file.")
 	fs.StringVar(&r.infraConfigFile, "infra-config-file", "", "File containing infrastructure.config.openshift.io manifest.")
+	fs.StringVar(&r.operandKubernetesVersion, "operand-kubernetes-version", "", "Kubernetes version of the operand (hyperkube image).")
 }
 
 // Validate verifies the inputs.
@@ -127,6 +131,14 @@ func (r *renderOpts) Validate() error {
 		return err
 	}
 
+	// TODO add after installer PR is merged
+	//if len(r.operandKubernetesVersion) == 0 {
+	//	return errors.New("missing operand kubernetes version: --operand-kubernetes-version")
+	//}
+	//if _, err := semver.Parse(r.operandKubernetesVersion); err != nil {
+	//	return err
+	//}
+
 	return nil
 }
 
@@ -139,7 +151,15 @@ func (r *renderOpts) Complete() error {
 		return err
 	}
 	if r.groupVersionsByFeatureGate == nil {
-		r.groupVersionsByFeatureGate = apienablement.DefaultGroupVersionsByFeatureGate
+		// TODO remove after installer PR is merged
+		if len(r.operandKubernetesVersion) == 0 {
+			r.operandKubernetesVersion = "1.30.0"
+		}
+		var err error
+		r.groupVersionsByFeatureGate, err = apienablement.GetDefaultGroupVersionByFeatureGate(semver.MustParse(r.operandKubernetesVersion))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
