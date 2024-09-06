@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/blang/semver/v4"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -22,6 +24,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationtimeupgradeablecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configmetrics"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
@@ -105,6 +108,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	operandKubernetesVersion, err := semver.Parse(status.VersionForOperandFromEnv())
+	if err != nil {
+		return err
+	}
+	groupVersionsByFeatureGate, err := apienablement.GetDefaultGroupVersionByFeatureGate(operandKubernetesVersion)
+	if err != nil {
+		return err
+	}
+
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		"",
@@ -169,6 +181,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		resourceSyncController,
 		featureGateAccessor,
 		controllerContext.EventRecorder,
+		groupVersionsByFeatureGate,
 	)
 
 	serviceAccountIssuerController := serviceaccountissuercontroller.NewController(operatorV1Client.OperatorV1().KubeAPIServers(), operatorInformers, configInformers, controllerContext.EventRecorder)

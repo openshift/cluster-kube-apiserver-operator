@@ -3,7 +3,9 @@ package apienablement
 import (
 	"fmt"
 	"sort"
+	"strings"
 
+	"github.com/blang/semver/v4"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -12,11 +14,47 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-var DefaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{
-	"ValidatingAdmissionPolicy": {{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
-	"DynamicResourceAllocation": {{Group: "resource.k8s.io", Version: "v1alpha2"}},
+var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+	"ValidatingAdmissionPolicy": {{GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}}},
+	"DynamicResourceAllocation": {
+		{KubeVersionRange: semver.MustParseRange("< 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
+		{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
+	},
+}
+
+type groupVersionByOpenshiftVersion struct {
+	schema.GroupVersion
+	KubeVersionRange semver.Range
+}
+
+func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
+	result := make(map[configv1.FeatureGateName][]schema.GroupVersion, len(groupVersionsByFeatureGate))
+	groupByVersions := map[string][]string{}
+	for featureGate, APIGroups := range groupVersionsByFeatureGate {
+		for _, group := range APIGroups {
+			if group.KubeVersionRange == nil || group.KubeVersionRange(kubeVersion) {
+				groupByVersions[group.Group] = append(groupByVersions[group.Group], group.Version)
+				result[featureGate] = append(result[featureGate], group.GroupVersion)
+			}
+		}
+	}
+	var errs []error
+	for group, versions := range groupByVersions {
+		if len(versions) > 1 {
+			errs = append(errs, fmt.Errorf("found a duplicate group %v for FeatureGates, versions found: %v", group, strings.Join(versions, ",")))
+		}
+	}
+	if len(errs) > 0 {
+		return nil, v1helpers.NewMultiLineAggregate(errs)
+	}
+	return result, nil
+}
+
+func GetDefaultGroupVersionByFeatureGate(kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
+	return getGroupVersionByFeatureGate(defaultGroupVersionsByFeatureGate, kubeVersion)
 }
 
 var (
