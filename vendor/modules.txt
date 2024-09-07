@@ -29,7 +29,7 @@ github.com/coreos/go-semver/semver
 ## explicit; go 1.12
 github.com/coreos/go-systemd/v22/daemon
 github.com/coreos/go-systemd/v22/journal
-# github.com/davecgh/go-spew v1.1.1
+# github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/emicklei/go-restful/v3 v3.11.0
@@ -343,7 +343,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20240816092752-e21e7889fd1a
+# github.com/openshift/library-go v0.0.0-20240905123346-5bdbfe35a6f5
 ## explicit; go 1.22.0
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -435,7 +435,7 @@ github.com/pkg/errors
 # github.com/pkg/profile v1.5.0
 ## explicit; go 1.13
 github.com/pkg/profile
-# github.com/pmezard/go-difflib v1.0.0
+# github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 ## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/prometheus/client_golang v1.16.0
@@ -570,7 +570,7 @@ go.uber.org/zap/internal/pool
 go.uber.org/zap/internal/stacktrace
 go.uber.org/zap/zapcore
 go.uber.org/zap/zapgrpc
-# golang.org/x/crypto v0.21.0
+# golang.org/x/crypto v0.23.0
 ## explicit; go 1.18
 golang.org/x/crypto/cryptobyte
 golang.org/x/crypto/cryptobyte/asn1
@@ -584,7 +584,7 @@ golang.org/x/crypto/salsa20/salsa
 ## explicit; go 1.18
 golang.org/x/exp/constraints
 golang.org/x/exp/slices
-# golang.org/x/net v0.23.0
+# golang.org/x/net v0.25.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -606,17 +606,17 @@ golang.org/x/oauth2/internal
 # golang.org/x/sync v0.6.0
 ## explicit; go 1.18
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.18.0
+# golang.org/x/sys v0.20.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/term v0.18.0
+# golang.org/x/term v0.20.0
 ## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.14.0
+# golang.org/x/text v0.15.0
 ## explicit; go 1.18
 golang.org/x/text/feature/plural
 golang.org/x/text/internal
@@ -1446,7 +1446,7 @@ k8s.io/kube-openapi/pkg/validation/strfmt/bson
 # k8s.io/pod-security-admission v0.30.1
 ## explicit; go 1.22.0
 k8s.io/pod-security-admission/api
-# k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+# k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 ## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
