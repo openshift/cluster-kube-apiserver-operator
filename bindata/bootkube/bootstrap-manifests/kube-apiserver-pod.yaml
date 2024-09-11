@@ -71,16 +71,32 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: livez
-      initialDelaySeconds: 45
+        path: livez?exclude=etcd
+      initialDelaySeconds: 0
+      periodSeconds: 10
       timeoutSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
     readinessProbe:
       httpGet:
         scheme: HTTPS
         port: 6443
         path: readyz
-      initialDelaySeconds: 10
+      initialDelaySeconds: 0
+      periodSeconds: 5
       timeoutSeconds: 10
+      successThreshold: 1
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        scheme: HTTPS
+        port: 6443
+        path: livez
+      initialDelaySeconds: 0
+      periodSeconds: 5
+      timeoutSeconds: 10
+      successThreshold: 1
+      failureThreshold: 30
     env:
     - name: HOST_IP
       valueFrom:

@@ -102,7 +102,7 @@ spec:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: livez
+        path: livez?exclude=etcd
       initialDelaySeconds: 0
       periodSeconds: 10
       timeoutSeconds: 10
@@ -117,12 +117,12 @@ spec:
       periodSeconds: 5
       timeoutSeconds: 10
       successThreshold: 1
-      failureThreshold: 1
+      failureThreshold: 3
     startupProbe:
       httpGet:
         scheme: HTTPS
         port: 6443
-        path: healthz
+        path: livez
       initialDelaySeconds: 0
       periodSeconds: 5
       timeoutSeconds: 10
