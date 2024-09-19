@@ -249,6 +249,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			overrides: []func(*renderOpts){
 				func(opts *renderOpts) {
@@ -307,6 +309,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v6.yaml"), []byte(networkConfigV6), 0644)
@@ -331,6 +335,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
@@ -358,6 +364,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				issuer := cfg.APIServerArguments["service-account-issuer"]
@@ -378,6 +386,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				data := ``
@@ -402,6 +412,8 @@ func TestRenderCommand(t *testing.T) {
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				data := `apiVersion: config.openshift.io/v1
@@ -430,6 +442,8 @@ spec: {}`
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				data := `apiVersion: config.openshift.io/v1
@@ -459,6 +473,8 @@ spec:
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 		},
 		{
@@ -470,6 +486,8 @@ spec:
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				data := `DUMMY DATA`
@@ -509,6 +527,8 @@ spec:
 				"--config-output-file=",
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
@@ -539,6 +559,8 @@ spec:
 				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureHA), 0644)
@@ -572,6 +594,8 @@ spec:
 				"--infra-config-file=" + filepath.Join(assetsInputDir, "infrastructure.yaml"),
 				"--payload-version=test",
 				"--rendered-manifest-files=" + defaultFGDir,
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureSNO), 0644)
@@ -735,11 +759,12 @@ func Test_renderOpts_Validate(t *testing.T) {
 	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
 
 	tests := []struct {
-		name          string
-		assetInputDir string
-		setupFunction func() error
-		testFunction  func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error
-		wantErr       bool
+		name                     string
+		assetInputDir            string
+		setupFunction            func() error
+		operatorImage            string
+		operandKubernetesVersion string
+		wantErr                  bool
 	}{
 		{
 			name:          "user provided bound-sa-signing-key only no public part",
@@ -751,7 +776,9 @@ func Test_renderOpts_Validate(t *testing.T) {
 				}
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0600)
 			},
-			wantErr: true,
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "1.31.0",
+			wantErr:                  true,
 		},
 		{
 			name:          "user provided bound-sa-signing-key only public part",
@@ -763,7 +790,9 @@ func Test_renderOpts_Validate(t *testing.T) {
 				}
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
 			},
-			wantErr: true,
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "1.31.0",
+			wantErr:                  true,
 		},
 		{
 			name:          "user provided bound-sa-signing-key - both keys exist",
@@ -778,6 +807,8 @@ func Test_renderOpts_Validate(t *testing.T) {
 				}
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0600)
 			},
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "1.31.0",
 		},
 		{
 			name:          "user provided bound-sa-signing-key - neither key exists",
@@ -785,6 +816,38 @@ func Test_renderOpts_Validate(t *testing.T) {
 			setupFunction: func() error {
 				return os.Mkdir(filepath.Join(assetsInputDir, "3"), 0700)
 			},
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "1.31.0",
+		},
+		{
+			name:          "missing --manifest-operator-image flag",
+			assetInputDir: filepath.Join(assetsInputDir, "4"),
+			setupFunction: func() error {
+				return os.Mkdir(filepath.Join(assetsInputDir, "4"), 0700)
+			},
+			operatorImage:            "",
+			operandKubernetesVersion: "1.31.0",
+			wantErr:                  true,
+		},
+		{
+			name:          "missing --operand-kubernetes-version flag",
+			assetInputDir: filepath.Join(assetsInputDir, "5"),
+			setupFunction: func() error {
+				return os.Mkdir(filepath.Join(assetsInputDir, "5"), 0700)
+			},
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "",
+			wantErr:                  true,
+		},
+		{
+			name:          "invalid --operand-kubernetes-version flag",
+			assetInputDir: filepath.Join(assetsInputDir, "6"),
+			setupFunction: func() error {
+				return os.Mkdir(filepath.Join(assetsInputDir, "6"), 0700)
+			},
+			operatorImage:            "kube-apiserver-operator:latest",
+			operandKubernetesVersion: "5",
+			wantErr:                  true,
 		},
 	}
 	for _, tt := range tests {
@@ -804,15 +867,18 @@ func Test_renderOpts_Validate(t *testing.T) {
 				generic:  *genericrenderoptions.NewGenericOptions(),
 				manifest: *genericrenderoptions.NewManifestOptions("kube-apiserver", "openshift/origin-hyperkube:latest"),
 
-				lockHostPath:   "/var/run/kubernetes/lock",
-				etcdServerURLs: []string{"https://127.0.0.1:2379"},
-				etcdServingCA:  "root-ca.crt",
+				lockHostPath:             "/var/run/kubernetes/lock",
+				etcdServerURLs:           []string{"https://127.0.0.1:2379"},
+				etcdServingCA:            "root-ca.crt",
+				operandKubernetesVersion: tt.operandKubernetesVersion,
 			}
 			r.generic.TemplatesDir = templateDir
 
 			r.generic.AssetInputDir = tt.assetInputDir
 			r.generic.AssetOutputDir = filepath.Join(outputDir, "manifests")
 			r.generic.ConfigOutputFile = filepath.Join(outputDir, "configs", "config.yaml")
+
+			r.manifest.OperatorImage = tt.operatorImage
 
 			if err := r.Validate(); (err != nil) != tt.wantErr {
 				t.Errorf("renderOpts.Validate() error = %v, wantErr %v", err, tt.wantErr)

@@ -113,10 +113,9 @@ func (r *renderOpts) Validate() error {
 		return err
 	}
 
-	// TODO: enable check when the installer is updated
-	//if len(r.manifest.OperatorImage) == 0 {
-	//	return errors.New("missing required flag: --manifest-operator-image")
-	//}
+	if len(r.manifest.OperatorImage) == 0 {
+		return errors.New("missing required flag: --manifest-operator-image")
+	}
 	if len(r.lockHostPath) == 0 {
 		return errors.New("missing required flag: --manifest-lock-host-path")
 	}
@@ -131,14 +130,12 @@ func (r *renderOpts) Validate() error {
 		return err
 	}
 
-	// TODO add after installer PR is merged
-	//if len(r.operandKubernetesVersion) == 0 {
-	//	return errors.New("missing operand kubernetes version: --operand-kubernetes-version")
-	//}
-	//if _, err := semver.Parse(r.operandKubernetesVersion); err != nil {
-	//	return err
-	//}
-
+	if len(r.operandKubernetesVersion) == 0 {
+		return errors.New("missing operand kubernetes version: --operand-kubernetes-version")
+	}
+	if _, err := semver.Parse(r.operandKubernetesVersion); err != nil {
+		return fmt.Errorf("could not parse --operand-kubernetes-version: %v", err)
+	}
 	return nil
 }
 
@@ -151,10 +148,6 @@ func (r *renderOpts) Complete() error {
 		return err
 	}
 	if r.groupVersionsByFeatureGate == nil {
-		// TODO remove after installer PR is merged
-		if len(r.operandKubernetesVersion) == 0 {
-			r.operandKubernetesVersion = "1.30.0"
-		}
 		var err error
 		r.groupVersionsByFeatureGate, err = apienablement.GetDefaultGroupVersionByFeatureGate(semver.MustParse(r.operandKubernetesVersion))
 		if err != nil {
