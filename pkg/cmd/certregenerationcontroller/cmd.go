@@ -17,6 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
@@ -92,7 +93,13 @@ func (o *Options) Run(ctx context.Context) error {
 		operatorclient.TargetNamespace,
 	)
 
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(o.controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(
+		o.controllerContext.KubeConfig,
+		operatorv1.GroupVersion.WithResource("kubeapiservers"),
+		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
+		operator.ExtractStaticPodOperatorSpec,
+		operator.ExtractStaticPodOperatorStatus,
+	)
 	if err != nil {
 		return err
 	}

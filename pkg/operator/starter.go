@@ -14,6 +14,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
@@ -68,6 +69,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -129,7 +131,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"openshift-apiserver",
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
-	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(controllerContext.KubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(
+		controllerContext.KubeConfig,
+		operatorv1.GroupVersion.WithResource("kubeapiservers"),
+		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
+		ExtractStaticPodOperatorSpec,
+		ExtractStaticPodOperatorStatus,
+	)
 	if err != nil {
 		return err
 	}
@@ -654,4 +662,35 @@ var CertSecrets = []installer.UnrevisionedResource{
 	{Name: "user-serving-cert-007", Optional: true},
 	{Name: "user-serving-cert-008", Optional: true},
 	{Name: "user-serving-cert-009", Optional: true},
+}
+
+func ExtractStaticPodOperatorSpec(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorSpecApplyConfiguration, error) {
+	castObj := &operatorv1.KubeAPIServer{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+		return nil, fmt.Errorf("unable to convert to KubeControllerManager: %w", err)
+	}
+	ret, err := applyoperatorv1.ExtractKubeAPIServer(castObj, fieldManager)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+	}
+	if ret.Spec == nil {
+		return nil, nil
+	}
+	return &ret.Spec.StaticPodOperatorSpecApplyConfiguration, nil
+}
+
+func ExtractStaticPodOperatorStatus(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorStatusApplyConfiguration, error) {
+	castObj := &operatorv1.KubeAPIServer{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
+		return nil, fmt.Errorf("unable to convert to KubeAPIServer: %w", err)
+	}
+	ret, err := applyoperatorv1.ExtractKubeAPIServerStatus(castObj, fieldManager)
+	if err != nil {
+		return nil, fmt.Errorf("unable to extract fields for %q: %w", fieldManager, err)
+	}
+
+	if ret.Status == nil {
+		return nil, nil
+	}
+	return &ret.Status.StaticPodOperatorStatusApplyConfiguration, nil
 }
