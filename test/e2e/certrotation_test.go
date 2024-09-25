@@ -18,6 +18,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
@@ -28,7 +29,12 @@ import (
 func TestCertRotationTimeUpgradeable(t *testing.T) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
-	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(kubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
+		kubeConfig,
+		operatorv1.GroupVersion.WithResource("kubeapiservers"),
+		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
+		operator.ExtractStaticPodOperatorSpec,
+		operator.ExtractStaticPodOperatorStatus)
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)

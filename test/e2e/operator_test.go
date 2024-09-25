@@ -9,6 +9,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
@@ -48,7 +49,12 @@ func TestRevisionLimits(t *testing.T) {
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(kubeConfig, operatorv1.GroupVersion.WithResource("kubeapiservers"))
+	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
+		kubeConfig,
+		operatorv1.GroupVersion.WithResource("kubeapiservers"),
+		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
+		operator.ExtractStaticPodOperatorSpec,
+		operator.ExtractStaticPodOperatorStatus)
 	require.NoError(t, err)
 
 	// Get current revision limits
