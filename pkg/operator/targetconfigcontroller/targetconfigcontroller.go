@@ -48,7 +48,8 @@ type TargetConfigController struct {
 	kubeClient      kubernetes.Interface
 	configMapLister corev1listers.ConfigMapLister
 
-	isStartupMonitorEnabledFn func() (bool, error)
+	isStartupMonitorEnabledFn    func() (bool, error)
+	notOnSingleReplicaTopologyFn func() bool
 }
 
 func NewTargetConfigController(
@@ -58,15 +59,17 @@ func NewTargetConfigController(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	isStartupMonitorEnabledFn func() (bool, error),
+	notOnSingleReplicaTopologyFn func() bool,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &TargetConfigController{
-		targetImagePullSpec:       targetImagePullSpec,
-		operatorImagePullSpec:     operatorImagePullSpec,
-		operatorClient:            operatorClient,
-		kubeClient:                kubeClient,
-		configMapLister:           kubeInformersForNamespaces.ConfigMapLister(),
-		isStartupMonitorEnabledFn: isStartupMonitorEnabledFn,
+		targetImagePullSpec:          targetImagePullSpec,
+		operatorImagePullSpec:        operatorImagePullSpec,
+		operatorClient:               operatorClient,
+		kubeClient:                   kubeClient,
+		configMapLister:              kubeInformersForNamespaces.ConfigMapLister(),
+		isStartupMonitorEnabledFn:    isStartupMonitorEnabledFn,
+		notOnSingleReplicaTopologyFn: notOnSingleReplicaTopologyFn,
 	}
 
 	return factory.New().WithInformers(
@@ -100,7 +103,8 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 	}
 
 	// block until config is observed and specific paths are present
-	if err := isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw); err != nil {
+	isNotOnSingleReplicaTopology := c.notOnSingleReplicaTopologyFn()
+	if err := isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw, isNotOnSingleReplicaTopology); err != nil {
 		syncContext.Recorder().Warning("ConfigMissing", err.Error())
 		return err
 	}
@@ -116,7 +120,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 	return nil
 }
 
-func isRequiredConfigPresent(config []byte) error {
+func isRequiredConfigPresent(config []byte, isNotSingleNode bool) error {
 	if len(config) == 0 {
 		return fmt.Errorf("no observedConfig")
 	}
@@ -147,6 +151,16 @@ func isRequiredConfigPresent(config []byte) error {
 		}
 		if configValString, ok := configVal.(string); ok && len(configValString) == 0 {
 			return fmt.Errorf("%v empty in config", strings.Join(requiredPath, "."))
+		}
+
+		if len(requiredPath) == 2 && requiredPath[0] == "apiServerArguments" && requiredPath[1] == "etcd-servers" && isNotSingleNode {
+			configValSlice, ok := configVal.([]interface{})
+			if !ok {
+				return fmt.Errorf("%v is not a slice", strings.Join(requiredPath, "."))
+			}
+			if len(configValSlice) < 3 {
+				return fmt.Errorf("%v has less than three endpoints: %v", strings.Join(requiredPath, "."), configValSlice)
+			}
 		}
 	}
 	return nil
