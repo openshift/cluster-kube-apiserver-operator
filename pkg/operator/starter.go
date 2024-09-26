@@ -135,8 +135,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.KubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
-		ExtractStaticPodOperatorSpec,
-		ExtractStaticPodOperatorStatus,
+		extractStaticPodOperatorSpec,
+		extractStaticPodOperatorStatus,
 	)
 	if err != nil {
 		return err
@@ -664,7 +664,7 @@ var CertSecrets = []installer.UnrevisionedResource{
 	{Name: "user-serving-cert-009", Optional: true},
 }
 
-func ExtractStaticPodOperatorSpec(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorSpecApplyConfiguration, error) {
+func extractStaticPodOperatorSpec(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorSpecApplyConfiguration, error) {
 	castObj := &operatorv1.KubeAPIServer{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
 		return nil, fmt.Errorf("unable to convert to KubeControllerManager: %w", err)
@@ -679,7 +679,7 @@ func ExtractStaticPodOperatorSpec(obj *unstructured.Unstructured, fieldManager s
 	return &ret.Spec.StaticPodOperatorSpecApplyConfiguration, nil
 }
 
-func ExtractStaticPodOperatorStatus(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorStatusApplyConfiguration, error) {
+func extractStaticPodOperatorStatus(obj *unstructured.Unstructured, fieldManager string) (*applyoperatorv1.StaticPodOperatorStatusApplyConfiguration, error) {
 	castObj := &operatorv1.KubeAPIServer{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, castObj); err != nil {
 		return nil, fmt.Errorf("unable to convert to KubeAPIServer: %w", err)
