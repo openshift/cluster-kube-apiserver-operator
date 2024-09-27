@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	configobserveretcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/events"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +142,7 @@ func withBootstrap(ip string) func(*v1.ConfigMap) {
 		if endpoints.Annotations == nil {
 			endpoints.Annotations = map[string]string{}
 		}
-		endpoints.Annotations["alpha.installer.openshift.io/etcd-bootstrap"] = ip
+		endpoints.Annotations[configobserveretcd.BootstrapIPAnnotationKey] = ip
 	}
 }
 
