@@ -420,6 +420,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	)
 
 	auditPolicyController := auditpolicy.NewAuditPolicyController(
+		"openshift-kube-apiserver",
 		operatorclient.TargetNamespace,
 		"kube-apiserver-audit-policies",
 		configInformers.Config().V1().APIServers().Lister(),
@@ -452,6 +453,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	)
 
 	latencyProfileController := latencyprofilecontroller.NewLatencyProfileController(
+		"openshift-kube-apiserver",
 		operatorClient,
 		operatorclient.TargetNamespace,
 		nil, // profile rejection logic is not required for this operator
