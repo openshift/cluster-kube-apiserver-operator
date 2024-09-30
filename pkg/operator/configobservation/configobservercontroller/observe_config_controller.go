@@ -74,6 +74,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 
 	c := &ConfigObserver{
 		Controller: configobserver.NewConfigObserver(
+			"cluster-kube-apiserver-operator",
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
