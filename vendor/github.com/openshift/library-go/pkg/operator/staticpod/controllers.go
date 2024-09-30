@@ -231,11 +231,12 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	if len(b.operandNamespace) > 0 {
 		manager.WithController(revisioncontroller.NewRevisionController(
+			b.operandName,
 			b.operandNamespace,
 			b.revisionConfigMaps,
 			b.revisionSecrets,
 			operandInformers,
-			revisioncontroller.StaticPodLatestRevisionClient{StaticPodOperatorClient: b.staticPodOperatorClient},
+			b.staticPodOperatorClient,
 			configMapClient,
 			secretClient,
 			eventRecorder,
@@ -269,6 +270,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		), 1)
 
 		manager.WithController(installerstate.NewInstallerStateController(
+			b.operandName,
 			operandInformers,
 			podClient,
 			eventsClient,
