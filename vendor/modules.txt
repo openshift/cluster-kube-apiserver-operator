@@ -349,7 +349,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20241001171606-756adf2188fc
+# github.com/openshift/library-go v0.0.0-20241001171606-756adf2188fc => github.com/dgrisonnet/library-go v0.0.0-20241008134547-3a2c652a8d51
 ## explicit; go 1.22.0
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/authorization/hardcodedauthorizer
@@ -413,6 +413,7 @@ github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresourc
 github.com/openshift/library-go/pkg/operator/staticpod/controller/common
 github.com/openshift/library-go/pkg/operator/staticpod/controller/guard
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installer
+github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/metrics
 github.com/openshift/library-go/pkg/operator/staticpod/controller/installerstate
 github.com/openshift/library-go/pkg/operator/staticpod/controller/missingstaticpod
 github.com/openshift/library-go/pkg/operator/staticpod/controller/node
@@ -1541,3 +1542,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# github.com/openshift/library-go => github.com/dgrisonnet/library-go v0.0.0-20241008134547-3a2c652a8d51
