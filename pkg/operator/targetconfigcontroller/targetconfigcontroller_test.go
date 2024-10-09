@@ -1,6 +1,7 @@
 package targetconfigcontroller
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -110,7 +111,7 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := isRequiredConfigPresent([]byte(test.config))
+			actual := isRequiredConfigPresent([]byte(test.config), false)
 			switch {
 			case actual == nil && len(test.expectedError) == 0:
 			case actual == nil && len(test.expectedError) != 0:
@@ -233,6 +234,104 @@ func TestManageTemplate(t *testing.T) {
 
 			if appliedTemplate != scenario.golden {
 				t.Fatalf("returned data is different thatn expected. wanted = %v, got %v, the templates was %v", scenario.golden, appliedTemplate, scenario.template)
+			}
+		})
+	}
+}
+
+func TestIsRequiredConfigPresentEtcdEndpoints(t *testing.T) {
+	configTemplate := `{
+		 "servingInfo": {
+		   "namedCertificates": [
+		     {
+		       "certFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.crt",
+		       "keyFile": "/etc/kubernetes/static-pod-certs/secrets/localhost-serving-cert-certkey/tls.key"
+		     }
+		   ]
+		 },
+		 "admission": {"pluginConfig": { "network.openshift.io/RestrictedEndpointsAdmission": {}}},
+		 "apiServerArguments": {
+		   "etcd-servers": %s
+		 }
+		}
+		`
+	tests := []struct {
+		name            string
+		etcdServers     string
+		expectedError   string
+		isNotSingleNode bool
+	}{
+		{
+			name:          "nil-storage-urls",
+			etcdServers:   "null",
+			expectedError: "apiServerArguments.etcd-servers null in config",
+		},
+		{
+			name:          "missing-storage-urls",
+			etcdServers:   "[]",
+			expectedError: "apiServerArguments.etcd-servers empty in config",
+		},
+		{
+			name:          "empty-string-storage-urls",
+			etcdServers:   `""`,
+			expectedError: "apiServerArguments.etcd-servers empty in config",
+		},
+		{
+			name:            "one-etcd-server",
+			etcdServers:     `[ "val" ]`,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than three endpoints",
+		},
+		{
+			name:            "one-etcd-server-sno",
+			etcdServers:     `[ "val" ]`,
+			isNotSingleNode: false,
+		},
+		{
+			name:            "two-etcd-servers",
+			etcdServers:     `[ "val1", "val2" ]`,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than three endpoints",
+		},
+		{
+			name:            "two-etcd-servers-sno",
+			etcdServers:     `[ "val1", "val2" ]`,
+			isNotSingleNode: false,
+		},
+		{
+			name:            "three-etcd-servers",
+			etcdServers:     `[ "val1", "val2", "val3" ]`,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "three-etcd-servers-sno",
+			etcdServers:     `[ "val1", "val2", "val3" ]`,
+			isNotSingleNode: false,
+		},
+		{
+			name:            "four-etcd-servers",
+			etcdServers:     `[ "val1", "val2", "val3", "val4" ]`,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "four-etcd-servers-sno",
+			etcdServers:     `[ "val1", "val2", "val3", "val4" ]`,
+			isNotSingleNode: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := fmt.Sprintf(configTemplate, test.etcdServers)
+			actual := isRequiredConfigPresent([]byte(config), test.isNotSingleNode)
+			switch {
+			case actual == nil && len(test.expectedError) == 0:
+			case actual == nil && len(test.expectedError) != 0:
+				t.Fatal(actual)
+			case actual != nil && len(test.expectedError) == 0:
+				t.Fatal(actual)
+			case actual != nil && len(test.expectedError) != 0 && !strings.Contains(actual.Error(), test.expectedError):
+				t.Fatal(actual)
 			}
 		})
 	}
