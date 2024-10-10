@@ -62,7 +62,7 @@ spec:
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET",code=~"5.."}[5m]))
         )
         /
-        sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[5m]))
+        sum by (cluster) (rate(apiserver_request_total{job="apiserver"}[5m]))
       labels:
         verb: read
       record: apiserver_request:burnrate5m
@@ -191,7 +191,7 @@ spec:
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",code=~"5.."}[5m]))
         )
         /
-        sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE"}[5m]))
+        sum by (cluster) (rate(apiserver_request_total{job="apiserver"}[5m]))
       labels:
         verb: write
       record: apiserver_request:burnrate5m
