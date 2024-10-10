@@ -16,7 +16,7 @@ spec:
               a successful upgrade to the next cluster version with Kubernetes {{ $labels.removed_release }}.
               Refer to `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` to identify the workload.
           expr: >-
-            group by (group,version,resource,removed_release) (apiserver_requested_deprecated_apis{removed_release="1.31"})
+            group by (group,version,resource,removed_release) (apiserver_requested_deprecated_apis{removed_release="1.32"})
             * on (group,version,resource) group_left ()
             sum by (group,version,resource) (
             rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h])
@@ -34,7 +34,7 @@ spec:
               a successful upgrade to the next EUS cluster version with Kubernetes {{ $labels.removed_release }}.
               Refer to `oc get apirequestcounts {{ $labels.resource }}.{{ $labels.version }}.{{ $labels.group }} -o yaml` to identify the workload.
           expr: >-
-            group by (group,version,resource,removed_release) (apiserver_requested_deprecated_apis{removed_release=~"1.31"})
+            group by (group,version,resource,removed_release) (apiserver_requested_deprecated_apis{removed_release=~"1.3[23]"})
             * on (group,version,resource) group_left ()
             sum by (group,version,resource) (
             rate(apiserver_request_total{system_client!="kube-controller-manager",system_client!="cluster-policy-controller"}[4h])
