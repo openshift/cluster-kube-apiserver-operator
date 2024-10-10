@@ -34,7 +34,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 		cmIndexer   cache.Indexer
 
 		existingConfig     map[string]interface{}
-		existingConfigMap  *corev1.ConfigMap
+		authConfigMap      *corev1.ConfigMap
 		authSpec           *configv1.AuthenticationSpec
 		statusMetadataName string
 		syncerError        error
@@ -145,12 +145,24 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     nil,
 			expectedSynced: map[string]string{
-				// FIXME should be delete
-				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
+		},
+		{
+			name: "metadata from spec with auth type OIDC but auth-config missing",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "metadata-from-spec",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced:     map[string]string{},
+			expectErrors:       false,
 		},
 		{
 			name: "metadata from spec with auth type OIDC",
@@ -160,11 +172,16 @@ func TestObserveAuthMetadata(t *testing.T) {
 					Name: "metadata-from-spec",
 				},
 			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
+				},
+			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     nil,
 			expectedSynced: map[string]string{
-				// FIXME should be delete
-				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
 		},
@@ -214,11 +231,30 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectErrors: false,
 		},
 		{
+			name: "metadata from status with auth type OIDC but auth-config missing",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced:     map[string]string{},
+			expectErrors:       false,
+		},
+		{
 			name: "metadata from status with auth type OIDC",
 			authSpec: &configv1.AuthenticationSpec{
 				Type: configv1.AuthenticationTypeOIDC,
 				OAuthMetadata: configv1.ConfigMapNameReference{
 					Name: "",
+				},
+			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
 				},
 			},
 			statusMetadataName: "metadata-from-status",
@@ -257,8 +293,8 @@ func TestObserveAuthMetadata(t *testing.T) {
 				tt.cmIndexer = cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			}
 
-			if tt.existingConfigMap != nil {
-				tt.cmIndexer.Add(tt.existingConfigMap)
+			if tt.authConfigMap != nil {
+				tt.cmIndexer.Add(tt.authConfigMap)
 			}
 
 			listers := configobservation.Listers{
