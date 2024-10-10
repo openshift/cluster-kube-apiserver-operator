@@ -74,7 +74,8 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 		expectedConfig    map[string]interface{}
 	}{
 		{
-			name: "empty config",
+			name:         "empty config",
+			expectEvents: true,
 		},
 		{
 			name: "referenced secret missing",

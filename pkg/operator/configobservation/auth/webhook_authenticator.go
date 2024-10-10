@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -51,6 +52,7 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 
 	auth, err := listers.AuthConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
+		recorder.Eventf("ObserveWebhookTokenAuthenticator", "authentications.config.openshift.io/cluster: not found")
 		return observedConfig, nil
 	} else if err != nil {
 		return existingConfig, append(errs, err)
@@ -62,7 +64,7 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 	}
 
 	observedWebhookConfigured := len(webhookSecretName) > 0
-	if observedWebhookConfigured {
+	if observedWebhookConfigured && auth.Spec.Type != configv1.AuthenticationTypeOIDC {
 		// retrieve the secret from config and validate it, don't proceed on failure
 		kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
 		if err != nil {
@@ -87,6 +89,15 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
 		)
 	} else {
+		if auth.Spec.Type == configv1.AuthenticationTypeOIDC {
+			if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
+				// auth-config does not exist in target namespace yet; do not remove webhook until it's there
+				return existingConfig, errs
+			} else if err != nil {
+				return existingConfig, append(errs, err)
+			}
+		}
+
 		// don't sync anything and remove whatever we synced
 		resourceSyncer.SyncSecret(
 			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
