@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -132,6 +133,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	)
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(
+		clock.RealClock{},
 		controllerContext.KubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
