@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -30,6 +31,7 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
+		clock.RealClock{},
 		kubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
