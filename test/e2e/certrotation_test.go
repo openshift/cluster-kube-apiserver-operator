@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/clock"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +31,7 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
+		clock.RealClock{},
 		kubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
