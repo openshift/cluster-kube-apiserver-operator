@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
@@ -94,6 +95,7 @@ func (o *Options) Run(ctx context.Context) error {
 	)
 
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(
+		clock.RealClock{},
 		o.controllerContext.KubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
