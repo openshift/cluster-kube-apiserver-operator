@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
 )
 
 func TestOperatorNamespace(t *testing.T) {
@@ -50,6 +51,7 @@ func TestRevisionLimits(t *testing.T) {
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
+		clock.RealClock{},
 		kubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
