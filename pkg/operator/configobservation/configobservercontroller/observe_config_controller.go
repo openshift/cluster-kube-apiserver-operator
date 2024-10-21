@@ -157,6 +157,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 					),
 				},
 			),
+			nodeobserver.ObserveMinimumKubeletVersion,
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
