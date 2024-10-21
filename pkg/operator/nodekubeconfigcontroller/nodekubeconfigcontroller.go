@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -152,6 +153,7 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		requiredSecret.Annotations = map[string]string{}
 	}
 	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
+	requiredSecret.Annotations[certrotation.AutoRegenerateAfterOfflineExpiryAnnotation] = "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1757,'operator conditions kube-apiserver'"
 
 	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
 	if err != nil {

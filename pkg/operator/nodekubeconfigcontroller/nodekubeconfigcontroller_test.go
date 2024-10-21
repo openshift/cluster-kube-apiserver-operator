@@ -8,6 +8,7 @@ import (
 	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -142,7 +143,8 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 							Namespace: "openshift-kube-apiserver",
 							Name:      "node-kubeconfigs",
 							Annotations: map[string]string{
-								annotations.OpenShiftComponent: "kube-apiserver",
+								annotations.OpenShiftComponent:                          "kube-apiserver",
+								certrotation.AutoRegenerateAfterOfflineExpiryAnnotation: "PR_LINK, ,'operator conditions kube-apiserver'",
 							},
 						},
 						Data: map[string][]byte{
