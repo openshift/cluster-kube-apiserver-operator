@@ -9,7 +9,6 @@ metadata:
 spec:
   limited:
     nominalConcurrencyShares: 10
-    lendablePercent: 33
     limitResponse:
       queuing:
         handSize: 6
