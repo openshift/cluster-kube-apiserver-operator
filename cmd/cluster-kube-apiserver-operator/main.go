@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkapilb"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
@@ -64,6 +65,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		}
 		return client.KubeAPIServers(), nil
 	}))
+	cmd.AddCommand(checkapilb.NewCheckAPILBCommand(ctx))
 
 	return cmd
 }
