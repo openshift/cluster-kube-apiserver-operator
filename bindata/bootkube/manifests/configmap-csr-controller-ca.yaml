@@ -6,7 +6,7 @@ metadata:
   namespace: openshift-config-managed
   annotations:
     "openshift.io/owning-component": "kube-controller-manager"
+    "openshift.io/description": "CA to recognize the CSRs (both serving and client) signed by the kube-controller-manager."
 data:
   ca-bundle.crt: |
     {{ .Assets | load "kubelet-client-ca-bundle.crt" | indent 4 }}
-
