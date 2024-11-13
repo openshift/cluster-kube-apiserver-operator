@@ -318,6 +318,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 
 	if b.enableStartMonitor != nil {
 		manager.WithController(startupmonitorcondition.New(
+			b.operandName,
 			b.operandNamespace,
 			b.staticPodName,
 			b.staticPodOperatorClient,
@@ -360,7 +361,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 		eventRecorder,
 	).AddKubeInformers(b.kubeInformers), 1)
 
-	manager.WithController(unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.staticPodOperatorClient, eventRecorder), 1)
+	manager.WithController(unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(b.operatorName, b.staticPodOperatorClient, eventRecorder), 1)
 	manager.WithController(loglevel.NewClusterOperatorLoggingController(b.staticPodOperatorClient, eventRecorder), 1)
 
 	if len(b.operatorNamespace) > 0 && len(b.operatorName) > 0 && len(b.readyzPort) > 0 && len(b.readyzEndpoint) > 0 {
