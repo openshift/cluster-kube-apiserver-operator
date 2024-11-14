@@ -67,6 +67,8 @@ spec:
           value: "0.0.1-snapshot-kubernetes"
         - name: OPERATOR_IMAGE_VERSION
           value: "0.0.1-snapshot"
+        - name: AWS_KMS_PLUGIN_IMAGE
+          value: quay.io/openshift/origin-aws-encryption-provider:latest
         - name: POD_NAME
           valueFrom:
             fieldRef:

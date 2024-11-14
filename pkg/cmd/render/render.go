@@ -18,6 +18,7 @@ import (
 	"github.com/ghodss/yaml"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
+	imagev1 "github.com/openshift/api/image/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
@@ -36,6 +37,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// KMSPluginImages contains values of images for different KMS plugin providers
+type KMSPluginImages struct {
+	AWS string
+}
+
 // renderOpts holds values to drive the render command.
 type renderOpts struct {
 	manifest genericrenderoptions.ManifestOptions
@@ -49,6 +55,7 @@ type renderOpts struct {
 	clusterConfigFile string
 	clusterAuthFile   string
 	infraConfigFile   string
+	imageReferences   string
 
 	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
 }
@@ -102,6 +109,7 @@ func (r *renderOpts) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&r.clusterAuthFile, "cluster-auth-file", r.clusterAuthFile, "Openshift Cluster Authentication API Config file.")
 	fs.StringVar(&r.infraConfigFile, "infra-config-file", "", "File containing infrastructure.config.openshift.io manifest.")
 	fs.StringVar(&r.operandKubernetesVersion, "operand-kubernetes-version", "", "Kubernetes version of the operand (hyperkube image).")
+	fs.StringVar(&r.imageReferences, "image-references", "", "File containing imagestreams (from cluster-version-operator)")
 }
 
 // Validate verifies the inputs.
@@ -136,6 +144,11 @@ func (r *renderOpts) Validate() error {
 	if _, err := semver.Parse(r.operandKubernetesVersion); err != nil {
 		return fmt.Errorf("could not parse --operand-kubernetes-version: %v", err)
 	}
+
+	if len(r.imageReferences) == 0 {
+		return errors.New("missing required flag: --image-references")
+	}
+
 	return nil
 }
 
@@ -195,6 +208,9 @@ type TemplateData struct {
 	ShutdownDelayDuration string
 
 	ServiceAccountIssuer string
+
+	// KMSImages stores images for different KMS plugin providers
+	KMSImages KMSPluginImages
 }
 
 // Run contains the logic of the render command.
@@ -297,6 +313,21 @@ func (r *renderOpts) Run() error {
 		case configv1.SingleReplicaTopologyMode:
 			renderConfig.TerminationGracePeriodSeconds = 15
 			renderConfig.ShutdownDelayDuration = "0s"
+		}
+	}
+
+	if len(r.imageReferences) > 0 {
+		imageStream, err := getImageReferences(r.imageReferences)
+		if err != nil {
+			return fmt.Errorf("failed to load image references as ImageStream: %w", err)
+		}
+
+		awsKMSPluginImage, err := findImage(imageStream, "aws-kms-encryption-provider")
+		if err != nil {
+			return fmt.Errorf("failed to populate aws-encryption-provider from release payload: %w", err)
+		}
+		renderConfig.KMSImages = KMSPluginImages{
+			AWS: awsKMSPluginImage,
 		}
 	}
 
@@ -603,4 +634,35 @@ func getInfrastructure(file string) (*configv1.Infrastructure, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+// getImageReferences reads and load an ImageStream file
+func getImageReferences(file string) (*imagev1.ImageStream, error) {
+	imageStream := &imagev1.ImageStream{}
+	yamlData, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+	jsonData, err := yaml.YAMLToJSON(yamlData)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonData, imageStream)
+	if err != nil {
+		return nil, err
+	}
+	return imageStream, nil
+}
+
+// findImage returns the image with a particular tag in an imagestream
+func findImage(stream *imagev1.ImageStream, name string) (string, error) {
+	for _, tag := range stream.Spec.Tags {
+		if tag.Name == name {
+			// we found the short name in ImageStream
+			if tag.From != nil && tag.From.Kind == "DockerImage" {
+				return tag.From.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("could not find %s in images", name)
 }
