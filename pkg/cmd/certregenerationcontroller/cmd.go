@@ -30,6 +30,7 @@ type Options struct {
 
 func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 	o := &Options{}
+	c := clock.RealClock{}
 
 	ccc := controllercmd.NewControllerCommandConfig("cert-regeneration-controller", version.Get(), func(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 		o.controllerContext = controllerContext
@@ -44,13 +45,13 @@ func NewCertRegenerationControllerCommand(ctx context.Context) *cobra.Command {
 			return err
 		}
 
-		err = o.Run(ctx)
+		err = o.Run(ctx, c)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	})
+	}, c)
 
 	// Disable serving for recovery as it introduces a dependency on kube-system::extension-apiserver-authentication
 	// configmap which prevents it to start as the CA bundle is expired.
@@ -73,7 +74,7 @@ func (o *Options) Complete(ctx context.Context) error {
 	return nil
 }
 
-func (o *Options) Run(ctx context.Context) error {
+func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	kubeClient, err := kubernetes.NewForConfig(o.controllerContext.ProtoKubeConfig)
 	if err != nil {
 		return fmt.Errorf("can't build kubernetes client: %w", err)
@@ -95,7 +96,7 @@ func (o *Options) Run(ctx context.Context) error {
 	)
 
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(
-		clock.RealClock{},
+		clock,
 		o.controllerContext.KubeConfig,
 		operatorv1.GroupVersion.WithResource("kubeapiservers"),
 		operatorv1.GroupVersion.WithKind("KubeAPIServer"),
