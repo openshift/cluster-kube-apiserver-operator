@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -138,7 +139,7 @@ func TestObserveImageConfig(t *testing.T) {
 			listers := configobservation.Listers{
 				ImageConfigLister: configlistersv1.NewImageLister(indexer),
 			}
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clock.RealClock{})
 
 			initialExistingConfig := map[string]interface{}{}
 

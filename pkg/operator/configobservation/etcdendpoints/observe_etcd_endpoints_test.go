@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 )
@@ -62,7 +63,7 @@ func TestObserveStorageURLs(t *testing.T) {
 					t.Fatalf("error adding endpoint to store: %#v", err)
 				}
 			}
-			actual, errs := ObserveStorageURLs(lister, events.NewInMemoryRecorder("test"), tt.currentConfig)
+			actual, errs := ObserveStorageURLs(lister, events.NewInMemoryRecorder("test", clock.RealClock{}), tt.currentConfig)
 			if tt.expectErrors && len(errs) == 0 {
 				t.Errorf("errors expected")
 			}
