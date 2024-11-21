@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"k8s.io/utils/clock"
 )
 
 func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
@@ -79,7 +80,7 @@ func TestObservePodSecurityAdmissionEnforcement(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testRecorder := events.NewInMemoryRecorder("SAIssuerTest")
+			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
 			existingConfig := map[string]interface{}{}
 			require.NoError(t, json.Unmarshal([]byte(tc.existingJSON), &existingConfig))
 

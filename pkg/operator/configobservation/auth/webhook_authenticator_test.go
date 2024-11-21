@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"k8s.io/utils/clock"
 )
 
 var correctKubeConfigString = []byte(`
@@ -154,7 +155,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 				ResourceSync:        &mockResourceSyncer{t: t, synced: synced},
 			}
 
-			eventRecorder := events.NewInMemoryRecorder("webhookauthenticatortest")
+			eventRecorder := events.NewInMemoryRecorder("webhookauthenticatortest", clock.RealClock{})
 
 			gotConfig, errs := ObserveWebhookTokenAuthenticator(listers, eventRecorder, tt.existingConfig)
 			gotAuthenticator, _, err := unstructured.NestedStringSlice(gotConfig, webhookTokenAuthenticatorPath...)

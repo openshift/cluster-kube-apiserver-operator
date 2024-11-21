@@ -18,6 +18,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 )
 
 type configMapLister struct {
@@ -248,7 +249,7 @@ users:
 				&secretLister{client: kubeClient, namespace: ""},
 				&configMapLister{client: kubeClient, namespace: ""},
 				infraLister,
-				events.NewInMemoryRecorder(t.Name()),
+				events.NewInMemoryRecorder(t.Name(), clock.RealClock{}),
 			)
 			if err != tc.expectedErr {
 				t.Fatalf("expected err %v, got %v", tc.expectedErr, err)

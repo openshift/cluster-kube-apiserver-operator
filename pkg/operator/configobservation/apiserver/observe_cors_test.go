@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 )
 
 func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
@@ -73,7 +74,7 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 				APIServerLister_: configlistersv1.NewAPIServerLister(indexer),
 				ResourceSync:     &mockResourceSyncer{t: t, synced: synced},
 			}
-			result, errs := ObserveAdditionalCORSAllowedOrigins(listers, events.NewInMemoryRecorder(t.Name()), tc.existing)
+			result, errs := ObserveAdditionalCORSAllowedOrigins(listers, events.NewInMemoryRecorder(t.Name(), clock.RealClock{}), tc.existing)
 			if len(errs) > 0 {
 				t.Errorf("Expected 0 errors, got %v.", len(errs))
 			}

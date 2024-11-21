@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
@@ -23,7 +24,7 @@ func TestObserveRestrictedCIDRs(t *testing.T) {
 	}
 
 	// With no network configured, check that a rump configuration is returned
-	result, errors := ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors := ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Error("expected len(errors) == 0")
 	}
@@ -51,7 +52,7 @@ admission:
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
 admission:
@@ -77,7 +78,7 @@ admission:
 	}
 
 	// Note that we pass the previous result back in
-	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), result)
+	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
 
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
@@ -100,7 +101,7 @@ admission:
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network"), result)
+	result, errors = ObserveRestrictedCIDRs(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
 
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
@@ -124,7 +125,7 @@ func TestObserveServicesSubnet(t *testing.T) {
 	}
 
 	// With no network configured, check that a rump configuration is returned
-	result, errors := ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors := ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
@@ -151,7 +152,7 @@ func TestObserveServicesSubnet(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
@@ -188,7 +189,7 @@ func TestObserveServicesSubnet(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network"), result)
+	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
@@ -223,7 +224,7 @@ func TestObserveExternalIPPolicy(t *testing.T) {
 	}
 
 	// No configuration -> default deny
-	result, errors := ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors := ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
 admission:
@@ -242,7 +243,7 @@ admission:
 	})
 	assert.Nil(t, err)
 
-	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
 admission:
@@ -265,7 +266,7 @@ admission:
 	})
 	assert.Nil(t, err)
 
-	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
 admission:
@@ -292,7 +293,7 @@ admission:
 	})
 	assert.Nil(t, err)
 
-	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveExternalIPPolicy(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	assert.Empty(t, errors)
 	shouldMatchYaml(t, result, `
 admission:
@@ -320,7 +321,7 @@ func TestObserveServiceNodePortRange(t *testing.T) {
 	}
 
 	// With no network configured, check that a rump configuration is returned
-	result, errors := ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors := ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
@@ -340,7 +341,7 @@ func TestObserveServiceNodePortRange(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), map[string]interface{}{})
+	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), map[string]interface{}{})
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}
@@ -365,7 +366,7 @@ func TestObserveServiceNodePortRange(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 
-	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network"), result)
+	result, errors = ObserveServicesNodePortRange(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
 	if len(errors) > 0 {
 		t.Errorf("expected len(errors) == 0: %v", errors)
 	}

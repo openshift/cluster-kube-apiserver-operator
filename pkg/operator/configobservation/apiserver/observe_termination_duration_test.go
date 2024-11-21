@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
@@ -69,7 +70,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// test data
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clock.RealClock{})
 			infrastructureIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			infrastructureIndexer.Add(&configv1.Infrastructure{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
@@ -182,7 +183,7 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// test data
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clock.RealClock{})
 			infrastructureIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			infrastructureIndexer.Add(&configv1.Infrastructure{
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},

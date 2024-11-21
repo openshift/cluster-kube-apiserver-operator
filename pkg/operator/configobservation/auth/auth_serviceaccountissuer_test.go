@@ -13,6 +13,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
@@ -107,7 +108,7 @@ func TestObservedConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testRecorder := events.NewInMemoryRecorder("SAIssuerTest")
+			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
 
 			newConfig, errs := observedConfig(
 				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers),
