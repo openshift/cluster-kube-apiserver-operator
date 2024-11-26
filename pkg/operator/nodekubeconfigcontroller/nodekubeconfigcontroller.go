@@ -2,7 +2,10 @@ package nodekubeconfigcontroller
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"strings"
 	"time"
@@ -14,6 +17,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -112,6 +116,22 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		return fmt.Errorf("system:admin client private key missing from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
 	}
 
+	// Ensure secret key matches the certificate
+	_, err = tls.X509KeyPair(systemAdminClientCert, systemAdminClientKey)
+	if err != nil {
+		return fmt.Errorf("system:admin client private key doesn't match the certificate from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
+	}
+	// extract not-before/not-after timestamps valid x509 certificate
+	var block *pem.Block
+	block, _ = pem.Decode(systemAdminClientCert)
+	if block == nil || block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+		return fmt.Errorf("invalid first block found for certificate from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
+	}
+	parsedCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse the certificate from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
+	}
+
 	servingCABundleCM, err := configmapLister.ConfigMaps(operatorclient.TargetNamespace).Get("kube-apiserver-server-ca")
 	if err != nil {
 		return err
@@ -152,6 +172,8 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		requiredSecret.Annotations = map[string]string{}
 	}
 	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
+	requiredSecret.Annotations[certrotation.CertificateNotBeforeAnnotation] = parsedCert.NotBefore.Format(time.RFC3339)
+	requiredSecret.Annotations[certrotation.CertificateNotAfterAnnotation] = parsedCert.NotAfter.Format(time.RFC3339)
 
 	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
 	if err != nil {
