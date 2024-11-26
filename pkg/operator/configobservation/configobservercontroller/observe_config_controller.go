@@ -158,6 +158,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 				},
 			),
 			node.NewMinimumKubeletVersionObserver(featureGateAccessor),
+			node.NewAuthorizationModeObserver(featureGateAccessor),
 			proxy.NewProxyObserveFunc([]string{"targetconfigcontroller", "proxy"}),
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
