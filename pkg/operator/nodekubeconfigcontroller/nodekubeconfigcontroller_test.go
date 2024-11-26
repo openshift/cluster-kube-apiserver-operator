@@ -2,12 +2,15 @@ package nodekubeconfigcontroller
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -85,7 +88,34 @@ func (l *secretLister) Get(name string) (*corev1.Secret, error) {
 	return l.client.CoreV1().Secrets(l.namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
+const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEArvkpSCWaStPfbYr4
+cCJyv8pXWnJ4K22emSrYDNcp7Dm6qjtN/lsVNuGDyWyR4cUaJYXkaD2OrZiXDzzk
+BZlS3QIDAQABAkA9BZhoGPUec5XQVk8ejGUIjkC4woM2YhyVvmNq1v8/6q6V+uPw
+yDEfBMapuLVY+QhyVELXFOCHA5iKxrlFHZThAiEA1XA5mlbHtrJqEZ7yI5m6+Szj
+7YVzSkdSgfDZ//heAh8CIQDR3VbN9QmJRIM1yhIkP9BoWSxvXdH6QMXdC2X7Tkwj
+gwIgcpbSxjLK/CIjYhx0oXpacIaSRCX+dKV//XVChPNh/T8CIQCSFscXZez2fhfs
+eLb6PuXfzbuN5ryFvVM/VXDvaIi96wIgcHjUpONghaoA51XejMAxWanDiwAgRV5H
+XNdFkBi4q7o=
+-----END PRIVATE KEY-----` // notsecret
+const publicKey = `-----BEGIN CERTIFICATE-----
+MIIBfzCCASmgAwIBAgIUEEUHu1PzqJCGQ63vxVokwBxGPYwwDQYJKoZIhvcNAQEL
+BQAwFDESMBAGA1UEAwwJbG9jYWxob3N0MB4XDTI0MTEyNjA4NTA0NloXDTM0MTEy
+NDA4NTA0NlowFDESMBAGA1UEAwwJbG9jYWxob3N0MFwwDQYJKoZIhvcNAQEBBQAD
+SwAwSAJBAK75KUglmkrT322K+HAicr/KV1pyeCttnpkq2AzXKew5uqo7Tf5bFTbh
+g8lskeHFGiWF5Gg9jq2Ylw885AWZUt0CAwEAAaNTMFEwHQYDVR0OBBYEFJna5Io+
+idLKO73zypGl2itp92JUMB8GA1UdIwQYMBaAFJna5Io+idLKO73zypGl2itp92JU
+MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADQQB71tlkWNFDvMRxtz+a
+NYMU1thAVfVFciNXPS07tUduFSwVvYORUxx2w+5JfUdKu69hLpBFVPqvHQjPoQgc
+vUBI
+-----END CERTIFICATE-----`
+const certNotBefore = "2024-11-26T08:50:46Z"
+const certNotAfter = "2034-11-24T08:50:46Z"
+
 func TestEnsureNodeKubeconfigs(t *testing.T) {
+	publicKeyBase64 := base64.StdEncoding.EncodeToString([]byte(publicKey))
+	privateKeyBase64 := base64.StdEncoding.EncodeToString([]byte(privateKey))
 	tt := []struct {
 		name            string
 		existingObjects []runtime.Object
@@ -111,8 +141,8 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 						Name:      "node-system-admin-client",
 					},
 					Data: map[string][]byte{
-						"tls.crt": []byte("system:admin certificate"),
-						"tls.key": []byte("system:admin key"),
+						"tls.crt": []byte(publicKey),
+						"tls.key": []byte(privateKey),
 					},
 				},
 			},
@@ -143,11 +173,13 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 							Namespace: "openshift-kube-apiserver",
 							Name:      "node-kubeconfigs",
 							Annotations: map[string]string{
-								annotations.OpenShiftComponent: "kube-apiserver",
+								annotations.OpenShiftComponent:              "kube-apiserver",
+								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
 							},
 						},
 						Data: map[string][]byte{
-							"localhost.kubeconfig": []byte(`apiVersion: v1
+							"localhost.kubeconfig": []byte(fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
 - cluster:
@@ -163,10 +195,10 @@ current-context: system:admin
 users:
 - name: system:admin
   user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"localhost-recovery.kubeconfig": []byte(`apiVersion: v1
+    client-certificate-data: %s
+    client-key-data: %s
+`, publicKeyBase64, privateKeyBase64)),
+							"localhost-recovery.kubeconfig": []byte(fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
 - cluster:
@@ -183,10 +215,10 @@ current-context: system:admin
 users:
 - name: system:admin
   user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"lb-ext.kubeconfig": []byte(`apiVersion: v1
+    client-certificate-data: %s
+    client-key-data: %s
+`, publicKeyBase64, privateKeyBase64)),
+							"lb-ext.kubeconfig": []byte(fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
 - cluster:
@@ -202,10 +234,10 @@ current-context: system:admin
 users:
 - name: system:admin
   user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"lb-int.kubeconfig": []byte(`apiVersion: v1
+    client-certificate-data: %s
+    client-key-data: %s
+`, publicKeyBase64, privateKeyBase64)),
+							"lb-int.kubeconfig": []byte(fmt.Sprintf(`apiVersion: v1
 kind: Config
 clusters:
 - cluster:
@@ -221,9 +253,9 @@ current-context: system:admin
 users:
 - name: system:admin
   user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
+    client-certificate-data: %s
+    client-key-data: %s
+`, publicKeyBase64, privateKeyBase64)),
 						},
 					},
 				},
