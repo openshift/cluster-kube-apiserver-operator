@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/auth"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrender "github.com/openshift/library-go/pkg/operator/render"
@@ -353,6 +354,12 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 		}
 	} else {
 		if err := auth.SetPodSecurityAdmissionToEnforceRestricted(defaultConfig); err != nil {
+			return nil, err
+		}
+	}
+
+	if featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
+		if err := node.SetAPIServerArgumentsToEnforceMinimumKubeletVersion(defaultConfig, true); err != nil {
 			return nil, err
 		}
 	}
