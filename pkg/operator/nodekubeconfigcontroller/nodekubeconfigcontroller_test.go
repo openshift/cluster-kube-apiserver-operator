@@ -2,12 +2,15 @@ package nodekubeconfigcontroller
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -85,6 +88,44 @@ func (l *secretLister) Get(name string) (*corev1.Secret, error) {
 	return l.client.CoreV1().Secrets(l.namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
 
+const privateKey = "fake private key" // notsecret
+const publicKey = "fake public key"
+const certNotBefore = "2024-11-26T08:50:46Z"
+const certNotAfter = "2034-11-24T08:50:46Z"
+const lbExtServer = "https://lb-ext.test:6443"
+const lbIntServer = "https://lb-int.test:6443"
+
+var publicKeyBase64 = base64.StdEncoding.EncodeToString([]byte(publicKey))
+var privateKeyBase64 = base64.StdEncoding.EncodeToString([]byte(privateKey))
+
+func generateKubeConfig(name, server string) []byte {
+	// localhost-recovery is a special case, it also has tls-server-name set
+	tlsServerName := ""
+	if name == "localhost-recovery" {
+		tlsServerName = `
+    tls-server-name: localhost-recovery`
+	}
+	return []byte(fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    certificate-authority-data: a3ViZS1hcGlzZXJ2ZXItc2VydmVyLWNhIGNlcnRpZmljYXRl
+    server: %s%s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: system:admin
+  name: system:admin
+current-context: system:admin
+users:
+- name: system:admin
+  user:
+    client-certificate-data: %s
+    client-key-data: %s
+`, server, tlsServerName, name, name, publicKeyBase64, privateKeyBase64))
+}
+
 func TestEnsureNodeKubeconfigs(t *testing.T) {
 	tt := []struct {
 		name            string
@@ -109,10 +150,14 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "openshift-kube-apiserver-operator",
 						Name:      "node-system-admin-client",
+						Annotations: map[string]string{
+							certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+							certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+						},
 					},
 					Data: map[string][]byte{
-						"tls.crt": []byte("system:admin certificate"),
-						"tls.key": []byte("system:admin key"),
+						"tls.crt": []byte(publicKey),
+						"tls.key": []byte(privateKey),
 					},
 				},
 			},
@@ -122,8 +167,72 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 					Name:      "cluster",
 				},
 				Status: configv1.InfrastructureStatus{
-					APIServerURL:         "https://lb-ext.test:6443",
-					APIServerInternalURL: "https://lb-int.test:6443",
+					APIServerURL:         lbExtServer,
+					APIServerInternalURL: lbIntServer,
+				},
+			},
+			expectedErr: nil,
+			expectedActions: []clienttesting.Action{
+				clienttesting.CreateActionImpl{
+					ActionImpl: clienttesting.ActionImpl{
+						Namespace: "openshift-kube-apiserver",
+						Verb:      "create",
+						Resource:  corev1.SchemeGroupVersion.WithResource("secrets"),
+					},
+					Object: &corev1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "v1",
+							Kind:       "Secret",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "openshift-kube-apiserver",
+							Name:      "node-kubeconfigs",
+							Annotations: map[string]string{
+								annotations.OpenShiftComponent:              "kube-apiserver",
+								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+							},
+						},
+						Data: map[string][]byte{
+							"localhost.kubeconfig":          generateKubeConfig("localhost", "https://localhost:6443"),
+							"localhost-recovery.kubeconfig": generateKubeConfig("localhost-recovery", "https://localhost:6443"),
+							"lb-ext.kubeconfig":             generateKubeConfig("lb-ext", lbExtServer),
+							"lb-int.kubeconfig":             generateKubeConfig("lb-int", lbIntServer),
+						},
+					},
+				},
+			},
+		}, {
+			name: "no annotations set",
+			existingObjects: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver",
+						Name:      "kube-apiserver-server-ca",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": "kube-apiserver-server-ca certificate",
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver-operator",
+						Name:      "node-system-admin-client",
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte(publicKey),
+						"tls.key": []byte(privateKey),
+					},
+				},
+			},
+			infrastructure: &configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "",
+					Name:      "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					APIServerURL:         lbExtServer,
+					APIServerInternalURL: lbIntServer,
 				},
 			},
 			expectedErr: nil,
@@ -147,84 +256,111 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 							},
 						},
 						Data: map[string][]byte{
-							"localhost.kubeconfig": []byte(`apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    certificate-authority-data: a3ViZS1hcGlzZXJ2ZXItc2VydmVyLWNhIGNlcnRpZmljYXRl
-    server: https://localhost:6443
-  name: localhost
-contexts:
-- context:
-    cluster: localhost
-    user: system:admin
-  name: system:admin
-current-context: system:admin
-users:
-- name: system:admin
-  user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"localhost-recovery.kubeconfig": []byte(`apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    certificate-authority-data: a3ViZS1hcGlzZXJ2ZXItc2VydmVyLWNhIGNlcnRpZmljYXRl
-    server: https://localhost:6443
-    tls-server-name: localhost-recovery
-  name: localhost-recovery
-contexts:
-- context:
-    cluster: localhost-recovery
-    user: system:admin
-  name: system:admin
-current-context: system:admin
-users:
-- name: system:admin
-  user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"lb-ext.kubeconfig": []byte(`apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    certificate-authority-data: a3ViZS1hcGlzZXJ2ZXItc2VydmVyLWNhIGNlcnRpZmljYXRl
-    server: https://lb-ext.test:6443
-  name: lb-ext
-contexts:
-- context:
-    cluster: lb-ext
-    user: system:admin
-  name: system:admin
-current-context: system:admin
-users:
-- name: system:admin
-  user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
-							"lb-int.kubeconfig": []byte(`apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    certificate-authority-data: a3ViZS1hcGlzZXJ2ZXItc2VydmVyLWNhIGNlcnRpZmljYXRl
-    server: https://lb-int.test:6443
-  name: lb-int
-contexts:
-- context:
-    cluster: lb-int
-    user: system:admin
-  name: system:admin
-current-context: system:admin
-users:
-- name: system:admin
-  user:
-    client-certificate-data: c3lzdGVtOmFkbWluIGNlcnRpZmljYXRl
-    client-key-data: c3lzdGVtOmFkbWluIGtleQ==
-`),
+							"localhost.kubeconfig":          generateKubeConfig("localhost", "https://localhost:6443"),
+							"localhost-recovery.kubeconfig": generateKubeConfig("localhost-recovery", "https://localhost:6443"),
+							"lb-ext.kubeconfig":             generateKubeConfig("lb-ext", lbExtServer),
+							"lb-int.kubeconfig":             generateKubeConfig("lb-int", lbIntServer),
 						},
+					},
+				},
+			},
+		}, {
+			name: "update",
+			existingObjects: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver",
+						Name:      "kube-apiserver-server-ca",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": "kube-apiserver-server-ca certificate",
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver-operator",
+						Name:      "node-system-admin-client",
+						Annotations: map[string]string{
+							certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+							certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+						},
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte(publicKey),
+						"tls.key": []byte(privateKey),
+					},
+				},
+				&corev1.Secret{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver",
+						Name:      "node-kubeconfigs",
+						Annotations: map[string]string{
+							annotations.OpenShiftComponent:              "kube-apiserver",
+							certrotation.CertificateNotBeforeAnnotation: "some-old-not-before",
+							certrotation.CertificateNotAfterAnnotation:  "some-old-not-after",
+						},
+					},
+					Data: map[string][]byte{
+						"localhost.kubeconfig":          []byte("invalid kubeconfig"),
+						"localhost-recovery.kubeconfig": []byte("another invalid kubeconfig"),
+						"lb-ext.kubeconfig":             []byte("more invalid kubeconfig"),
+						"lb-int.kubeconfig":             []byte("even more invalid kubeconfig"),
+					},
+				},
+			},
+			infrastructure: &configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "",
+					Name:      "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					APIServerURL:         lbExtServer,
+					APIServerInternalURL: lbIntServer,
+				},
+			},
+			expectedErr: nil,
+			expectedActions: []clienttesting.Action{
+				clienttesting.DeleteActionImpl{
+					ActionImpl: clienttesting.ActionImpl{
+						Namespace: "openshift-kube-apiserver",
+						Verb:      "delete",
+						Resource:  corev1.SchemeGroupVersion.WithResource("secrets"),
+					},
+					Name: "node-kubeconfigs",
+				},
+				clienttesting.CreateActionImpl{
+					ActionImpl: clienttesting.ActionImpl{
+						Namespace: "openshift-kube-apiserver",
+						Verb:      "create",
+						Resource:  corev1.SchemeGroupVersion.WithResource("secrets"),
+					},
+					Object: &corev1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "v1",
+							Kind:       "Secret",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace:       "openshift-kube-apiserver",
+							Name:            "node-kubeconfigs",
+							Labels:          map[string]string{},
+							OwnerReferences: []metav1.OwnerReference{},
+							Annotations: map[string]string{
+								annotations.OpenShiftComponent:              "kube-apiserver",
+								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+							},
+						},
+						Data: map[string][]byte{
+							"localhost.kubeconfig":          generateKubeConfig("localhost", "https://localhost:6443"),
+							"localhost-recovery.kubeconfig": generateKubeConfig("localhost-recovery", "https://localhost:6443"),
+							"lb-ext.kubeconfig":             generateKubeConfig("lb-ext", lbExtServer),
+							"lb-int.kubeconfig":             generateKubeConfig("lb-int", lbIntServer),
+						},
+						Type: corev1.SecretTypeOpaque,
 					},
 				},
 			},

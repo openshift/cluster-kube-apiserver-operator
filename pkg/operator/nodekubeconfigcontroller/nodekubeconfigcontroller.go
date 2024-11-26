@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -152,6 +153,13 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		requiredSecret.Annotations = map[string]string{}
 	}
 	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
+	// Copy not-before/not-after annotations from systemAdminClientCert
+	if len(systemAdminCredsSecret.Annotations[certrotation.CertificateNotBeforeAnnotation]) > 0 {
+		requiredSecret.Annotations[certrotation.CertificateNotBeforeAnnotation] = systemAdminCredsSecret.Annotations[certrotation.CertificateNotBeforeAnnotation]
+	}
+	if len(systemAdminCredsSecret.Annotations[certrotation.CertificateNotAfterAnnotation]) > 0 {
+		requiredSecret.Annotations[certrotation.CertificateNotAfterAnnotation] = systemAdminCredsSecret.Annotations[certrotation.CertificateNotAfterAnnotation]
+	}
 
 	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
 	if err != nil {
