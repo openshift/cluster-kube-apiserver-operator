@@ -54,7 +54,8 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 		expectedSynced    map[string]string
 	}{
 		{
-			name: "empty config",
+			name:         "empty config",
+			expectEvents: true,
 		},
 		{
 			name: "referenced secret missing",
@@ -281,11 +282,15 @@ users:
 }
 
 type mockResourceSyncer struct {
+	error  error
 	t      *testing.T
 	synced map[string]string
 }
 
 func (rs *mockResourceSyncer) SyncConfigMap(destination, source resourcesynccontroller.ResourceLocation) error {
+	if rs.error != nil {
+		return rs.error
+	}
 	if (source == resourcesynccontroller.ResourceLocation{}) {
 		rs.synced[fmt.Sprintf("configmap/%v.%v", destination.Name, destination.Namespace)] = "DELETE"
 	} else {
@@ -295,6 +300,9 @@ func (rs *mockResourceSyncer) SyncConfigMap(destination, source resourcesynccont
 }
 
 func (rs *mockResourceSyncer) SyncSecret(destination, source resourcesynccontroller.ResourceLocation) error {
+	if rs.error != nil {
+		return rs.error
+	}
 	if (source == resourcesynccontroller.ResourceLocation{}) {
 		rs.synced[fmt.Sprintf("secret/%v.%v", destination.Name, destination.Namespace)] = "DELETE"
 	} else {
