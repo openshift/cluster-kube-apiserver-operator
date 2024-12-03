@@ -6,6 +6,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog/v2"
 )
 
 // There are scopes authorizer tests that fail if this order is changed.
@@ -49,19 +50,24 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 		ret = configobserver.Pruned(ret, authModePath)
 	}()
 
+	klog.Infof("XXXXX auth mode called")
 	if !o.featureGateAccessor.AreInitialFeatureGatesObserved() {
+		klog.Infof("XXXXX not initialized")
 		return existingConfig, nil
 	}
 
 	featureGates, err := o.featureGateAccessor.CurrentFeatureGates()
 	if err != nil {
+		klog.Infof("XXXXX gates nil")
 		return existingConfig, append(errs, err)
 	}
 
 	ret = map[string]interface{}{}
 	if err := AddAuthorizationModes(ret, featureGates.Enabled(features.FeatureGateMinimumKubeletVersion)); err != nil {
+		klog.Infof("XXXXX auth mode failed")
 		return existingConfig, append(errs, err)
 	}
+	klog.Infof("XXXXX auth modesuccess")
 	return ret, nil
 }
 
@@ -73,6 +79,7 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 func AddAuthorizationModes(observedConfig map[string]interface{}, isMinimumKubeletVersionEnabled bool) error {
 	modes := defaultAuthenticationModes
 	if isMinimumKubeletVersionEnabled {
+		klog.Infof("XXXXX auth mode on")
 		modes = authenticationModesWithMinimumKubeletVersion
 	}
 

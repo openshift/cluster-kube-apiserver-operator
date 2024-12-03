@@ -44,6 +44,7 @@ func (o *minimumKubeletVersionObserver) ObserveMinimumKubeletVersion(genericList
 	}
 
 	if !featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
+		klog.Infof("XXXXX disabled 2")
 		return existingConfig, nil
 	}
 
@@ -66,12 +67,14 @@ func (o *minimumKubeletVersionObserver) ObserveMinimumKubeletVersion(genericList
 		// return empty set of configs, this helps to unset the config
 		// values related to the minimumKubeletVersion.
 		// Also, ensures that this observer doesn't break cluster upgrades/downgrades
+		klog.Infof("XXXXX off 2")
 		return ret, errs
 	}
 
 	if err := unstructured.SetNestedField(ret, configNode.Spec.MinimumKubeletVersion, minimumKubeletVersionConfigPath); err != nil {
 		return existingConfig, append(errs, err)
 	}
+	klog.Infof("XXXXX set %s", configNode.Spec.MinimumKubeletVersion)
 
 	return ret, errs
 }
