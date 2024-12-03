@@ -45,6 +45,7 @@ func (o *minimumKubeletVersionObserver) ObserveMinimumKubeletVersion(genericList
 	}
 
 	if !featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
+		klog.Infof("XXXXX disabled 2")
 		return existingConfig, nil
 	}
 
@@ -71,12 +72,14 @@ func (o *minimumKubeletVersionObserver) ObserveMinimumKubeletVersion(genericList
 		// return empty set of configs, this helps to unset the config
 		// values related to the minimumKubeletVersion.
 		// Also, ensures that this observer doesn't break cluster upgrades/downgrades
+		klog.Infof("XXXXX off 2")
 		return ret, errs
 	}
 
 	if err := unstructured.SetNestedField(ret, configNode.Spec.MinimumKubeletVersion, minimumKubeletVersionConfigPath); err != nil {
 		return ret, append(errs, err)
 	}
+	klog.Infof("XXXXX set %s", configNode.Spec.MinimumKubeletVersion)
 
 	return ret, errs
 }
@@ -110,13 +113,16 @@ func AuthModesFromUnstructured(config map[string]any) []string {
 // ObserveAuthorizationMode watches the featuregate configuration and generates the apiServerArguments.authorization-mode
 // It currently hardcodes the default set and adds MinimumKubeletVersion if the feature is set to on.
 func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers configobserver.Listers, _ events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
+	klog.Infof("XXXXX auth mode called")
 	ret = map[string]interface{}{}
 	if !o.featureGateAccessor.AreInitialFeatureGatesObserved() {
+		klog.Infof("XXXXX not initialized")
 		return existingConfig, nil
 	}
 
 	featureGates, err := o.featureGateAccessor.CurrentFeatureGates()
 	if err != nil {
+		klog.Infof("XXXXX gates nil")
 		return existingConfig, append(errs, err)
 	}
 
@@ -126,8 +132,10 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 	}()
 
 	if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(o.authModes, ret, featureGates.Enabled(features.FeatureGateMinimumKubeletVersion)); err != nil {
+		klog.Infof("XXXXX failed")
 		return existingConfig, append(errs, err)
 	}
+	klog.Infof("XXXXX success")
 	return ret, nil
 }
 

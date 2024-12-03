@@ -345,9 +345,12 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 	}
 
 	if featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
+		klog.Infof("XXXXX enabled1")
 		if err := node.SetAPIServerArgumentsToEnforceMinimumKubeletVersion(node.AuthModesFromUnstructured(defaultConfig), defaultConfig, true); err != nil {
 			return nil, err
 		}
+	} else {
+		klog.Infof("XXXXX disabled1")
 	}
 
 	defaultConfigRaw, err := json.Marshal(defaultConfig)
