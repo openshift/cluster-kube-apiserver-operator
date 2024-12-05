@@ -100,6 +100,7 @@ func TestObserveKubeletMinimumVersion(t *testing.T) {
 
 func TestSetAPIServerArgumentsToEnforceMinimumKubeletVersion(t *testing.T) {
 	for _, on := range []bool{false, true} {
+		defaultSet := []string{"Node", "RBAC", "Scope", "SystemMasters"}
 		expectedSet := []any{"Node", "RBAC", "Scope", "SystemMasters"}
 		if on {
 			expectedSet = append([]any{ModeMinimumKubeletVersion}, expectedSet...)
@@ -164,7 +165,7 @@ func TestSetAPIServerArgumentsToEnforceMinimumKubeletVersion(t *testing.T) {
 				name += "off"
 			}
 			t.Run(name, func(t *testing.T) {
-				if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(tc.existingConfig, on); err != nil {
+				if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(defaultSet, tc.existingConfig, on); err != nil {
 					t.Fatal(err)
 				}
 
