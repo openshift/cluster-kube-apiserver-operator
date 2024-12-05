@@ -8,6 +8,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,8 +76,8 @@ func TestObserveKubeletMinimumVersion(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
 				Spec:       configv1.NodeSpec{MinimumKubeletVersion: test.minimumKubeletVersion},
 			})
-			listers := testLister{
-				nodeLister: configlistersv1.NewNodeLister(configNodeIndexer),
+			listers := configobservation.Listers{
+				NodeLister_: configlistersv1.NewNodeLister(configNodeIndexer),
 			}
 
 			fg := featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{features.FeatureGateMinimumKubeletVersion}, []configv1.FeatureGateName{})
@@ -95,83 +96,5 @@ func TestObserveKubeletMinimumVersion(t *testing.T) {
 				t.Fatalf("unexpected configuration, diff = %v", diff)
 			}
 		})
-	}
-}
-
-func TestSetAPIServerArgumentsToEnforceMinimumKubeletVersion(t *testing.T) {
-	for _, on := range []bool{false, true} {
-		expectedSet := []any{"Node", "RBAC", "Scope", "SystemMasters"}
-		if on {
-			expectedSet = append([]any{ModeMinimumKubeletVersion}, expectedSet...)
-		}
-		for _, tc := range []struct {
-			name           string
-			existingConfig map[string]interface{}
-			expectedConfig map[string]interface{}
-		}{
-			{
-				name: "should not fail if apiServerArguments not present",
-				existingConfig: map[string]interface{}{
-					"fakeconfig": "fake",
-				},
-				expectedConfig: map[string]interface{}{
-					"fakeconfig":         "fake",
-					"apiServerArguments": map[string]any{"authorization-mode": expectedSet},
-				},
-			},
-			{
-				name: "should not fail if authorization-mode not present",
-				existingConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"fake": []any{"fake"}},
-				},
-				expectedConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"fake": []any{"fake"}, "authorization-mode": expectedSet},
-				},
-			},
-			{
-				name: "should clobber value if not expected",
-				existingConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"authorization-mode": []any{"fake"}},
-				},
-				expectedConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"authorization-mode": expectedSet},
-				},
-			},
-			{
-				name: "should not fail if MinimumKubeletVersion already present",
-				existingConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"authorization-mode": []any{"MinimumKubeletVersion"}},
-				},
-				expectedConfig: map[string]interface{}{
-					"apiServerArguments": map[string]any{"authorization-mode": expectedSet},
-				},
-			},
-			{
-				name: "should not fail if apiServerArguments not present",
-				existingConfig: map[string]interface{}{
-					"fakeconfig": "fake",
-				},
-				expectedConfig: map[string]interface{}{
-					"fakeconfig":         "fake",
-					"apiServerArguments": map[string]any{"authorization-mode": expectedSet},
-				},
-			},
-		} {
-			name := tc.name + " when feature is "
-			if on {
-				name += "on"
-			} else {
-				name += "off"
-			}
-			t.Run(name, func(t *testing.T) {
-				if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(tc.existingConfig, on); err != nil {
-					t.Fatal(err)
-				}
-
-				if diff := cmp.Diff(tc.expectedConfig, tc.existingConfig); diff != "" {
-					t.Errorf("unexpected config:\n%s", diff)
-				}
-			})
-		}
 	}
 }
