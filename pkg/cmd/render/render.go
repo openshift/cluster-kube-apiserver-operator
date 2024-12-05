@@ -358,10 +358,8 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 		}
 	}
 
-	if featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
-		if err := node.SetAPIServerArgumentsToEnforceMinimumKubeletVersion(defaultConfig, true); err != nil {
-			return nil, err
-		}
+	if err := node.AddAuthorizationModes(defaultConfig, featureGates.Enabled(features.FeatureGateMinimumKubeletVersion)); err != nil {
+		return nil, err
 	}
 
 	defaultConfigRaw, err := json.Marshal(defaultConfig)
