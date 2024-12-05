@@ -5,6 +5,7 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -19,9 +20,6 @@ var (
 	authModeFlag                    = "authorization-mode"
 	apiServerArgs                   = "apiServerArguments"
 	authModePath                    = []string{apiServerArgs, authModeFlag}
-	// The default value for apiServerArguments.authorization-mode.
-	// Should be synced with bindata/assets/config/defaultconfig.yaml
-	DefaultAuthorizationModes = []string{"Scope", "SystemMasters", "RBAC", "Node"}
 )
 
 type minimumKubeletVersionObserver struct {
@@ -85,12 +83,28 @@ func (o *minimumKubeletVersionObserver) ObserveMinimumKubeletVersion(genericList
 
 type authorizationModeObserver struct {
 	featureGateAccessor featuregates.FeatureGateAccess
+	authModes           []string
 }
 
 func NewAuthorizationModeObserver(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+	defaultConfig, err := bindata.UnstructuredDefaultConfig()
+	if err != nil {
+		// programming error, the built-in configuration should always be valid
+		panic(err)
+	}
+
 	return (&authorizationModeObserver{
 		featureGateAccessor: featureGateAccessor,
+		authModes:           AuthModesFromUnstructured(defaultConfig),
 	}).ObserveAuthorizationMode
+}
+
+func AuthModesFromUnstructured(config map[string]any) []string {
+	authModes, found, err := unstructured.NestedStringSlice(config, authModePath...)
+	if !found || err != nil {
+		return []string{}
+	}
+	return authModes
 }
 
 // ObserveAuthorizationMode watches the featuregate configuration and generates the apiServerArguments.authorization-mode
@@ -111,7 +125,7 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 		ret = configobserver.Pruned(ret, authModePath)
 	}()
 
-	if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(ret, featureGates.Enabled(features.FeatureGateMinimumKubeletVersion)); err != nil {
+	if err := SetAPIServerArgumentsToEnforceMinimumKubeletVersion(o.authModes, ret, featureGates.Enabled(features.FeatureGateMinimumKubeletVersion)); err != nil {
 		return existingConfig, append(errs, err)
 	}
 	return ret, nil
@@ -120,13 +134,14 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 // SetAPIServerArgumentsToEnforceMinimumKubeletVersion modifies the passed in config
 // to add the "authorization-mode": "MinimumKubeletVersion" if the feature is on. If it's off, it
 // removes it instead.
-func SetAPIServerArgumentsToEnforceMinimumKubeletVersion(newConfig map[string]interface{}, on bool) error {
-	defaultSet := DefaultAuthorizationModes
+// This function assumes MinimumKubeletVersion auth mode isn't present by default,
+// and should likely be removed when it is.
+func SetAPIServerArgumentsToEnforceMinimumKubeletVersion(defaultAuthModes []string, newConfig map[string]interface{}, on bool) error {
 	if on {
-		defaultSet = append(defaultSet, ModeMinimumKubeletVersion)
+		defaultAuthModes = append(defaultAuthModes, ModeMinimumKubeletVersion)
 	}
-	sort.Sort(sort.StringSlice(defaultSet))
+	sort.Sort(sort.StringSlice(defaultAuthModes))
 
 	unstructured.RemoveNestedField(newConfig, authModePath...)
-	return unstructured.SetNestedStringSlice(newConfig, defaultSet, authModePath...)
+	return unstructured.SetNestedStringSlice(newConfig, defaultAuthModes, authModePath...)
 }

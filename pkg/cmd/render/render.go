@@ -1,7 +1,6 @@
 package render
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -32,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	"k8s.io/klog/v2"
 )
@@ -324,22 +322,10 @@ func (r *renderOpts) Run() error {
 }
 
 func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, error) {
-	asset := filepath.Join("assets", "config", "defaultconfig.yaml")
-	raw, err := bindata.Asset(asset)
+	defaultConfig, err := bindata.UnstructuredDefaultConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get default config asset asset=%s - %s", asset, err)
+		return nil, fmt.Errorf("failed to get unstructured default config: %v", err)
 	}
-
-	rawJSON, err := kyaml.ToJSON(raw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert asset yaml to JSON asset=%s - %s", asset, err)
-	}
-
-	defaultConfig, err := convertToUnstructured(rawJSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode default config into unstructured - %s", err)
-	}
-
 	policy, err := libgoaudit.GetAuditPolicy(configv1.Audit{Profile: configv1.DefaultAuditProfileType})
 	if err != nil {
 		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
@@ -359,7 +345,7 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 	}
 
 	if featureGates.Enabled(features.FeatureGateMinimumKubeletVersion) {
-		if err := node.SetAPIServerArgumentsToEnforceMinimumKubeletVersion(defaultConfig, true); err != nil {
+		if err := node.SetAPIServerArgumentsToEnforceMinimumKubeletVersion(node.AuthModesFromUnstructured(defaultConfig), defaultConfig, true); err != nil {
 			return nil, err
 		}
 	}
@@ -406,16 +392,6 @@ func addAuditPolicyToConfig(config map[string]interface{}, policy *auditv1.Polic
 	}
 
 	return nil
-}
-
-func convertToUnstructured(raw []byte) (map[string]interface{}, error) {
-	decoder := json.NewDecoder(bytes.NewBuffer(raw))
-	u := map[string]interface{}{}
-	if err := decoder.Decode(&u); err != nil {
-		return nil, err
-	}
-
-	return u, nil
 }
 
 func mustReadTemplateFile(fname string) genericrenderoptions.Template {

@@ -14,6 +14,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
@@ -700,7 +701,7 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 	require.NoError(t, err)
 	rawPolicyJSON, err := kyaml.ToJSON(defaultPolicy)
 	require.NoError(t, err)
-	policyExpected, err := convertToUnstructured(rawPolicyJSON)
+	policyExpected, err := bindata.ConvertToUnstructured(rawPolicyJSON)
 	require.NoError(t, err)
 
 	isEqual := equality.Semantic.DeepEqual(policyExpected, auditConfigPolicyGot)
