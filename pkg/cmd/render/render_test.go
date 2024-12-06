@@ -14,6 +14,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
@@ -264,7 +265,7 @@ func TestRenderCommand(t *testing.T) {
 				if !ok {
 					return fmt.Errorf("missing \"feature-gates\" entry in APIServerArguments")
 				}
-				expectedGates := []string{"Bar=false", "Foo=true", "OpenShiftPodSecurityAdmission=true"}
+				expectedGates := []string{"Bar=false", "Foo=true", "OpenShiftPodSecurityAdmission=true", "MinimumKubeletVersion=true"}
 				if len(actualGates) != len(expectedGates) {
 					return fmt.Errorf("expected to get exactly %d feature gates but found %d: expected=%v got=%v", len(expectedGates), len(actualGates), expectedGates, actualGates)
 				}
@@ -675,7 +676,7 @@ spec:
 }
 
 func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
-	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission}, nil))
+	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission, features.FeatureGateMinimumKubeletVersion}, nil))
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 
@@ -700,7 +701,7 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 	require.NoError(t, err)
 	rawPolicyJSON, err := kyaml.ToJSON(defaultPolicy)
 	require.NoError(t, err)
-	policyExpected, err := convertToUnstructured(rawPolicyJSON)
+	policyExpected, err := bindata.ConvertToUnstructured(rawPolicyJSON)
 	require.NoError(t, err)
 
 	isEqual := equality.Semantic.DeepEqual(policyExpected, auditConfigPolicyGot)
