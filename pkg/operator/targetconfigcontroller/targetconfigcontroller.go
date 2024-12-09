@@ -17,6 +17,7 @@ import (
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -228,12 +229,21 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	configOverrides := bindata.MustAsset("assets/config/config-overrides.yaml")
 	specialMergeRules := map[string]resourcemerge.MergeFunc{}
 
+	// Guarantee the authorization-mode will be present in the base config, regardless of whether the observer is running
+	authModeOverride := map[string]interface{}{}
+	node.AddAuthorizationModes(authModeOverride, false)
+	authModeOverrideJSON, err := json.Marshal(authModeOverride)
+	if err != nil {
+		return nil, false, err
+	}
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&kubecontrolplanev1.KubeAPIServerConfig{},
 		configMap,
 		"config.yaml",
 		specialMergeRules,
 		defaultConfig,
+		authModeOverrideJSON,
 		configOverrides,
 		operatorSpec.ObservedConfig.Raw,
 		operatorSpec.UnsupportedConfigOverrides.Raw,
