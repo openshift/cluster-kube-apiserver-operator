@@ -35,10 +35,7 @@ apiServerArguments:
   anonymous-auth:
     - "true"
   authorization-mode:
-    - Scope
-    - SystemMasters
-    - RBAC
-    - Node
+    invalidMap: invalidToForceSubstitution
   audit-log-format:
     - json
   audit-log-maxbackup:
