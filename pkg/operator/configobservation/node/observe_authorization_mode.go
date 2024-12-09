@@ -16,6 +16,14 @@ var defaultAuthenticationModes = []string{
 	"RBAC",
 	"Node",
 }
+
+var authenticationModesWithMinimumKubeletVersion = []string{
+	"Scope",
+	"SystemMasters",
+	"RBAC",
+	ModeMinimumKubeletVersion, // before "Node" to have a chance to deny a node
+	"Node",
+}
 var (
 	authModeFlag  = "authorization-mode"
 	apiServerArgs = "apiServerArguments"
@@ -65,7 +73,7 @@ func (o *authorizationModeObserver) ObserveAuthorizationMode(genericListers conf
 func AddAuthorizationModes(observedConfig map[string]interface{}, isMinimumKubeletVersionEnabled bool) error {
 	modes := defaultAuthenticationModes
 	if isMinimumKubeletVersionEnabled {
-		modes = append(modes, ModeMinimumKubeletVersion)
+		modes = authenticationModesWithMinimumKubeletVersion
 	}
 
 	unstructured.RemoveNestedField(observedConfig, authModePath...)
