@@ -34,6 +34,8 @@ apiServerArguments:
     - "true"
   anonymous-auth:
     - "true"
+  authorization-mode:
+    invalidMap: invalidToForceSubstitution
   audit-log-format:
     - json
   audit-log-maxbackup:
