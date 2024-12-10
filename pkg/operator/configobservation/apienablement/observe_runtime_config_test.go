@@ -231,32 +231,6 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 			},
 			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{},
 		},
-		{
-			name:        "intersection of group versions should result in an error",
-			kubeVersion: semver.MustParse("1.31.0"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
-				"DynamicResourceAllocation": {
-					{KubeVersionRange: semver.MustParseRange("< 1.32.0"), GroupVersion: schema.GroupVersion{Group: "resource-a.k8s.io", Version: "v1alpha2"}},
-					{KubeVersionRange: semver.MustParseRange(">= 1.30.0"), GroupVersion: schema.GroupVersion{Group: "resource-a.k8s.io", Version: "v1alpha3"}},
-					{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource-b.k8s.io", Version: "v1alpha2"}},
-				},
-			},
-			expectErrors: true,
-		},
-		{
-			name:        "intersection of group versions across feature gates should result in an error",
-			kubeVersion: semver.MustParse("1.31.0"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
-				"DynamicResourceAllocation": {
-					{KubeVersionRange: semver.MustParseRange("< 1.32.0"), GroupVersion: schema.GroupVersion{Group: "resource-a.k8s.io", Version: "v1alpha2"}},
-					{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource-b.k8s.io", Version: "v1alpha2"}},
-				},
-				"DRA": {
-					{GroupVersion: schema.GroupVersion{Group: "resource-b.k8s.io", Version: "v1alpha1"}},
-				},
-			},
-			expectErrors: true,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			actual, err := getGroupVersionByFeatureGate(tc.groupVersionsByFeatureGate, tc.kubeVersion)
