@@ -7,7 +7,6 @@ import (
 
 	coreapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/informers"
 	corelisterv1 "k8s.io/client-go/listers/core/v1"
 
@@ -25,6 +24,8 @@ type NodeController struct {
 	controllerInstanceName string
 	operatorClient         v1helpers.StaticPodOperatorClient
 	nodeLister             corelisterv1.NodeLister
+	extraNodeSelector      labels.Selector
+	masterNodesSelector    labels.Selector
 }
 
 // NewNodeController creates a new node controller.
@@ -33,12 +34,21 @@ func NewNodeController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersClusterScoped informers.SharedInformerFactory,
 	eventRecorder events.Recorder,
+	extraNodeSelector labels.Selector,
 ) factory.Controller {
 	c := &NodeController{
 		controllerInstanceName: factory.ControllerInstanceName(instanceName, "Node"),
 		operatorClient:         operatorClient,
 		nodeLister:             kubeInformersClusterScoped.Core().V1().Nodes().Lister(),
+		extraNodeSelector:      extraNodeSelector,
 	}
+
+	masterNodesSelector, err := labels.Parse("node-role.kubernetes.io/master=")
+	if err != nil {
+		panic(err)
+	}
+	c.masterNodesSelector = masterNodesSelector
+
 	return factory.New().
 		WithInformers(
 			operatorClient.Informer(),
@@ -58,13 +68,20 @@ func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) 
 		return err
 	}
 
-	selector, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Equals, []string{""})
-	if err != nil {
-		panic(err)
-	}
-	nodes, err := c.nodeLister.List(labels.NewSelector().Add(*selector))
+	nodes, err := c.nodeLister.List(c.masterNodesSelector)
 	if err != nil {
 		return err
+	}
+
+	// Due to a design choice on ORing keys in label selectors, we run this query again to allow for additional
+	// selectors as well as selectors that want to OR with master nodes.
+	// see: https://github.com/kubernetes/kubernetes/issues/90549#issuecomment-620625847
+	if c.extraNodeSelector != nil {
+		extraNodes, err := c.nodeLister.List(c.extraNodeSelector)
+		if err != nil {
+			return err
+		}
+		nodes = append(nodes, extraNodes...)
 	}
 
 	jsonPatch := jsonpatch.New()
