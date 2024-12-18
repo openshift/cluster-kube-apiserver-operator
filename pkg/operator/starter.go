@@ -425,7 +425,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"kube-apiserver",
 		operatorclient.TargetNamespace,
 		"kube-apiserver-audit-policies",
-		configInformers.Config().V1().APIServers().Lister(),
 		operatorClient,
 		kubeClient,
 		configInformers,
