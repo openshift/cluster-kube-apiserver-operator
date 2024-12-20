@@ -7,14 +7,17 @@ import (
 	"strings"
 	"testing"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
 var codec = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
@@ -413,6 +416,85 @@ func TestIsRequiredConfigPresentEtcdEndpoints(t *testing.T) {
 			case actual != nil && len(test.expectedError) != 0 && !strings.Contains(actual.Error(), test.expectedError):
 				t.Fatal(actual)
 			}
+		})
+	}
+}
+
+func TestMergeStringSlices(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		dst         any
+		src         any
+		expected    any
+		expectError bool
+	}{
+		{
+			name:        "dst and src empty",
+			dst:         nil,
+			src:         nil,
+			expected:    nil,
+			expectError: false,
+		},
+		{
+			name:        "src empty",
+			dst:         []any{"value"},
+			src:         nil,
+			expected:    []any{"value"},
+			expectError: false,
+		},
+		{
+			name:        "dst empty",
+			dst:         nil,
+			src:         []any{"value"},
+			expected:    []any{"value"},
+			expectError: false,
+		},
+		{
+			name:        "dst not a slice",
+			dst:         "not-a-slice",
+			src:         []any{"new-item"},
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "src not a slice",
+			dst:         []any{"existing-item"},
+			src:         "not-a-slice",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "dst not a string slice",
+			dst:         []any{1, 2, 3},
+			src:         []any{"new-item"},
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "src not a string slice",
+			dst:         []any{"existing-item"},
+			src:         []any{1, 2, 3},
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "dst and src merged",
+			dst:         []any{"existing-item"},
+			src:         []any{"new-item"},
+			expected:    []string{"existing-item", "new-item"},
+			expectError: false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			merged, err := mergeStringSlices(tt.dst, tt.src, "")
+			if tt.expectError != (err != nil) {
+				t.Errorf("expected error: %v; got %v", tt.expectError, err)
+			}
+
+			if !equality.Semantic.DeepEqual(tt.expected, merged) {
+				t.Errorf("unexpected merged slice: %s", diff.ObjectReflectDiff(tt.expected, merged))
+			}
+
 		})
 	}
 }
