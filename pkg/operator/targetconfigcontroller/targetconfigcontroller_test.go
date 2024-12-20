@@ -5,10 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var codec = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
@@ -332,6 +334,90 @@ func TestIsRequiredConfigPresentEtcdEndpoints(t *testing.T) {
 				t.Fatal(actual)
 			case actual != nil && len(test.expectedError) != 0 && !strings.Contains(actual.Error(), test.expectedError):
 				t.Fatal(actual)
+			}
+		})
+	}
+}
+
+func TestMergeDisabledAdmissionPlugins(t *testing.T) {
+	baseConfig := map[string]interface{}{
+		"another-key": []interface{}{
+			"value",
+		},
+		"enable-admission-plugins": []interface{}{
+			"plugin0",
+			"plugin1",
+			"plugin2",
+			"plugin3",
+		},
+	}
+
+	disablePluginsConfig := map[string]interface{}{
+		"disable-admission-plugins": []interface{}{
+			"plugin1",
+			"plugin2",
+		},
+	}
+
+	for _, tt := range []struct {
+		name      string
+		dstConfig map[string]interface{}
+		srcConfig map[string]interface{}
+		path      string
+
+		expectedConfig map[string]interface{}
+		expectError    bool
+	}{
+		{
+			name:           "dst is nil",
+			dstConfig:      nil,
+			srcConfig:      disablePluginsConfig,
+			expectedConfig: nil,
+			expectError:    false,
+		},
+		{
+			name:           "src is nil",
+			dstConfig:      baseConfig,
+			srcConfig:      nil,
+			expectedConfig: baseConfig,
+			expectError:    false,
+		},
+		{
+			name:           "path is non-empty",
+			dstConfig:      baseConfig,
+			srcConfig:      disablePluginsConfig,
+			path:           ".apiServerArguments.subpath",
+			expectedConfig: baseConfig,
+			expectError:    false,
+		},
+		{
+			name:      "disable some plugins",
+			dstConfig: baseConfig,
+			srcConfig: disablePluginsConfig,
+			expectedConfig: map[string]interface{}{
+				"another-key": []interface{}{
+					"value",
+				},
+				"enable-admission-plugins": []interface{}{
+					"plugin0",
+					"plugin3",
+				},
+				"disable-admission-plugins": []interface{}{
+					"plugin1",
+					"plugin2",
+				},
+			},
+			expectError: false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			actualConfig, err := mergeDisabledAdmissionPlugins(tt.dstConfig, tt.srcConfig, tt.path)
+			if tt.expectError != (err != nil) {
+				t.Errorf("expected error: %v; got: %v", tt.expectError, err)
+			}
+
+			if !equality.Semantic.DeepEqual(tt.expectedConfig, actualConfig) {
+				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, actualConfig))
 			}
 		})
 	}
