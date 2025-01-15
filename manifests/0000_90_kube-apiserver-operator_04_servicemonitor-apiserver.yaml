@@ -92,7 +92,7 @@ spec:
       sourceLabels:
       - __name__
     - action: drop
-      regex: apiserver_request_duration_seconds_bucket;(0.4|0.6|0.8|1.25|1.5|3|6|8|15)
+      regex: apiserver_request_duration_seconds_bucket;(0.4|0.6|0.8|1.25|1.5|3|6|8|15)(\.0)?
       sourceLabels:
       - __name__
       - le
