@@ -14,10 +14,10 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.61
-	github.com/openshift/api v0.0.0-20241203091751-58d4ac495429
+	github.com/openshift/api v0.0.0-20250108172834-78bd56dba39b
 	github.com/openshift/build-machinery-go v0.0.0-20240613134303-8359781da660
 	github.com/openshift/client-go v0.0.0-20241203091221-452dfb8fa071
-	github.com/openshift/library-go v0.0.0-20241216140520-201d816c66f0
+	github.com/openshift/library-go v0.0.0-20250116180413-7359be999c02
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/prometheus/client_golang v1.19.1
 	github.com/spf13/cobra v1.8.1
