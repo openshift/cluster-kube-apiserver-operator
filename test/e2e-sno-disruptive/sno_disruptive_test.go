@@ -23,12 +23,13 @@ import (
 func TestFallback(tt *testing.T) {
 	t := commontesthelpers.NewE(tt)
 	cs := getClients(t)
+	ctx := context.TODO()
 
 	t.Log("Starting the fallback test")
-	clusterStateWaitPollTimeout, clusterMustBeReadyFor, waitForFallbackDegradedConditionTimeout := fallbackTimeoutsForCurrentPlatform(t, cs)
+	clusterStateWaitPollTimeout, clusterMustBeReadyForBeforeTest, clusterMustBeReadyFor, waitForFallbackDegradedConditionTimeout := fallbackTimeoutsForCurrentPlatform(t, cs)
 
 	// before starting a new test make sure the current state of the cluster is good
-	ensureClusterInGoodState(t, cs, clusterStateWaitPollTimeout, clusterMustBeReadyFor)
+	ensureClusterInGoodState(ctx, t, cs, clusterStateWaitPollTimeout, clusterMustBeReadyForBeforeTest)
 
 	// cause a disruption
 	cfg := getDefaultUnsupportedConfigForCurrentPlatform(t, cs)
@@ -36,49 +37,58 @@ func TestFallback(tt *testing.T) {
 	setUnsupportedConfig(t, cs, cfg)
 
 	// validate if the fallback condition is reported and the cluster is stable
-	waitForFallbackDegradedCondition(t, cs, waitForFallbackDegradedConditionTimeout)
+	waitForFallbackDegradedCondition(ctx, t, cs, waitForFallbackDegradedConditionTimeout)
 	nodeName, failedRevision := assertFallbackOnNodeStatus(t, cs)
 	assertKasPodAnnotatedOnNode(t, cs, failedRevision, nodeName)
 
-	// clean up
+	// clean up and some extra time is needed to wait for the KAS operator to be ready
 	setUnsupportedConfig(t, cs, getDefaultUnsupportedConfigForCurrentPlatform(t, cs))
-	err := waitForClusterInGoodState(t, cs, clusterStateWaitPollTimeout, clusterMustBeReadyFor)
+	err := waitForClusterInGoodState(ctx, t, cs, clusterStateWaitPollTimeout, clusterMustBeReadyFor)
 	require.NoError(t, err)
 }
 
 // ensureClusterInGoodState makes sure the cluster is not progressing for mustBeReadyFor period
 // in addition in an HA env it applies getDefaultUnsupportedConfigForCurrentPlatform so that the feature is enabled before the tests starts
-func ensureClusterInGoodState(t testing.TB, cs clientSet, waitPollTimeout, mustBeReadyFor time.Duration) {
+func ensureClusterInGoodState(ctx context.Context, t testing.TB, cs clientSet, waitPollTimeout, mustBeReadyFor time.Duration) {
 	setUnsupportedConfig(t, cs, getDefaultUnsupportedConfigForCurrentPlatform(t, cs))
-	err := waitForClusterInGoodState(t, cs, waitPollTimeout, mustBeReadyFor)
+	err := waitForClusterInGoodState(ctx, t, cs, waitPollTimeout, mustBeReadyFor)
 	require.NoError(t, err)
 }
 
 // waitForClusterInGoodState checks if the cluster is not progressing
-func waitForClusterInGoodState(t testing.TB, cs clientSet, waitPollTimeout, mustBeReadyFor time.Duration) error {
+func waitForClusterInGoodState(ctx context.Context, t testing.TB, cs clientSet, waitPollTimeout, mustBeReadyFor time.Duration) error {
 	t.Helper()
 
 	startTs := time.Now()
-	t.Logf("Waiting %s for the cluster to be in a good condition, interval = 10s, timeout %v", mustBeReadyFor.String(), waitPollTimeout)
+	t.Logf("Waiting %s for the cluster to be in a good condition, interval = 20s, timeout %v", mustBeReadyFor.String(), waitPollTimeout)
 
-	return wait.Poll(10*time.Second, waitPollTimeout, func() (bool, error) {
-		ckaso, err := cs.Operator.Get(context.TODO(), "cluster", metav1.GetOptions{})
+	return wait.PollUntilContextTimeout(ctx, 20*time.Second, waitPollTimeout, true, func(cxt context.Context) (bool, error) {
+		ckaso, err := cs.Operator.Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			t.Log(err)
 			return false, nil /*retry*/
 		}
 
+		// Check if any node is still progressing
 		for _, ns := range ckaso.Status.NodeStatuses {
 			if ckaso.Status.LatestAvailableRevision != ns.CurrentRevision || ns.TargetRevision > 0 {
-				t.Logf("Node %s is progressing, latestAvailableRevision: %v, currentRevision: %v, targetRevision: %v", ns.NodeName, ckaso.Status.LatestAvailableRevision, ns.CurrentRevision, ns.TargetRevision)
+				t.Logf("Node %s is progressing, latestAvailableRevision: %v, currentRevision: %v, targetRevision: %v",
+					ns.NodeName, ckaso.Status.LatestAvailableRevision, ns.CurrentRevision, ns.TargetRevision)
 				return false, nil /*retry*/
 			}
 		}
 
-		if time.Since(startTs) > mustBeReadyFor {
+		// Verify operator conditions
+		ckasoAvailable := v1helpers.IsOperatorConditionTrue(ckaso.Status.Conditions, "StaticPodsAvailable")
+		ckasoNotProgressing := v1helpers.IsOperatorConditionFalse(ckaso.Status.Conditions, "NodeInstallerProgressing")
+		ckasoNotDegraded := v1helpers.IsOperatorConditionFalse(ckaso.Status.Conditions, "NodeControllerDegraded")
+
+		// If cluster has been stable for the required time, return success
+		if time.Since(startTs) > mustBeReadyFor && ckasoAvailable && ckasoNotProgressing && ckasoNotDegraded {
 			t.Logf("The cluster has been in good condition for %s", mustBeReadyFor.String())
 			return true, nil /*done*/
 		}
+
 		return false, nil /*wait a bit more*/
 	})
 }
@@ -108,11 +118,11 @@ func setUnsupportedConfig(t testing.TB, cs clientSet, cfg map[string]interface{}
 }
 
 // waitForFallbackDegradedCondition waits until StaticPodFallbackRevisionDegraded condition is set to true
-func waitForFallbackDegradedCondition(t testing.TB, cs clientSet, waitPollTimeout time.Duration) {
+func waitForFallbackDegradedCondition(ctx context.Context, t testing.TB, cs clientSet, waitPollTimeout time.Duration) {
 	t.Helper()
 
 	t.Logf("Waiting for StaticPodFallbackRevisionDegraded condition, interval = 20s, timeout = %v", waitPollTimeout)
-	err := wait.Poll(20*time.Second, waitPollTimeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(ctx, 20*time.Second, waitPollTimeout, true, func(cxt context.Context) (bool, error) {
 		ckaso, err := cs.Operator.Get(context.TODO(), "cluster", metav1.GetOptions{})
 		if err != nil {
 			t.Logf("unable to get kube-apiserver-operator resource: %v", err)
@@ -220,13 +230,16 @@ func getDefaultUnsupportedConfigForCurrentPlatform(t testing.TB, cs clientSet) m
 // fallbackTimeoutsForCurrentPlatform provides various timeouts that are tailored for the current platform
 // TODO: add timeouts for AWS and GCP
 // TODO: we should be able to return only a single per-platform specific timeout and derive the rest e.g. oneNodeRolloutTimeout
-func fallbackTimeoutsForCurrentPlatform(t testing.TB, cs clientSet) (time.Duration, time.Duration, time.Duration) {
+func fallbackTimeoutsForCurrentPlatform(t testing.TB, cs clientSet) (time.Duration, time.Duration, time.Duration, time.Duration) {
 	/*
 	 default timeouts that apply when the test is run on an SNO cluster
 
 	 clusterStateWaitPollInterval:            is the max time after the cluster is considered not ready
 	                                          it should match waitForFallbackDegradedConditionTimeout
 	                                          because we don't know when the previous test finished
+
+	 clusterMustBeReadyForBeforeTest:         the time that make sure the current state of the cluster is good
+	                                          before starting a new test
 
 	 clusterMustBeReadyFor:                   the time the cluster must stay stable
 
@@ -236,5 +249,8 @@ func fallbackTimeoutsForCurrentPlatform(t testing.TB, cs clientSet) (time.Durati
 	                                          including the time the server needs to become ready and be noticed by a Load Balancer
 	                                          longer duration allows as to collect logs and the must-gather
 	*/
-	return 10 * time.Minute /*clusterStateWaitPollInterval*/, 1 * time.Minute /*clusterMustBeReadyFor*/, 10 * time.Minute /*waitForFallbackDegradedConditionTimeout*/
+	return 10 * time.Minute, // clusterStateWaitPollInterval
+		1 * time.Minute, // clusterMustBeReadyForBeforeTest
+		5 * time.Minute, // clusterMustBeReadyFor
+		18 * time.Minute // waitForFallbackDegradedConditionTimeout
 }
