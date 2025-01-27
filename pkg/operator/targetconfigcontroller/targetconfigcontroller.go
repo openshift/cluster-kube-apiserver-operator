@@ -229,7 +229,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	configOverrides := bindata.MustAsset("assets/config/config-overrides.yaml")
 
 	// if there are any plugins in the --disable-admission-plugins list, make sure
-	// they do not exist in the --enable-admission-plugins list
+	// they are removed from the --enable-admission-plugins list if they exist there
 	specialMergeRules := map[string]resourcemerge.MergeFunc{
 		".apiServerArguments": mergeDisabledAdmissionPlugins,
 	}
