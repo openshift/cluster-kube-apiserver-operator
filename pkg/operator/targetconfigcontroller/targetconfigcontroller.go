@@ -39,6 +39,11 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+const (
+	etcdEndpointNamespace = "openshift-etcd"
+	etcdEndpointName      = "etcd-endpoints"
+)
+
 type TargetConfigController struct {
 	targetImagePullSpec   string
 	operatorImagePullSpec string
@@ -104,7 +109,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 
 	// block until config is observed and specific paths are present
 	isNotOnSingleReplicaTopology := c.notOnSingleReplicaTopologyFn()
-	if err := isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw, isNotOnSingleReplicaTopology); err != nil {
+	if err := c.isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw, isNotOnSingleReplicaTopology); err != nil {
 		syncContext.Recorder().Warning("ConfigMissing", err.Error())
 		return err
 	}
@@ -120,7 +125,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 	return nil
 }
 
-func isRequiredConfigPresent(config []byte, isNotSingleNode bool) error {
+func (c *TargetConfigController) isRequiredConfigPresent(config []byte, isNotSingleNode bool) error {
 	if len(config) == 0 {
 		return fmt.Errorf("no observedConfig")
 	}
@@ -158,11 +163,45 @@ func isRequiredConfigPresent(config []byte, isNotSingleNode bool) error {
 			if !ok {
 				return fmt.Errorf("%v is not a slice", strings.Join(requiredPath, "."))
 			}
-			if len(configValSlice) < 3 {
-				return fmt.Errorf("%v has less than three endpoints: %v", strings.Join(requiredPath, "."), configValSlice)
+
+			if err := etcdEndpointsPresent(c.configMapLister, configValSlice, requiredPath); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+// etcdEndpointsPresent compares the list of endpoints exposed by
+// cluster-etcd-operator with the list of URLs in the etcd-servers config. If
+// less than two etcd live endpoints (not localhost and bootstrap) are present
+// in the config, it returns an error because the configuration does not
+// statisfy HA requirements.
+func etcdEndpointsPresent(configMapLister corev1listers.ConfigMapLister, config []interface{}, configPath []string) error {
+	etcdEndpointsCM, err := configMapLister.ConfigMaps(etcdEndpointNamespace).Get(etcdEndpointName)
+	if err != nil {
+		return err
+	}
+
+	var liveEndpoints []string
+	for _, val := range config {
+		url, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("%v is not a string slice", strings.Join(configPath, "."))
+		}
+
+		for _, etcdEndpoint := range etcdEndpointsCM.Data {
+			if strings.Contains(url, etcdEndpoint) {
+				liveEndpoints = append(liveEndpoints, url)
+				break
+			}
+		}
+	}
+
+	if len(liveEndpoints) < 2 {
+		return fmt.Errorf("%v has less than two live etcd endpoints: %v", strings.Join(configPath, "."), liveEndpoints)
+	}
+
 	return nil
 }
 
