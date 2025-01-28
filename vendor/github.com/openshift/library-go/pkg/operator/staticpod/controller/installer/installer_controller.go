@@ -319,6 +319,8 @@ func nodeToStartRevisionWith(ctx context.Context, getStaticPodStateFn staticPodS
 		return 0, "", fmt.Errorf("nodes array cannot be empty")
 	}
 
+	klog.Info("DEBUGBOOTSTRAP: nodeToStartRevisionWith, nodeStatuses: %+v", nodes)
+
 	// find upgrading node as this will be the first to start new revision (to minimize number of down nodes)
 	for i := range nodes {
 		if nodes[i].TargetRevision != 0 {
@@ -1117,6 +1119,7 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 		return err
 	}
 	operatorStatus := originalOperatorStatus.DeepCopy()
+	klog.Info("DEBUGBOOTSTRAP: operatorResourceVersion=%q, podOperatorStatusApplied=%q", operatorResourceVersion, c.podOperatorStatusApplied)
 
 	// Perform a live get to obtain the RV of the object the controller applied
 	// because for the MOM effort it is not allowed to get the RV from
@@ -1139,6 +1142,7 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 			return err
 		}
 
+		klog.Info("DEBUGBOOTSTRAP: operatorRV=%q, lastPodOperatorAppliedRV=%q", operatorRV, c.lastPodOperatorAppliedRV)
 		if operatorRV < c.lastPodOperatorAppliedRV {
 			klog.V(4).Info("Skipping installer controller sync, StaticPodOperator lister hasn't observed the effect of its most recent write")
 			return nil
@@ -1169,6 +1173,7 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 		err = syncErr
 	}
 
+	klog.Info("DEBUGBOOTSTRAP: preparing sync's apply")
 	// Update failing condition
 	// If required certs are missing, this will report degraded as we can't create installer pods because of this pre-condition.
 	nodeStatusApplyConfigurations := prepareNodeStatusApplyConfigurationFor(originalOperatorStatus.NodeStatuses, updatedNode)
@@ -1185,6 +1190,13 @@ func (c InstallerController) Sync(ctx context.Context, syncCtx factory.SyncConte
 	} else if updatedNodeReportOnSuccessfulUpdateFn != nil {
 		updatedNodeReportOnSuccessfulUpdateFn()
 	}
+
+	_, _, rv, err := c.operatorClient.GetOperatorStateWithQuorum(ctx)
+	if err != nil {
+		return err
+	}
+	klog.Info("DEBUGBOOTSTRAP: applied operator status with RV=%q", rv)
+
 	return err
 }
 
