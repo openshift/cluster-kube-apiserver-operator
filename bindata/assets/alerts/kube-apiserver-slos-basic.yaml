@@ -214,7 +214,7 @@ spec:
           sum(apiserver_request:burn6h)
           /
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET|POST|PUT|PATCH|DELETE"}[6h]))
-      record: sum:apiserver_request:burnrate5m
+      record: sum:apiserver_request:burnrate6h
     - expr: |
         sum by (code,resource) (rate(apiserver_request_total{job="apiserver",verb=~"LIST|GET"}[5m]))
       labels:
