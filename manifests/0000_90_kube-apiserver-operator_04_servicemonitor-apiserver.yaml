@@ -111,6 +111,20 @@ spec:
       serverName: kubernetes
       certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
       keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 10s
+    relabelings:
+    - action: replace
+      targetLabel: apiserver
+      replacement: kube-apiserver
+    port: https
+    scheme: https
+    path: /metrics/slis
+    tlsConfig:
+      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      serverName: kubernetes
+      certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+      keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
   jobLabel: component
   namespaceSelector:
     matchNames:
