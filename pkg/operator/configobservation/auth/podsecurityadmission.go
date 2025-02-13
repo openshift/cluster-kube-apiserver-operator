@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 
-	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -98,7 +98,7 @@ func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.Fea
 
 	observedConfig := map[string]interface{}{}
 	switch {
-	case !featureGates.Enabled(configv1.FeatureGateOpenShiftPodSecurityAdmission):
+	case !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission):
 		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
