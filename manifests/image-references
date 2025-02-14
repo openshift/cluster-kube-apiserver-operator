@@ -10,3 +10,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-hyperkube:v4.0
+  - name: aws-kms-encryption-provider
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-aws-encryption-provider:latest
