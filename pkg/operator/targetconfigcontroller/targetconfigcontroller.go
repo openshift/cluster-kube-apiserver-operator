@@ -13,7 +13,6 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/openshift/api/annotations"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
@@ -321,11 +320,6 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 	if err != nil {
 		return nil, false, err
 	}
-	if requiredConfigMap.Annotations == nil {
-		requiredConfigMap.Annotations = map[string]string{}
-	}
-	requiredConfigMap.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
-
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
@@ -348,11 +342,6 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 	if err != nil {
 		return nil, false, err
 	}
-	if requiredConfigMap.Annotations == nil {
-		requiredConfigMap.Annotations = map[string]string{}
-	}
-	requiredConfigMap.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
-
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
