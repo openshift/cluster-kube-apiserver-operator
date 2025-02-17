@@ -1,14 +1,20 @@
 package targetconfigcontroller
 
 import (
+	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	operatorv1 "github.com/openshift/api/operator/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 var codec = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
@@ -109,9 +115,11 @@ func TestIsRequiredConfigPresent(t *testing.T) {
 		},
 	}
 
+	c := TargetConfigController{}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := isRequiredConfigPresent([]byte(test.config), false)
+			actual := c.isRequiredConfigPresent([]byte(test.config), false)
 			switch {
 			case actual == nil && len(test.expectedError) == 0:
 			case actual == nil && len(test.expectedError) != 0:
@@ -255,75 +263,147 @@ func TestIsRequiredConfigPresentEtcdEndpoints(t *testing.T) {
 		 }
 		}
 		`
+
+	zeroEtcdEndpoint := makeEtcdEndpointsCM()
+	oneEtcdEndpoint := makeEtcdEndpointsCM("ip-10-0-0-1")
+	twoEtcdEndpoints := makeEtcdEndpointsCM("ip-10-0-0-1", "ip-10-0-0-2")
+	threeEtcdEndpoints := makeEtcdEndpointsCM("ip-10-0-0-1", "ip-10-0-0-2", "ip-10-0-0-3")
+
 	tests := []struct {
 		name            string
 		etcdServers     string
+		etcdEndpointsCM *corev1.ConfigMap
 		expectedError   string
 		isNotSingleNode bool
 	}{
 		{
-			name:          "nil-storage-urls",
-			etcdServers:   "null",
-			expectedError: "apiServerArguments.etcd-servers null in config",
+			name:            "nil-storage-urls",
+			etcdServers:     "null",
+			etcdEndpointsCM: zeroEtcdEndpoint,
+			expectedError:   "apiServerArguments.etcd-servers null in config",
 		},
 		{
-			name:          "missing-storage-urls",
-			etcdServers:   "[]",
-			expectedError: "apiServerArguments.etcd-servers empty in config",
+			name:            "missing-storage-urls",
+			etcdServers:     "[]",
+			etcdEndpointsCM: zeroEtcdEndpoint,
+			expectedError:   "apiServerArguments.etcd-servers empty in config",
 		},
 		{
-			name:          "empty-string-storage-urls",
-			etcdServers:   `""`,
-			expectedError: "apiServerArguments.etcd-servers empty in config",
+			name:            "empty-string-storage-urls",
+			etcdServers:     `""`,
+			etcdEndpointsCM: zeroEtcdEndpoint,
+			expectedError:   "apiServerArguments.etcd-servers empty in config",
 		},
 		{
-			name:            "one-etcd-server",
-			etcdServers:     `[ "val" ]`,
+			name:            "missing-etcd-endpoints-configmap",
+			etcdServers:     `[ "not-empty" ]`,
+			etcdEndpointsCM: &corev1.ConfigMap{},
 			isNotSingleNode: true,
-			expectedError:   "apiServerArguments.etcd-servers has less than three endpoints",
+			expectedError:   "configmaps \"etcd-endpoints\" not found",
 		},
 		{
-			name:            "one-etcd-server-sno",
-			etcdServers:     `[ "val" ]`,
+			name:            "bootstrap",
+			etcdServers:     `[ "bootstrap" ]`,
+			etcdEndpointsCM: zeroEtcdEndpoint,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than two live etcd endpoints: []",
+		},
+		{
+			name:            "bootstrap-one-endpoint",
+			etcdServers:     `[ "bootstrap", "ip-10-0-0-1" ]`,
+			etcdEndpointsCM: oneEtcdEndpoint,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than two live etcd endpoints: [ip-10-0-0-1]",
+		},
+		{
+			name:            "bootstrap-two-endpoints",
+			etcdServers:     `[ "bootstrap", "ip-10-0-0-1", "ip-10-0-0-2" ]`,
+			etcdEndpointsCM: twoEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "bootstrap-three-endpoints",
+			etcdServers:     `[ "bootstrap", "ip-10-0-0-1", "ip-10-0-0-2", "ip-10-0-0-3" ]`,
+			etcdEndpointsCM: threeEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "bootstrap-and-localhost",
+			etcdServers:     `[ "bootstrap", "localhost" ]`,
+			etcdEndpointsCM: zeroEtcdEndpoint,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than two live etcd endpoints: []",
+		},
+		{
+			name:            "bootstrap-localhost-one-endpoint",
+			etcdServers:     `[ "bootstrap", "localhost", "ip-10-0-0-1" ]`,
+			etcdEndpointsCM: oneEtcdEndpoint,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than two live etcd endpoints: [ip-10-0-0-1]",
+		},
+		{
+			name:            "bootstrap-localhost-two-endpoints",
+			etcdServers:     `[ "bootstrap", "localhost", "ip-10-0-0-1", "ip-10-0-0-2" ]`,
+			etcdEndpointsCM: twoEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "bootstrap-localhost-three-endpoints",
+			etcdServers:     `[ "bootstrap", "localhost", "ip-10-0-0-1", "ip-10-0-0-2", "ip-10-0-0-3" ]`,
+			etcdEndpointsCM: threeEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "one-endpoint",
+			etcdServers:     `[ "ip-10-0-0-1" ]`,
+			etcdEndpointsCM: oneEtcdEndpoint,
+			isNotSingleNode: true,
+			expectedError:   "apiServerArguments.etcd-servers has less than two live etcd endpoints: [ip-10-0-0-1]",
+		},
+		{
+			name:            "two-endpoints",
+			etcdServers:     `[ "ip-10-0-0-1", "ip-10-0-0-2" ]`,
+			etcdEndpointsCM: twoEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "three-endpoints",
+			etcdServers:     `[ "ip-10-0-0-1", "ip-10-0-0-2", "ip-10-0-0-3" ]`,
+			etcdEndpointsCM: threeEtcdEndpoints,
+			isNotSingleNode: true,
+		},
+		{
+			name:            "bootstrap-sno",
+			etcdServers:     `[ "bootstrap" ]`,
+			etcdEndpointsCM: zeroEtcdEndpoint,
 			isNotSingleNode: false,
 		},
 		{
-			name:            "two-etcd-servers",
-			etcdServers:     `[ "val1", "val2" ]`,
-			isNotSingleNode: true,
-			expectedError:   "apiServerArguments.etcd-servers has less than three endpoints",
-		},
-		{
-			name:            "two-etcd-servers-sno",
-			etcdServers:     `[ "val1", "val2" ]`,
+			name:            "one-endpoint-sno",
+			etcdServers:     `[ "ip-10-0-0-1" ]`,
+			etcdEndpointsCM: oneEtcdEndpoint,
 			isNotSingleNode: false,
 		},
 		{
-			name:            "three-etcd-servers",
-			etcdServers:     `[ "val1", "val2", "val3" ]`,
-			isNotSingleNode: true,
-		},
-		{
-			name:            "three-etcd-servers-sno",
-			etcdServers:     `[ "val1", "val2", "val3" ]`,
+			name:            "two-endpoints-sno",
+			etcdServers:     `[ "ip-10-0-0-1", "ip-10-0-0-2" ]`,
+			etcdEndpointsCM: twoEtcdEndpoints,
 			isNotSingleNode: false,
 		},
 		{
-			name:            "four-etcd-servers",
-			etcdServers:     `[ "val1", "val2", "val3", "val4" ]`,
-			isNotSingleNode: true,
-		},
-		{
-			name:            "four-etcd-servers-sno",
-			etcdServers:     `[ "val1", "val2", "val3", "val4" ]`,
+			name:            "bootstrap-three-endpoints",
+			etcdServers:     `[ "ip-10-0-0-1", "ip-10-0-0-2", "ip-10-0-0-3" ]`,
+			etcdEndpointsCM: threeEtcdEndpoints,
 			isNotSingleNode: false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			kubeClient := fake.NewSimpleClientset(test.etcdEndpointsCM)
+			c := TargetConfigController{configMapLister: &configMapLister{client: kubeClient, namespace: etcdEndpointNamespace}}
 			config := fmt.Sprintf(configTemplate, test.etcdServers)
-			actual := isRequiredConfigPresent([]byte(config), test.isNotSingleNode)
+			actual := c.isRequiredConfigPresent([]byte(config), test.isNotSingleNode)
 			switch {
 			case actual == nil && len(test.expectedError) == 0:
 			case actual == nil && len(test.expectedError) != 0:
@@ -335,4 +415,49 @@ func TestIsRequiredConfigPresentEtcdEndpoints(t *testing.T) {
 			}
 		})
 	}
+}
+
+func makeEtcdEndpointsCM(endpoints ...string) *corev1.ConfigMap {
+	cm := &corev1.ConfigMap{}
+	cm.Name = etcdEndpointName
+	cm.Namespace = etcdEndpointNamespace
+
+	cm.Data = make(map[string]string)
+	for i, ep := range endpoints {
+		cm.Data[strconv.Itoa(i)] = ep
+	}
+
+	return cm
+}
+
+type configMapLister struct {
+	client    *fake.Clientset
+	namespace string
+}
+
+var _ corev1listers.ConfigMapNamespaceLister = &configMapLister{}
+var _ corev1listers.ConfigMapLister = &configMapLister{}
+
+func (l *configMapLister) List(selector labels.Selector) (ret []*corev1.ConfigMap, err error) {
+	list, err := l.client.CoreV1().ConfigMaps(l.namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+
+	var items []*corev1.ConfigMap
+	for i := range list.Items {
+		items = append(items, &list.Items[i])
+	}
+
+	return items, err
+}
+
+func (l *configMapLister) ConfigMaps(namespace string) corev1listers.ConfigMapNamespaceLister {
+	return &configMapLister{
+		client:    l.client,
+		namespace: namespace,
+	}
+}
+
+func (l *configMapLister) Get(name string) (*corev1.ConfigMap, error) {
+	return l.client.CoreV1().ConfigMaps(l.namespace).Get(context.Background(), name, metav1.GetOptions{})
 }
