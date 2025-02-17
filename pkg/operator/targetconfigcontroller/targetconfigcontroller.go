@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 type TargetConfigController struct {
@@ -295,12 +297,26 @@ func generateOptionalStartupMonitorPod(isStartupMonitorEnabledFn func() (bool, e
 }
 
 func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+
+	additionalAnnotations := certrotation.AdditionalAnnotations{
+		JiraComponent: "kube-apiserver",
+	}
+
+	caBundleConfigMap, err := lister.ConfigMaps(operatorclient.TargetNamespace).Get("client-ca")
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, false, err
+	}
+
+	creationRequired := false
+	if apierrors.IsNotFound(err) {
+		creationRequired = true
+	}
+	updateRequired := additionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
+
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
 		lister,
-		certrotation.AdditionalAnnotations{
-			JiraComponent: "kube-apiserver",
-		},
+		additionalAnnotations,
 		// this is from the installer and contains the value to verify the admin.kubeconfig user
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: "admin-kubeconfig-client-ca"},
 		// this is from the installer and contains the value to verify the node bootstrapping cert that is baked into images
@@ -320,16 +336,49 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+
+	if creationRequired {
+		caBundleConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Create(ctx, requiredConfigMap, metav1.CreateOptions{})
+		resourcehelper.ReportCreateEvent(recorder, caBundleConfigMap, err)
+		if err != nil {
+			return nil, false, err
+		}
+		klog.V(2).Infof("Created client CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		return caBundleConfigMap, true, nil
+	} else if updateRequired {
+		caBundleConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Update(ctx, requiredConfigMap, metav1.UpdateOptions{})
+		resourcehelper.ReportUpdateEvent(recorder, caBundleConfigMap, err)
+		if err != nil {
+			return nil, false, err
+		}
+		klog.V(2).Infof("Updated client CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		return caBundleConfigMap, true, nil
+	}
+
+	return caBundleConfigMap, false, nil
 }
 
 func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+
+	additionalAnnotations := certrotation.AdditionalAnnotations{
+		JiraComponent: "kube-apiserver",
+	}
+
+	caBundleConfigMap, err := lister.ConfigMaps(operatorclient.TargetNamespace).Get("client-ca")
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, false, err
+	}
+
+	creationRequired := false
+	if apierrors.IsNotFound(err) {
+		creationRequired = true
+	}
+	updateRequired := additionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
+
 	requiredConfigMap, err := resourcesynccontroller.CombineCABundleConfigMaps(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-server-ca"},
 		lister,
-		certrotation.AdditionalAnnotations{
-			JiraComponent: "kube-apiserver",
-		},
+		additionalAnnotations,
 		// this bundle is what this operator uses to mint loadbalancers certs
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "loadbalancer-serving-ca"},
 		// this bundle is what this operator uses to mint localhost certs
@@ -342,7 +391,26 @@ func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.Confi
 	if err != nil {
 		return nil, false, err
 	}
-	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+
+	if creationRequired {
+		caBundleConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Create(ctx, requiredConfigMap, metav1.CreateOptions{})
+		resourcehelper.ReportCreateEvent(recorder, caBundleConfigMap, err)
+		if err != nil {
+			return nil, false, err
+		}
+		klog.V(2).Infof("Created kube apiserver CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		return caBundleConfigMap, true, nil
+	} else if updateRequired {
+		caBundleConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Update(ctx, requiredConfigMap, metav1.UpdateOptions{})
+		resourcehelper.ReportUpdateEvent(recorder, caBundleConfigMap, err)
+		if err != nil {
+			return nil, false, err
+		}
+		klog.V(2).Infof("Updated kube apiserver CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		return caBundleConfigMap, true, nil
+	}
+
+	return caBundleConfigMap, false, nil
 }
 
 func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
