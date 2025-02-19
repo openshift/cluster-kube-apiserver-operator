@@ -37,6 +37,11 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
+replace (
+	github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20250219082239-76e884b3184d
+	github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20250219082714-8186725c56a0
+)
+
 require (
 	cel.dev/expr v0.18.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
@@ -48,7 +53,6 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect

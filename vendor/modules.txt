@@ -39,9 +39,6 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/evanphx/json-patch v4.12.0+incompatible
-## explicit
-github.com/evanphx/json-patch
 # github.com/felixge/fgprof v0.9.4
 ## explicit; go 1.14
 github.com/felixge/fgprof
@@ -213,7 +210,7 @@ github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20250124212313-a770960d61e0
+# github.com/openshift/api v0.0.0-20250124212313-a770960d61e0 => github.com/ardaguclu/openshift-api v0.0.0-20250219082239-76e884b3184d
 ## explicit; go 1.23.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -352,7 +349,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20250129210218-fe56c2cf5d70
+# github.com/openshift/library-go v0.0.0-20250129210218-fe56c2cf5d70 => github.com/ardaguclu/library-go v0.0.0-20250219082714-8186725c56a0
 ## explicit; go 1.23.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -1558,3 +1555,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20250219082239-76e884b3184d
+# github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20250219082714-8186725c56a0
