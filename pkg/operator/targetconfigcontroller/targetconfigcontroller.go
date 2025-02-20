@@ -567,7 +567,7 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 	case operatorv1.Trace:
 		verbosity = fmt.Sprintf(" -v=%d", 6)
 	case operatorv1.TraceAll:
-		verbosity = fmt.Sprintf(" -v=%d", 8)
+		verbosity = fmt.Sprintf(" -v=%d", 10)
 	default:
 		verbosity = fmt.Sprintf(" -v=%d", 2)
 	}
