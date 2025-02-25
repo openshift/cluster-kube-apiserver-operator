@@ -128,6 +128,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			auth.ObserveServiceAccountIssuer,
 			auth.ObserveWebhookTokenAuthenticator,
 			auth.NewObserveExternalOIDC(featureGateAccessor),
+			auth.ObserveRoleBindingRestrictionPlugins,
 			auth.NewObservePodSecurityAdmissionEnforcementFunc(featureGateAccessor),
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,
