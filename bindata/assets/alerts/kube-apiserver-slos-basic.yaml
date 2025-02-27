@@ -43,18 +43,18 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[5m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[5m]))
             -
             (
               (
-                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le="1"}[5m]))
+                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le=~"1(.0)?"}[5m]))
                 or
                 vector(0)
               )
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le="5"}[5m]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le=~"5(.0)?"}[5m]))
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le="30"}[5m]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le=~"30(.0)?"}[5m]))
             )
           )
           +
@@ -68,18 +68,18 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[30m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[30m]))
             -
             (
               (
-                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le="1"}[30m]))
+                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le=~"1(.0)?"}[30m]))
                 or
                 vector(0)
               )
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le="5"}[30m]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le=~"5(.0)?"}[30m]))
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le="30"}[30m]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le=~"30(.0)?"}[30m]))
             )
           )
           +
@@ -93,18 +93,18 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[1h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[1h]))
             -
             (
               (
-                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le="1"}[1h]))
+                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le=~"1(.0)?"}[1h]))
                 or
                 vector(0)
               )
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le="5"}[1h]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le=~"5(.0)?"}[1h]))
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le="30"}[1h]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le=~"30(.0)?"}[1h]))
             )
           )
           +
@@ -118,18 +118,18 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[6h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[6h]))
             -
             (
               (
-                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le="1"}[6h]))
+                sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope=~"resource|",le=~"1(.0)?"}[6h]))
                 or
                 vector(0)
               )
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le="5"}[6h]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="namespace",le=~"5(.0)?"}[6h]))
               +
-              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le="30"}[6h]))
+              sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"LIST|GET",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",scope="cluster",le=~"30(.0)?"}[6h]))
             )
           )
           +
@@ -143,9 +143,9 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[1h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[1h]))
             -
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le="1"}[1h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"1(.0)?"}[1h]))
           )
           +
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"/healthz|/livez|/readyz",code=~"5.."}[1h]))
@@ -157,9 +157,9 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[30m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[30m]))
             -
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le="1"}[30m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"1(.0)?"}[30m]))
           )
           +
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"/healthz|/livez|/readyz",code=~"5.."}[30m]))
@@ -171,9 +171,9 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[5m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[5m]))
             -
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le="1"}[5m]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"1(.0)?"}[5m]))
           )
           +
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"/healthz|/livez|/readyz",code=~"5.."}[5m]))
@@ -185,9 +185,9 @@ spec:
         (
           (
             # too slow
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_count{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz"}[6h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"60(.0)?"}[6h]))
             -
-            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le="1"}[6h]))
+            sum by (cluster) (rate(apiserver_request_sli_duration_seconds_bucket{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"proxy|attach|log|exec|portforward|/healthz|/livez|/readyz",le=~"1(.0)?"}[6h]))
           )
           +
           sum by (cluster) (rate(apiserver_request_total{job="apiserver",verb=~"POST|PUT|PATCH|DELETE",subresource!~"/healthz|/livez|/readyz",code=~"5.."}[6h]))
