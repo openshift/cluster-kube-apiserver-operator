@@ -119,7 +119,7 @@ func NewCertRotationController(
 			Name:      "kube-apiserver-aggregator-client-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions openshift-apiserver'",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]'",
 				Description:                      "CA for aggregated apiservers to recognize kube-apiserver as front-proxy.",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
@@ -132,7 +132,7 @@ func NewCertRotationController(
 			Name:      "aggregator-client",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions openshift-apiserver'",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]'",
 				Description:                      "Client certificate used by the kube-apiserver to communicate to aggregated apiservers.",
 			},
 			Validity: 30 * rotationDay,
@@ -232,8 +232,9 @@ func NewCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "localhost-serving-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
-				Description:   "CA for recognizing the kube-apiserver when connecting via localhost.",
+				JiraComponent:                    "kube-apiserver",
+				Description:                      "CA for recognizing the kube-apiserver when connecting via localhost.",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -245,7 +246,7 @@ func NewCertRotationController(
 			Name:      "localhost-serving-cert-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via localhost.",
 			},
 			Validity: 30 * rotationDay,
@@ -289,8 +290,9 @@ func NewCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "service-network-serving-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
-				Description:   "CA for recognizing the kube-apiserver when connecting via the service network (kuberentes.default.svc).",
+				JiraComponent:                    "kube-apiserver",
+				Description:                      "CA for recognizing the kube-apiserver when connecting via the service network (kuberentes.default.svc).",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -302,7 +304,7 @@ func NewCertRotationController(
 			Name:      "service-network-serving-certkey",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'operator conditions kube-apiserver'",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the service network.",
 			},
 			Validity: 30 * rotationDay,
@@ -347,8 +349,9 @@ func NewCertRotationController(
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "loadbalancer-serving-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
-				JiraComponent: "kube-apiserver",
-				Description:   "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
+				JiraComponent:                    "kube-apiserver",
+				Description:                      "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
+				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]'",
 			},
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
@@ -360,7 +363,9 @@ func NewCertRotationController(
 				Namespace: operatorclient.TargetNamespace,
 				Name:      "external-loadbalancer-serving-certkey",
 				AdditionalAnnotations: certrotation.AdditionalAnnotations{
-					JiraComponent: "kube-apiserver",
+					JiraComponent:                    "kube-apiserver",
+					Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
+					AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				},
 				Validity: 30 * rotationDay,
 				Refresh:  15 * rotationDay,
@@ -377,7 +382,9 @@ func NewCertRotationController(
 				Namespace: operatorclient.TargetNamespace,
 				Name:      "internal-loadbalancer-serving-certkey",
 				AdditionalAnnotations: certrotation.AdditionalAnnotations{
-					JiraComponent: "kube-apiserver",
+					JiraComponent:                    "kube-apiserver",
+					Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the internal load balancer.",
+					AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]'",
 				},
 				Validity: 30 * rotationDay,
 				Refresh:  15 * rotationDay,
