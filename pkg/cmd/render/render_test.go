@@ -264,7 +264,7 @@ func TestRenderCommand(t *testing.T) {
 				if !ok {
 					return fmt.Errorf("missing \"feature-gates\" entry in APIServerArguments")
 				}
-				expectedGates := []string{"Bar=false", "Foo=true", "OpenShiftPodSecurityAdmission=true"}
+				expectedGates := []string{"Bar=false", "Foo=true", "OpenShiftPodSecurityAdmission=true", "MinimumKubeletVersion=true"}
 				if len(actualGates) != len(expectedGates) {
 					return fmt.Errorf("expected to get exactly %d feature gates but found %d: expected=%v got=%v", len(expectedGates), len(actualGates), expectedGates, actualGates)
 				}
@@ -675,7 +675,7 @@ spec:
 }
 
 func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
-	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission}, nil))
+	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission, features.FeatureGateMinimumKubeletVersion}, nil))
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 
