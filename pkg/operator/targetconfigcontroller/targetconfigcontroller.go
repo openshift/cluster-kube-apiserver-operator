@@ -34,6 +34,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -266,7 +267,12 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/cm.yaml"))
 	defaultConfig := bindata.MustAsset("assets/config/defaultconfig.yaml")
 	configOverrides := bindata.MustAsset("assets/config/config-overrides.yaml")
-	specialMergeRules := map[string]resourcemerge.MergeFunc{}
+
+	// if there are any plugins in the --disable-admission-plugins list, make sure
+	// they are removed from the --enable-admission-plugins list if they exist there
+	specialMergeRules := map[string]resourcemerge.MergeFunc{
+		".apiServerArguments": mergeDisabledAdmissionPlugins,
+	}
 
 	// Guarantee the authorization-mode will be present in the base config, regardless of whether the observer is running
 	authModeOverride := map[string]interface{}{}
@@ -617,4 +623,38 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func mergeDisabledAdmissionPlugins(dst, src interface{}, currentPath string) (interface{}, error) {
+	if dst == nil || src == nil || len(currentPath) > 0 {
+		return dst, nil
+	}
+
+	dstMap, dstIsMap := dst.(map[string]interface{})
+	srcMap, srcIsMap := src.(map[string]interface{})
+	if !dstIsMap || !srcIsMap {
+		return dst, nil
+	}
+
+	enabled, enableFound := dstMap["enable-admission-plugins"]
+	disabled, disableFound := srcMap["disable-admission-plugins"]
+	if !enableFound || !disableFound {
+		return dst, nil
+	}
+
+	enabledSet := sets.NewString()
+	for _, e := range enabled.([]interface{}) {
+		enabledSet.Insert(e.(string))
+	}
+	for _, e := range disabled.([]interface{}) {
+		enabledSet.Delete(e.(string))
+	}
+
+	dstMap["disable-admission-plugins"] = srcMap["disable-admission-plugins"]
+	dstMap["enable-admission-plugins"] = enabledSet.List()
+	if err := unstructured.SetNestedStringSlice(dstMap, enabledSet.List(), "enable-admission-plugins"); err != nil {
+		return nil, err
+	}
+
+	return dstMap, nil
 }
