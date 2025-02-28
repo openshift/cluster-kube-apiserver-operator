@@ -8,5 +8,6 @@ status:
     enabled:
     - name: Foo
     - name: OpenShiftPodSecurityAdmission
+    - name: MinimumKubeletVersion
     disabled:
     - name: Bar
