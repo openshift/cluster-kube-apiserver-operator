@@ -20,14 +20,21 @@ const (
 	managedNamespace      = "openshift-config-managed"
 )
 
+var (
+	topLevelMetadataFilePath = []string{"authConfig", "oauthMetadataFile"}
+)
+
 // ObserveAuthMetadata fills in authConfig.OauthMetadataFile with the path for a configMap referenced by the authentication
 // config.
-func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+	defer func() {
+		ret = configobserver.Pruned(ret, topLevelMetadataFilePath)
+	}()
+
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
 	prevObservedConfig := map[string]interface{}{}
 
-	topLevelMetadataFilePath := []string{"authConfig", "oauthMetadataFile"}
 	currentMetadataFilePath, _, err := unstructured.NestedString(existingConfig, topLevelMetadataFilePath...)
 	if err != nil {
 		errs = append(errs, err)

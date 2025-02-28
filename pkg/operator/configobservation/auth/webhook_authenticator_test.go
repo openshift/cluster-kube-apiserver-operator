@@ -21,7 +21,8 @@ import (
 	"k8s.io/utils/clock"
 )
 
-var correctKubeConfigString = []byte(`
+var (
+	correctKubeConfigString = []byte(`
 apiVersion: v1
 kind: Config
 clusters:
@@ -42,6 +43,24 @@ users:
     client-key-data: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlKS0FJQkFBS0NBZ0VBc1l5OGNyTkcxOVR5cW5RMGV4Z2QyeFRORHNjUDVNayszZ0ZKUVZRSEk3ZEREaW12CkVyMFdHdGRqb2lFSTZXVFVpT1haUmI3R2pPMkdIbnJ0YkFXVVZRdE1tcG1xSi9JQ0FpTWpMOUFRNHdrb0M4TjIKdS9zR2N6bS9KanRGdmNqZ0xPTDZXTWJpbjRNZWJsbmZ1dkdIQlhhc3VvZ0VmcDVQWFg4Rkk4Q3dha0UyUHFaeApBWlQrbUdTMXJEalVldHB3UXlvQXJmRUZXaTZscTZYQ1BCcXJFa2JNUVJtVUMvT1dyZ29FU1JLQjJPSjJLY2FGCmNWY2w0bm15R0ZudTNlNWVlV2tkVXdWZyswWUdFTDMrTCtOR0p6OXM1M2JMamNJdnF5WkdmNnBvN2pHUExhSksKamE5QVFyTEZiVHJrTDRmZncyZzNaR05EMmwvRkM0U0xsYXJrZ3JsSkxYWGw3ajRnU2JkUFJoSVI1dU82b3JqMQpPMklwNjFvdWt5cWdmRE0reHFkNFF0WEJOcE9abUI2Y3JITXBDdXlVMVFyVW90b0JBZytFNmYydnQ3M1dWcDFDCjJoQVhFWWVQMGk4TzhKK1J3SzdUcFpyVDZZbmQwL3E4dzhEdUZDWUdOTE5rUFlqTE5sR1dyZlBIK0szQ3B6bWIKUGo3T3dybTZaWmtWV3ptd1VhVkUyeUwwcjd4QlpwMFdQM0FwUC9pUDM3enN0WmJaVzhpT0ZRdmtNZEdQcEpWcgo4b0pKV3B2em92amRoVUQ2QmZpVyt3ZmR3NGhqQStIZWRSOVVrcWMzRXRuQjJ1dkVIRTNNVFlDY3VlQ0VmOGh4CnFWZjdvdzM3bjg3aWtaTVlKakZubXBLcG1yQml1cnNsNFVEbGlxSXovc3V0cnNnNWdhZk1DSjBWL0FjQ0F3RUEKQVFLQ0FnQXpGaVNPK0VpVkI1Ky9MZXAvMUtPYWl2U3BvTnRRNEJybnRBVUkrQTJKMkV4Q0FmcHU4TnN3WS9NMgpEajFMTW9qNHp2SGlZSTh1czVWWXBkUTB0YkpGZWhmVGtBMW1xdnFxOU1OR0daOFNSR3N5WDA2RnJpZmY5YWlyCmJuaVZyL3ZZem9Kc0V1WFlNZGtLdFc5cmtkMWcxQkhGSmlmczZzNDVQN2dSM25xa1NCazhrNVdHZUFGOWhkVEUKTmlIbEszOEx4RVVueDJiYjJQb3dWbVI1K001cVZ0YWtrS0NKZzlCQ1NYMk1MUGdSbUsrWk81YmYwc3lDeXJOVQowR09ybGMrM0xXaVRuOE9VNlVRTGd5OWxSZ2JFZWpweXF6ck1raWczSGE5QlFwNG9remY0VUc4VkwyelZCQzFNClRacWtsbnJxOWN5aVpQRjhIdnhLWVJ2c3Q1eENDY1JONk5EQjNMOGdERWUyWnhXMFhrVGV2RHA0L2hubVdCUkQKaFNrV0lDS3JLRU5jR294VUFQUUFWZVljcHJ5aUdmWHc3UXV4OWpRKzlBYmozbEpiYmhJRHlqbk9Mci9HNEtrRAp5ZzcxNFZ3aDlXS1Q3M3FRd0wzR1FoYW1NajRhVXZOdmFNTVhtOVZwMG9QaktiSE9NVVRGanRNTzRpU0ozMkxHCjFRZ1h6RWxMYTBuQU1TQUdocjhwclBVd0MzRklPSU1lQi9IZzBYUzhGMk5IMGtxdytCVmNnZVlYMFFrcDdyamUKbEcxNkJ6b3FUMitrVHZyejFIWEk1K3FXUkJQUFN0TS9MYXBJdWNRcHlvZFFnUUswRVorcysvRFdXRnBVRHc3QwpFLzRPRUZKb1ZRRW5lckszSkRjdUliaDVqb01oZE5KMlRjZnRrcGQxT24rTVRzdDFRUUtDQVFFQTU1aDg1cVNqCnBIR2VicDEzSnJZV2RSVHQ0NVZMRzhUSnpOUmxFM08xbE1tLy9hZDRIYVhaVzJjMkQ4QW1iSDY5VVhqR0R4WXkKSGp4Mll0QVkrY0VCNHp5eXRlZXFOUUFmOGRCeFIxU2hpWFVpVWUvbzRZMVdXZGQwZFRTcE1UUHpnRmNwa1pJSQpnOFhvL3QrRUR3enZXSGozRmczWkFZMUk3VDdkY0hnRjU1NGNRK0hMQ05BVnd5cWQ4Wlg5cDZ6TjNCamNJbWhoCjZQYWx0cnRpS2IwYUZORjVRQTJwdEJjYXppK0w0c2xpVUZiZnA4T3RwdHc1MVkzQWhiem5YaW9DQVZtSEt2azkKUGtDSTBkTWE0WnprVHdVMnBwSFZRTUVLTTdXbnhWM0oxRktZMHM5K1pkNGR3NEg2YW5aeE1oVmN3QW9lNFlVLwpPNHZya3JieU4zd2c1d0tDQVFFQXhFSlBDdVVhSkNmLzFEUVBOQzJZaHZWYkcvcmdlbnl4VlpuOTlWWHJuNjZICmhyMzcvTG9jM2JvcU5WUlBPT3RSOUtmSVp4UnVCUWlxeVd2ZjhpaVo2TE1PWUQyOFAvVjFCVDloRktkWUl4cU0KL2djY2poSUwreitVOGNsdFMxQnlBYkROcjJJbG5LMGxJN2hFaFh1WkZrRnZyNmtSS1VlcWlZRUc4anNQV0cvYgoybkRMankxeHJ0VlF1YjV5ck1LQWN6bEFCMldEVEgrWm1YRGF6Vi9xOEtPTmRNMUZXdjNtc1lEMEZXbWxCeVM1ClZZbHdnVHRIVWhIT2RsTm0zVUR5Vk1oMlY3cWRLVVhrdG52a1lRWFI4K1lGQUJLbkVoTVNlVGpUVzh6WEZLL1oKWUFwS1FPSnU4VzlmMzZUN0JVS1I0a1gySHhuRTNlTnhzeHZCZ0p0SDRRS0NBUUFCQlhJZmprQk9mRlhIaFJnKwphblVrNVFlN2hqQURtbFdOZXE1TGJLb3pVc1J1K09zVnJtS0wvYU9HWkVHSEh2UDB4UVNTa25WOEhxWWkvMm5zCnlBWWJHMnhxVXZBME5hRHVidzNnMDZXMnRuYUZSL3FON0JLaWFNblJybjdFZ2Nja0hMNUpMd3lza0JYYjhkNWkKTnB0amwzejNjdTR2REpGeXdtRTFtc0hqNkpXVlV3eVRLRi9BTVpMcXVzK1lpckdKcys1Y2xIdENETHhrVnVVeQo2K3VPaGZIejcxdDlPTkRjY2VjN0E4cFVNbDNnSG9QSWhaWVhzLzFTV2FmbmlXWGkzYU16OUU5cDA5MEdsOWk1CmYvaWR4SmNlR3V5RzBaTWE4VVVoSUszQUt2RVRsT2lveUZiM1FyNTQ4N2JDRXNnSzdNQ0FIQmRRU3VpcUIvWi8KZWlPbkFvSUJBRVp1UVcxNGdHUWZVcWoxc2NzWTNkYjQ4Q1JmYVBXc0QvdlhVcE1iclg1VnBOOVBDTUpPakJOcQpQc0Y2cXgrVEc0dEFOeVArNmVpMmpvdlFRY0xtblMwc0xPbU8zaUxaMUkvNGliOWV1cnVHU0xqVkZvTkpxTEVXCnhUM3IrbVAvejVvWnVBYkxveEhSOVRVWGFNZTZibHJWU3Q1d1B1OWdmNnZ1K080dkViZThGTnNVaFlpeFYwM1YKMGEyRzBpSjdmcHRiSFVaS1FNOVFMM0FvVnUxREVjNGY4NkRLRmF5czE0QTE5ZUpGVW1yNDIrWDlkN2w0NjRSaApUWVdiTXB3T05ha0ZjNnJTRnBwOE1iTG5UVE1nWXBNenBmRzd2K2MxbnZpUDB4SHJ0ZmYvajNQdTNXemhsY3poCkdqZnBQZ2hLTm81TWF5SUlIbVUrdlV2NGx2MnZQQ0VDZ2dFQkFKdEx0WklNN1lQTU8zcFNHdjdBcnpJYkovSHcKYXQ4bnZBTk1jQjEvYk45em1oWWc3OHVtaUtUc3hRTFBQVk5uK09NN0JrU0l6RFM4QjBMRm5MekVtVVZuNnBWaApVUXJIUFh1c3dCS3V0dDV3NHBIV2hEZUs2aXFnNnZnc1NXUnpxaFFWTllUTW50NVFQeHVtRGtXMUcvdm52RnNNClRnVk9PQnJBTHpMUCtVWm5zcm5uWU1DcXp6bGhPUjU4VWU5OEJWajB6b0hQR0Q0UU1HcGlTb1pOdkhMNndkQ0gKcytFdlc1czdPOWE1SnhwRGYzcUl3RTRMbjBSc2xvMHBnVTZZQU1qd25tWUpXNk5JNE5kSitMQWFZM2ZBcXNicAorSFdyY21TQ2VVaVAwMEp4NzFzbXRvQ3JBY3RkY2hsU01JMGtiOUpNS05yOWhYZWlxRzErSmxzRGZUTT0KLS0tLS1FTkQgUlNBIFBSSVZBVEUgS0VZLS0tLS0K
 `)
 
+	unprunedBaseWebhookAuthenticatorConfig = map[string]interface{}{
+		"apiServerArguments": map[string]interface{}{
+			"authentication-token-webhook-config-file": webhookTokenAuthenticatorFile,
+			"authentication-token-webhook-version":     webhookTokenAuthenticatorVersion,
+		},
+		"authConfig": map[string]interface{}{
+			"oauthMetadataFile": "/etc/kubernetes/static-pod-resources/configmaps/oauth-metadata/oauthMetadata",
+		},
+	}
+
+	prunedBaseWebhookAuthenticatorConfig = map[string]interface{}{
+		"apiServerArguments": map[string]interface{}{
+			"authentication-token-webhook-config-file": webhookTokenAuthenticatorFile,
+			"authentication-token-webhook-version":     webhookTokenAuthenticatorVersion,
+		},
+	}
+)
+
 func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -52,6 +71,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 		expectErrs        bool
 		expectEvents      bool
 		expectedSynced    map[string]string
+		expectedConfig    map[string]interface{}
 	}{
 		{
 			name: "empty config",
@@ -63,21 +83,19 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 					Name: "config-secret",
 				},
 			},
-			expectErrs: true,
+			expectedConfig: nil,
+			expectErrs:     true,
 		},
 		{
-			name: "config removal",
-			existingConfig: map[string]interface{}{
-				"apiServerArguments": map[string]interface{}{
-					"authentication-token-webhook-config-file": []interface{}{webhookTokenAuthenticatorFile},
-				},
-			},
+			name:           "config removal",
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
 			config: &configv1.WebhookTokenAuthenticator{
 				KubeConfig: configv1.SecretNameReference{
 					Name: "",
 				},
 			},
-			expectEvents: true,
+			expectedConfig: nil,
+			expectEvents:   true,
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
 			},
@@ -93,18 +111,15 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 				"kubeConfig": correctKubeConfigString,
 			},
 			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
 			expectEvents: true,
 		},
 		{
-			name: "same existing and observed config",
-			existingConfig: map[string]interface{}{
-				"apiServerArguments": map[string]interface{}{
-					"authentication-token-webhook-config-file": []interface{}{webhookTokenAuthenticatorFile},
-				},
-			},
+			name:           "same existing and observed config",
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
 			config: &configv1.WebhookTokenAuthenticator{
 				KubeConfig: configv1.SecretNameReference{
 					Name: "config-secret",
@@ -114,6 +129,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 				"kubeConfig": correctKubeConfigString,
 			},
 			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
@@ -158,6 +174,10 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			eventRecorder := events.NewInMemoryRecorder("webhookauthenticatortest", clock.RealClock{})
 
 			gotConfig, errs := ObserveWebhookTokenAuthenticator(listers, eventRecorder, tt.existingConfig)
+			if !equality.Semantic.DeepEqual(tt.expectedConfig, gotConfig) {
+				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, gotConfig))
+			}
+
 			gotAuthenticator, _, err := unstructured.NestedStringSlice(gotConfig, webhookTokenAuthenticatorPath...)
 			if err != nil {
 				t.Fatal(err)

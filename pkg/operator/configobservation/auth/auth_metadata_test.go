@@ -18,7 +18,17 @@ import (
 )
 
 var (
-	baseAuthMetadataConfig = map[string]interface{}{
+	unprunedBaseAuthMetadataConfig = map[string]interface{}{
+		"apiServerArguments": map[string]interface{}{
+			"authentication-token-webhook-config-file": webhookTokenAuthenticatorFile,
+			"authentication-token-webhook-version":     webhookTokenAuthenticatorVersion,
+		},
+		"authConfig": map[string]interface{}{
+			"oauthMetadataFile": "/etc/kubernetes/static-pod-resources/configmaps/oauth-metadata/oauthMetadata",
+		},
+	}
+
+	prunedBaseAuthMetadataConfig = map[string]interface{}{
 		"authConfig": map[string]interface{}{
 			"oauthMetadataFile": "/etc/kubernetes/static-pod-resources/configmaps/oauth-metadata/oauthMetadata",
 		},
@@ -53,15 +63,15 @@ func TestObserveAuthMetadata(t *testing.T) {
 		{
 			name:           "auth resource lister error",
 			authSpec:       nil,
-			existingConfig: baseAuthMetadataConfig,
+			existingConfig: unprunedBaseAuthMetadataConfig,
 			authIndexer:    &everFailingIndexer{},
-			expectedConfig: baseAuthMetadataConfig,
+			expectedConfig: prunedBaseAuthMetadataConfig,
 			expectedSynced: nil,
 			expectErrors:   true,
 		},
 		{
 			name:           "syncer error",
-			existingConfig: baseAuthMetadataConfig,
+			existingConfig: unprunedBaseAuthMetadataConfig,
 			syncerError:    fmt.Errorf("configmap not found"),
 			authSpec: &configv1.AuthenticationSpec{
 				Type: configv1.AuthenticationTypeIntegratedOAuth,
@@ -70,7 +80,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "non-existing-configmap",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced:     nil,
 			expectErrors:       true,
 		},
@@ -92,7 +102,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 		},
 		{
 			name:           "empty auth metadata with existing",
-			existingConfig: baseAuthMetadataConfig,
+			existingConfig: unprunedBaseAuthMetadataConfig,
 			authSpec: &configv1.AuthenticationSpec{
 				Type: configv1.AuthenticationTypeIntegratedOAuth,
 				OAuthMetadata: configv1.ConfigMapNameReference{
@@ -115,7 +125,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced: map[string]string{
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
 			},
@@ -130,7 +140,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced: map[string]string{
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
 			},
@@ -177,7 +187,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced: map[string]string{
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-status.openshift-config-managed",
 			},
@@ -192,7 +202,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				},
 			},
 			statusMetadataName: "metadata-from-status",
-			expectedConfig:     baseAuthMetadataConfig,
+			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced: map[string]string{
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-status.openshift-config-managed",
 			},

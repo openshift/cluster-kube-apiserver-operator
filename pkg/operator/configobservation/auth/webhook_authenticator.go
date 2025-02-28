@@ -33,7 +33,7 @@ var (
 // openshift-kube-apiserver NS.
 func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defer func() {
-		configobserver.Pruned(ret, webhookTokenAuthenticatorPath)
+		ret = configobserver.Pruned(ret, webhookTokenAuthenticatorPath, webhookTokenAuthenticatorVersionPath)
 	}()
 
 	listers := genericListers.(configobservation.Listers)
