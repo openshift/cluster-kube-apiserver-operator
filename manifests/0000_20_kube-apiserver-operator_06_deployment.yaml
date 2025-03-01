@@ -72,6 +72,26 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         terminationMessagePolicy: FallbackToLogsOnError
+      - name: cert-regeneration-controller
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        image: docker.io/openshift/origin-cluster-kube-apiserver-operator:v4.0
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        command: ["cluster-kube-apiserver-operator", "cert-regeneration-controller"]
+        args:
+          - --namespace=openshift-kube-apiserver
+          - -v=2
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 5m
+        volumeMounts:
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          name: kube-api-access
+          readOnly: true
       volumes:
       - name: serving-cert
         secret:
