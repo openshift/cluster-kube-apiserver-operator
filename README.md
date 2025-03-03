@@ -63,6 +63,65 @@ spec:
   managementState: Managed
 ```
 
+The log level of individual kube-apiserver instances can be increased by setting `.spec.logLevel` field:
+```
+$ oc explain KubeAPIServer.spec.logLevel
+GROUP:      operator.openshift.io
+KIND:       KubeAPIServer
+VERSION:    v1
+
+FIELD: logLevel <string>
+
+DESCRIPTION:
+    logLevel is an intent based logging for an overall component.  It does not
+    give fine grained control, but it is a simple way to manage coarse grained
+    logging choices that operators have to interpret for their operands. 
+     Valid values are: "Normal", "Debug", "Trace", "TraceAll". Defaults to
+    "Normal".
+```
+For example:
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: KubeAPIServer
+metadata:
+  name: cluster
+spec:
+  logLevel: Debug
+  ...
+```
+
+Currently the log levels correspond to:
+
+| logLevel | log level |
+| -------- | --------- |
+| Normal   | 2         |
+| Debug    | 4         |
+| Trace    | 6         |
+| TraceAll | 10        |
+
+
+The log level of cluster-kube-apiserver-operator can be increased by setting `.spec.operatorLogLevel` field:
+For example:
+```yaml
+apiVersion: operator.openshift.io/v1
+kind: KubeAPIServer
+metadata:
+  name: cluster
+spec:
+  operatorLogLevel: Debug
+  ...
+```
+
+Currently the operator log levels correspond to:
+
+| operatorLogLevel | log level |
+| ---------------- | --------- |
+| Normal           | 2         |
+| Debug            | 4         |
+| Trace            | 6         |
+| TraceAll         | 8         |
+
+
 The current operator status is reported using the `ClusterOperator` resource. To get the current status you can run follow command:
 
 ```
