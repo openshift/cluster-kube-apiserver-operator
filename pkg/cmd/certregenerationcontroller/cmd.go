@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/certrotationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
@@ -112,7 +113,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
-	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
+	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
 		operatorClient,
 		configInformers,
@@ -133,6 +134,16 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
+	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+		operatorClient,
+		kubeAPIServerInformersForNamespaces,
+		kubeClient,
+		o.controllerContext.EventRecorder,
+	)
+	if err != nil {
+		return err
+	}
+
 	// We can't start informers until after the resources have been requested. Now is the time.
 	configInformers.Start(ctx.Done())
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
@@ -147,6 +158,10 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 
 	go func() {
 		caBundleController.Run(ctx)
+	}()
+
+	go func() {
+		resourceSyncController.Run(ctx, 1)
 	}()
 
 	<-ctx.Done()
