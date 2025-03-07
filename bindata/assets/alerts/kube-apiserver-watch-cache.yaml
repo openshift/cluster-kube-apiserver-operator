@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-apiserver-watch-cache
+  namespace: openshift-kube-apiserver
+spec:
+  groups:
+  - name: kube-apiserver-watch-cache
+    rules:
+    - alert: KubeAPIWatchCacheNotReady
+      annotations:
+        summary: "Watch cache for resource {{ $labels.resource }} is not ready."
+        description: "The watch cache for resource {{ $labels.resource }} has been in a non-ready state for more than 3 minutes."        
+      expr: apiserver_watch_cache_ready == 0
+      for: 1m
+      labels:
+        namespace: openshift-kube-apiserver
+        severity: critical
