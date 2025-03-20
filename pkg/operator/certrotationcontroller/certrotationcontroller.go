@@ -138,6 +138,7 @@ func newCertRotationController(
 		monthPeriod = 2 * time.Hour
 		yearPeriod = 3 * time.Hour
 		tenMonthPeriod = 150 * time.Minute
+		klog.Infof("Setting monthPeriod to %v, yearPeriod to %v, tenMonthPeriod to %v", monthPeriod, yearPeriod, tenMonthPeriod)
 	}
 
 	certRotator := certrotation.NewCertRotationController(
