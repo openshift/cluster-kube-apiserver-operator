@@ -30,17 +30,27 @@ func Register(configInformer configinformers.SharedInformerFactory) {
 			Name: "cluster_proxy_enabled",
 			Help: "Reports whether the cluster has been configured to use a proxy. type is which type of proxy configuration has been set - http for an http proxy, https for an https proxy, and trusted_ca if a custom CA was specified.",
 		}, []string{"type"}),
+		controlPlaneTopology: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cluster_controlplane_topology",
+			Help: "Reports the clusters expectations for operands that normally run on control plane nodes",
+		}, []string{"mode"}),
+		infrastructureTopology: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "cluster_infrastructure_topology",
+			Help: "Reports the clusters expectations for infrastructure operands that normally do not run on control plane nodes",
+		}, []string{"mode"}),
 	})
 }
 
 // configMetrics implements metrics gathering for this component.
 type configMetrics struct {
-	cloudProvider        *prometheus.GaugeVec
-	featureSet           *prometheus.GaugeVec
-	proxyEnablement      *prometheus.GaugeVec
-	infrastructureLister configlisters.InfrastructureLister
-	featuregateLister    configlisters.FeatureGateLister
-	proxyLister          configlisters.ProxyLister
+	cloudProvider          *prometheus.GaugeVec
+	featureSet             *prometheus.GaugeVec
+	proxyEnablement        *prometheus.GaugeVec
+	controlPlaneTopology   *prometheus.GaugeVec
+	infrastructureTopology *prometheus.GaugeVec
+	infrastructureLister   configlisters.InfrastructureLister
+	featuregateLister      configlisters.FeatureGateLister
+	proxyLister            configlisters.ProxyLister
 }
 
 func (m *configMetrics) Create(version *semver.Version) bool {
@@ -52,6 +62,8 @@ func (m *configMetrics) Describe(ch chan<- *prometheus.Desc) {
 	ch <- m.cloudProvider.WithLabelValues("", "", "").Desc()
 	ch <- m.featureSet.WithLabelValues("").Desc()
 	ch <- m.proxyEnablement.WithLabelValues("").Desc()
+	ch <- m.controlPlaneTopology.WithLabelValues("").Desc()
+	ch <- m.infrastructureTopology.WithLabelValues("").Desc()
 }
 
 // Returns external platform name if present, empty string otherwise
@@ -89,6 +101,16 @@ func (m *configMetrics) Collect(ch chan<- prometheus.Metric) {
 				g = m.cloudProvider.WithLabelValues(string(status.Type), "", "")
 			}
 			g.Set(value)
+			ch <- g
+		}
+		{
+			g := m.controlPlaneTopology.WithLabelValues(string(infra.Status.ControlPlaneTopology))
+			g.Set(1)
+			ch <- g
+		}
+		{
+			g := m.infrastructureTopology.WithLabelValues(string(infra.Status.InfrastructureTopology))
+			g.Set(1)
 			ch <- g
 		}
 	}
