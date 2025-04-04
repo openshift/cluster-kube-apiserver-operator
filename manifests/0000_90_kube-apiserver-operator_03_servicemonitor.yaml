@@ -55,3 +55,7 @@ spec:
       for: 10m
       labels:
         severity: warning
+  - name: cluster-topology
+    rules:
+      - expr: sum by(mode) (cluster_controlplane_topology)
+        record: cluster:controlplane_topology:info
