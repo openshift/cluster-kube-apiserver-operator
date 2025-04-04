@@ -59,3 +59,5 @@ spec:
     rules:
       - expr: sum by(mode) (cluster_controlplane_topology)
         record: cluster:controlplane_topology:info
+      - expr: sum by(mode) (cluster_infrastructure_topology)
+        record: cluster:infrastructure_topology:info
