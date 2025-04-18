@@ -209,8 +209,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/swghosh/openshift-library-go v0.0.0-20250407074805-dfe4f7ca0c72 h1:u6MYXrXf/WeR0OtfAD/MwD/WCjB/Ci1ykS6bFRacjiU=
-github.com/swghosh/openshift-library-go v0.0.0-20250407074805-dfe4f7ca0c72/go.mod h1:2MOtPUXWRUK6NBHXZmGBdxVB5QQq9K5HGoGuNmQYRVg=
+github.com/swghosh/openshift-library-go v0.0.0-20250418121241-394ad470eb0d h1:amwWQVf6t7oBpKY2+pjohEp4HdsEyi/Vf9FK+z7/gZ4=
+github.com/swghosh/openshift-library-go v0.0.0-20250418121241-394ad470eb0d/go.mod h1:2MOtPUXWRUK6NBHXZmGBdxVB5QQq9K5HGoGuNmQYRVg=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 h1:6fotK7otjonDflCTK0BCfls4SPy3NcCVb5dqqmbRknE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75/go.mod h1:KO6IkyS8Y3j8OdNO85qEYBsRPuteD+YciPomcXdrMnk=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
