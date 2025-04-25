@@ -1,0 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Every feature must have tests.
+- Every change should lead to a change in tests.
+- The tests must work and you need to validate that, before claiming to be done.

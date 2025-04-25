@@ -1,0 +1,22 @@
+---
+description: How to comment code
+globs: 
+alwaysApply: true
+---
+- Don't add comments that explain the "WHAT", which should be obvious from the code.
+- Add comments that explain the "WHY", if that isn't obvious.
+- If a request is made to explain a certain code segment, adding comments there makes sense.
+- This is an example how you must not comment ever, it describes the obvious:
+    ```go
+    // Close closes the database connection.
+    func (s *Store) Close() error {
+        return s.db.Close()
+    }
+    ```
+- This is an example how you should do a comment, it describes the reasoning behind it:
+    ```go
+    // Close releases database resources and prevents connection limit exhaustion.
+    func (s *Store) Close() error {
+        return s.db.Close()
+    }
+    ```

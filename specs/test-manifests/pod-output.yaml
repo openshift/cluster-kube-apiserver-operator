@@ -1,0 +1,144 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      k8s.ovn.org/pod-networks: '{"default":{"ip_addresses":["10.131.0.97/23"],"mac_address":"0a:58:0a:83:00:61","gateway_ips":["10.131.0.1"],"routes":[{"dest":"10.128.0.0/14","nextHop":"10.131.0.1"},{"dest":"172.30.0.0/16","nextHop":"10.131.0.1"},{"dest":"169.254.0.5/32","nextHop":"10.131.0.1"},{"dest":"100.64.0.0/16","nextHop":"10.131.0.1"}],"ip_address":"10.131.0.97/23","gateway_ip":"10.131.0.1","role":"primary"}}'
+      k8s.v1.cni.cncf.io/network-status: |-
+        [{
+            "name": "ovn-kubernetes",
+            "interface": "eth0",
+            "ips": [
+                "10.131.0.97"
+            ],
+            "mac": "0a:58:0a:83:00:61",
+            "default": true,
+            "dns": {}
+        }]
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{"security.openshift.io/validated-scc-subject-type":"user"},"name":"user-baseline-violating-pod","namespace":"ibihim-test-user-based-scc"},"spec":{"containers":[{"command":["sleep","3600"],"image":"busybox:latest","name":"test-container","securityContext":{"privileged":true}}],"restartPolicy":"Never"}}
+      openshift.io/scc: insights-runtime-extractor-scc
+      seccomp.security.alpha.kubernetes.io/pod: runtime/default
+      security.openshift.io/validated-scc-subject-type: user
+    creationTimestamp: "2025-05-27T09:20:40Z"
+    name: user-baseline-violating-pod
+    namespace: ibihim-test-user-based-scc
+    resourceVersion: "308549"
+    uid: 75b02c0d-68cf-41ed-a9f7-c3495fd52e69
+  spec:
+    containers:
+    - command:
+      - sleep
+      - "3600"
+      image: busybox:latest
+      imagePullPolicy: Always
+      name: test-container
+      resources: {}
+      securityContext:
+        privileged: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-z2k9p
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    imagePullSecrets:
+    - name: default-dockercfg-npx2r
+    nodeName: ip-10-0-27-125.eu-central-1.compute.internal
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-z2k9p
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+        - configMap:
+            items:
+            - key: service-ca.crt
+              path: service-ca.crt
+            name: openshift-service-ca.crt
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2025-05-27T09:20:42Z"
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2025-05-27T09:20:40Z"
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2025-05-27T09:20:42Z"
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2025-05-27T09:20:42Z"
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2025-05-27T09:20:40Z"
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: cri-o://68832cce19166c4c4dec1e04584a5482d5afd1b2d040143f8c2b1149f03cdb95
+      image: docker.io/library/busybox:latest
+      imageID: docker.io/library/busybox@sha256:7c0ffe5751238c8479f952f3fbc3b719d47bccac0e9bf0a21c77a27cba9ef12d
+      lastState: {}
+      name: test-container
+      ready: true
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2025-05-27T09:20:42Z"
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-z2k9p
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.0.27.125
+    hostIPs:
+    - ip: 10.0.27.125
+    phase: Running
+    podIP: 10.131.0.97
+    podIPs:
+    - ip: 10.131.0.97
+    qosClass: BestEffort
+    startTime: "2025-05-27T09:20:40Z"
+kind: List
+metadata:
+  resourceVersion: ""

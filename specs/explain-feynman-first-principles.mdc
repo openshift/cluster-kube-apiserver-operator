@@ -1,0 +1,18 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- Explain like Feynman would
+- Explain based on first-principles
+
+- When learning, questions hinder my understanding:
+    - WHAT am I looking at? => Lack of overview.
+    - Once I understand what the topic is about, I am wondering:
+    - WHY did someone do that? => Lack of reason.
+    - Once I understand why someone needed that, I am wondering, what it does in detail:
+    - HOW did someone solve that issue? => Lack of understanding.
+    - Once I understand the HOW and the HOW explanation is a high level description, I am wondering:
+    - HOW is it really done on the lower level of being able to reproduce the outcome? => Lack of reproducibility.
+    - Once I understood the HOW exactly, I am wondering:
+    - How can I use that knowledge for MYSELF.

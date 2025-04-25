@@ -1,0 +1,34 @@
+---
+description: When Writing Tests
+globs: 
+alwaysApply: false
+---
+- If you are told to fix tests, you need to run them and verify you fixed it.
+- Test all happy paths with valid data
+- Test API contract assumptions:
+  - Required vs optional fields
+  - Field value constraints
+  - Data type constraints
+- Test edge cases:
+  - Empty strings
+  - Zero values
+  - Maximum field lengths
+  - Invalid UTF-8 sequences
+  - Time zones and timestamps
+- Example test cases:
+    ```go
+    func TestCreatePullRequest(t *testing.T) {
+        // Happy path
+        t.Run("valid pull request", func(t *testing.T) {...})
+        
+        // Constraint tests
+        t.Run("invalid repo_id reference", func(t *testing.T) {...})
+        t.Run("duplicate PR number", func(t *testing.T) {...})
+        t.Run("missing required fields", func(t *testing.T) {...})
+        
+        // Edge cases
+        t.Run("empty title", func(t *testing.T) {...})
+        t.Run("very long body", func(t *testing.T) {...})
+        t.Run("invalid timestamps", func(t *testing.T) {...})
+    }
+    ```

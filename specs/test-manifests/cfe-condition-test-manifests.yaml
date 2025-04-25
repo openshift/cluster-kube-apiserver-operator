@@ -1,0 +1,124 @@
+# Test Manifests for CFE (Cluster Fleet Evaluation) Conditions
+# These manifests help verify that the PodSecurityReadinessController
+# correctly classifies namespaces according to the 6 different conditions.
+#
+# IMPORTANT: The controller only processes namespaces that do NOT have
+# the pod-security.kubernetes.io/enforce label set. It uses warn/audit
+# labels to determine what level to test against.
+
+# ============================================================================
+# Test Case 1: PodSecurityOpenshiftEvaluationConditionsDetected
+# Any namespace starting with "openshift"
+# ============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-test-namespace
+  # No PSA labels - controller should default to testing against "restricted"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openshift-violating-pod
+  namespace: openshift-test-namespace
+spec:
+  containers:
+    - name: test-container
+      image: busybox:latest
+      command: ["sleep", "infinity"]
+      securityContext:
+        # This violates restricted PSA
+        runAsNonRoot: false
+        runAsUser: 0
+  restartPolicy: Never
+
+# ============================================================================
+# Test Case 2: PodSecurityDisabledSyncerEvaluationConditionsDetected
+# Namespace with security.openshift.io/scc.podSecurityLabelSync=false
+# ============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: disabled-syncer-test
+  labels:
+    security.openshift.io/scc.podSecurityLabelSync: "false"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: disabled-syncer-violating-pod
+  namespace: disabled-syncer-test
+spec:
+  containers:
+    - name: test-container
+      image: busybox:latest
+      command: ["sleep", "infinity"]
+      securityContext:
+        # This violates restricted PSA
+        allowPrivilegeEscalation: true
+  restartPolicy: Never
+
+# ============================================================================
+# Test Case 3: PodSecurityUserSCCViolationConditionsDetected
+# Customer namespace with user-annotated pod violating PSA
+# ============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: user-scc-violation-test
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: user-scc-violating-pod
+  namespace: user-scc-violation-test
+  annotations:
+    # This annotation marks the pod as created by a user (not service account)
+    security.openshift.io/validated-scc-subject-type: "user"
+spec:
+  containers:
+    - name: test-container
+      image: busybox:latest
+      command: ["sleep", "infinity"]
+      securityContext:
+        # User pod with privileged: true violates baseline and restricted
+        privileged: true
+        runAsNonRoot: false
+        runAsUser: 0
+  restartPolicy: Never
+
+# ============================================================================
+# Test Case 5: Compliant namespace (should not trigger any condition)
+# ============================================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: compliant-namespace-test
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-pod
+  namespace: compliant-namespace-test
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: test-container
+      image: busybox:latest
+      command: ["sleep", "infinity"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+  restartPolicy: Never

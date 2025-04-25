@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	psapi "k8s.io/pod-security-admission/api"
+	"k8s.io/pod-security-admission/policy"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -20,7 +21,8 @@ import (
 )
 
 const (
-	checkInterval = 240 * time.Minute // Adjust the interval as needed.
+	// TODO@ibihim don't merge with a minute, this is just for testing purposes.
+	checkInterval = 1 * time.Minute // Adjust the interval as needed.
 )
 
 // PodSecurityReadinessController checks if namespaces are ready for Pod Security Admission enforcement.
@@ -30,6 +32,7 @@ type PodSecurityReadinessController struct {
 
 	warningsHandler   *warningsHandler
 	namespaceSelector string
+	psaEvaluator      policy.Evaluator
 }
 
 func NewPodSecurityReadinessController(
@@ -49,11 +52,17 @@ func NewPodSecurityReadinessController(
 		return nil, err
 	}
 
+	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks())
+	if err != nil {
+		return nil, err
+	}
+
 	c := &PodSecurityReadinessController{
 		operatorClient:    operatorClient,
 		kubeClient:        kubeClient,
 		warningsHandler:   warningsHandler,
 		namespaceSelector: selector,
+		psaEvaluator:      psaEvaluator,
 	}
 
 	return factory.New().
@@ -62,7 +71,7 @@ func NewPodSecurityReadinessController(
 		ToController("PodSecurityReadinessController", recorder), nil
 }
 
-func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+func (c *PodSecurityReadinessController) sync(ctx context.Context, _ factory.SyncContext) error {
 	nsList, err := c.kubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{LabelSelector: c.namespaceSelector})
 	if err != nil {
 		return err
@@ -71,18 +80,18 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 	conditions := podSecurityOperatorConditions{}
 	for _, ns := range nsList.Items {
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			isViolating, err := c.isNamespaceViolating(ctx, &ns)
+			isViolating, enforceLevel, err := c.isNamespaceViolating(ctx, &ns)
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
 			if err != nil {
 				return err
 			}
-			if isViolating {
-				conditions.addViolation(&ns)
+			if !isViolating {
+				return nil
 			}
 
-			return nil
+			return c.classifyViolatingNamespace(ctx, &conditions, &ns, enforceLevel)
 		})
 		if err != nil {
 			klog.V(2).ErrorS(err, "namespace:", ns.Name)
@@ -97,6 +106,7 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 	_, _, err = v1helpers.UpdateStatus(ctx, c.operatorClient, conditions.toConditionFuncs()...)
 	return err
 }
+
 
 func nonEnforcingSelector() (string, error) {
 	selector := labels.NewSelector()

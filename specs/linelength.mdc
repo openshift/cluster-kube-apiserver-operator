@@ -1,0 +1,19 @@
+---
+description: Lines shouldn't be too long
+globs: 
+alwaysApply: true
+---
+- Lines shouldn't exceed 80 columns in most cases.
+- Exceptions are fine, but they shouldn't be the rule.
+- Bad:
+  ```go
+  id, err = store.CreateUser(api.User{Login: "octocat",HTMLURL: "https://github.com/octocat", IsOrg: false, })
+  ```
+- Good:
+  ```go
+  id, err = store.CreateUser(api.User{
+      Login:   "octocat",
+      HTMLURL: "https://github.com/octocat",
+      IsOrg:   false,
+  }
+  ```

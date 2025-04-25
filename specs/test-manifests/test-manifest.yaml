@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ibihim-test-user-based-scc
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: user-baseline-violating-pod
+  namespace: ibihim-test-user-based-scc
+  annotations:
+    # Might not yet be enabled on 4.19
+    security.openshift.io/validated-scc-subject-type: "user"
+spec:
+  containers:
+  - name: test-container
+    image: busybox:latest
+    command: ["sleep", "infinity"]
+    securityContext:
+      # Privileged violates baseline PSA policy
+      privileged: true
+  restartPolicy: Never

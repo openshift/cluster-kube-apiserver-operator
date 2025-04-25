@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(go doc:*)",
+      "Bash(go test:*)",
+      "Bash(make test:*)",
+      "Bash(make images:*)",
+      "Bash(oc get:*)",
+      "Bash(oc logs:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
+    ],
+    "deny": []
+  },
+  "enableAllProjectMcpServers": false
+}
