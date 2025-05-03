@@ -120,9 +120,6 @@ func newCertRotationController(
 	foreverRefreshPeriod := 8 * 365 * 24 * time.Hour
 
 	rotationDay := 24 * time.Hour
-	// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
-	// This must be reverted before we ship
-	rotationDay = rotationDay / 60
 
 	monthPeriod := rotationDay * 30
 	yearPeriod := monthPeriod * 12
