@@ -240,6 +240,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
+			"assets/alerts/kube-apiserver-watch-cache.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
