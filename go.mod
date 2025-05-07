@@ -14,7 +14,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.61
-	github.com/openshift/api v0.0.0-20250311085700-14a17c7009c4
+	github.com/openshift/api v0.0.0-20250405052455-aa882942241d
 	github.com/openshift/build-machinery-go v0.0.0-20250102153059-e85a1a7ecb5c
 	github.com/openshift/client-go v0.0.0-20250125113824-8e1f0b8fa9a7
 	github.com/openshift/library-go v0.0.0-20250313122028-477d5d90df06
@@ -128,3 +128,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/openshift/library-go => github.com/swghosh/openshift-library-go v0.0.0-20250418121241-394ad470eb0d
