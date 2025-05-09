@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -99,7 +100,7 @@ func doNotStart() func(*mockWebhookServer) {
 
 func withWrongCABundle(t *testing.T) func(*mockWebhookServer) {
 	return func(s *mockWebhookServer) {
-		cfg, err := crypto.MakeSelfSignedCAConfig(t.Name()+"WrongCA", 10)
+		cfg, err := crypto.MakeSelfSignedCAConfig(t.Name()+"WrongCA", 10*24*time.Hour)
 		if err == nil {
 			s.CABundle, _, err = cfg.GetPEMBytes()
 		}
@@ -126,7 +127,7 @@ type mockWebhookServer struct {
 // Run starts the mock server. Port and CABundle are available after this method returns.
 func (s *mockWebhookServer) Run(t *testing.T, ctx context.Context) {
 	// CA certs
-	rootCACertCfg, err := crypto.MakeSelfSignedCAConfig(t.Name()+"RootCA", 10)
+	rootCACertCfg, err := crypto.MakeSelfSignedCAConfig(t.Name()+"RootCA", 10*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +142,7 @@ func (s *mockWebhookServer) Run(t *testing.T, ctx context.Context) {
 		s.CABundle = []byte{}
 	}
 	// server certs
-	serverCertCfg, err := rootCA.MakeServerCert(sets.New(s.Hostname, "127.0.0.1"), 10)
+	serverCertCfg, err := rootCA.MakeServerCert(sets.New(s.Hostname, "127.0.0.1"), 10*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
