@@ -34,6 +34,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -268,7 +269,13 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/cm.yaml"))
 	defaultConfig := bindata.MustAsset("assets/config/defaultconfig.yaml")
 	configOverrides := bindata.MustAsset("assets/config/config-overrides.yaml")
-	specialMergeRules := map[string]resourcemerge.MergeFunc{}
+
+	// resourcemerge will not merge slice contents; therefore we must set up special merge rules for
+	// enable-admission-plugins/disable-admission-plugins in order to merge the config from the various sources
+	specialMergeRules := map[string]resourcemerge.MergeFunc{
+		".apiServerArguments.enable-admission-plugins":  mergeStringSlices,
+		".apiServerArguments.disable-admission-plugins": mergeStringSlices,
+	}
 
 	// Guarantee the authorization-mode will be present in the base config, regardless of whether the observer is running
 	authModeOverride := map[string]interface{}{}
@@ -621,4 +628,43 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func mergeStringSlices(dst, src any, _ string) (any, error) {
+	if src == nil {
+		return dst, nil
+	}
+
+	if dst == nil {
+		return src, nil
+	}
+
+	dstSlice, dstIsSlice := dst.([]any)
+	if !dstIsSlice {
+		return nil, fmt.Errorf("destination is not a slice (type: %T)", dst)
+	}
+
+	srcSlice, srcIsSlice := src.([]any)
+	if !srcIsSlice {
+		return nil, fmt.Errorf("source is not a slice (type: %T)", dst)
+	}
+
+	values := sets.NewString()
+	for _, elem := range dstSlice {
+		s, ok := elem.(string)
+		if !ok {
+			return nil, fmt.Errorf("destination slice element is not a string (type: %T)", elem)
+		}
+		values.Insert(s)
+	}
+
+	for _, elem := range srcSlice {
+		s, ok := elem.(string)
+		if !ok {
+			return nil, fmt.Errorf("source slice element is not a string (type: %T)", elem)
+		}
+		values.Insert(s)
+	}
+
+	return values.List(), nil
 }
