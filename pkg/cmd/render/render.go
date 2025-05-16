@@ -343,6 +343,27 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to retreive default audit policy: %v", err)
 	}
+
+	// PoC: Override the default audit policy configuration to include
+	// RequestReceived stage always and RequestResponse level
+	// for nodes/status and leases requests
+	policy.OmitStages = []auditv1.Stage{}
+	policy.Rules = append(policy.Rules, auditv1.PolicyRule{
+		Level: auditv1.LevelRequestResponse,
+		Resources: []auditv1.GroupResources{
+			{
+				Group: "",
+				Resources: []string{"nodes/status"},
+			},
+			{
+				Group: "coordination.k8s.io",
+				Resources: []string{"leases"},
+			},
+		},
+		// kubelet requests should come from users in this group
+		UserGroups: []string{"system:nodes"},
+	})
+
 	if err := addAuditPolicyToConfig(defaultConfig, policy); err != nil {
 		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
 	}
