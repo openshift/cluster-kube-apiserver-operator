@@ -52,7 +52,10 @@ func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Contex
 
 func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConfiguration) (string, error) {
 	if _, ok := ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]; ok {
-		// Pick the MinimallySufficientPodSecurityStandard if it exists
+		// This should generally exist and will be the only supported method of determining
+		// the enforce level going forward - however, we're keeping the label fallback for
+		// now to account for any workloads not yet annotated using a new enough version of
+		// the syncer, such as during upgrade scenarios.
 		return ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard], nil
 	}
 
