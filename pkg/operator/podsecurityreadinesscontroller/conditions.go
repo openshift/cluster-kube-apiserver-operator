@@ -18,8 +18,12 @@ const (
 	PodSecurityOpenshiftType      = "PodSecurityOpenshiftEvaluationConditionsDetected"
 	PodSecurityRunLevelZeroType   = "PodSecurityRunLevelZeroEvaluationConditionsDetected"
 	PodSecurityDisabledSyncerType = "PodSecurityDisabledSyncerEvaluationConditionsDetected"
+	PodSecurityInconclusiveType   = "PodSecurityInconclusiveEvaluationConditionsDetected"
 
 	labelSyncControlLabel = "security.openshift.io/scc.podSecurityLabelSync"
+
+	violationReason    = "PSViolationsDetected"
+	inconclusiveReason = "PSViolationDecisionInconclusive"
 )
 
 var (
@@ -36,6 +40,7 @@ type podSecurityOperatorConditions struct {
 	violatingRunLevelZeroNamespaces   []string
 	violatingCustomerNamespaces       []string
 	violatingDisabledSyncerNamespaces []string
+	inconclusiveNamespaces            []string
 }
 
 func (c *podSecurityOperatorConditions) addViolation(ns *corev1.Namespace) {
@@ -59,16 +64,31 @@ func (c *podSecurityOperatorConditions) addViolation(ns *corev1.Namespace) {
 	c.violatingCustomerNamespaces = append(c.violatingCustomerNamespaces, ns.Name)
 }
 
-func makeCondition(conditionType string, namespaces []string) operatorv1.OperatorCondition {
+func (c *podSecurityOperatorConditions) addInconclusive(ns *corev1.Namespace) {
+	c.inconclusiveNamespaces = append(c.inconclusiveNamespaces, ns.Name)
+}
+
+func makeCondition(conditionType, conditionReason string, namespaces []string) operatorv1.OperatorCondition {
+	var messageFormatter string
+
+	switch conditionReason {
+	case violationReason:
+		messageFormatter = "Violations detected in namespaces: %v"
+	case inconclusiveReason:
+		messageFormatter = "Could not evaluate violations for namespaces: %v"
+	default:
+		messageFormatter = "Unexpected condition for namespace: %v"
+	}
+
 	if len(namespaces) > 0 {
 		sort.Strings(namespaces)
 		return operatorv1.OperatorCondition{
 			Type:               conditionType,
 			Status:             operatorv1.ConditionTrue,
 			LastTransitionTime: metav1.Now(),
-			Reason:             "PSViolationsDetected",
+			Reason:             conditionReason,
 			Message: fmt.Sprintf(
-				"Violations detected in namespaces: %v",
+				messageFormatter,
 				namespaces,
 			),
 		}
@@ -84,9 +104,10 @@ func makeCondition(conditionType string, namespaces []string) operatorv1.Operato
 
 func (c *podSecurityOperatorConditions) toConditionFuncs() []v1helpers.UpdateStatusFunc {
 	return []v1helpers.UpdateStatusFunc{
-		v1helpers.UpdateConditionFn(makeCondition(PodSecurityCustomerType, c.violatingCustomerNamespaces)),
-		v1helpers.UpdateConditionFn(makeCondition(PodSecurityOpenshiftType, c.violatingOpenShiftNamespaces)),
-		v1helpers.UpdateConditionFn(makeCondition(PodSecurityRunLevelZeroType, c.violatingRunLevelZeroNamespaces)),
-		v1helpers.UpdateConditionFn(makeCondition(PodSecurityDisabledSyncerType, c.violatingDisabledSyncerNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityCustomerType, violationReason, c.violatingCustomerNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityOpenshiftType, violationReason, c.violatingOpenShiftNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityRunLevelZeroType, violationReason, c.violatingRunLevelZeroNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityDisabledSyncerType, violationReason, c.violatingDisabledSyncerNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityInconclusiveType, inconclusiveReason, c.inconclusiveNamespaces)),
 	}
 }
