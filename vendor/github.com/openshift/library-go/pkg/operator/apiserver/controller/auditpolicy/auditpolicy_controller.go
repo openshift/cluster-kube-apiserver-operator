@@ -116,6 +116,26 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 	desired.Kind = "Policy"
 	desired.APIVersion = auditv1.SchemeGroupVersion.String()
 
+	// PoC: Override the default audit policy configuration to include
+	// RequestReceived stage always and RequestResponse level
+	// for nodes/status and leases requests
+	desired.OmitStages = []auditv1.Stage{}
+	desired.Rules = append(desired.Rules, auditv1.PolicyRule{
+		Level: auditv1.LevelRequestResponse,
+		Resources: []auditv1.GroupResources{
+			{
+				Group: "",
+				Resources: []string{"nodes/status"},
+			},
+			{
+				Group: "coordination.k8s.io",
+				Resources: []string{"leases"},
+			},
+		},
+		// kubelet requests should come from users in this group
+		UserGroups: []string{"system:nodes"},
+	})
+
 	bs, err := yaml.Marshal(desired)
 	if err != nil {
 		return err
