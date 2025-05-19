@@ -9,7 +9,7 @@ import (
 )
 
 func TestCondition(t *testing.T) {
-	t.Run("with namespaces", func(t *testing.T) {
+	t.Run("with violating namespaces", func(t *testing.T) {
 		namespaces := []string{"namespace1", "namespace2"}
 		expectedCondition := operatorv1.OperatorCondition{
 			Type:    PodSecurityCustomerType,
@@ -18,7 +18,35 @@ func TestCondition(t *testing.T) {
 			Message: "Violations detected in namespaces: [namespace1 namespace2]",
 		}
 
-		condition := makeCondition(PodSecurityCustomerType, namespaces)
+		condition := makeCondition(PodSecurityCustomerType, violationReason, namespaces)
+
+		if condition.Type != expectedCondition.Type {
+			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
+		}
+
+		if condition.Status != expectedCondition.Status {
+			t.Errorf("expected condition status %s, got %s", expectedCondition.Status, condition.Status)
+		}
+
+		if condition.Reason != expectedCondition.Reason {
+			t.Errorf("expected condition reason %s, got %s", expectedCondition.Reason, condition.Reason)
+		}
+
+		if condition.Message != expectedCondition.Message {
+			t.Errorf("expected condition message %s, got %s", expectedCondition.Message, condition.Message)
+		}
+	})
+
+	t.Run("with inconclusive namespaces", func(t *testing.T) {
+		namespaces := []string{"namespace1", "namespace2"}
+		expectedCondition := operatorv1.OperatorCondition{
+			Type:    PodSecurityCustomerType,
+			Status:  operatorv1.ConditionTrue,
+			Reason:  "PSViolationDecisionInconclusive",
+			Message: "Could not evaluate violations for namespaces: [namespace1 namespace2]",
+		}
+
+		condition := makeCondition(PodSecurityCustomerType, inconclusiveReason, namespaces)
 
 		if condition.Type != expectedCondition.Type {
 			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
@@ -45,7 +73,7 @@ func TestCondition(t *testing.T) {
 			Reason: "ExpectedReason",
 		}
 
-		condition := makeCondition(PodSecurityCustomerType, namespaces)
+		condition := makeCondition(PodSecurityCustomerType, violationReason, namespaces)
 
 		if condition.Type != expectedCondition.Type {
 			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
@@ -68,12 +96,13 @@ func TestCondition(t *testing.T) {
 
 func TestOperatorStatus(t *testing.T) {
 	for _, tt := range []struct {
-		name      string
-		namespace []*corev1.Namespace
-		expected  map[string]operatorv1.ConditionStatus
+		name                          string
+		namespace                     []*corev1.Namespace
+		expected                      map[string]operatorv1.ConditionStatus
+		addViolation, addInconclusive bool
 	}{
 		{
-			name: "with default namespace",
+			name: "with violating default namespace",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -81,15 +110,18 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation:    true,
+			addInconclusive: false,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with customer disabled syncer",
+			name: "with violating customer disabled syncer",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -100,15 +132,17 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with customer re-enabled syncer",
+			name: "with violating customer re-enabled syncer",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -119,15 +153,17 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with openshift namespace",
+			name: "with violating openshift namespace",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -135,15 +171,17 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with run-level 0 namespace",
+			name: "with violating run-level 0 namespace",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -151,15 +189,17 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with other customer types in combination",
+			name: "with other violating customer types in combination",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -175,15 +215,17 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
 		{
-			name: "with other system types in combination",
+			name: "with other violating system types in combination",
 			namespace: []*corev1.Namespace{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -203,11 +245,32 @@ func TestOperatorStatus(t *testing.T) {
 					},
 				},
 			},
+			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
 				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
+			},
+		},
+		{
+			name: "with inconclusive namespace",
+			namespace: []*corev1.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "syncer-by-default",
+					},
+				},
+			},
+			addViolation:    false,
+			addInconclusive: true,
+			expected: map[string]operatorv1.ConditionStatus{
+				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
+				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
+				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 			},
 		},
 	} {
@@ -216,7 +279,12 @@ func TestOperatorStatus(t *testing.T) {
 			cond := podSecurityOperatorConditions{}
 
 			for _, ns := range tt.namespace {
-				cond.addViolation(ns)
+				if tt.addViolation {
+					cond.addViolation(ns)
+				}
+				if tt.addInconclusive {
+					cond.addInconclusive(ns)
+				}
 			}
 
 			status := &operatorv1.OperatorStatus{}
