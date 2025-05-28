@@ -117,7 +117,7 @@ apiServerArguments:
   goaway-chance:
     - ".001"
   http2-max-streams-per-connection:
-    - "2000"  # recommended is 1000, but we need to mitigate https://github.com/kubernetes/kubernetes/issues/74412
+    - "1000"
   kubelet-certificate-authority:
     - /etc/kubernetes/static-pod-resources/configmaps/kubelet-serving-ca/ca-bundle.crt
   kubelet-client-certificate:
