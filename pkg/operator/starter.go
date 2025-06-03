@@ -263,7 +263,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
-		os.Getenv("OPERATOR_IMAGE_VERSION"),
 		operatorClient,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,

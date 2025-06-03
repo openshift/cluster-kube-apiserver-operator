@@ -112,6 +112,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	// We can't start informers until after the resources have been requested. Now is the time.
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	configInformers.Start(ctx.Done())
 
 	desiredVersion := status.VersionForOperatorFromEnv()
 	missingVersion := "0.0.1-snapshot"
@@ -121,8 +122,9 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		o.controllerContext.EventRecorder,
 	)
 
-	go configInformers.Start(ctx.Done())
-	go featureGateAccessor.Run(ctx)
+	go func() {
+		featureGateAccessor.Run(ctx)
+	}()
 
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
