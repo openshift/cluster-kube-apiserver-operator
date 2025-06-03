@@ -26,6 +26,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+// defaultRotationDay is the default rotation base for all cert rotation operations.
+const defaultRotationDay = 24 * time.Hour
+
 type CertRotationController struct {
 	certRotators []factory.Controller
 
@@ -116,17 +119,10 @@ func newCertRotationController(
 	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
 	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
 
-	foreverPeriod := 10 * 365 * 24 * time.Hour
-	foreverRefreshPeriod := 8 * 365 * 24 * time.Hour
-
-	rotationDay := 24 * time.Hour
+	rotationDay := defaultRotationDay
 	// for the development cycle, make the rotation 60 times faster (every twelve hours or so).
 	// This must be reverted before we ship
 	rotationDay = rotationDay / 60
-
-	monthPeriod := rotationDay * 30
-	yearPeriod := monthPeriod * 12
-	tenMonthPeriod := monthPeriod * 10
 
 	// Set custom rotation duration when FeatureShortCertRotation is enabled
 	featureGates, err := featureGateAccessor.CurrentFeatureGates()
@@ -135,9 +131,7 @@ func newCertRotationController(
 	}
 
 	if featureGates.Enabled(features.FeatureShortCertRotation) {
-		monthPeriod = 2 * time.Hour
-		yearPeriod = 3 * time.Hour
-		tenMonthPeriod = 150 * time.Minute
+		rotationDay = time.Minute
 	}
 
 	certRotator := certrotation.NewCertRotationController(
@@ -150,8 +144,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]'",
 				Description:                      "Signer for the kube-apiserver to create client certificates for aggregated apiservers to recognize as a front-proxy",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -179,8 +173,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]'",
 				Description:                      "Client certificate used by the kube-apiserver to communicate to aggregated apiservers.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
@@ -205,10 +199,10 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Signer for the kube-apiserver-to-kubelet-client so kubelets can recognize the kube-apiserver.",
 			},
-			Validity: yearPeriod, // this comes from the installer
+			Validity: 1 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                tenMonthPeriod,
+			Refresh:                292 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -236,8 +230,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Client certificate used by the kube-apiserver to authenticate to the kubelet for requests like exec and logs.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}},
@@ -264,12 +258,12 @@ func newCertRotationController(
 				// other signers are updated and needs to have the same metadata set
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod, // this comes from the installer
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -299,8 +293,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via localhost.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
@@ -327,12 +321,12 @@ func newCertRotationController(
 				// other signers are updated and needs to have the same metadata set
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod, // this comes from the installer
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -362,8 +356,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the service network.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames:        ret.serviceNetwork.GetHostnames,
@@ -391,12 +385,12 @@ func newCertRotationController(
 				// other signers are updated and needs to have the same metadata set
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod, // this comes from the installer
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -426,8 +420,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames:        ret.externalLoadBalancer.GetHostnames,
@@ -455,12 +449,12 @@ func newCertRotationController(
 				// other signers are updated and needs to have the same metadata set
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod, // this comes from the installer
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
+			Refresh:                8 * 365 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -490,8 +484,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the internal load balancer.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames:        ret.internalLoadBalancer.GetHostnames,
@@ -519,12 +513,12 @@ func newCertRotationController(
 				// other signers are updated and needs to have the same metadata set
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod, // this comes from the installer
+			Validity: 10 * 365 * defaultRotationDay, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh:       foreverRefreshPeriod,
+			Refresh:       8 * 365 * defaultRotationDay,
 			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:        kubeClient.CoreV1(),
@@ -554,12 +548,12 @@ func newCertRotationController(
 				// This test checks that kube-apiserver can be contacted via localhost-recovery kubeconfig
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity: foreverPeriod,
+			Validity: 10 * 365 * defaultRotationDay,
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
 			// Given that in this case rotation will be after 8y,
 			// it means we effectively do not rotate.
-			Refresh: foreverRefreshPeriod,
+			Refresh: 8 * 365 * defaultRotationDay,
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames: func() []string { return []string{"localhost-recovery"} },
 			},
@@ -583,8 +577,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 			},
-			Validity:               2 * monthPeriod,
-			Refresh:                monthPeriod,
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -612,8 +606,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Client certificate used by the kube-controller-manager to authenticate to the kube-apiserver.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
@@ -638,8 +632,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 			},
-			Validity:               2 * monthPeriod,
-			Refresh:                monthPeriod,
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -667,8 +661,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Client certificate used by the kube-scheduler to authenticate to the kube-apiserver.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
@@ -693,8 +687,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 			},
-			Validity:               2 * monthPeriod,
-			Refresh:                monthPeriod,
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -721,8 +715,8 @@ func newCertRotationController(
 				JiraComponent:                    "kube-apiserver",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"control-plane-node.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]'",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:control-plane-node-admin", Groups: []string{"system:masters"}},
@@ -747,8 +741,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]'",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 			},
-			Validity:               2 * monthPeriod,
-			Refresh:                monthPeriod,
+			Validity:               60 * defaultRotationDay,
+			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -776,8 +770,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"check-endpoints.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Client certificate used by the network connectivity checker of the kube-apiserver.",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
+			Validity:               30 * rotationDay,
+			Refresh:                15 * rotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"},
@@ -802,10 +796,10 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631,'[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]'",
 				Description:                      "Signer for the per-master-debugging-client.",
 			},
-			Validity: yearPeriod,
+			Validity: 1 * 365 * defaultRotationDay,
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                tenMonthPeriod,
+			Refresh:                292 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
@@ -836,9 +830,9 @@ func newCertRotationController(
 			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
 			// because of expired certs these are still valid to use for collecting data using localhost-recovery
 			// endpoint with long lived serving certs for localhost.
-			Validity: 2 * yearPeriod,
+			Validity: 2 * 365 * defaultRotationDay,
 			// We rotate sooner so certs are always valid for 90 days (30 days more then kube-control-plane-signer)
-			Refresh:                monthPeriod,
+			Refresh:                30 * defaultRotationDay,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{
