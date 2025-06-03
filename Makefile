@@ -5,14 +5,9 @@ all: build
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
 	targets/openshift/images.mk \
-	targets/openshift/crd-schema-gen.mk \
 	targets/openshift/deps.mk \
 	targets/openshift/operator/telepresence.mk \
 )
-
-# Set crd-schema-gen variables
-CONTROLLER_GEN_VERSION :=v0.2.1
-CRD_APIS :=./vendor/github.com/openshift/api/operator/v1
 
 # Exclude e2e tests from unit testing
 GO_TEST_PACKAGES :=./pkg/... ./cmd/...
@@ -29,13 +24,6 @@ ENCRYPTION_PROVIDER?=aescbc
 # $3 - Dockerfile path
 # $4 - context directory for image build
 $(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3:cluster-kube-apiserver-operator, ./Dockerfile.rhel7,.)
-
-# This will call a macro called "add-crd-gen" will will generate crd manifests based on the parameters:
-# $1 - target name
-# $2 - apis
-# $3 - manifests
-# $4 - output
-$(call add-crd-gen,manifests,$(CRD_APIS),./manifests,./manifests)
 
 $(call verify-golang-versions,Dockerfile.rhel7)
 
@@ -82,12 +70,6 @@ test-e2e-encryption-perf: test-unit
 .PHONY: $(TEST_E2E_ENCRYPTION_PERF_TARGETS)
 $(TEST_E2E_ENCRYPTION_PERF_TARGETS): test-e2e-encryption-perf-%:
 	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption-perf
-
-update-codegen: update-codegen-crds
-.PHONY: update-codegen
-
-verify-codegen: verify-codegen-crds
-.PHONY: verify-codegen
 
 test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
 test-e2e: GO_TEST_FLAGS += -v
