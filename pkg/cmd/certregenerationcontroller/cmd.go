@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/clock"
@@ -15,9 +14,8 @@ import (
 	configeversionedclient "github.com/openshift/client-go/config/clientset/versioned"
 	configexternalinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
@@ -87,6 +85,8 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return fmt.Errorf("failed to create config client: %w", err)
 	}
 
+	configInformers := configexternalinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
+
 	kubeAPIServerInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -94,8 +94,6 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
 	)
-
-	configInformers := configexternalinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(
 		clock,
@@ -109,28 +107,9 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
-	// We can't start informers until after the resources have been requested. Now is the time.
-	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
-
-	desiredVersion := status.VersionForOperatorFromEnv()
-	missingVersion := "0.0.1-snapshot"
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion, missingVersion,
-		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
-		o.controllerContext.EventRecorder,
-	)
-
-	go configInformers.Start(ctx.Done())
-	go featureGateAccessor.Run(ctx)
-
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
-		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Errorf("timed out waiting for FeatureGate detection")
-		return fmt.Errorf("timed out waiting for FeatureGate detection")
+	certRotationScale, err := certrotation.GetCertRotationScale(ctx, kubeClient, operatorclient.GlobalUserSpecifiedConfigNamespace)
+	if err != nil {
+		return err
 	}
 
 	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
@@ -139,7 +118,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		configInformers,
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
-		featureGateAccessor,
+		certRotationScale,
 	)
 	if err != nil {
 		return err
@@ -153,6 +132,11 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	if err != nil {
 		return err
 	}
+
+	// We can't start informers until after the resources have been requested. Now is the time.
+	configInformers.Start(ctx.Done())
+	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
+	dynamicInformers.Start(ctx.Done())
 
 	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
 	// (@deads2k wants time to think it through)
