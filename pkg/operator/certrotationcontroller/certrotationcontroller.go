@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
+	configv1 "github.com/openshift/api/config/v1"
 	features "github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -71,8 +72,12 @@ func NewCertRotationControllerOnlyWhenExpired(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
 ) (*CertRotationController, error) {
+	// Create fake feature gate accessor - in refresh only when expired mode there is no API server to fetch feature gates from
+	// Here ShortCertRotation is always disabled
+	emptyFeatureGates := []configv1.FeatureGateName{""}
+	knownFeatureGates := []configv1.FeatureGateName{"ShortCertRotation"}
+	featureGateAccessor := featuregates.NewHardcodedFeatureGateAccess(emptyFeatureGates, knownFeatureGates)
 	return newCertRotationController(
 		kubeClient,
 		operatorClient,
