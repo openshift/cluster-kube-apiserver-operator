@@ -3,6 +3,7 @@ package webhooksupportabilitycontroller
 import (
 	"context"
 
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
@@ -21,6 +22,7 @@ type webhookSupportabilityController struct {
 	mutatingWebhookLister   admissionregistrationlistersv1.MutatingWebhookConfigurationLister
 	validatingWebhookLister admissionregistrationlistersv1.ValidatingWebhookConfigurationLister
 	serviceLister           corev1listers.ServiceLister
+	configMapLister         corev1listers.ConfigMapLister
 	crdLister               apiextensionslistersv1.CustomResourceDefinitionLister
 }
 
@@ -33,11 +35,13 @@ func NewWebhookSupportabilityController(
 	recorder events.Recorder,
 ) *webhookSupportabilityController {
 	kubeInformersForAllNamespaces := kubeInformersForNamespaces.InformersFor("")
+	kubeInformersForOperatorNamespace := kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace)
 	c := &webhookSupportabilityController{
 		operatorClient:          operatorClient,
 		mutatingWebhookLister:   kubeInformersForAllNamespaces.Admissionregistration().V1().MutatingWebhookConfigurations().Lister(),
 		validatingWebhookLister: kubeInformersForAllNamespaces.Admissionregistration().V1().ValidatingWebhookConfigurations().Lister(),
 		serviceLister:           kubeInformersForAllNamespaces.Core().V1().Services().Lister(),
+		configMapLister:         kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Lister(),
 		crdLister:               apiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
 	}
 	c.Controller = factory.New().
@@ -45,6 +49,7 @@ func NewWebhookSupportabilityController(
 			kubeInformersForAllNamespaces.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
 			kubeInformersForAllNamespaces.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
 			kubeInformersForAllNamespaces.Core().V1().Services().Informer(),
+			kubeInformersForOperatorNamespace.Core().V1().ConfigMaps().Informer(),
 		).
 		WithFilteredEventsInformers(func(obj interface{}) bool {
 			if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
