@@ -120,7 +120,7 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 	// Special case: For webhooks pointing at the Kubernetes API itself (such as aggregated APIs), use the CA from the kube-root-ca.crt ConfigMap.
 	// Having a special case for this situation is consistent with the kube-apiserver's behavior:
 	// https://github.com/kubernetes/apiserver/blob/release-1.33/pkg/util/webhook/authentication.go#L80-L82
-	if reference.Name == "kubernetes" && reference.Namespace == corev1.NamespaceDefault && *reference.Port == 443 {
+	if reference.Name == "kubernetes" && reference.Namespace == corev1.NamespaceDefault && port == "443" {
 		rootCAConfigMap, err := c.configMapLister.ConfigMaps(operatorclient.OperatorNamespace).Get("kube-root-ca.crt")
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -142,8 +142,7 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 		if len(caBundle) > 0 {
 			rootCAs.AppendCertsFromPEM(caBundle)
 		} else if caBundleProvidedByServiceCA {
-			err := fmt.Errorf("skipping checking the webhook %q via %q service because the caBundle (provided by the service-ca-operator) is empty. Please check the service-ca's logs if the issue persists", webhookName, net.JoinHostPort(host, port))
-			return err
+			return fmt.Errorf("skipping checking the webhook %q via %q service because the caBundle (provided by the service-ca-operator) is empty. Please check the service-ca's logs if the issue persists", webhookName, net.JoinHostPort(host, port))
 		}
 	}
 
