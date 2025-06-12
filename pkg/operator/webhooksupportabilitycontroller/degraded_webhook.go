@@ -117,10 +117,16 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 	}
 	rootCAs := x509.NewCertPool()
 
-	// Special case: For webhooks pointing at the Kubernetes API itself (such as aggregated APIs), use the CA from the kube-root-ca.crt ConfigMap.
+	isUsingKubeAPIServer := reference.Name == "kubernetes" && reference.Namespace == corev1.NamespaceDefault && port == "443"
+	caBundleSetAutomatically := false
+
+	// Special case: For webhooks pointing at the Kubernetes API itself (such as aggregated APIs),
+	// use the CA from the kube-root-ca.crt ConfigMap if one is not already provided.
 	// Having a special case for this situation is consistent with the kube-apiserver's behavior:
 	// https://github.com/kubernetes/apiserver/blob/release-1.33/pkg/util/webhook/authentication.go#L80-L82
-	if reference.Name == "kubernetes" && reference.Namespace == corev1.NamespaceDefault && port == "443" {
+	// Though this is slightly stricter than the kube-apiserver's behavior, which always sets the
+	// client CA to the proper one, even if an incorrect caBundle is provided.
+	if isUsingKubeAPIServer && len(caBundle) == 0 {
 		rootCAConfigMap, err := c.configMapLister.ConfigMaps(operatorclient.OperatorNamespace).Get("kube-root-ca.crt")
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -137,6 +143,8 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 		if ok := rootCAs.AppendCertsFromPEM([]byte(caCert)); !ok {
 			return fmt.Errorf("failed to parse CA certificate from kube-root-ca.crt ConfigMap")
 		}
+
+		caBundleSetAutomatically = true
 	} else {
 		// Normal case: use provided caBundle
 		if len(caBundle) > 0 {
@@ -171,7 +179,11 @@ func (c *webhookSupportabilityController) assertConnect(ctx context.Context, web
 		if err != nil {
 			if i != 2 {
 				// log warning since only last one is reported
-				klog.Warningf("failed to connect to webhook %q via service %q: %v", webhookName, net.JoinHostPort(host, port), err)
+				if caBundleSetAutomatically {
+					klog.Warningf("failed to connect to webhook %q via service %q with caBundle set automatically from kube-root-ca.crt: %v", webhookName, net.JoinHostPort(host, port), err)
+				} else {
+					klog.Warningf("failed to connect to webhook %q via service %q: %v", webhookName, net.JoinHostPort(host, port), err)
+				}
 			}
 			continue
 		}
