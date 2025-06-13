@@ -3329,14 +3329,3 @@ data:
       "uid": "X9gzM6XFF",
       "version": 2
     }
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-dashboard-api-performance
-  namespace: openshift-config-managed
-  annotations:
-    include.release.openshift.io/self-managed-high-availability: "true"
-    release.openshift.io/delete: "true"
-  labels:
-    console.openshift.io/dashboard: 'true'
