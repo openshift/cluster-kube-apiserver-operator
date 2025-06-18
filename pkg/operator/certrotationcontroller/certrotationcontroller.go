@@ -873,21 +873,27 @@ func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
 	klog.Infof("Waiting for CertRotation")
 	defer klog.Infof("Finished waiting for CertRotation")
 
+	klog.Info("WaitForReady+")
 	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
+	klog.Info("WaitForCacheSync-")
 
 	// need to sync at least once before beginning.  if we fail, we cannot start rotating certificates
+	klog.Info("syncServiceHostnames")
 	if err := c.syncServiceHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncExternalLoadBalancerHostnames")
 	if err := c.syncExternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncInternalLoadBalancerHostnames")
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("WaitForReady-")
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.

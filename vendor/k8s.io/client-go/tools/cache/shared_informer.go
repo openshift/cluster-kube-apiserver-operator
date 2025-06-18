@@ -328,10 +328,13 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 	err := wait.PollImmediateUntil(syncedPollPeriod,
 		func() (bool, error) {
 			for _, syncFunc := range cacheSyncs {
+				klog.Infof("WaitForCacheSync: %#v", syncFunc)
 				if !syncFunc() {
+					klog.Infof("WaitForCacheSync %#v returned false", syncFunc)
 					return false, nil
 				}
 			}
+			klog.Infof("WaitForCacheSync finished")
 			return true, nil
 		},
 		stopCh)
