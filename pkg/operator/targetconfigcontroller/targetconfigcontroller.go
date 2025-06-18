@@ -49,7 +49,6 @@ const (
 type TargetConfigController struct {
 	targetImagePullSpec   string
 	operatorImagePullSpec string
-	operatorImageVersion  string
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
@@ -61,7 +60,7 @@ type TargetConfigController struct {
 }
 
 func NewTargetConfigController(
-	targetImagePullSpec, operatorImagePullSpec, operatorImageVersion string,
+	targetImagePullSpec, operatorImagePullSpec string,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
@@ -73,7 +72,6 @@ func NewTargetConfigController(
 	c := &TargetConfigController{
 		targetImagePullSpec:          targetImagePullSpec,
 		operatorImagePullSpec:        operatorImagePullSpec,
-		operatorImageVersion:         operatorImageVersion,
 		operatorClient:               operatorClient,
 		kubeClient:                   kubeClient,
 		configMapLister:              kubeInformersForNamespaces.ConfigMapLister(),
@@ -218,7 +216,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -302,8 +300,8 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
-	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
+func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec string) (*corev1.ConfigMap, bool, error) {
+	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorSpec)
 	if err != nil {
 		return nil, false, err
 	}
@@ -556,7 +554,6 @@ func gogcFromConfig(config map[string]interface{}) (int, error) {
 type kasTemplate struct {
 	Image                         string
 	OperatorImage                 string
-	OperatorImageVersion          string
 	Verbosity                     string
 	GracefulTerminationDuration   int
 	SetupContainerTimeoutDuration int
@@ -577,7 +574,7 @@ func effectiveConfiguration(spec *operatorv1.StaticPodOperatorSpec) (map[string]
 	return effectiveConfig, nil
 }
 
-func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec, operatorImageVersion string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
+func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullSpec string, operatorSpec *operatorv1.StaticPodOperatorSpec) (string, error) {
 	var verbosity string
 	switch operatorSpec.LogLevel {
 	case operatorv1.Normal:
@@ -610,7 +607,6 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 	tmplVal := kasTemplate{
 		Image:                       imagePullSpec,
 		OperatorImage:               operatorImagePullSpec,
-		OperatorImageVersion:        operatorImageVersion,
 		Verbosity:                   verbosity,
 		GracefulTerminationDuration: gracefulTerminationDuration,
 		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
