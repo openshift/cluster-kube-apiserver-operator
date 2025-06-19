@@ -93,6 +93,7 @@ func newCertRotationController(
 	featureGateAccessor featuregates.FeatureGateAccess,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
+
 	ret := &CertRotationController{
 		networkLister:        configInformer.Config().V1().Networks().Lister(),
 		infrastructureLister: configInformer.Config().V1().Infrastructures().Lister(),
@@ -108,8 +109,16 @@ func newCertRotationController(
 
 		recorder: eventRecorder,
 		cachesToSync: []cache.InformerSynced{
-			configInformer.Config().V1().Networks().Informer().HasSynced,
-			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
+			func() bool {
+				result := configInformer.Config().V1().Networks().Informer().HasSynced()
+				klog.Infof("Waiting for network informer to sync, result: %v", result)
+				return result
+			},
+			func() bool {
+				result := configInformer.Config().V1().Infrastructures().Informer().HasSynced()
+				klog.Infof("Waiting for infrastructure informer to sync, result: %v", result)
+				return result
+			},
 		},
 	}
 
