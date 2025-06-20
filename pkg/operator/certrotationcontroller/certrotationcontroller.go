@@ -93,6 +93,12 @@ func newCertRotationController(
 	featureGateAccessor featuregates.FeatureGateAccess,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
+	cachesToSync := []cache.InformerSynced{}
+	if !refreshOnlyWhenExpired {
+		cachesToSync = append(cachesToSync, configInformer.Config().V1().Infrastructures().Informer().HasSynced)
+		cachesToSync = append(cachesToSync, configInformer.Config().V1().Networks().Informer().HasSynced)
+	}
+
 	ret := &CertRotationController{
 		networkLister:        configInformer.Config().V1().Networks().Lister(),
 		infrastructureLister: configInformer.Config().V1().Infrastructures().Lister(),
@@ -106,15 +112,14 @@ func newCertRotationController(
 		internalLoadBalancerHostnamesQueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InternalLoadBalancerHostnames"),
 		internalLoadBalancer:               &DynamicServingRotation{hostnamesChanged: make(chan struct{}, 10)},
 
-		recorder: eventRecorder,
-		cachesToSync: []cache.InformerSynced{
-			configInformer.Config().V1().Networks().Informer().HasSynced,
-			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
-		},
+		recorder:     eventRecorder,
+		cachesToSync: cachesToSync,
 	}
 
-	configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
-	configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
+	if !refreshOnlyWhenExpired {
+		configInformer.Config().V1().Networks().Informer().AddEventHandler(ret.serviceHostnameEventHandler())
+		configInformer.Config().V1().Infrastructures().Informer().AddEventHandler(ret.externalLoadBalancerHostnameEventHandler())
+	}
 
 	foreverPeriod := 10 * 365 * 24 * time.Hour
 	foreverRefreshPeriod := 8 * 365 * 24 * time.Hour
@@ -873,21 +878,32 @@ func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
 	klog.Infof("Waiting for CertRotation")
 	defer klog.Infof("Finished waiting for CertRotation")
 
+	klog.Info("WaitForReady+")
 	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
+	klog.Info("WaitForCacheSync-")
+
+	if len(c.cachesToSync) == 0 {
+		klog.Info("WaitForReady-")
+		return
+	}
 
 	// need to sync at least once before beginning.  if we fail, we cannot start rotating certificates
+	klog.Info("syncServiceHostnames")
 	if err := c.syncServiceHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncExternalLoadBalancerHostnames")
 	if err := c.syncExternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncInternalLoadBalancerHostnames")
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("WaitForReady-")
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.
