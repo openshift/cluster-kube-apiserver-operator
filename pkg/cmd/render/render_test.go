@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	libgoaudit "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
@@ -650,7 +651,7 @@ spec:
 }
 
 func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
-	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{configv1.FeatureGateOpenShiftPodSecurityAdmission}, nil))
+	raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate([]configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission}, nil))
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 
