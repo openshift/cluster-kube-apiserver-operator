@@ -924,10 +924,12 @@ func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	defer klog.Infof("Shutting down CertRotation")
 	c.WaitForReady(ctx.Done())
 
+	klog.Infof("WaitForReady done, starting hooks")
 	go wait.Until(c.runServiceHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runInternalLoadBalancerHostnames, time.Second, ctx.Done())
 
+	klog.Infof("Starting certRotators")
 	for _, certRotator := range c.certRotators {
 		go certRotator.Run(ctx, workers)
 	}

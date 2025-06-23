@@ -235,7 +235,6 @@ func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 	if c.AreInitialFeatureGatesObserved() {
 		t := c.currentFeatures
 		previousFeatures = &t
-		klog.Infof("FGDEBUG: initial features were already observed, previous: %#v, t: %#v", previousFeatures, t)
 	}
 
 	c.currentFeatures = features
@@ -265,14 +264,17 @@ func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 }
 
 func (c *defaultFeatureGateAccess) InitialFeatureGatesObserved() <-chan struct{} {
+	klog.Infof("FGDEBUG: InitialFeatureGatesObserved+, result: %v", c.initialFeatureGatesObserved)
 	return c.initialFeatureGatesObserved
 }
 
 func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	select {
 	case <-c.InitialFeatureGatesObserved():
+		klog.Infof("FGDEBUG: AreInitialFeatureGatesObserved: true")
 		return true
 	default:
+		klog.Infof("FGDEBUG: AreInitialFeatureGatesObserved: false")
 		return false
 	}
 }
@@ -280,15 +282,18 @@ func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 func (c *defaultFeatureGateAccess) CurrentFeatureGates() (FeatureGate, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	klog.Infof("FGDEBUG: CurrentFeatureGates+")
 
 	if !c.AreInitialFeatureGatesObserved() {
 		return nil, fmt.Errorf("featureGates not yet observed")
 	}
+	klog.Infof("FGDEBUG: CurrentFeatureGates: AreInitialFeatureGatesObserved")
 	retEnabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Enabled))
 	retDisabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Disabled))
 	copy(retEnabled, c.currentFeatures.Enabled)
 	copy(retDisabled, c.currentFeatures.Disabled)
 
+	klog.Infof("FGDEBUG: CurrentFeatureGates-")
 	return NewFeatureGate(retEnabled, retDisabled), nil
 }
 

@@ -7,6 +7,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
@@ -105,6 +106,7 @@ func NewCertRotationController(
 }
 
 func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("certRotatationController %v Sync+", c.Name)
 	syncErr := c.SyncWorker(ctx)
 
 	// running this function with RunOnceContextKey value context will make this "run-once" without updating status.
@@ -120,6 +122,7 @@ func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncCo
 	if updated && syncErr != nil {
 		syncCtx.Recorder().Warningf("RotationError", syncErr.Error())
 	}
+	klog.Infof("certRotatationController %v Sync-, syncErr: %v", c.Name, syncErr)
 
 	return syncErr
 }
