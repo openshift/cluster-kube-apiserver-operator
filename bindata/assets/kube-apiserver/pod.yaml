@@ -189,7 +189,7 @@ spec:
     args:
       - --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig
       - --namespace=$(POD_NAMESPACE)
-      - -v=2
+      - -v=5
     resources:
       requests:
         memory: 50Mi
