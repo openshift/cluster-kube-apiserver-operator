@@ -109,16 +109,8 @@ func newCertRotationController(
 
 		recorder: eventRecorder,
 		cachesToSync: []cache.InformerSynced{
-			func() bool {
-				result := configInformer.Config().V1().Infrastructures().Informer().HasSynced()
-				klog.Infof("Waiting for infrastructure informer to sync, result: %v", result)
-				return result
-			},
-			func() bool {
-				result := configInformer.Config().V1().Networks().Informer().HasSynced()
-				klog.Infof("Waiting for network informer to sync, result: %v", result)
-				return result
-			},
+			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
+			configInformer.Config().V1().Networks().Informer().HasSynced,
 		},
 	}
 

@@ -243,7 +243,7 @@ func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 		klog.Infof("FGDEBUG: initial features observed")
 		c.initialFeatures = features
 		close(c.initialFeatureGatesObserved)
-		klog.Infof("FGDEBUG: initialFeatureGatesObserved channel closed")
+		klog.Infof("FGDEBUG: FeatureGates updated to %#v", c.currentFeatures)
 		c.eventRecorder.Eventf("FeatureGatesInitialized", "FeatureGates updated to %#v", c.currentFeatures)
 	}
 

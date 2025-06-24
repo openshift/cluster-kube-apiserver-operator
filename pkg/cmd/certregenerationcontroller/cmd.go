@@ -109,10 +109,6 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
-	// We can't start informers until after the resources have been requested. Now is the time.
-	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
-
 	desiredVersion := status.VersionForOperatorFromEnv()
 	missingVersion := "0.0.1-snapshot"
 	featureGateAccessor := featuregates.NewFeatureGateAccess(
@@ -121,8 +117,8 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		o.controllerContext.EventRecorder,
 	)
 
-	configInformers.Start(ctx.Done())
 	go featureGateAccessor.Run(ctx)
+	go configInformers.Start(ctx.Done())
 
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
@@ -154,6 +150,10 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	if err != nil {
 		return err
 	}
+
+	// We can't start informers until after the resources have been requested. Now is the time.
+	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
+	dynamicInformers.Start(ctx.Done())
 
 	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
 	// (@deads2k wants time to think it through)
