@@ -154,6 +154,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	// We can't start informers until after the resources have been requested. Now is the time.
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	configInformers.Start(ctx.Done())
 
 	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
 	// (@deads2k wants time to think it through)
