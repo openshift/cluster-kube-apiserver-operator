@@ -50,6 +50,8 @@ spec:
       requests:
         memory: 1Gi
         cpu: 265m
+    securityContext:
+      readOnlyRootFilesystem: true
     volumeMounts:
     - mountPath: /etc/ssl/certs
       name: ssl-certs-host
@@ -117,6 +119,8 @@ spec:
       requests:
         memory: 50Mi
         cpu: 5m
+    securityContext:
+      readOnlyRootFilesystem: true
 {{end}}
   terminationGracePeriodSeconds: {{ .TerminationGracePeriodSeconds }}
   volumes:

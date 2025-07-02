@@ -146,6 +146,7 @@ spec:
       - name: GOGC
         value: "{{ .GOGC }}"
     securityContext:
+      readOnlyRootFilesystem: true
       privileged: true
   - name: kube-apiserver-cert-syncer
     env:
@@ -169,6 +170,8 @@ spec:
       requests:
         memory: 50Mi
         cpu: 5m
+    securityContext:
+      readOnlyRootFilesystem: true
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
@@ -194,6 +197,8 @@ spec:
       requests:
         memory: 50Mi
         cpu: 5m
+    securityContext:
+      readOnlyRootFilesystem: true
     volumeMounts:
     - mountPath: /etc/kubernetes/static-pod-resources
       name: resource-dir
@@ -211,6 +216,8 @@ spec:
       requests:
         memory: 50Mi
         cpu: 5m
+    securityContext:
+      readOnlyRootFilesystem: true
   - name: kube-apiserver-check-endpoints
     image: {{.OperatorImage}}
     imagePullPolicy: IfNotPresent
@@ -264,6 +271,8 @@ spec:
       requests:
         memory: 50Mi
         cpu: 10m
+    securityContext:
+      readOnlyRootFilesystem: true
   terminationGracePeriodSeconds: {{.GracefulTerminationDuration}}
   hostNetwork: true
   priorityClassName: system-node-critical
