@@ -61,6 +61,7 @@ spec:
         flock -u "${LOCK_FD}"
       securityContext:
         privileged: true
+        readOnlyRootFilesystem: true
       resources:
         requests:
           memory: 50Mi
@@ -146,6 +147,7 @@ spec:
       - name: GOGC
         value: "{{ .GOGC }}"
     securityContext:
+      readOnlyRootFilesystem: true
       privileged: true
   - name: kube-apiserver-cert-syncer
     env:
