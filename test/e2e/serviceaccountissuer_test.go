@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
+	"testing"
+
 	configv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	testlibrary "github.com/openshift/library-go/test/library"
 	"github.com/stretchr/testify/require"
@@ -11,8 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"reflect"
-	"testing"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
@@ -30,21 +31,21 @@ func TestServiceAccountIssuer(t *testing.T) {
 	t.Run("serviceaccountissuer set in authentication config results in apiserver config", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "https://first.foo.bar")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
-			t.Errorf(err.Error())
+			t.Errorf("pollForOperandIssuer failed: %v", err)
 		}
 	})
 
 	t.Run("second serviceaccountissuer set in authentication config results in apiserver config with two issuers", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "https://second.foo.bar")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"}); err != nil {
-			t.Errorf(err.Error())
+			t.Errorf("pollForOperandIssuer failed: %v", err)
 		}
 	})
 
 	t.Run("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "")
 		if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"}); err != nil {
-			t.Errorf(err.Error())
+			t.Errorf("pollForOperandIssuer failed: %v", err)
 		}
 	})
 
