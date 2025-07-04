@@ -173,7 +173,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 				t.Log(diff.StringDiff(tc.expectedMsgLines, condition.Message))
 			}
 			if t.Failed() {
-				t.Logf(condition.Message)
+				t.Logf("Condition message: %s", condition.Message)
 			}
 		})
 	}
