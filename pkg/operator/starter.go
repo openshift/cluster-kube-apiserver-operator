@@ -208,6 +208,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	var notOnSingleReplicaTopology resourceapply.ConditionalFunction = func() bool {
 		return infrastructure.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode
 	}
+	etcdNamespace, err := kubeClient.CoreV1().Namespaces().Get(ctx, "openshift-etcd", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	_, hasDelayedAnnotation := etcdNamespace.Annotations["openshift.io/delayed-bootstrap"]
+	var requireMultipleEtcdEndpoints resourceapply.ConditionalFunction = func() bool {
+		return !(infrastructure.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode ||
+			(infrastructure.Status.ControlPlaneTopology == configv1.DualReplicaTopologyMode && hasDelayedAnnotation))
+	}
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
@@ -269,7 +278,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
-		notOnSingleReplicaTopology,
+		requireMultipleEtcdEndpoints,
 		controllerContext.EventRecorder,
 	)
 
