@@ -59,6 +59,8 @@ spec:
         - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
           name: kube-api-access
           readOnly: true
+        - mountPath: /tmp
+          name: tmp-dir
         env:
         - name: IMAGE
           value: quay.io/openshift/origin-hyperkube:v4.0
@@ -99,6 +101,8 @@ spec:
                   apiVersion: v1
                   fieldPath: metadata.namespace
                 path: namespace
+      - name: tmp-dir
+        emptyDir: {}
       nodeSelector:
         node-role.kubernetes.io/master: ""
       priorityClassName: "system-cluster-critical"
