@@ -79,8 +79,13 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	updateDetail := ""
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		klog.Infof("Updating %s/%s - not refreshOnlyWhenExpired", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name)
+		needsMetadataUpdate := ensureSecretMetadataUpdate(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		if needsMetadataUpdate {
+			updateDetail = fmt.Sprintf("metadata updated with %s and owner %s", c.AdditionalAnnotations, c.Owner.Name)
+		}
 		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
 		updateRequired = needsMetadataUpdate || needsTypeChange
 	}
@@ -92,6 +97,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
+		updateDetail = fmt.Sprintf("signer updated: %s", reason)
 		if err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, c.Validity, c.AdditionalAnnotations); err != nil {
 			return nil, false, err
 		}
@@ -116,11 +122,11 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, false, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err, updateDetail)
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+		klog.V(2).Infof("Updated secret %s/%s, reason: %s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name, updateDetail)
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
