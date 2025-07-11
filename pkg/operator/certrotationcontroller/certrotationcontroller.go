@@ -93,6 +93,7 @@ func newCertRotationController(
 	featureGateAccessor featuregates.FeatureGateAccess,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
+
 	ret := &CertRotationController{
 		networkLister:        configInformer.Config().V1().Networks().Lister(),
 		infrastructureLister: configInformer.Config().V1().Infrastructures().Lister(),
@@ -108,8 +109,8 @@ func newCertRotationController(
 
 		recorder: eventRecorder,
 		cachesToSync: []cache.InformerSynced{
-			configInformer.Config().V1().Networks().Informer().HasSynced,
 			configInformer.Config().V1().Infrastructures().Informer().HasSynced,
+			configInformer.Config().V1().Networks().Informer().HasSynced,
 		},
 	}
 
@@ -873,21 +874,27 @@ func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
 	klog.Infof("Waiting for CertRotation")
 	defer klog.Infof("Finished waiting for CertRotation")
 
+	klog.Info("WaitForReady+")
 	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
+	klog.Info("WaitForCacheSync-")
 
 	// need to sync at least once before beginning.  if we fail, we cannot start rotating certificates
+	klog.Info("syncServiceHostnames")
 	if err := c.syncServiceHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncExternalLoadBalancerHostnames")
 	if err := c.syncExternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("syncInternalLoadBalancerHostnames")
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
 		panic(err)
 	}
+	klog.Info("WaitForReady-")
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.
@@ -909,10 +916,12 @@ func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	defer klog.Infof("Shutting down CertRotation")
 	c.WaitForReady(ctx.Done())
 
+	klog.Infof("WaitForReady done, starting hooks")
 	go wait.Until(c.runServiceHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runInternalLoadBalancerHostnames, time.Second, ctx.Done())
 
+	klog.Infof("Starting certRotators")
 	for _, certRotator := range c.certRotators {
 		go certRotator.Run(ctx, workers)
 	}

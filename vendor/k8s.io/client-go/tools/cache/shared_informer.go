@@ -390,10 +390,12 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 					return false, nil
 				}
 			}
+			klog.Infof("WaitForCacheSync finished")
 			return true, nil
 		},
 		stopCh)
 	if err != nil {
+		klog.Infof("WaitForCacheSync err: %v", err)
 		return false
 	}
 

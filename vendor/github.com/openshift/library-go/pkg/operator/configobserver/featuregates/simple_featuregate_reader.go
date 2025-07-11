@@ -119,6 +119,7 @@ func NewFeatureGateAccess(
 		queue:                       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "feature-gate-detector"),
 		eventRecorder:               eventRecorder,
 	}
+	klog.Info("FGDEBUG: created")
 	c.SetChangeHandler(ForceExit)
 
 	// we aren't expecting many
@@ -145,6 +146,7 @@ func NewFeatureGateAccess(
 		},
 	})
 
+	klog.Info("FGDEBUG")
 	return c
 }
 
@@ -168,18 +170,24 @@ func (c *defaultFeatureGateAccess) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
+	klog.Info("FGDEBUG")
 	klog.Infof("Starting feature-gate-detector")
 	defer klog.Infof("Shutting down feature-gate-detector")
 
 	go wait.UntilWithContext(ctx, c.runWorker, time.Second)
 
+	klog.Info("FGDEBUG")
 	<-ctx.Done()
 }
 
 func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
+	klog.Infof("FGDEBUG: syncHandler+")
 	desiredVersion := c.desiredVersion
+	klog.Infof("FGDEBUG: desiredVersion: %#v", desiredVersion)
 	if c.missingVersionMarker == c.desiredVersion {
+		klog.Info("FGDEBUG: fetching clusterVersion")
 		clusterVersion, err := c.clusterVersionLister.Get("version")
+		klog.Infof("FGDEBUG: clusterVersion err: %#v", err)
 		if apierrors.IsNotFound(err) {
 			return nil // we will be re-triggered when it is created
 		}
@@ -191,9 +199,12 @@ func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
 		if len(desiredVersion) == 0 && len(clusterVersion.Status.History) > 0 {
 			desiredVersion = clusterVersion.Status.History[0].Version
 		}
+		klog.Infof("FGDEBUG: desiredVersion: %#v", desiredVersion)
 	}
 
+	klog.Infof("FGDEBUG: fetching featureGates")
 	featureGate, err := c.featureGateLister.Get("cluster")
+	klog.Infof("FGDEBUG: featureGates err: %#v", err)
 	if apierrors.IsNotFound(err) {
 		return nil // we will be re-triggered when it is created
 	}
@@ -202,18 +213,23 @@ func (c *defaultFeatureGateAccess) syncHandler(ctx context.Context) error {
 	}
 
 	features, err := featuresFromFeatureGate(featureGate, desiredVersion)
+	klog.Infof("FGDEBUG: featuresFromFeatureGate err: %#v", err)
 	if err != nil {
 		return fmt.Errorf("unable to determine features: %w", err)
 	}
+	klog.Infof("FGDEBUG: features: %#v", features)
 
 	c.setFeatureGates(features)
 
+	klog.Infof("FGDEBUG: syncHandler-")
 	return nil
 }
 
 func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	klog.Infof("FGDEBUG: setFeatureGates: %#v", features)
 
 	var previousFeatures *Features
 	if c.AreInitialFeatureGatesObserved() {
@@ -224,32 +240,41 @@ func (c *defaultFeatureGateAccess) setFeatureGates(features Features) {
 	c.currentFeatures = features
 
 	if !c.AreInitialFeatureGatesObserved() {
+		klog.Infof("FGDEBUG: initial features observed")
 		c.initialFeatures = features
 		close(c.initialFeatureGatesObserved)
+		klog.Infof("FGDEBUG: FeatureGates updated to %#v", c.currentFeatures)
 		c.eventRecorder.Eventf("FeatureGatesInitialized", "FeatureGates updated to %#v", c.currentFeatures)
 	}
 
 	if previousFeatures == nil || !reflect.DeepEqual(*previousFeatures, c.currentFeatures) {
+		klog.Infof("FGDEBUG: featureGate list changed")
 		if previousFeatures != nil {
 			c.eventRecorder.Eventf("FeatureGatesModified", "FeatureGates updated to %#v", c.currentFeatures)
 		}
 
+		klog.Infof("FGDEBUG: featureGateChangeHandlerFn+")
 		c.featureGateChangeHandlerFn(FeatureChange{
 			Previous: previousFeatures,
 			New:      c.currentFeatures,
 		})
+		klog.Infof("FGDEBUG: featureGateChangeHandlerFn-")
 	}
+	klog.Infof("FGDEBUG: setFeatureGates-")
 }
 
 func (c *defaultFeatureGateAccess) InitialFeatureGatesObserved() <-chan struct{} {
+	klog.Infof("FGDEBUG: InitialFeatureGatesObserved+, result: %v", c.initialFeatureGatesObserved)
 	return c.initialFeatureGatesObserved
 }
 
 func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 	select {
 	case <-c.InitialFeatureGatesObserved():
+		klog.Infof("FGDEBUG: AreInitialFeatureGatesObserved: true")
 		return true
 	default:
+		klog.Infof("FGDEBUG: AreInitialFeatureGatesObserved: false")
 		return false
 	}
 }
@@ -257,15 +282,18 @@ func (c *defaultFeatureGateAccess) AreInitialFeatureGatesObserved() bool {
 func (c *defaultFeatureGateAccess) CurrentFeatureGates() (FeatureGate, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	klog.Infof("FGDEBUG: CurrentFeatureGates+")
 
 	if !c.AreInitialFeatureGatesObserved() {
 		return nil, fmt.Errorf("featureGates not yet observed")
 	}
+	klog.Infof("FGDEBUG: CurrentFeatureGates: AreInitialFeatureGatesObserved")
 	retEnabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Enabled))
 	retDisabled := make([]configv1.FeatureGateName, len(c.currentFeatures.Disabled))
 	copy(retEnabled, c.currentFeatures.Enabled)
 	copy(retDisabled, c.currentFeatures.Disabled)
 
+	klog.Infof("FGDEBUG: CurrentFeatureGates-")
 	return NewFeatureGate(retEnabled, retDisabled), nil
 }
 
@@ -275,14 +303,17 @@ func (c *defaultFeatureGateAccess) runWorker(ctx context.Context) {
 }
 
 func (c *defaultFeatureGateAccess) processNextWorkItem(ctx context.Context) bool {
+	klog.Infof("FGDEBUG: processNextWorkItem+")
 	dsKey, quit := c.queue.Get()
 	if quit {
+		klog.Infof("FGDEBUG: processNextWorkItem-: quit")
 		return false
 	}
 	defer c.queue.Done(dsKey)
 
 	err := c.syncHandler(ctx)
 	if err == nil {
+		klog.Infof("FGDEBUG: processNextWorkItem-: err %#v", err)
 		c.queue.Forget(dsKey)
 		return true
 	}
@@ -290,6 +321,7 @@ func (c *defaultFeatureGateAccess) processNextWorkItem(ctx context.Context) bool
 	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
 	c.queue.AddRateLimited(dsKey)
 
+	klog.Infof("FGDEBUG: processNextWorkItem-")
 	return true
 }
 

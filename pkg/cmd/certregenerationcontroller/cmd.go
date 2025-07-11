@@ -117,11 +117,12 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		o.controllerContext.EventRecorder,
 	)
 
-	go configInformers.Start(ctx.Done())
 	go featureGateAccessor.Run(ctx)
+	go configInformers.Start(ctx.Done())
 
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		klog.Infof("FGDEBUG: feature gate accessor initial feature gates observed")
 		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
 		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 	case <-time.After(1 * time.Minute):
