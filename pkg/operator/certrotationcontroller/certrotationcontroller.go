@@ -14,14 +14,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	features "github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-
 	"github.com/openshift/library-go/pkg/controller/factory"
+
 	"github.com/openshift/library-go/pkg/operator/certrotation"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -52,7 +50,7 @@ func NewCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	day time.Duration,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -60,7 +58,7 @@ func NewCertRotationController(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		featureGateAccessor,
+		day,
 		false,
 	)
 }
@@ -71,7 +69,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	day time.Duration,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -79,7 +77,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		featureGateAccessor,
+		day,
 		true,
 	)
 }
@@ -90,7 +88,7 @@ func newCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	day time.Duration,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
