@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func ensureMetadataUpdate(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
+func ensureSecretMetadataUpdate(secret *corev1.Secret, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
 	needsMetadataUpdate := false
 	// no ownerReference set
 	if owner != nil {
@@ -13,6 +13,16 @@ func ensureMetadataUpdate(secret *corev1.Secret, owner *metav1.OwnerReference, a
 	}
 	// ownership annotations not set
 	return additionalAnnotations.EnsureTLSMetadataUpdate(&secret.ObjectMeta) || needsMetadataUpdate
+}
+
+func ensureConfigMapMetadataUpdate(configMap *corev1.ConfigMap, owner *metav1.OwnerReference, additionalAnnotations AdditionalAnnotations) bool {
+	needsMetadataUpdate := false
+	// no ownerReference set
+	if owner != nil {
+		needsMetadataUpdate = ensureOwnerReference(&configMap.ObjectMeta, owner)
+	}
+	// ownership annotations not set
+	return additionalAnnotations.EnsureTLSMetadataUpdate(&configMap.ObjectMeta) || needsMetadataUpdate
 }
 
 func ensureSecretTLSTypeSet(secret *corev1.Secret) bool {
