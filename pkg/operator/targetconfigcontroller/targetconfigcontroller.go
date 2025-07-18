@@ -56,8 +56,8 @@ type TargetConfigController struct {
 	kubeClient      kubernetes.Interface
 	configMapLister corev1listers.ConfigMapLister
 
-	isStartupMonitorEnabledFn    func() (bool, error)
-	notOnSingleReplicaTopologyFn func() bool
+	isStartupMonitorEnabledFn      func() (bool, error)
+	requireMultipleEtcdEndpointsFn func() bool
 }
 
 func NewTargetConfigController(
@@ -67,18 +67,18 @@ func NewTargetConfigController(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
 	isStartupMonitorEnabledFn func() (bool, error),
-	notOnSingleReplicaTopologyFn func() bool,
+	requireMultipleEtcdEndpointsFn func() bool,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &TargetConfigController{
-		targetImagePullSpec:          targetImagePullSpec,
-		operatorImagePullSpec:        operatorImagePullSpec,
-		operatorImageVersion:         operatorImageVersion,
-		operatorClient:               operatorClient,
-		kubeClient:                   kubeClient,
-		configMapLister:              kubeInformersForNamespaces.ConfigMapLister(),
-		isStartupMonitorEnabledFn:    isStartupMonitorEnabledFn,
-		notOnSingleReplicaTopologyFn: notOnSingleReplicaTopologyFn,
+		targetImagePullSpec:            targetImagePullSpec,
+		operatorImagePullSpec:          operatorImagePullSpec,
+		operatorImageVersion:           operatorImageVersion,
+		operatorClient:                 operatorClient,
+		kubeClient:                     kubeClient,
+		configMapLister:                kubeInformersForNamespaces.ConfigMapLister(),
+		isStartupMonitorEnabledFn:      isStartupMonitorEnabledFn,
+		requireMultipleEtcdEndpointsFn: requireMultipleEtcdEndpointsFn,
 	}
 
 	return factory.New().WithInformers(
@@ -112,8 +112,8 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 	}
 
 	// block until config is observed and specific paths are present
-	isNotOnSingleReplicaTopology := c.notOnSingleReplicaTopologyFn()
-	if err := c.isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw, isNotOnSingleReplicaTopology); err != nil {
+	requireMultipleEtcdEndpoints := c.requireMultipleEtcdEndpointsFn()
+	if err := c.isRequiredConfigPresent(operatorSpec.ObservedConfig.Raw, requireMultipleEtcdEndpoints); err != nil {
 		syncContext.Recorder().Warning("ConfigMissing", err.Error())
 		return err
 	}
@@ -129,7 +129,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 	return nil
 }
 
-func (c *TargetConfigController) isRequiredConfigPresent(config []byte, isNotSingleNode bool) error {
+func (c *TargetConfigController) isRequiredConfigPresent(config []byte, requireMultipleEtcdEndpoints bool) error {
 	if len(config) == 0 {
 		return fmt.Errorf("no observedConfig")
 	}
@@ -162,7 +162,7 @@ func (c *TargetConfigController) isRequiredConfigPresent(config []byte, isNotSin
 			return fmt.Errorf("%v empty in config", strings.Join(requiredPath, "."))
 		}
 
-		if len(requiredPath) == 2 && requiredPath[0] == "apiServerArguments" && requiredPath[1] == "etcd-servers" && isNotSingleNode {
+		if len(requiredPath) == 2 && requiredPath[0] == "apiServerArguments" && requiredPath[1] == "etcd-servers" && requireMultipleEtcdEndpoints {
 			configValSlice, ok := configVal.([]interface{})
 			if !ok {
 				return fmt.Errorf("%v is not a slice", strings.Join(requiredPath, "."))
