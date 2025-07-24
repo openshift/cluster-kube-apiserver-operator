@@ -65,7 +65,10 @@ func (c *podSecurityOperatorConditions) addViolation(ns *corev1.Namespace) {
 }
 
 func (c *podSecurityOperatorConditions) addInconclusive(ns *corev1.Namespace) {
-	c.inconclusiveNamespaces = append(c.inconclusiveNamespaces, ns.Name)
+	// We should not consider system namespaces as inconclusive
+	if !strings.HasPrefix(ns.Name, "openshift") && !runLevelZeroNamespaces.Has(ns.Name) {
+		c.inconclusiveNamespaces = append(c.inconclusiveNamespaces, ns.Name)
+	}
 }
 
 func makeCondition(conditionType, conditionReason string, namespaces []string) operatorv1.OperatorCondition {
