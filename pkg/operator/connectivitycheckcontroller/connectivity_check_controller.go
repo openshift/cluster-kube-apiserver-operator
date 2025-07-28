@@ -36,6 +36,7 @@ func NewKubeAPIServerConnectivityCheckController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	apiextensionsClient *apiextensionsclient.Clientset,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	clusterInformers v1helpers.KubeInformersForNamespaces,
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
 	configInformers configinformers.SharedInformerFactory,
 	apiextensionsInformers apiextensionsinformers.SharedInformerFactory,
@@ -63,7 +64,7 @@ func NewKubeAPIServerConnectivityCheckController(
 		operatorClient:       operatorClient,
 		endpointsLister:      kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Endpoints().Lister(),
 		serviceLister:        kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Services().Lister(),
-		nodeLister:           kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		nodeLister:           clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
 		infrastructureLister: configInformers.Config().V1().Infrastructures().Lister(),
 	}
 	return c.WithPodNetworkConnectivityCheckFn(generator.generate)

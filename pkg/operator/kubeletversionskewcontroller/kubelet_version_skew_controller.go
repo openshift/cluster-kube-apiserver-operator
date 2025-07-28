@@ -47,20 +47,21 @@ type KubeletVersionSkewController interface {
 func NewKubeletVersionSkewController(
 	operatorClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	clusterInformers v1helpers.KubeInformersForNamespaces,
 	recorder events.Recorder,
 ) *kubeletVersionSkewController {
 	openShiftVersion := semver.MustParse(status.VersionForOperatorFromEnv())
 	nextOpenShiftVersion := semver.Version{Major: openShiftVersion.Major, Minor: openShiftVersion.Minor + 1}
 	c := &kubeletVersionSkewController{
 		operatorClient:              operatorClient,
-		nodeLister:                  kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		nodeLister:                  clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
 		apiServerVersion:            semver.MustParse(status.VersionForOperandFromEnv()),
 		minSupportedSkew:            minSupportedKubeletSkewForOpenShiftVersion(openShiftVersion),
 		minSupportedSkewNextVersion: minSupportedKubeletSkewForOpenShiftVersion(nextOpenShiftVersion),
 	}
 	c.Controller = factory.New().
 		WithSync(c.sync).
-		WithInformers(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Informer()).
+		WithInformers(clusterInformers.InformersFor("").Core().V1().Nodes().Informer()).
 		ToController("KubeletVersionSkewController", recorder.WithComponentSuffix("kubelet-version-skew-controller"))
 	return c
 }
