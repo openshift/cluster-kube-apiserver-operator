@@ -121,7 +121,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
 		kubeClient,
-		"",
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.TargetNamespace,
@@ -130,6 +129,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"openshift-etcd",
 		"openshift-apiserver",
 	)
+	clusterInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "")
+
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(
 		controllerContext.Clock,
@@ -302,6 +303,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorClient,
 		apiextensionsClient,
 		kubeInformersForNamespaces,
+		clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
 		operatorcontrolplaneClient,
 		configInformers,
 		apiextensionsInformers,
@@ -319,7 +321,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
-	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces, configInformers, controllerContext.Clock).
+	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces, clusterInformers.InformersFor(""), configInformers, controllerContext.Clock).
 		WithEvents(controllerContext.EventRecorder).
 		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
 		WithPruning([]string{"cluster-kube-apiserver-operator", "prune"}, "kube-apiserver-pod").
@@ -463,6 +465,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	kubeletVersionSkewController := kubeletversionskewcontroller.NewKubeletVersionSkewController(
 		operatorClient,
 		kubeInformersForNamespaces,
+		clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
+		clusterInformers.InformersFor("").Core().V1().Nodes().Informer(),
 		controllerContext.EventRecorder,
 	)
 
@@ -482,7 +486,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	webhookSupportabilityController := webhooksupportabilitycontroller.NewWebhookSupportabilityController(
 		operatorClient,
-		kubeInformersForNamespaces,
+		clusterInformers,
 		apiextensionsInformers,
 		controllerContext.EventRecorder,
 	)
@@ -509,6 +513,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	configmetrics.Register(configInformers)
 
 	kubeInformersForNamespaces.Start(ctx.Done())
+	clusterInformers.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformersForAllNamespaces.Start(ctx.Done())
 	dynamicInformersForTargetNamespace.Start(ctx.Done())
