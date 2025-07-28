@@ -29,10 +29,10 @@ const workQueueKey = "key"
 type NodeKubeconfigController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient          kubernetes.Interface
-	configMapLister     corev1listers.ConfigMapLister
-	secretLister        corev1listers.SecretLister
-	infrastuctureLister configv1listers.InfrastructureLister
+	kubeClient           kubernetes.Interface
+	configMapLister      corev1listers.ConfigMapLister
+	secretLister         corev1listers.SecretLister
+	infrastructureLister configv1listers.InfrastructureLister
 }
 
 func NewNodeKubeconfigController(
@@ -43,11 +43,11 @@ func NewNodeKubeconfigController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &NodeKubeconfigController{
-		operatorClient:      operatorClient,
-		kubeClient:          kubeClient,
-		configMapLister:     kubeInformersForNamespaces.ConfigMapLister(),
-		secretLister:        kubeInformersForNamespaces.SecretLister(),
-		infrastuctureLister: infrastuctureInformer.Lister(),
+		operatorClient:       operatorClient,
+		kubeClient:           kubeClient,
+		configMapLister:      kubeInformersForNamespaces.ConfigMapLister(),
+		secretLister:         kubeInformersForNamespaces.SecretLister(),
+		infrastructureLister: infrastuctureInformer.Lister(),
 	}
 
 	return factory.New().WithInformers(
@@ -85,7 +85,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 		c.kubeClient.CoreV1(),
 		c.secretLister,
 		c.configMapLister,
-		c.infrastuctureLister,
+		c.infrastructureLister,
 		syncContext.Recorder(),
 	)
 	if err != nil {
