@@ -103,6 +103,8 @@ spec:
       name: audit-dir
     - mountPath: /tmp
       name: tmp-dir
+    - mountPath: /etc/pki/ca-trust/extracted/pem
+      name: ca-bundle-dir
     livenessProbe:
       httpGet:
         scheme: HTTPS
@@ -301,3 +303,5 @@ spec:
     name: audit-dir
   - emptyDir: {}
     name: tmp-dir
+  - emptyDir: {}
+    name: ca-bundle-dir
