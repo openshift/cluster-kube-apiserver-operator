@@ -7,6 +7,10 @@ import (
 
 	"k8s.io/utils/clock"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -14,11 +18,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -30,6 +29,8 @@ import (
 type VersionGetter interface {
 	// SetVersion is a way to set the version for an operand.  It must be thread-safe
 	SetVersion(operandName, version string)
+	// UnsetVersion removes a version for an operand if it exists; it is a no-op otherwise.  It must be thread-safe
+	UnsetVersion(operandName string)
 	// GetVersion is way to get the versions for all operands.  It must be thread-safe and return an object that doesn't mutate
 	GetVersions() map[string]string
 	// VersionChangedChannel is a channel that will get an item whenever SetVersion has been called
