@@ -2,7 +2,6 @@ package podsecurityreadinesscontroller
 
 import (
 	"context"
-	"fmt"
 
 	securityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,17 +20,16 @@ var (
 	alertLabels = sets.New(psapi.WarnLevelLabel, psapi.AuditLevelLabel)
 )
 
-func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, error) {
+// isNamespaceViolating checks if a namespace is ready for Pod Security Admission enforcement.
+// It returns true if the namespace is violating the Pod Security Admission policy, along with
+// the enforce label it was tested against.
+func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, string, error) {
 	nsApplyConfig, err := applyconfiguration.ExtractNamespace(ns, syncerControllerName)
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
-	enforceLabel, err := determineEnforceLabelForNamespace(nsApplyConfig)
-	if err != nil {
-		return false, err
-	}
-
+	enforceLabel := determineEnforceLabelForNamespace(nsApplyConfig)
 	nsApply := applyconfiguration.Namespace(ns.Name).WithLabels(map[string]string{
 		psapi.EnforceLevelLabel: enforceLabel,
 	})
@@ -43,41 +41,34 @@ func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Contex
 			FieldManager: "pod-security-readiness-controller",
 		})
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 
 	// If there are warnings, the namespace is violating.
-	return len(c.warningsHandler.PopAll()) > 0, nil
+	warnings := c.warningsHandler.PopAll()
+	if len(warnings) > 0 {
+		return true, enforceLabel, nil
+	}
+
+	return false, "", nil
 }
 
-func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConfiguration) (string, error) {
-	if label, ok := ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]; ok {
+func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConfiguration) string {
+	if _, ok := ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]; ok {
 		// This should generally exist and will be the only supported method of determining
 		// the enforce level going forward - however, we're keeping the label fallback for
 		// now to account for any workloads not yet annotated using a new enough version of
 		// the syncer, such as during upgrade scenarios.
-		return label, nil
+		return ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]
 	}
 
-	viableLabels := map[string]string{}
-
-	for alertLabel := range alertLabels {
-		if value, ok := ns.Labels[alertLabel]; ok {
-			viableLabels[alertLabel] = value
-		}
-	}
-
-	if len(viableLabels) == 0 {
-		// If there are no labels/annotations managed by the syncer, we can't make a decision.
-		return "", fmt.Errorf("unable to determine if the namespace is violating because no appropriate labels or annotations were found")
-	}
-
-	return pickStrictest(viableLabels), nil
-}
-
-func pickStrictest(viableLabels map[string]string) string {
 	targetLevel := ""
-	for label, value := range viableLabels {
+	for label := range alertLabels {
+		value, ok := ns.Labels[label]
+		if !ok {
+			continue
+		}
+
 		level, err := psapi.ParseLevel(value)
 		if err != nil {
 			klog.V(4).InfoS("invalid level", "label", label, "value", value)

@@ -71,7 +71,7 @@ func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx facto
 	conditions := podSecurityOperatorConditions{}
 	for _, ns := range nsList.Items {
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			isViolating, err := c.isNamespaceViolating(ctx, &ns)
+			isViolating, _, err := c.isNamespaceViolating(ctx, &ns)
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
