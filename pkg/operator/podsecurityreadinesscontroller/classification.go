@@ -36,8 +36,6 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(ctx context.
 		return nil
 	}
 
-	// TODO@ibihim: increase log level
-	klog.InfoS("Checking for user violations", "namespace", ns.Name, "enforceLevel", enforceLevel)
 	isUserViolation, err := c.isUserViolation(ctx, ns, enforceLevel)
 	if err != nil {
 		klog.V(2).ErrorS(err, "Error checking user violations", "namespace", ns.Name)
@@ -46,11 +44,7 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(ctx context.
 		return err
 	}
 
-	// TODO@ibihim: increase log level
-	klog.InfoS("User violation check result", "namespace", ns.Name, "isUserViolation", isUserViolation)
 	if isUserViolation {
-		// TODO@ibihim: increase log level
-		klog.InfoS("Adding namespace to user SCC violations", "namespace", ns.Name)
 		conditions.addViolatingUserSCC(ns)
 		return nil
 	}
@@ -87,10 +81,16 @@ func (c *PodSecurityReadinessController) isUserViolation(ctx context.Context, ns
 
 	var userPods []corev1.Pod
 	for _, pod := range allPods.Items {
-		// TODO@ibihim: we should exclude Pod that have restricted-v2.
-		// restricted-v2 SCCs are allowed for all system:authenticated. ServiceAccounts
-		// are able to use that, but they are not part of the group. So restricted-v2
-		// will always result in user.
+		if strings.HasPrefix(pod.Annotations[securityv1.ValidatedSCCAnnotation], "restricted-v") {
+			// restricted-v2 is allowed for all system:authenticated, also for ServiceAccounts.
+			// But ServiceAccounts are not part of the group. So restricted-v2 will always
+			// result in user-based SCC. So we skip them as the user-based SCCs cause harm
+			// if they need a higher privileged than restricted.
+			// We watch for any restricted version above the first one. We might introduce
+			// restricted-v3 for user namespaces.
+			continue
+		}
+
 		if pod.Annotations[securityv1.ValidatedSCCSubjectTypeAnnotation] == "user" {
 			userPods = append(userPods, pod)
 		}
