@@ -138,7 +138,7 @@ func TestObserveAdmissionPlugins(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, gotConfig) {
-				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, gotConfig))
+				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, gotConfig))
 			}
 		})
 	}
@@ -220,11 +220,11 @@ func TestRoleBindingRestrictionPluginChecker(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedEnabled, enabled) {
-				t.Errorf("unexpected enabled plugins: %s", diff.ObjectReflectDiff(tt.expectedEnabled, enabled))
+				t.Errorf("unexpected enabled plugins: %s", diff.Diff(tt.expectedEnabled, enabled))
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedDisabled, disabled) {
-				t.Errorf("unexpected disabled plugins: %s", diff.ObjectReflectDiff(tt.expectedDisabled, disabled))
+				t.Errorf("unexpected disabled plugins: %s", diff.Diff(tt.expectedDisabled, disabled))
 			}
 		})
 	}
