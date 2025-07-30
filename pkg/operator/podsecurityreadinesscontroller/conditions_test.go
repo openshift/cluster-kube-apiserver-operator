@@ -1,6 +1,7 @@
 package podsecurityreadinesscontroller
 
 import (
+	"strings"
 	"testing"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -117,6 +118,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -138,6 +140,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -159,6 +162,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -177,6 +181,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -195,6 +200,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -221,6 +227,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -251,6 +258,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 			},
 		},
@@ -270,6 +278,7 @@ func TestOperatorStatus(t *testing.T) {
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
+				"PodSecurityUserSCCEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityInconclusiveEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 			},
 		},
@@ -280,7 +289,17 @@ func TestOperatorStatus(t *testing.T) {
 
 			for _, ns := range tt.namespace {
 				if tt.addViolation {
-					cond.addViolation(ns)
+					// Classify namespace based on the same logic as classifyViolatingNamespace
+					if runLevelZeroNamespaces.Has(ns.Name) {
+						cond.addViolatingRunLevelZero(ns)
+					} else if strings.HasPrefix(ns.Name, "openshift") {
+						cond.addViolatingOpenShift(ns)
+					} else if ns.Labels[labelSyncControlLabel] == "false" {
+						cond.addViolatingDisabledSyncer(ns)
+					} else {
+						// Default to customer violation for test purposes
+						cond.addViolatingCustomer(ns)
+					}
 				}
 				if tt.addInconclusive {
 					cond.addInconclusive(ns)
