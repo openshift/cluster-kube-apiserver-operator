@@ -42,6 +42,7 @@ func NewRemoveStaleConditionsController(
 
 func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("RemoveStaleConditionsController: calling sync for %s for %s", c.controllerInstanceName, syncContext.QueueKey())
+	defer v1helpers.Timer("RemoveStaleConditionsController")()
 	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

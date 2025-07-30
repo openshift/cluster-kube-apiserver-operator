@@ -82,6 +82,7 @@ func installerNameToRevision(name string) (int, error) {
 
 func (c *InstallerStateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("InstallerStateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("InstallerStateController")()
 	pods, err := c.podsGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{"app": "installer"}).String(),
 	})

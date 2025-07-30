@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -87,6 +88,7 @@ func NewStateController(
 
 func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	klog.Infof("stateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("stateController")()
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionStateControllerDegraded")

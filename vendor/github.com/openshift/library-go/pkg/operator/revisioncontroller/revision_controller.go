@@ -358,6 +358,7 @@ func (c RevisionController) getLatestAvailableRevision(ctx context.Context) (int
 
 func (c RevisionController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("RevisionController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("RevisionController")()
 	operatorSpec, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

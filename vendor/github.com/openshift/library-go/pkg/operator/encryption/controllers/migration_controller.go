@@ -29,6 +29,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -110,6 +111,7 @@ func NewMigrationController(
 
 func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
 	klog.Infof("migrationController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("migrationController")()
 	// Status for these conditions is left out to make sure it's correctly set in every branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionMigrationControllerDegraded")

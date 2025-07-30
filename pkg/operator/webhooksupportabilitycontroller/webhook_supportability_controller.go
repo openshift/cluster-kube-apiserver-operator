@@ -60,6 +60,7 @@ func NewWebhookSupportabilityController(
 
 func (c *webhookSupportabilityController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("webhookSupportabilityController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
+	defer v1helpers.Timer("webhookSupportabilityController")()
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

@@ -16,6 +16,7 @@ import (
 	operatorlistersv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/klog/v2"
 )
 
@@ -62,6 +63,7 @@ func NewController(kubeAPIServerOperatorClient operatorv1client.KubeAPIServerInt
 
 func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
 	klog.Infof("ServiceAccountIssuerController: calling sync for %s", controllerContext.QueueKey())
+	defer v1helpers.Timer("ServiceAccountIssuerController")()
 	authConfig, err := c.authLister.Get("cluster")
 	if err != nil {
 		return err

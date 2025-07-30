@@ -66,6 +66,7 @@ func NewAuditPolicyController(
 
 func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("auditPolicyController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("auditPolicyController")()
 	operatorConfigSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

@@ -565,3 +565,10 @@ func IsUpdatingTooLong(operatorStatus *operatorv1.OperatorStatus, progressingCon
 	progressing := FindOperatorCondition(operatorStatus.Conditions, progressingConditionType)
 	return progressing != nil && progressing.Status == operatorv1.ConditionTrue && time.Now().After(progressing.LastTransitionTime.Add(progressingConditionTimeout))
 }
+
+func Timer(name string) func() {
+	start := time.Now()
+	return func() {
+		klog.Infof("%s: calling sync took %v", name, time.Since(start))
+	}
+}

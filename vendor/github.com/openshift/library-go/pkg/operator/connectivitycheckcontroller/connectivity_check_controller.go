@@ -132,6 +132,7 @@ const podnetworkconnectivitychecksCRDName = "podnetworkconnectivitychecks.contro
 
 func (c *connectivityCheckController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("connectivityCheckController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
+	defer v1helpers.Timer("connectivityCheckController")()
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,6 +63,7 @@ func NewHighCPUUsageAlertController(
 
 func (c *highCPUUsageAlertController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("highCPUUsageAlertController: calling sync for %s", syncCtx.QueueKey())
+	defer v1helpers.Timer("CertRotationTimeUpgradeableController")()
 	infra, err := c.infraLister.Get("cluster")
 	if err != nil {
 		return err

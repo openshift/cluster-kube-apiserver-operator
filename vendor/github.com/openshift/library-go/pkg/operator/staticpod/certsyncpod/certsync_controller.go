@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type CertSyncController struct {
@@ -70,6 +71,7 @@ func getSecretDir(targetDir, secretName string) string {
 
 func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("CertSyncController: calling sync for %s for %s", c.namespace, syncCtx.QueueKey())
+	defer v1helpers.Timer("CertSyncController")()
 	errors := []error{}
 
 	klog.Infof("Syncing configmaps: %v", c.configMaps)

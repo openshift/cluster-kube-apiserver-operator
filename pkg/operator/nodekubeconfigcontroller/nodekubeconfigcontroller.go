@@ -68,6 +68,7 @@ func NewNodeKubeconfigController(
 
 func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("NodeKubeconfigController: calling sync for %s", syncContext.QueueKey())
+	defer v1helpers.Timer("NodeKubeconfigController")()
 	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

@@ -7,6 +7,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	apiextensionsinformersv1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	apiextensionslistersv1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +32,7 @@ func newTimeToStartController(crdInformer apiextensionsinformersv1.CustomResourc
 		WithInformers(crdInformer.Informer()).
 		WithSync(func(ctx context.Context, syncContext factory.SyncContext) error {
 			klog.Infof("TimeToStartController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
+			defer v1helpers.Timer("TimeToStartController")()
 			ok, err := podNetworkConnectivityCheckTypeExists(c.crdLister)
 			if err != nil {
 				c.ready <- err
@@ -64,6 +66,7 @@ func newStopController(crdInformer apiextensionsinformersv1.CustomResourceDefini
 		WithInformers(crdInformer.Informer()).
 		WithSync(func(ctx context.Context, syncContext factory.SyncContext) error {
 			klog.Infof("StopController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
+			defer v1helpers.Timer("StopController")()
 			ok, err := podNetworkConnectivityCheckTypeExists(c.crdLister)
 			if err != nil {
 				return err

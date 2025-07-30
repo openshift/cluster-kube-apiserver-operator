@@ -15,6 +15,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -123,6 +124,7 @@ func isAcknowledgedEvent(e *corev1.Event) bool {
 
 func (c *Controller) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("eventwatchController: calling sync for %s", syncCtx.QueueKey())
+	defer v1helpers.Timer("eventwatchController")()
 	eventHandler := c.getEventHandler(syncCtx.QueueKey())
 	if eventHandler == nil {
 		return nil

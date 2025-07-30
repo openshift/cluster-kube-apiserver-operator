@@ -1125,6 +1125,7 @@ func (c InstallerController) ensureRequiredResourcesExist(ctx context.Context, r
 
 func (c *InstallerController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("InstallerController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("InstallerController")()
 	operatorSpec, originalOperatorStatus, operatorResourceVersion, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

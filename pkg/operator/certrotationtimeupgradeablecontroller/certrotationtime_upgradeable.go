@@ -45,6 +45,7 @@ func NewCertRotationTimeUpgradeableController(
 
 func (c *CertRotationTimeUpgradeableController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("CertRotationTimeUpgradeableController: calling sync for %s", syncContext.QueueKey())
+	defer v1helpers.Timer("CertRotationTimeUpgradeableController")()
 	certRotationTimeConfigMap, err := c.configMapLister.ConfigMaps("openshift-config").Get("unsupported-cert-rotation-config")
 	if !errors.IsNotFound(err) && err != nil {
 		return err

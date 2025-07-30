@@ -99,6 +99,7 @@ func NewCertRotationController(
 
 func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("CertRotationController: calling sync for %s for %s", c.Name, syncCtx.QueueKey())
+	defer v1helpers.Timer("CertRotationController")()
 	syncErr := c.SyncWorker(ctx)
 
 	// running this function with RunOnceContextKey value context will make this "run-once" without updating status.

@@ -96,6 +96,7 @@ func NewLatencyProfileController(
 
 func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("LatencyProfileController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("LatencyProfileController")()
 	// Collect the current latency profile
 	configNodeObj, err := c.configNodeLister.Get("cluster")
 

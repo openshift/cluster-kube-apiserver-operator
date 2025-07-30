@@ -23,6 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -136,6 +137,7 @@ func (c *StatusSyncer) WithVersionRemoval() *StatusSyncer {
 // must be information that is logically "owned" by another component.
 func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("StatusSyncer: calling sync for %s for %s", c.clusterOperatorName, syncCtx.QueueKey())
+	defer v1helpers.Timer("StatusSyncer")()
 	detailedSpec, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		syncCtx.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for clusteroperator/%s", c.clusterOperatorName)

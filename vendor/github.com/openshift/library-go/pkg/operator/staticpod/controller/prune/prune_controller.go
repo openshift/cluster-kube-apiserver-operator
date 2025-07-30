@@ -261,6 +261,7 @@ func getPrunerPodImageFromEnv() string {
 func (c *PruneController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing revision pruner")
 	klog.Infof("PruneController: calling sync for %s for %s", c.targetNamespace, syncCtx.QueueKey())
+	defer v1helpers.Timer("PruneController")()
 	operatorSpec, operatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

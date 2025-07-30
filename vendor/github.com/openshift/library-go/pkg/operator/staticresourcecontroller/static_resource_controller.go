@@ -286,6 +286,7 @@ func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedInd
 
 func (c *StaticResourceController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("StaticResourceController: calling sync for %s for %s", c.controllerInstanceName, syncContext.QueueKey())
+	defer v1helpers.Timer("StaticResourceController")()
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

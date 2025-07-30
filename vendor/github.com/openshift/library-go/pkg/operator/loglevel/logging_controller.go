@@ -7,6 +7,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
@@ -51,6 +52,7 @@ func NewClusterOperatorLoggingControllerWithLogLevel(operatorClient operatorv1he
 // must be information that is logically "owned" by another component.
 func (c LogLevelController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("LogLevelController: calling sync for %s", syncCtx.QueueKey())
+	defer v1helpers.Timer("LogLevelController")()
 	detailedSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if errors.IsNotFound(err) && management.IsOperatorRemovable() {
 		return nil

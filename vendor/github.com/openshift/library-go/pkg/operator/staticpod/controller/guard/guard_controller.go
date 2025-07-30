@@ -30,6 +30,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -181,6 +182,7 @@ var podTemplate []byte
 func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing guards")
 	klog.Infof("GuardController: calling sync for %s for %s", c.operatorName, syncCtx.QueueKey())
+	defer v1helpers.Timer("GuardController")()
 
 	if c.createConditionalFunc == nil {
 		return fmt.Errorf("createConditionalFunc not set")

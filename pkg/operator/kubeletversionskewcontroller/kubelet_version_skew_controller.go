@@ -88,6 +88,7 @@ type kubeletVersionSkewController struct {
 
 func (c *kubeletVersionSkewController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("kubeletVersionSkewController: calling sync for %s for %s", c.Name(), syncCtx.QueueKey())
+	defer v1helpers.Timer("kubeletVersionSkewController")()
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

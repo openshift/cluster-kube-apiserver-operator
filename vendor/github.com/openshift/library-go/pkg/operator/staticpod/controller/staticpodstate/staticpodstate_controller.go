@@ -79,6 +79,7 @@ func describeWaitingContainerState(waiting *v1.ContainerStateWaiting) string {
 
 func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("StaticPodStateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("StaticPodStateController")()
 	operatorSpec, originalOperatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

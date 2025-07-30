@@ -191,6 +191,7 @@ func errorWithProvider(provider string, err error) error {
 
 func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("ResourceSyncController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("ResourceSyncController")()
 	operatorSpec, _, _, err := c.operatorConfigClient.GetOperatorState()
 	if err != nil {
 		return err

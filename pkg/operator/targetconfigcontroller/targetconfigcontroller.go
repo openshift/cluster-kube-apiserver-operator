@@ -96,6 +96,7 @@ func NewTargetConfigController(
 
 func (c TargetConfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.Infof("TargetConfigController: calling sync for %s", syncContext.QueueKey())
+	defer v1helpers.Timer("TargetConfigController")()
 	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

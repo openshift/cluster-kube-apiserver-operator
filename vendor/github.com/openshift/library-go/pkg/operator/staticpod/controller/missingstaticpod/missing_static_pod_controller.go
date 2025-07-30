@@ -96,6 +96,7 @@ func New(
 
 func (c *missingStaticPodController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("missingStaticPodController: calling sync for %s for %s", c.operandName, syncCtx.QueueKey())
+	defer v1helpers.Timer("missingStaticPodController")()
 	installerPods, err := c.podListerForTargetNamespace.List(labels.SelectorFromSet(labels.Set{"app": "installer"}))
 	if err != nil {
 		return err

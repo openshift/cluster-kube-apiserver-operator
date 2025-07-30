@@ -65,6 +65,7 @@ func NewNodeController(
 
 func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.Infof("NodeController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("NodeController")()
 	_, originalOperatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
