@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -84,7 +85,8 @@ type kubeletVersionSkewController struct {
 	minSupportedSkewNextVersion int
 }
 
-func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncContext) error {
+func (c *kubeletVersionSkewController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("kubeletVersionSkewController: calling sync for %s for %s", c.Name(), syncCtx.QueueKey())
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

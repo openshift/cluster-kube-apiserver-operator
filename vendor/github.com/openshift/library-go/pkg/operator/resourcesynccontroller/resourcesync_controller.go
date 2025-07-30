@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 // ResourceSyncController is a controller that will copy source configmaps and secrets to their destinations.
@@ -188,6 +190,7 @@ func errorWithProvider(provider string, err error) error {
 }
 
 func (c *ResourceSyncController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("ResourceSyncController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	operatorSpec, _, _, err := c.operatorConfigClient.GetOperatorState()
 	if err != nil {
 		return err

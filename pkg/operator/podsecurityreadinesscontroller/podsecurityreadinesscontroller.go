@@ -63,6 +63,7 @@ func NewPodSecurityReadinessController(
 }
 
 func (c *PodSecurityReadinessController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("PodSecurityReadinessController: calling sync for %s", syncCtx.QueueKey())
 	nsList, err := c.kubeClient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{LabelSelector: c.namespaceSelector})
 	if err != nil {
 		return err

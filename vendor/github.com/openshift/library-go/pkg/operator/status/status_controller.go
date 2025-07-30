@@ -2,9 +2,10 @@ package status
 
 import (
 	"context"
-	"k8s.io/utils/clock"
 	"strings"
 	"time"
+
+	"k8s.io/utils/clock"
 
 	"k8s.io/klog/v2"
 
@@ -133,6 +134,7 @@ func (c *StatusSyncer) WithVersionRemoval() *StatusSyncer {
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
 // must be information that is logically "owned" by another component.
 func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("StatusSyncer: calling sync for %s for %s", c.clusterOperatorName, syncCtx.QueueKey())
 	detailedSpec, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		syncCtx.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for clusteroperator/%s", c.clusterOperatorName)

@@ -29,7 +29,8 @@ func newTimeToStartController(crdInformer apiextensionsinformersv1.CustomResourc
 	var once sync.Once
 	c.Controller = factory.New().
 		WithInformers(crdInformer.Informer()).
-		WithSync(func(context.Context, factory.SyncContext) error {
+		WithSync(func(ctx context.Context, syncContext factory.SyncContext) error {
+			klog.Infof("TimeToStartController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
 			ok, err := podNetworkConnectivityCheckTypeExists(c.crdLister)
 			if err != nil {
 				c.ready <- err
@@ -61,7 +62,8 @@ func newStopController(crdInformer apiextensionsinformersv1.CustomResourceDefini
 	}
 	c.Controller = factory.New().
 		WithInformers(crdInformer.Informer()).
-		WithSync(func(context.Context, factory.SyncContext) error {
+		WithSync(func(ctx context.Context, syncContext factory.SyncContext) error {
+			klog.Infof("StopController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
 			ok, err := podNetworkConnectivityCheckTypeExists(c.crdLister)
 			if err != nil {
 				return err

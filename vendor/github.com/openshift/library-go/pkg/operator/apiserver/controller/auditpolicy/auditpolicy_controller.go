@@ -21,6 +21,7 @@ import (
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/yaml"
 )
 
@@ -64,6 +65,7 @@ func NewAuditPolicyController(
 }
 
 func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("auditPolicyController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	operatorConfigSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

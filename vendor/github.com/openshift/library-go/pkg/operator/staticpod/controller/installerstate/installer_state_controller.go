@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 const installerStateControllerWorkQueueKey = "key"
@@ -80,6 +81,7 @@ func installerNameToRevision(name string) (int, error) {
 }
 
 func (c *InstallerStateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("InstallerStateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	pods, err := c.podsGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labels.Set{"app": "installer"}).String(),
 	})

@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const workQueueKey = "key"
@@ -61,6 +62,7 @@ func NewNodeKubeconfigController(
 }
 
 func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Infof("NodeKubeconfigController: calling sync for %s", syncContext.QueueKey())
 	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

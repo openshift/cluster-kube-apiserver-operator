@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 type RemoveStaleConditionsController struct {
@@ -40,6 +41,7 @@ func NewRemoveStaleConditionsController(
 }
 
 func (c RemoveStaleConditionsController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Infof("RemoveStaleConditionsController: calling sync for %s for %s", c.controllerInstanceName, syncContext.QueueKey())
 	_, operatorStatus, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

@@ -17,6 +17,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 // NodeController watches for new master nodes and adds them to the node status list in the operator config status.
@@ -63,6 +64,7 @@ func NewNodeController(
 }
 
 func (c *NodeController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("NodeController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	_, originalOperatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

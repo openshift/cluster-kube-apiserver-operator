@@ -131,6 +131,7 @@ type unsupportedConfigOverrides struct {
 const podnetworkconnectivitychecksCRDName = "podnetworkconnectivitychecks.controlplane.operator.openshift.io"
 
 func (c *connectivityCheckController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Infof("connectivityCheckController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

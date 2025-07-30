@@ -82,6 +82,7 @@ func NewPruneController(
 }
 
 func (c *pruneController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	klog.Infof("pruneController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionPruneControllerDegraded")

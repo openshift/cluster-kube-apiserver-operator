@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -97,6 +98,7 @@ func NewCertRotationController(
 }
 
 func (c CertRotationController) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("CertRotationController: calling sync for %s for %s", c.Name, syncCtx.QueueKey())
 	syncErr := c.SyncWorker(ctx)
 
 	// running this function with RunOnceContextKey value context will make this "run-once" without updating status.

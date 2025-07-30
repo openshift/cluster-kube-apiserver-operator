@@ -13,6 +13,7 @@ import (
 	apiextensionslistersv1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	admissionregistrationlistersv1 "k8s.io/client-go/listers/admissionregistration/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 type webhookSupportabilityController struct {
@@ -57,7 +58,8 @@ func NewWebhookSupportabilityController(
 	return c
 }
 
-func (c *webhookSupportabilityController) sync(ctx context.Context, _ factory.SyncContext) error {
+func (c *webhookSupportabilityController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Infof("webhookSupportabilityController: calling sync for %s for %s", c.Name(), syncContext.QueueKey())
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

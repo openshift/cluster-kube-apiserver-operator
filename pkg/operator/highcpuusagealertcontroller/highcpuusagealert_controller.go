@@ -21,6 +21,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/utils/cpuset"
+
+	"k8s.io/klog/v2"
 )
 
 // default and taken from the docs
@@ -59,6 +61,7 @@ func NewHighCPUUsageAlertController(
 }
 
 func (c *highCPUUsageAlertController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("highCPUUsageAlertController: calling sync for %s", syncCtx.QueueKey())
 	infra, err := c.infraLister.Get("cluster")
 	if err != nil {
 		return err

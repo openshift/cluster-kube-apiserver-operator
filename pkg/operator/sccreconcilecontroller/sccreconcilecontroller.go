@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 )
 
 type sccReconcileController struct {
@@ -57,6 +58,7 @@ func NewSCCReconcileController(
 }
 
 func (c *sccReconcileController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
+	klog.Infof("sccReconcileController: calling sync for %s", controllerContext.QueueKey())
 	sccName := controllerContext.QueueKey()
 	scc, err := c.sccLister.Get(sccName)
 	if err != nil {

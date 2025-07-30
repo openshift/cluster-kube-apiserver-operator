@@ -48,6 +48,7 @@ func NewUnsupportedConfigOverridesController(
 }
 
 func (c *UnsupportedConfigOverridesController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("UnsupportedConfigOverridesController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err

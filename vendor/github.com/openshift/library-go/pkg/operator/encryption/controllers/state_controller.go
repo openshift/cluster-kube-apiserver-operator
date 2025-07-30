@@ -10,6 +10,7 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog/v2"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -85,6 +86,7 @@ func NewStateController(
 }
 
 func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	klog.Infof("stateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	// The status for this condition is intentionally omitted to ensure it's correctly set in each branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionStateControllerDegraded")

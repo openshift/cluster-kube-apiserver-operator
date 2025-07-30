@@ -3,9 +3,10 @@ package serviceaccountissuercontroller
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -15,6 +16,7 @@ import (
 	operatorlistersv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -59,6 +61,7 @@ func NewController(kubeAPIServerOperatorClient operatorv1client.KubeAPIServerInt
 }
 
 func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
+	klog.Infof("ServiceAccountIssuerController: calling sync for %s", controllerContext.QueueKey())
 	authConfig, err := c.authLister.Get("cluster")
 	if err != nil {
 		return err

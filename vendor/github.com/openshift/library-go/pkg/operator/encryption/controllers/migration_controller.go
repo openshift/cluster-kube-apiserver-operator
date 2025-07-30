@@ -109,6 +109,7 @@ func NewMigrationController(
 }
 
 func (c *migrationController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	klog.Infof("migrationController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
 	// Status for these conditions is left out to make sure it's correctly set in every branch
 	degradedCondition := applyoperatorv1.OperatorCondition().
 		WithType("EncryptionMigrationControllerDegraded")
