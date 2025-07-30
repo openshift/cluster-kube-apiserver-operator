@@ -25,8 +25,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const workQueueKey = "key"
-
 type NodeKubeconfigController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
 
@@ -34,6 +32,8 @@ type NodeKubeconfigController struct {
 	configMapLister     corev1listers.ConfigMapLister
 	secretLister        corev1listers.SecretLister
 	infrastuctureLister configv1listers.InfrastructureLister
+
+	requiredSecret *corev1.Secret
 }
 
 func NewNodeKubeconfigController(
@@ -43,22 +43,27 @@ func NewNodeKubeconfigController(
 	infrastuctureInformer configv1informers.InfrastructureInformer,
 	eventRecorder events.Recorder,
 ) factory.Controller {
+	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
+
 	c := &NodeKubeconfigController{
 		operatorClient:      operatorClient,
 		kubeClient:          kubeClient,
 		configMapLister:     kubeInformersForNamespaces.ConfigMapLister(),
 		secretLister:        kubeInformersForNamespaces.SecretLister(),
 		infrastuctureLister: infrastuctureInformer.Lister(),
+		requiredSecret:      requiredSecret,
 	}
 
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
+		// Configmaps in operator namespace not required?
+		//kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer(),
 		infrastuctureInformer.Informer(),
 	).WithSync(c.sync).WithSyncDegradedOnError(c.operatorClient).ResyncEvery(5*time.Minute).ToController("NodeKubeconfigController", eventRecorder.WithComponentSuffix("node-kubeconfig-controller"))
+	// Why resync every 5 minutes?
 }
 
 func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
@@ -84,6 +89,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 
 	err = ensureNodeKubeconfigs(
 		ctx,
+		c.requiredSecret.DeepCopy(),
 		c.kubeClient.CoreV1(),
 		c.secretLister,
 		c.configMapLister,
@@ -91,15 +97,13 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 		syncContext.Recorder(),
 	)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "secret/node-kubeconfigs", err))
+		errors = append(errors, fmt.Errorf("secret %s/%s: %v", c.requiredSecret.Namespace, c.requiredSecret.Name, err))
 	}
 
 	return v1helpers.NewMultiLineAggregate(errors)
 }
 
-func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interface, secretLister corev1listers.SecretLister, configmapLister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
-	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
-
+func ensureNodeKubeconfigs(ctx context.Context, requiredSecret *corev1.Secret, client coreclientv1.CoreV1Interface, secretLister corev1listers.SecretLister, configmapLister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
 	systemAdminCredsSecret, err := secretLister.Secrets(operatorclient.OperatorNamespace).Get("node-system-admin-client")
 	if err != nil {
 		return err
