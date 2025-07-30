@@ -2,10 +2,15 @@ package status
 
 import (
 	"context"
-	"k8s.io/utils/clock"
 	"strings"
 	"time"
 
+	"k8s.io/utils/clock"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -13,22 +18,20 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 type VersionGetter interface {
 	// SetVersion is a way to set the version for an operand.  It must be thread-safe
 	SetVersion(operandName, version string)
+	// UnsetVersion removes a version for an operand if it exists; it is a no-op otherwise.  It must be thread-safe
+	UnsetVersion(operandName string)
 	// GetVersion is way to get the versions for all operands.  It must be thread-safe and return an object that doesn't mutate
 	GetVersions() map[string]string
 	// VersionChangedChannel is a channel that will get an item whenever SetVersion has been called
@@ -133,6 +136,8 @@ func (c *StatusSyncer) WithVersionRemoval() *StatusSyncer {
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
 // must be information that is logically "owned" by another component.
 func (c StatusSyncer) Sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("StatusSyncer: calling sync for %s for %s", c.clusterOperatorName, syncCtx.QueueKey())
+	defer v1helpers.Timer("StatusSyncer")()
 	detailedSpec, currentDetailedStatus, _, err := c.operatorClient.GetOperatorState()
 	if apierrors.IsNotFound(err) {
 		syncCtx.Recorder().Warningf("StatusNotFound", "Unable to determine current operator status for clusteroperator/%s", c.clusterOperatorName)

@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	coreinformersv1 "k8s.io/client-go/informers/core/v1"
 	corelistersv1 "k8s.io/client-go/listers/core/v1"
+
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -42,6 +44,8 @@ func NewCertRotationTimeUpgradeableController(
 }
 
 func (c *CertRotationTimeUpgradeableController) sync(ctx context.Context, syncContext factory.SyncContext) error {
+	klog.Infof("CertRotationTimeUpgradeableController: calling sync for %s", syncContext.QueueKey())
+	defer v1helpers.Timer("CertRotationTimeUpgradeableController")()
 	certRotationTimeConfigMap, err := c.configMapLister.ConfigMaps("openshift-config").Get("unsupported-cert-rotation-config")
 	if !errors.IsNotFound(err) && err != nil {
 		return err

@@ -9,11 +9,13 @@ import (
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 )
 
@@ -56,7 +58,9 @@ func New(
 		)
 }
 
-func (fd *startupMonitorPodConditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
+func (fd *startupMonitorPodConditionController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	klog.Infof("startupMonitorPodConditionController: calling sync for %s for %s", fd.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("startupMonitorPodConditionController")()
 	startupPodDegraded := applyoperatorv1.OperatorCondition().WithType("StartupMonitorPodDegraded")
 	startupPodContainerExcessiveRestartsDegraded := applyoperatorv1.OperatorCondition().WithType("StartupMonitorPodContainerExcessiveRestartsDegraded")
 	status := applyoperatorv1.OperatorStatus()

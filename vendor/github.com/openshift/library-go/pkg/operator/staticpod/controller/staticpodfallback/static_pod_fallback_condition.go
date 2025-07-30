@@ -10,10 +10,12 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 // staticPodFallbackConditionController knows how to detect and report that a static pod was rolled back to a previous revision
@@ -60,7 +62,9 @@ func New(
 }
 
 // sync sets/unsets a StaticPodFallbackRevisionDegraded condition if a pod that matches the given label selector is annotated with FallbackForRevision
-func (fd *staticPodFallbackConditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
+func (fd *staticPodFallbackConditionController) sync(ctx context.Context, syncCtx factory.SyncContext) (err error) {
+	klog.Infof("staticPodFallbackConditionController: calling sync for %s for %s", fd.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("staticPodFallbackConditionController")()
 	degradedCondition := applyoperatorv1.OperatorCondition().WithType("StaticPodFallbackRevisionDegraded")
 	status := applyoperatorv1.OperatorStatus()
 	defer func() {

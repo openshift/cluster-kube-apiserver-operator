@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/robfig/cron"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	errorutil "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -20,8 +21,15 @@ import (
 const DefaultQueueKey = "key"
 
 // DefaultQueueKeysFunc returns a slice with a single element - the DefaultQueueKey
-func DefaultQueueKeysFunc(_ runtime.Object) []string {
-	return []string{DefaultQueueKey}
+func DefaultQueueKeysFunc(obj runtime.Object) []string {
+	queueKey := DefaultQueueKey
+	if obj != nil {
+		metaObj, ok := obj.(metav1.ObjectMetaAccessor)
+		if ok {
+			queueKey = fmt.Sprintf("%s %s/%s", obj.GetObjectKind().GroupVersionKind().String(), metaObj.GetObjectMeta().GetNamespace(), metaObj.GetObjectMeta().GetName())
+		}
+	}
+	return []string{queueKey}
 }
 
 // Factory is generator that generate standard Kubernetes controllers.

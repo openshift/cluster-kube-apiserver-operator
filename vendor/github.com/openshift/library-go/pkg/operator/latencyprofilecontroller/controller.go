@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -94,7 +95,8 @@ func NewLatencyProfileController(
 }
 
 func (c *LatencyProfileController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-
+	klog.Infof("LatencyProfileController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("LatencyProfileController")()
 	// Collect the current latency profile
 	configNodeObj, err := c.configNodeLister.Get("cluster")
 

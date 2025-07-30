@@ -133,6 +133,8 @@ func NewNestedConfigObserver(
 // sync reacts to a change in prereqs by finding information that is required to match another value in the cluster. This
 // must be information that is logically "owned" by another component.
 func (c ConfigObserver) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("ConfigObserver: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("ConfigObserver")()
 	originalSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if management.IsOperatorRemovable() && apierrors.IsNotFound(err) {
 		return nil

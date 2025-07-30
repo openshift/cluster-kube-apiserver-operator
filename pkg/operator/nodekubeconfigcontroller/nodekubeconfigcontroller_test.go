@@ -8,7 +8,9 @@ import (
 	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -86,6 +88,7 @@ func (l *secretLister) Get(name string) (*corev1.Secret, error) {
 }
 
 func TestEnsureNodeKubeconfigs(t *testing.T) {
+	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
 	tt := []struct {
 		name            string
 		existingObjects []runtime.Object
@@ -245,6 +248,7 @@ users:
 
 			err := ensureNodeKubeconfigs(
 				context.Background(),
+				requiredSecret,
 				kubeClient.CoreV1(),
 				&secretLister{client: kubeClient, namespace: ""},
 				&configMapLister{client: kubeClient, namespace: ""},

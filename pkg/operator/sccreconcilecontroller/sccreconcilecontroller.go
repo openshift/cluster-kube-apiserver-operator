@@ -8,8 +8,10 @@ import (
 	securityv1listers "github.com/openshift/client-go/security/listers/security/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog/v2"
 )
 
 type sccReconcileController struct {
@@ -57,6 +59,8 @@ func NewSCCReconcileController(
 }
 
 func (c *sccReconcileController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
+	klog.Infof("sccReconcileController: calling sync for %s", controllerContext.QueueKey())
+	defer v1helpers.Timer("sccReconcileController")()
 	sccName := controllerContext.QueueKey()
 	scc, err := c.sccLister.Get(sccName)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 // conditionController maintains the Encrypted condition. It sets it to true iff there is a
@@ -73,7 +74,8 @@ func NewConditionController(
 		)
 }
 
-func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
+func (c *conditionController) sync(ctx context.Context, syncContext factory.SyncContext) (err error) {
+	klog.Infof("conditionController: calling sync for %s for %s", c.controllerInstanceName, syncContext.QueueKey())
 	// Status for this condition is left out to make sure it's correctly set in every branch
 	cond := applyoperatorv1.OperatorCondition().WithType("Encrypted")
 	defer func() {

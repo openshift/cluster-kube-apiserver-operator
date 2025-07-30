@@ -21,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/management"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/klog/v2"
 )
 
 // StaticPodStateController is a controller that watches static pods and will produce a failing status if the
@@ -77,6 +78,8 @@ func describeWaitingContainerState(waiting *v1.ContainerStateWaiting) string {
 }
 
 func (c *StaticPodStateController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("StaticPodStateController: calling sync for %s for %s", c.controllerInstanceName, syncCtx.QueueKey())
+	defer v1helpers.Timer("StaticPodStateController")()
 	operatorSpec, originalOperatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err

@@ -75,6 +75,8 @@ func NewBoundSATokenSignerController(
 }
 
 func (c *BoundSATokenSignerController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("BoundSATokenSignerController: calling sync for %s", syncCtx.QueueKey())
+	defer v1helpers.Timer("BoundSATokenSignerController")()
 	syncMethods := []func(ctx context.Context, syncCtx factory.SyncContext) error{
 		c.ensureNextOperatorSigningSecret,
 		c.ensurePublicKeyConfigMap,

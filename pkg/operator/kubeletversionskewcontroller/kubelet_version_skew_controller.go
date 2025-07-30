@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -46,20 +47,21 @@ type KubeletVersionSkewController interface {
 func NewKubeletVersionSkewController(
 	operatorClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	clusterInformers v1helpers.KubeInformersForNamespaces,
 	recorder events.Recorder,
 ) *kubeletVersionSkewController {
 	openShiftVersion := semver.MustParse(status.VersionForOperatorFromEnv())
 	nextOpenShiftVersion := semver.Version{Major: openShiftVersion.Major, Minor: openShiftVersion.Minor + 1}
 	c := &kubeletVersionSkewController{
 		operatorClient:              operatorClient,
-		nodeLister:                  kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		nodeLister:                  clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
 		apiServerVersion:            semver.MustParse(status.VersionForOperandFromEnv()),
 		minSupportedSkew:            minSupportedKubeletSkewForOpenShiftVersion(openShiftVersion),
 		minSupportedSkewNextVersion: minSupportedKubeletSkewForOpenShiftVersion(nextOpenShiftVersion),
 	}
 	c.Controller = factory.New().
 		WithSync(c.sync).
-		WithInformers(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Informer()).
+		WithInformers(clusterInformers.InformersFor("").Core().V1().Nodes().Informer()).
 		ToController("KubeletVersionSkewController", recorder.WithComponentSuffix("kubelet-version-skew-controller"))
 	return c
 }
@@ -84,7 +86,9 @@ type kubeletVersionSkewController struct {
 	minSupportedSkewNextVersion int
 }
 
-func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncContext) error {
+func (c *kubeletVersionSkewController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
+	klog.Infof("kubeletVersionSkewController: calling sync for %s for %s", c.Name(), syncCtx.QueueKey())
+	defer v1helpers.Timer("kubeletVersionSkewController")()
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
