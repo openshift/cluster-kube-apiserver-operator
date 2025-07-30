@@ -320,11 +320,11 @@ func TestObserveAuthMetadata(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, actualConfig) {
-				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, actualConfig))
+				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, actualConfig))
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tt.expectedSynced, synced))
+				t.Errorf("expected resources not synced: %s", diff.Diff(tt.expectedSynced, synced))
 			}
 
 		})
