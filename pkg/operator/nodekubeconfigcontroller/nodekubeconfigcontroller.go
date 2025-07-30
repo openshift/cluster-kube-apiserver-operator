@@ -14,6 +14,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
@@ -29,10 +30,10 @@ const workQueueKey = "key"
 type NodeKubeconfigController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient          kubernetes.Interface
-	configMapLister     corev1listers.ConfigMapLister
-	secretLister        corev1listers.SecretLister
-	infrastuctureLister configv1listers.InfrastructureLister
+	kubeClient           kubernetes.Interface
+	configMapLister      corev1listers.ConfigMapLister
+	secretLister         corev1listers.SecretLister
+	infrastructureLister configv1listers.InfrastructureLister
 }
 
 func NewNodeKubeconfigController(
@@ -43,11 +44,11 @@ func NewNodeKubeconfigController(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &NodeKubeconfigController{
-		operatorClient:      operatorClient,
-		kubeClient:          kubeClient,
-		configMapLister:     kubeInformersForNamespaces.ConfigMapLister(),
-		secretLister:        kubeInformersForNamespaces.SecretLister(),
-		infrastuctureLister: infrastuctureInformer.Lister(),
+		operatorClient:       operatorClient,
+		kubeClient:           kubeClient,
+		configMapLister:      kubeInformersForNamespaces.ConfigMapLister(),
+		secretLister:         kubeInformersForNamespaces.SecretLister(),
+		infrastructureLister: infrastuctureInformer.Lister(),
 	}
 
 	return factory.New().WithInformers(
@@ -85,7 +86,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 		c.kubeClient.CoreV1(),
 		c.secretLister,
 		c.configMapLister,
-		c.infrastuctureLister,
+		c.infrastructureLister,
 		syncContext.Recorder(),
 	)
 	if err != nil {
@@ -152,6 +153,13 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		requiredSecret.Annotations = map[string]string{}
 	}
 	requiredSecret.Annotations[annotations.OpenShiftComponent] = "kube-apiserver"
+	// Copy not-before/not-after annotations from systemAdminClientCert
+	if len(systemAdminCredsSecret.Annotations[certrotation.CertificateNotBeforeAnnotation]) > 0 {
+		requiredSecret.Annotations[certrotation.CertificateNotBeforeAnnotation] = systemAdminCredsSecret.Annotations[certrotation.CertificateNotBeforeAnnotation]
+	}
+	if len(systemAdminCredsSecret.Annotations[certrotation.CertificateNotAfterAnnotation]) > 0 {
+		requiredSecret.Annotations[certrotation.CertificateNotAfterAnnotation] = systemAdminCredsSecret.Annotations[certrotation.CertificateNotAfterAnnotation]
+	}
 
 	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
 	if err != nil {
