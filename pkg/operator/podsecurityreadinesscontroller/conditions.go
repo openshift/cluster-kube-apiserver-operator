@@ -3,11 +3,9 @@ package podsecurityreadinesscontroller
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -19,6 +17,7 @@ const (
 	PodSecurityRunLevelZeroType   = "PodSecurityRunLevelZeroEvaluationConditionsDetected"
 	PodSecurityDisabledSyncerType = "PodSecurityDisabledSyncerEvaluationConditionsDetected"
 	PodSecurityInconclusiveType   = "PodSecurityInconclusiveEvaluationConditionsDetected"
+	PodSecurityUserSCCType        = "PodSecurityUserSCCEvaluationConditionsDetected"
 
 	labelSyncControlLabel = "security.openshift.io/scc.podSecurityLabelSync"
 
@@ -26,46 +25,37 @@ const (
 	inconclusiveReason = "PSViolationDecisionInconclusive"
 )
 
-var (
-	// run-level zero namespaces, shouldn't avoid openshift namespaces
-	runLevelZeroNamespaces = sets.New[string](
-		"default",
-		"kube-system",
-		"kube-public",
-	)
-)
-
 type podSecurityOperatorConditions struct {
 	violatingOpenShiftNamespaces      []string
 	violatingRunLevelZeroNamespaces   []string
 	violatingCustomerNamespaces       []string
 	violatingDisabledSyncerNamespaces []string
+	violatingUserSCCNamespaces        []string
 	inconclusiveNamespaces            []string
-}
-
-func (c *podSecurityOperatorConditions) addViolation(ns *corev1.Namespace) {
-	if runLevelZeroNamespaces.Has(ns.Name) {
-		c.violatingRunLevelZeroNamespaces = append(c.violatingRunLevelZeroNamespaces, ns.Name)
-		return
-	}
-
-	isOpenShift := strings.HasPrefix(ns.Name, "openshift")
-	if isOpenShift {
-		c.violatingOpenShiftNamespaces = append(c.violatingOpenShiftNamespaces, ns.Name)
-		return
-	}
-
-	if ns.Labels[labelSyncControlLabel] == "false" {
-		// This is the only case in which the controller wouldn't enforce the pod security standards.
-		c.violatingDisabledSyncerNamespaces = append(c.violatingDisabledSyncerNamespaces, ns.Name)
-		return
-	}
-
-	c.violatingCustomerNamespaces = append(c.violatingCustomerNamespaces, ns.Name)
 }
 
 func (c *podSecurityOperatorConditions) addInconclusive(ns *corev1.Namespace) {
 	c.inconclusiveNamespaces = append(c.inconclusiveNamespaces, ns.Name)
+}
+
+func (c *podSecurityOperatorConditions) addViolatingRunLevelZero(ns *corev1.Namespace) {
+	c.violatingRunLevelZeroNamespaces = append(c.violatingRunLevelZeroNamespaces, ns.Name)
+}
+
+func (c *podSecurityOperatorConditions) addViolatingOpenShift(ns *corev1.Namespace) {
+	c.violatingOpenShiftNamespaces = append(c.violatingOpenShiftNamespaces, ns.Name)
+}
+
+func (c *podSecurityOperatorConditions) addViolatingDisabledSyncer(ns *corev1.Namespace) {
+	c.violatingDisabledSyncerNamespaces = append(c.violatingDisabledSyncerNamespaces, ns.Name)
+}
+
+func (c *podSecurityOperatorConditions) addViolatingCustomer(ns *corev1.Namespace) {
+	c.violatingCustomerNamespaces = append(c.violatingCustomerNamespaces, ns.Name)
+}
+
+func (c *podSecurityOperatorConditions) addViolatingUserSCC(ns *corev1.Namespace) {
+	c.violatingUserSCCNamespaces = append(c.violatingUserSCCNamespaces, ns.Name)
 }
 
 func makeCondition(conditionType, conditionReason string, namespaces []string) operatorv1.OperatorCondition {
@@ -108,6 +98,7 @@ func (c *podSecurityOperatorConditions) toConditionFuncs() []v1helpers.UpdateSta
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityOpenshiftType, violationReason, c.violatingOpenShiftNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityRunLevelZeroType, violationReason, c.violatingRunLevelZeroNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityDisabledSyncerType, violationReason, c.violatingDisabledSyncerNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityUserSCCType, violationReason, c.violatingUserSCCNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityInconclusiveType, inconclusiveReason, c.inconclusiveNamespaces)),
 	}
 }
