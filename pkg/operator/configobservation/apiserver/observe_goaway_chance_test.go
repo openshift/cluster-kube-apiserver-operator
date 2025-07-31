@@ -88,6 +88,30 @@ func TestObserveGoawayChance(t *testing.T) {
 				"goaway-chance": []interface{}{"0"},
 			}},
 		},
+
+		// scenario 8 - Invalid goaway-chance value (negative)
+		{
+			name:                 "invalid: negative value",
+			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
+			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"goaway-chance": []interface{}{"-0.1"},
+			}},
+			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"goaway-chance": []interface{}{"0.001"},
+			}},
+		},
+
+		// scenario 9 - Invalid goaway-chance value (greater than 0.2)
+		{
+			name:                 "invalid: value greater than 0.2",
+			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
+			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"goaway-chance": []interface{}{"0.3"},
+			}},
+			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"goaway-chance": []interface{}{"0.001"},
+			}},
+		},
 	}
 
 	for _, scenario := range scenarios {
