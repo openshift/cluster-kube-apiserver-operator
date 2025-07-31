@@ -23,7 +23,7 @@ var (
 // isNamespaceViolating checks if a namespace is ready for Pod Security Admission enforcement.
 // It returns true if the namespace is violating the Pod Security Admission policy, along with
 // the enforce label it was tested against.
-func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, string, error) {
+func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Context, ns *corev1.Namespace) (bool, psapi.Level, error) {
 	nsApplyConfig, err := applyconfiguration.ExtractNamespace(ns, syncerControllerName)
 	if err != nil {
 		return false, "", err
@@ -31,7 +31,7 @@ func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Contex
 
 	enforceLabel := determineEnforceLabelForNamespace(nsApplyConfig)
 	nsApply := applyconfiguration.Namespace(ns.Name).WithLabels(map[string]string{
-		psapi.EnforceLevelLabel: enforceLabel,
+		psapi.EnforceLevelLabel: string(enforceLabel),
 	})
 
 	_, err = c.kubeClient.CoreV1().
@@ -53,16 +53,22 @@ func (c *PodSecurityReadinessController) isNamespaceViolating(ctx context.Contex
 	return false, "", nil
 }
 
-func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConfiguration) string {
-	if _, ok := ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]; ok {
+func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConfiguration) psapi.Level {
+	if pssAnnotation, ok := ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]; ok {
 		// This should generally exist and will be the only supported method of determining
 		// the enforce level going forward - however, we're keeping the label fallback for
 		// now to account for any workloads not yet annotated using a new enough version of
 		// the syncer, such as during upgrade scenarios.
-		return ns.Annotations[securityv1.MinimallySufficientPodSecurityStandard]
+		level, err := psapi.ParseLevel(pssAnnotation)
+		if err == nil {
+			return level
+		}
+		if err != nil {
+			klog.V(2).InfoS("invalid level in scc annotation", "value", level)
+		}
 	}
 
-	targetLevel := ""
+	var targetLevel psapi.Level
 	for label := range alertLabels {
 		value, ok := ns.Labels[label]
 		if !ok {
@@ -76,18 +82,18 @@ func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConf
 		}
 
 		if targetLevel == "" {
-			targetLevel = value
+			targetLevel = level
 			continue
 		}
 
 		if psapi.CompareLevels(psapi.Level(targetLevel), level) < 0 {
-			targetLevel = value
+			targetLevel = level
 		}
 	}
 
 	if targetLevel == "" {
 		// Global Config will set it to "restricted", but shouldn't happen.
-		return string(psapi.LevelRestricted)
+		return psapi.LevelRestricted
 	}
 
 	return targetLevel
