@@ -41,60 +41,58 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 		return nil
 	}
 
+	// Evaluate by individual pod.
 	allPods, err := c.kubeClient.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.V(2).ErrorS(err, "Failed to list pods in namespace", "namespace", ns.Name)
 		return err
 	}
-	if hasUserSCCViolatingPod(c.psaEvaluator, enforceLevel, allPods.Items) {
-		conditions.addViolatingUserSCC(ns)
+
+	isViolating := createPodViolationEvaluator(c.psaEvaluator, enforceLevel)
+	violatingPods := []corev1.Pod{}
+	for _, pod := range allPods.Items {
+		if isViolating(pod) {
+			violatingPods = append(violatingPods, pod)
+		}
+	}
+	if len(violatingPods) == 0 {
+		conditions.addInconclusive(ns)
+		klog.V(2).InfoS("no violating pods found in namespace, marking as inconclusive", "namespace", ns.Name)
 		return nil
 	}
 
-	conditions.addUnclassifiedIssue(ns)
+	violatingUserSCCPods := []corev1.Pod{}
+	for _, pod := range violatingPods {
+		if pod.Annotations[securityv1.ValidatedSCCSubjectTypeAnnotation] == "user" {
+			violatingUserSCCPods = append(violatingUserSCCPods, pod)
+		}
+	}
+	if len(violatingUserSCCPods) > 0 {
+		conditions.addViolatingUserSCC(ns)
+	}
+	if len(violatingUserSCCPods) != len(violatingPods) {
+		conditions.addUnclassifiedIssue(ns)
+	}
 
 	return nil
 }
 
-func hasUserSCCViolatingPod(
-	psaEvaluator policy.Evaluator,
-	enforcementLevel psapi.Level,
-	pods []corev1.Pod,
-) bool {
-	var userPods []corev1.Pod
-	for _, pod := range pods {
-		if strings.HasPrefix(pod.Annotations[securityv1.ValidatedSCCAnnotation], "restricted-v") {
-			// If the SCC evaluation is restricted-v*, it shouldn't be possible
-			// to violate as a user-based SCC.
-			continue
-		}
-
-		if pod.Annotations[securityv1.ValidatedSCCSubjectTypeAnnotation] == "user" {
-			userPods = append(userPods, pod)
-		}
-	}
-	if len(userPods) == 0 {
-		return false // No user pods = violation is based upon service accounts
-	}
-
-	enforcement := psapi.LevelVersion{
-		Level:   enforcementLevel,
-		Version: psapi.LatestVersion(),
-	}
-	for _, pod := range userPods {
-		results := psaEvaluator.EvaluatePod(
-			enforcement,
+func createPodViolationEvaluator(evaluator policy.Evaluator, enforcement psapi.Level) func(pod corev1.Pod) bool {
+	return func(pod corev1.Pod) bool {
+		results := evaluator.EvaluatePod(
+			psapi.LevelVersion{
+				Level:   enforcement,
+				Version: psapi.LatestVersion(),
+			},
 			&pod.ObjectMeta,
 			&pod.Spec,
 		)
 
-		// results contains between 1 and 2 elements
 		for _, result := range results {
 			if !result.Allowed {
 				return true
 			}
 		}
+		return false
 	}
-
-	return false
 }
