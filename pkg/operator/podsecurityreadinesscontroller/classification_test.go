@@ -55,7 +55,7 @@ func TestClassifyViolatingNamespaceWithAPIErrors(t *testing.T) {
 	}
 
 	// Ensure no classifications were made due to the error
-	if len(conditions.violatingCustomerNamespaces) != 0 ||
+	if len(conditions.violatingUnclassifiedNamespaces) != 0 ||
 		len(conditions.violatingUserSCCNamespaces) != 0 ||
 		len(conditions.violatingOpenShiftNamespaces) != 0 ||
 		len(conditions.violatingRunLevelZeroNamespaces) != 0 ||
@@ -190,7 +190,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingCustomerNamespaces: []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -224,7 +224,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingCustomerNamespaces: []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -238,7 +238,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods:         []corev1.Pod{},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingCustomerNamespaces: []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -268,7 +268,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingCustomerNamespaces: []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -284,7 +284,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelPrivileged,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingCustomerNamespaces: []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -453,7 +453,7 @@ func deepEqualPodSecurityOperatorConditions(
 
 	return slices.Equal(a.violatingOpenShiftNamespaces, b.violatingOpenShiftNamespaces) &&
 		slices.Equal(a.violatingRunLevelZeroNamespaces, b.violatingRunLevelZeroNamespaces) &&
-		slices.Equal(a.violatingCustomerNamespaces, b.violatingCustomerNamespaces) &&
+		slices.Equal(a.violatingUnclassifiedNamespaces, b.violatingUnclassifiedNamespaces) &&
 		slices.Equal(a.violatingDisabledSyncerNamespaces, b.violatingDisabledSyncerNamespaces) &&
 		slices.Equal(a.violatingUserSCCNamespaces, b.violatingUserSCCNamespaces) &&
 		slices.Equal(a.inconclusiveNamespaces, b.inconclusiveNamespaces)

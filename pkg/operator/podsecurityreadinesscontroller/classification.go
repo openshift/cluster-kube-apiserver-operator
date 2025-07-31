@@ -51,9 +51,7 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 		return nil
 	}
 
-	// Historically, we assume that this is a customer issue, but
-	// actually it means we don't know what the root cause is.
-	conditions.addViolatingCustomer(ns)
+	conditions.addUnclassifiedIssue(ns)
 
 	return nil
 }

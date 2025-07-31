@@ -13,13 +13,13 @@ func TestCondition(t *testing.T) {
 	t.Run("with violating namespaces", func(t *testing.T) {
 		namespaces := []string{"namespace1", "namespace2"}
 		expectedCondition := operatorv1.OperatorCondition{
-			Type:    PodSecurityCustomerType,
+			Type:    PodSecurityUnknownType,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "PSViolationsDetected",
 			Message: "Violations detected in namespaces: [namespace1 namespace2]",
 		}
 
-		condition := makeCondition(PodSecurityCustomerType, violationReason, namespaces)
+		condition := makeCondition(PodSecurityUnknownType, violationReason, namespaces)
 
 		if condition.Type != expectedCondition.Type {
 			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
@@ -41,13 +41,13 @@ func TestCondition(t *testing.T) {
 	t.Run("with inconclusive namespaces", func(t *testing.T) {
 		namespaces := []string{"namespace1", "namespace2"}
 		expectedCondition := operatorv1.OperatorCondition{
-			Type:    PodSecurityCustomerType,
+			Type:    PodSecurityUnknownType,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "PSViolationDecisionInconclusive",
 			Message: "Could not evaluate violations for namespaces: [namespace1 namespace2]",
 		}
 
-		condition := makeCondition(PodSecurityCustomerType, inconclusiveReason, namespaces)
+		condition := makeCondition(PodSecurityUnknownType, inconclusiveReason, namespaces)
 
 		if condition.Type != expectedCondition.Type {
 			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
@@ -69,12 +69,12 @@ func TestCondition(t *testing.T) {
 	t.Run("without namespaces", func(t *testing.T) {
 		namespaces := []string{}
 		expectedCondition := operatorv1.OperatorCondition{
-			Type:   PodSecurityCustomerType,
+			Type:   PodSecurityUnknownType,
 			Status: operatorv1.ConditionFalse,
 			Reason: "ExpectedReason",
 		}
 
-		condition := makeCondition(PodSecurityCustomerType, violationReason, namespaces)
+		condition := makeCondition(PodSecurityUnknownType, violationReason, namespaces)
 
 		if condition.Type != expectedCondition.Type {
 			t.Errorf("expected condition type %s, got %s", expectedCondition.Type, condition.Type)
@@ -298,7 +298,7 @@ func TestOperatorStatus(t *testing.T) {
 						cond.addViolatingDisabledSyncer(ns)
 					} else {
 						// Default to customer violation for test purposes
-						cond.addViolatingCustomer(ns)
+						cond.addUnclassifiedIssue(ns)
 					}
 				}
 				if tt.addInconclusive {
