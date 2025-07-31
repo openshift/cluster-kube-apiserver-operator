@@ -114,7 +114,7 @@ func TestOperatorStatus(t *testing.T) {
 			addViolation:    true,
 			addInconclusive: false,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
@@ -136,7 +136,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
@@ -158,7 +158,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
@@ -177,7 +177,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
@@ -196,7 +196,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
@@ -223,7 +223,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionTrue,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionTrue,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionTrue,
@@ -254,7 +254,7 @@ func TestOperatorStatus(t *testing.T) {
 			},
 			addViolation: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionTrue,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionTrue,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,
@@ -274,7 +274,7 @@ func TestOperatorStatus(t *testing.T) {
 			addViolation:    false,
 			addInconclusive: true,
 			expected: map[string]operatorv1.ConditionStatus{
-				"PodSecurityCustomerEvaluationConditionsDetected":       operatorv1.ConditionFalse,
+				"PodSecurityUnknownEvaluationConditionsDetected":        operatorv1.ConditionFalse,
 				"PodSecurityOpenshiftEvaluationConditionsDetected":      operatorv1.ConditionFalse,
 				"PodSecurityRunLevelZeroEvaluationConditionsDetected":   operatorv1.ConditionFalse,
 				"PodSecurityDisabledSyncerEvaluationConditionsDetected": operatorv1.ConditionFalse,

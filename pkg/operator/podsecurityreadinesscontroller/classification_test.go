@@ -195,8 +195,8 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectError: false,
 		},
 		{
-			// TODO: Ideally we would not drop the "customer" condition.
-			name: "customer namespace with mixed pods - user violates",
+			// TODO: Ideally we would not drop the "unknown" condition.
+			name: "customer namespace with mixed pods - unknown violation included",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "customer-ns",
