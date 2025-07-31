@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	clienttesting "k8s.io/client-go/testing"
+	psapi "k8s.io/pod-security-admission/api"
 	"k8s.io/pod-security-admission/policy"
 )
 
@@ -68,7 +69,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 		name               string
 		namespace          *corev1.Namespace
 		pods               []corev1.Pod
-		enforceLevel       string
+		enforceLevel       psapi.Level
 		expectedConditions podSecurityOperatorConditions
 		expectError        bool
 	}{
@@ -80,7 +81,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 				},
 			},
 			pods:         []corev1.Pod{},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingRunLevelZeroNamespaces: []string{"kube-system"},
 			},
@@ -94,7 +95,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 				},
 			},
 			pods:         []corev1.Pod{},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingRunLevelZeroNamespaces: []string{"default"},
 			},
@@ -108,7 +109,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 				},
 			},
 			pods:         []corev1.Pod{},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingRunLevelZeroNamespaces: []string{"kube-public"},
 			},
@@ -122,7 +123,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 				},
 			},
 			pods:         []corev1.Pod{},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingOpenShiftNamespaces: []string{"openshift-test"},
 			},
@@ -155,7 +156,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods: []corev1.Pod{
 				newUserSCCPodPrivileged("user-pod", "customer-ns"),
 			},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingUserSCCNamespaces: []string{"customer-ns"},
 			},
@@ -171,7 +172,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods: []corev1.Pod{
 				newUserSCCPodWithPrivilegedContainer("user-scc-violating-pod", "user-scc-violation-test"),
 			},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingUserSCCNamespaces: []string{"user-scc-violation-test"},
 			},
@@ -187,7 +188,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods: []corev1.Pod{
 				newServiceAccountPod("sa-pod", "customer-ns"),
 			},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingCustomerNamespaces: []string{"customer-ns"},
 			},
@@ -221,7 +222,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods: []corev1.Pod{
 				newUserSCCPodRestricted("user-pod", "customer-ns"),
 			},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingCustomerNamespaces: []string{"customer-ns"},
 			},
@@ -235,7 +236,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 				},
 			},
 			pods:         []corev1.Pod{},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingCustomerNamespaces: []string{"customer-ns"},
 			},
@@ -265,7 +266,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 					},
 				},
 			},
-			enforceLevel: "restricted",
+			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingCustomerNamespaces: []string{"customer-ns"},
 			},
@@ -281,23 +282,11 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods: []corev1.Pod{
 				newUserSCCPodPrivileged("user-pod", "customer-ns"),
 			},
-			enforceLevel: "privileged",
+			enforceLevel: psapi.LevelPrivileged,
 			expectedConditions: podSecurityOperatorConditions{
 				violatingCustomerNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
-		},
-		{
-			name: "invalid PSA level causes error",
-			namespace: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "customer-ns",
-				},
-			},
-			pods:               []corev1.Pod{},
-			enforceLevel:       "invalid-level",
-			expectedConditions: podSecurityOperatorConditions{},
-			expectError:        true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

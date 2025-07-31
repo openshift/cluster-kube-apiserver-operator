@@ -2,7 +2,6 @@ package podsecurityreadinesscontroller
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	securityv1 "github.com/openshift/api/security/v1"
@@ -22,7 +21,12 @@ var (
 	)
 )
 
-func (c *PodSecurityReadinessController) classifyViolatingNamespace(ctx context.Context, conditions *podSecurityOperatorConditions, ns *corev1.Namespace, enforceLevel string) error {
+func (c *PodSecurityReadinessController) classifyViolatingNamespace(
+	ctx context.Context,
+	conditions *podSecurityOperatorConditions,
+	ns *corev1.Namespace,
+	enforceLevel psapi.Level,
+) error {
 	if runLevelZeroNamespaces.Has(ns.Name) {
 		conditions.addViolatingRunLevelZero(ns)
 		return nil
@@ -56,23 +60,11 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(ctx context.
 	return nil
 }
 
-func (c *PodSecurityReadinessController) isUserViolation(ctx context.Context, ns *corev1.Namespace, label string) (bool, error) {
-	var enforcementLevel psapi.Level
-	switch strings.ToLower(label) {
-	case "restricted":
-		enforcementLevel = psapi.LevelRestricted
-	case "baseline":
-		enforcementLevel = psapi.LevelBaseline
-	case "privileged":
-		// If privileged is violating, something is seriously wrong
-		// but testing against privileged level is pointless (everything passes)
-		klog.V(2).InfoS("Namespace violating privileged level - skipping user check",
-			"namespace", ns.Name)
-		return false, nil
-	default:
-		return false, fmt.Errorf("unknown level: %q", label)
-	}
-
+func (c *PodSecurityReadinessController) isUserViolation(
+	ctx context.Context,
+	ns *corev1.Namespace,
+	enforcementLevel psapi.Level,
+) (bool, error) {
 	allPods, err := c.kubeClient.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		klog.V(2).ErrorS(err, "Failed to list pods in namespace", "namespace", ns.Name)
@@ -102,28 +94,14 @@ func (c *PodSecurityReadinessController) isUserViolation(ctx context.Context, ns
 
 	enforcementVersion := psapi.LatestVersion()
 	for _, pod := range userPods {
-		klog.InfoS("Evaluating user pod against PSA level",
-			"namespace", ns.Name, "pod", pod.Name, "level", label,
-			"podSecurityContext", pod.Spec.SecurityContext)
-
 		results := c.psaEvaluator.EvaluatePod(
 			psapi.LevelVersion{Level: enforcementLevel, Version: enforcementVersion},
 			&pod.ObjectMeta,
 			&pod.Spec,
 		)
 
-		klog.InfoS("PSA evaluation results",
-			"namespace", ns.Name, "pod", pod.Name, "level", label,
-			"resultCount", len(results))
-
 		for _, result := range results {
-			klog.InfoS("PSA evaluation result",
-				"namespace", ns.Name, "pod", pod.Name, "level", label,
-				"allowed", result.Allowed, "reason", result.ForbiddenReason,
-				"detail", result.ForbiddenDetail)
 			if !result.Allowed {
-				klog.InfoS("User pod violates PSA level",
-					"namespace", ns.Name, "pod", pod.Name, "level", label)
 				return true, nil
 			}
 		}
