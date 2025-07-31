@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	PodSecurityCustomerType       = "PodSecurityCustomerEvaluationConditionsDetected"
+	// Historically, we assume that this is a customer issue, but
+	// actually it means we don't know what the root cause is.
+	PodSecurityUnknownType        = "PodSecurityCustomerEvaluationConditionsDetected"
 	PodSecurityOpenshiftType      = "PodSecurityOpenshiftEvaluationConditionsDetected"
 	PodSecurityRunLevelZeroType   = "PodSecurityRunLevelZeroEvaluationConditionsDetected"
 	PodSecurityDisabledSyncerType = "PodSecurityDisabledSyncerEvaluationConditionsDetected"
@@ -28,9 +30,9 @@ const (
 type podSecurityOperatorConditions struct {
 	violatingOpenShiftNamespaces      []string
 	violatingRunLevelZeroNamespaces   []string
-	violatingCustomerNamespaces       []string
 	violatingDisabledSyncerNamespaces []string
 	violatingUserSCCNamespaces        []string
+	violatingUnclassifiedNamespaces   []string
 	inconclusiveNamespaces            []string
 }
 
@@ -50,8 +52,8 @@ func (c *podSecurityOperatorConditions) addViolatingDisabledSyncer(ns *corev1.Na
 	c.violatingDisabledSyncerNamespaces = append(c.violatingDisabledSyncerNamespaces, ns.Name)
 }
 
-func (c *podSecurityOperatorConditions) addViolatingCustomer(ns *corev1.Namespace) {
-	c.violatingCustomerNamespaces = append(c.violatingCustomerNamespaces, ns.Name)
+func (c *podSecurityOperatorConditions) addUnclassifiedIssue(ns *corev1.Namespace) {
+	c.violatingUnclassifiedNamespaces = append(c.violatingUnclassifiedNamespaces, ns.Name)
 }
 
 func (c *podSecurityOperatorConditions) addViolatingUserSCC(ns *corev1.Namespace) {
@@ -94,7 +96,7 @@ func makeCondition(conditionType, conditionReason string, namespaces []string) o
 
 func (c *podSecurityOperatorConditions) toConditionFuncs() []v1helpers.UpdateStatusFunc {
 	return []v1helpers.UpdateStatusFunc{
-		v1helpers.UpdateConditionFn(makeCondition(PodSecurityCustomerType, violationReason, c.violatingCustomerNamespaces)),
+		v1helpers.UpdateConditionFn(makeCondition(PodSecurityUnknownType, violationReason, c.violatingUnclassifiedNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityOpenshiftType, violationReason, c.violatingOpenShiftNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityRunLevelZeroType, violationReason, c.violatingRunLevelZeroNamespaces)),
 		v1helpers.UpdateConditionFn(makeCondition(PodSecurityDisabledSyncerType, violationReason, c.violatingDisabledSyncerNamespaces)),
