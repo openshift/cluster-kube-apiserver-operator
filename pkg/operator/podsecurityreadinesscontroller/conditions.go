@@ -14,7 +14,7 @@ import (
 const (
 	// Historically, we assume that this is a customer issue, but
 	// actually it means we don't know what the root cause is.
-	PodSecurityUnknownType        = "PodSecurityCustomerEvaluationConditionsDetected"
+	PodSecurityUnknownType        = "PodSecurityUnknownEvaluationConditionsDetected"
 	PodSecurityOpenshiftType      = "PodSecurityOpenshiftEvaluationConditionsDetected"
 	PodSecurityRunLevelZeroType   = "PodSecurityRunLevelZeroEvaluationConditionsDetected"
 	PodSecurityDisabledSyncerType = "PodSecurityDisabledSyncerEvaluationConditionsDetected"
