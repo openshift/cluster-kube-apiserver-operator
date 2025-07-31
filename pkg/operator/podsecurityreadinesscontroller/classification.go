@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 	psapi "k8s.io/pod-security-admission/api"
+	"k8s.io/pod-security-admission/policy"
 )
 
 var (
@@ -40,15 +41,12 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 		return nil
 	}
 
-	isUserViolation, err := c.isUserViolation(ctx, ns, enforceLevel)
+	allPods, err := c.kubeClient.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		klog.V(2).ErrorS(err, "Error checking user violations", "namespace", ns.Name)
-		// Transient API server error or temporary resource unavailability (most likely).
-		// Theoretically, psapi parsing errors could occur that retry without hope for recovery.
+		klog.V(2).ErrorS(err, "Failed to list pods in namespace", "namespace", ns.Name)
 		return err
 	}
-
-	if isUserViolation {
+	if hasUserSCCViolatingPod(c.psaEvaluator, enforceLevel, allPods.Items) {
 		conditions.addViolatingUserSCC(ns)
 		return nil
 	}
@@ -60,26 +58,16 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 	return nil
 }
 
-func (c *PodSecurityReadinessController) isUserViolation(
-	ctx context.Context,
-	ns *corev1.Namespace,
+func hasUserSCCViolatingPod(
+	psaEvaluator policy.Evaluator,
 	enforcementLevel psapi.Level,
-) (bool, error) {
-	allPods, err := c.kubeClient.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		klog.V(2).ErrorS(err, "Failed to list pods in namespace", "namespace", ns.Name)
-		return false, err
-	}
-
+	pods []corev1.Pod,
+) bool {
 	var userPods []corev1.Pod
-	for _, pod := range allPods.Items {
+	for _, pod := range pods {
 		if strings.HasPrefix(pod.Annotations[securityv1.ValidatedSCCAnnotation], "restricted-v") {
-			// restricted-v2 is allowed for all system:authenticated, also for ServiceAccounts.
-			// But ServiceAccounts are not part of the group. So restricted-v2 will always
-			// result in user-based SCC. So we skip them as the user-based SCCs cause harm
-			// if they need a higher privileged than restricted.
-			// We watch for any restricted version above the first one. We might introduce
-			// restricted-v3 for user namespaces.
+			// If the SCC evaluation is restricted-v*, it shouldn't be possible
+			// to violate as a user-based SCC.
 			continue
 		}
 
@@ -87,25 +75,28 @@ func (c *PodSecurityReadinessController) isUserViolation(
 			userPods = append(userPods, pod)
 		}
 	}
-
 	if len(userPods) == 0 {
-		return false, nil // No user pods = violation is from service accounts
+		return false // No user pods = violation is based upon service accounts
 	}
 
-	enforcementVersion := psapi.LatestVersion()
+	enforcement := psapi.LevelVersion{
+		Level:   enforcementLevel,
+		Version: psapi.LatestVersion(),
+	}
 	for _, pod := range userPods {
-		results := c.psaEvaluator.EvaluatePod(
-			psapi.LevelVersion{Level: enforcementLevel, Version: enforcementVersion},
+		results := psaEvaluator.EvaluatePod(
+			enforcement,
 			&pod.ObjectMeta,
 			&pod.Spec,
 		)
 
+		// results contains between 1 and 2 elements
 		for _, result := range results {
 			if !result.Allowed {
-				return true, nil
+				return true
 			}
 		}
 	}
 
-	return false, nil
+	return false
 }
