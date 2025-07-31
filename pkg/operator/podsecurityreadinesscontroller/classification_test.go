@@ -116,6 +116,20 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "run-level zero namespace - kube-node-lease",
+			namespace: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kube-node-lease",
+				},
+			},
+			pods:         []corev1.Pod{},
+			enforceLevel: psapi.LevelRestricted,
+			expectedConditions: podSecurityOperatorConditions{
+				violatingRunLevelZeroNamespaces: []string{"kube-node-lease"},
+			},
+			expectError: false,
+		},
+		{
 			name: "openshift namespace",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -179,7 +193,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "customer namespace without user SCC violation",
+			name: "customer namespace with a pod that passed SA-based SCC, but not PSA",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "customer-ns",
@@ -195,7 +209,6 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectError: false,
 		},
 		{
-			// TODO: Ideally we would not drop the "unknown" condition.
 			name: "customer namespace with mixed pods - unknown violation included",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
@@ -208,7 +221,8 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: "restricted",
 			expectedConditions: podSecurityOperatorConditions{
-				violatingUserSCCNamespaces: []string{"customer-ns"},
+				violatingUserSCCNamespaces:      []string{"customer-ns"},
+				violatingUnclassifiedNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -224,7 +238,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingUnclassifiedNamespaces: []string{"customer-ns"},
+				inconclusiveNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -238,7 +252,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			pods:         []corev1.Pod{},
 			enforceLevel: psapi.LevelRestricted,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingUnclassifiedNamespaces: []string{"customer-ns"},
+				inconclusiveNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
@@ -284,7 +298,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			},
 			enforceLevel: psapi.LevelPrivileged,
 			expectedConditions: podSecurityOperatorConditions{
-				violatingUnclassifiedNamespaces: []string{"customer-ns"},
+				inconclusiveNamespaces: []string{"customer-ns"},
 			},
 			expectError: false,
 		},
