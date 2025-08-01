@@ -227,7 +227,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "customer namespace with user pods that pass PSA",
+			name: "customer namespace with non violating user pod",
 			namespace: &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "customer-ns",
@@ -240,7 +240,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectedConditions: podSecurityOperatorConditions{
 				inconclusiveNamespaces: []string{"customer-ns"},
 			},
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name: "customer namespace with no pods",
@@ -254,7 +254,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectedConditions: podSecurityOperatorConditions{
 				inconclusiveNamespaces: []string{"customer-ns"},
 			},
-			expectError: false,
+			expectError: true,
 		},
 		{
 			name: "customer namespace with pods without SCC annotation",
@@ -300,7 +300,7 @@ func TestClassifyViolatingNamespace(t *testing.T) {
 			expectedConditions: podSecurityOperatorConditions{
 				inconclusiveNamespaces: []string{"customer-ns"},
 			},
-			expectError: false,
+			expectError: true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
