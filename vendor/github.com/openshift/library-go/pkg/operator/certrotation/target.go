@@ -198,26 +198,26 @@ func needNewTargetCertKeyPair(secret *corev1.Secret, signer *crypto.CA, caBundle
 //
 // So with a cert percentage of 75% and equally long CA and cert validities at the worst case we start at 85% of the cert to renew, trying again every minute.
 func needNewTargetCertKeyPairForTime(annotations map[string]string, signer *crypto.CA, refresh time.Duration, refreshOnlyWhenExpired bool) string {
-	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
+	notBefore, _, reason := getValidityFromAnnotations(annotations)
 	if len(reason) > 0 {
 		return reason
 	}
 
 	// Is cert expired?
-	if time.Now().After(notAfter) {
-		return "already expired"
-	}
+	// if time.Now().After(notAfter) {
+	// 	return "already expired"
+	// }
 
 	if refreshOnlyWhenExpired {
 		return ""
 	}
 
 	// Are we at 80% of validity?
-	validity := notAfter.Sub(notBefore)
-	at80Percent := notAfter.Add(-validity / 5)
-	if time.Now().After(at80Percent) {
-		return fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
-	}
+	// validity := notAfter.Sub(notBefore)
+	// at80Percent := notAfter.Add(-validity / 5)
+	// if time.Now().After(at80Percent) {
+	// 	return fmt.Sprintf("past refresh time (80%% of validity): %v", at80Percent)
+	// }
 
 	// If Certificate is past its refresh time, we may have action to take. We only do this if the signer is old enough.
 	refreshTime := notBefore.Add(refresh)
