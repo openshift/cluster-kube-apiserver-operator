@@ -2,6 +2,7 @@ package podsecurityreadinesscontroller
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	securityv1 "github.com/openshift/api/security/v1"
@@ -20,6 +21,7 @@ var (
 		"kube-public",
 		"kube-node-lease",
 	)
+	errNoViolatingPods = errors.New("no violating pods in violating namespace")
 )
 
 func (c *PodSecurityReadinessController) classifyViolatingNamespace(
@@ -44,6 +46,8 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 	// Evaluate by individual pod.
 	allPods, err := c.kubeClient.CoreV1().Pods(ns.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
+		// Will end up in inconclusive as we couldn't diagnose the violation root
+		// cause.
 		klog.V(2).ErrorS(err, "Failed to list pods in namespace", "namespace", ns.Name)
 		return err
 	}
@@ -56,9 +60,8 @@ func (c *PodSecurityReadinessController) classifyViolatingNamespace(
 		}
 	}
 	if len(violatingPods) == 0 {
-		conditions.addInconclusive(ns)
-		klog.V(2).InfoS("no violating pods found in namespace, marking as inconclusive", "namespace", ns.Name)
-		return nil
+		klog.V(2).ErrorS(errNoViolatingPods, "failed to find violating pod", "namespace", ns.Name)
+		return errNoViolatingPods
 	}
 
 	violatingUserSCCPods := []corev1.Pod{}
