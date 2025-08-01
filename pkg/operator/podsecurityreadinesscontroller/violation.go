@@ -63,9 +63,8 @@ func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConf
 		if err == nil {
 			return level
 		}
-		if err != nil {
-			klog.V(2).InfoS("invalid level in scc annotation", "value", level)
-		}
+
+		klog.V(2).InfoS("invalid level in scc annotation", "value", level)
 	}
 
 	var targetLevel psapi.Level
