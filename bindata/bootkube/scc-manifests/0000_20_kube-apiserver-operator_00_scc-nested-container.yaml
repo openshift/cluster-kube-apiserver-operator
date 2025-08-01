@@ -1,0 +1,61 @@
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: false
+allowedCapabilities:
+- SETUID
+- SETGID
+apiVersion: security.openshift.io/v1
+defaultAddCapabilities:
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 0
+    max: 65534
+groups: []
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    kubernetes.io/description: 'nested-container is specially tailored for running nested containers.
+    It balances a tight security profile, while remaining loose enough to be useful to run nested containers in.
+    In addition to requiring pods run with a user namespace, it allows SETUID and SETGID capabilities, requires the "container_engine_t" SELinux type,
+    allows any users within the range of 0-65534, allows privilege escalation (to allow a container engine to run new{uid/gid}map), and allows any seccomp profile.
+    Since any pods running within this SCC must use a user namespace ("hostUsers: false"), their actual UID/GID on the host will be
+    allocated by the kubelet to be unprivileged, and any capabilities the pod is granted will not apply outside of the pods user namespace.'
+  name: nested-container
+priority:
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+runAsUser:
+  type: MustRunAsRange
+  ranges:
+  - min: 0
+    max: 65534
+seLinuxContext:
+  type: MustRunAs
+  seLinuxOptions:
+    type: container_engine_t
+seccompProfiles:
+- "*"
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 0
+    max: 65534
+users: []
+userNamespaceLevel: RequirePodLevel
+volumes:
+- configMap
+- csi
+- downwardAPI
+- emptyDir
+- ephemeral
+- persistentVolumeClaim
+- projected
+- secret
