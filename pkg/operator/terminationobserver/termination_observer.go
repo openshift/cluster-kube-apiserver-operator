@@ -7,11 +7,11 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	corelisterv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/component-base/metrics"
@@ -42,7 +42,8 @@ var (
 type TerminationObserver struct {
 	targetNamespace string
 
-	podsGetter corev1client.PodsGetter
+	podsLister    corelisterv1.PodNamespaceLister
+	labelSelector labels.Selector
 
 	cachesToSync  []cache.InformerSynced
 	queue         workqueue.RateLimitingInterface
@@ -77,12 +78,12 @@ func RegisterMetrics() {
 func NewTerminationObserver(
 	targetNamespace string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
-	podsGetter corev1client.PodsGetter,
+	podsLister corelisterv1.PodNamespaceLister,
 	eventRecorder events.Recorder,
 ) *TerminationObserver {
 	c := &TerminationObserver{
 		targetNamespace:          targetNamespace,
-		podsGetter:               podsGetter,
+		podsLister:               podsLister,
 		eventRecorder:            eventRecorder.WithComponentSuffix("termination-observer"),
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "TerminationObserver"),
 		apiServerTerminationTime: map[string]time.Time{},
@@ -94,11 +95,13 @@ func NewTerminationObserver(
 	c.cachesToSync = append(c.cachesToSync, kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced)
 	c.cachesToSync = append(c.cachesToSync, kubeInformersForTargetNamespace.Core().V1().Events().Informer().HasSynced)
 
+	c.labelSelector = labels.SelectorFromSet(labels.Set{"app": "openshift-kube-apiserver"})
+
 	return c
 }
 
-func (c *TerminationObserver) sync(ctx context.Context) error {
-	podList, err := c.podsGetter.Pods(c.targetNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app=openshift-kube-apiserver"})
+func (c *TerminationObserver) sync(_ context.Context) error {
+	podList, err := c.podsLister.List(c.labelSelector)
 	if err != nil {
 		return fmt.Errorf("unable to list pods in %q namespace: %v", c.targetNamespace, err)
 	}
@@ -106,7 +109,7 @@ func (c *TerminationObserver) sync(ctx context.Context) error {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, pod := range podList.Items {
+	for _, pod := range podList {
 		// Prevent firing termination logs and metrics for initial observation (we don't know when the API Server was terminated).
 		if _, exists := c.apiServerTerminationTime[pod.Name]; !exists {
 			c.apiServerTerminationTime[pod.Name] = pod.CreationTimestamp.Time

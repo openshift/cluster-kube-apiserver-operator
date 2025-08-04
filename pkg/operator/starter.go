@@ -417,7 +417,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	terminationObserver := terminationobserver.NewTerminationObserver(
 		operatorclient.TargetNamespace,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeClient.CoreV1(),
+		kubeInformersForNamespaces.PodLister().Pods(operatorclient.TargetNamespace),
 		controllerContext.EventRecorder,
 	)
 
