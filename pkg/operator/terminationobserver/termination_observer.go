@@ -88,7 +88,7 @@ func NewTerminationObserver(
 		apiServerTerminationTime: map[string]time.Time{},
 	}
 
-	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.podEventHandler())
 	kubeInformersForTargetNamespace.Core().V1().Events().Informer().AddEventHandler(c.terminationEventRecorder())
 
 	c.cachesToSync = append(c.cachesToSync, kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced)
@@ -242,10 +242,31 @@ func (c *TerminationObserver) terminationEventRecorder() cache.ResourceEventHand
 	}
 }
 
-func (c *TerminationObserver) eventHandler() cache.ResourceEventHandler {
+func (c *TerminationObserver) podEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(controllerWorkQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(controllerWorkQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(controllerWorkQueueKey) },
+		AddFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("expected v1.Pod, got %T", obj))
+				return
+			}
+			app, ok := pod.Labels["app"]
+			if ok && app == "openshift-kube-apiserver" {
+				c.queue.Add(fmt.Sprintf("pod create %s", pod.Name))
+			}
+		},
+		// no need to trigger termination controller on pod update
+		UpdateFunc: func(old, new interface{}) {},
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				utilruntime.HandleError(fmt.Errorf("expected v1.Pod, got %T", obj))
+				return
+			}
+			app, ok := pod.Labels["app"]
+			if ok && app == "openshift-kube-apiserver" {
+				c.queue.Add(fmt.Sprintf("pod delete %s", pod.Name))
+			}
+		},
 	}
 }
