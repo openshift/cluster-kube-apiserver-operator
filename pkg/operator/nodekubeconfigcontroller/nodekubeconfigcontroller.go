@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -20,12 +21,17 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-const workQueueKey = "key"
+const (
+	workQueueKey          = "key"
+	kubeApiserverServerCA = "kube-apiserver-server-ca"
+	nodeSystemAdminClient = "node-system-admin-client"
+)
 
 type NodeKubeconfigController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
@@ -40,7 +46,7 @@ func NewNodeKubeconfigController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	kubeClient kubernetes.Interface,
-	infrastuctureInformer configv1informers.InfrastructureInformer,
+	infrastructureInformer configv1informers.InfrastructureInformer,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := &NodeKubeconfigController{
@@ -48,16 +54,29 @@ func NewNodeKubeconfigController(
 		kubeClient:           kubeClient,
 		configMapLister:      kubeInformersForNamespaces.ConfigMapLister(),
 		secretLister:         kubeInformersForNamespaces.SecretLister(),
-		infrastructureLister: infrastuctureInformer.Lister(),
+		infrastructureLister: infrastructureInformer.Lister(),
 	}
 
-	return factory.New().WithInformers(
+	return factory.New().WithFilteredEventsInformers(
+		func(obj interface{}) bool {
+			if cm, ok := obj.(*corev1.ConfigMap); ok {
+				if cm.Namespace == operatorclient.OperatorNamespace && cm.Name == kubeApiserverServerCA {
+					return true
+				}
+				return false
+			}
+			if secret, ok := obj.(*corev1.Secret); ok {
+				if secret.Namespace == operatorclient.OperatorNamespace && secret.Name == nodeSystemAdminClient {
+					return true
+				}
+				return false
+			}
+			return true
+		},
 		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Informer(),
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer(),
-		infrastuctureInformer.Informer(),
+		infrastructureInformer.Informer(),
 	).WithSync(c.sync).WithSyncDegradedOnError(c.operatorClient).ResyncEvery(5*time.Minute).ToController("NodeKubeconfigController", eventRecorder.WithComponentSuffix("node-kubeconfig-controller"))
 }
 
@@ -99,27 +118,27 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interface, secretLister corev1listers.SecretLister, configmapLister corev1listers.ConfigMapLister, infrastructureLister configv1listers.InfrastructureLister, recorder events.Recorder) error {
 	requiredSecret := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/node-kubeconfigs.yaml"))
 
-	systemAdminCredsSecret, err := secretLister.Secrets(operatorclient.OperatorNamespace).Get("node-system-admin-client")
+	systemAdminCredsSecret, err := secretLister.Secrets(operatorclient.OperatorNamespace).Get(nodeSystemAdminClient)
 	if err != nil {
 		return err
 	}
 
 	systemAdminClientCert := systemAdminCredsSecret.Data[corev1.TLSCertKey]
 	if len(systemAdminClientCert) == 0 {
-		return fmt.Errorf("system:admin client certificate missing from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
+		return fmt.Errorf("system:admin client certificate missing from secret %s/%s", operatorclient.OperatorNamespace, nodeSystemAdminClient)
 	}
 	systemAdminClientKey := systemAdminCredsSecret.Data[corev1.TLSPrivateKeyKey]
 	if len(systemAdminClientKey) == 0 {
-		return fmt.Errorf("system:admin client private key missing from secret %s/node-system-admin-client", operatorclient.OperatorNamespace)
+		return fmt.Errorf("system:admin client private key missing from secret %s/%s", operatorclient.OperatorNamespace, nodeSystemAdminClient)
 	}
 
-	servingCABundleCM, err := configmapLister.ConfigMaps(operatorclient.TargetNamespace).Get("kube-apiserver-server-ca")
+	servingCABundleCM, err := configmapLister.ConfigMaps(operatorclient.TargetNamespace).Get(kubeApiserverServerCA)
 	if err != nil {
 		return err
 	}
 	servingCABundleData := servingCABundleCM.Data["ca-bundle.crt"]
 	if len(servingCABundleData) == 0 {
-		return fmt.Errorf("serving CA bundle missing from configmap %s/kube-apiserver-server-ca", operatorclient.TargetNamespace)
+		return fmt.Errorf("serving CA bundle missing from configmap %s/%s", operatorclient.TargetNamespace, kubeApiserverServerCA)
 	}
 
 	infrastructure, err := infrastructureLister.Get("cluster")
@@ -161,10 +180,15 @@ func ensureNodeKubeconfigs(ctx context.Context, client coreclientv1.CoreV1Interf
 		requiredSecret.Annotations[certrotation.CertificateNotAfterAnnotation] = systemAdminCredsSecret.Annotations[certrotation.CertificateNotAfterAnnotation]
 	}
 
-	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
-	if err != nil {
-		return err
+	actualSecret, err := secretLister.Secrets(requiredSecret.Namespace).Get(requiredSecret.Name)
+	if !apierrors.IsNotFound(err) {
+		if err != nil {
+			return err
+		}
+		if reflect.DeepEqual(actualSecret.Data, requiredSecret.Data) && reflect.DeepEqual(actualSecret.Annotations, requiredSecret.Annotations) {
+			return nil
+		}
 	}
-
-	return nil
+	_, _, err = resourceapply.ApplySecret(ctx, client, recorder, requiredSecret)
+	return err
 }
