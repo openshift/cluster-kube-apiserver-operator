@@ -195,6 +195,9 @@ type TemplateData struct {
 	// ShutdownDelayDuration is passed to kube-apiserver. Empty means not to override defaultconfig's value.
 	ShutdownDelayDuration string
 
+	// GoAwayChance is defaultconfig's goaway-chance setting. Empty means not to override defaultconfig's value.
+	GoAwayChance string
+
 	ServiceAccountIssuer string
 }
 
