@@ -365,6 +365,107 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "annotations only update",
+			existingObjects: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver",
+						Name:      "kube-apiserver-server-ca",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": "kube-apiserver-server-ca certificate",
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver-operator",
+						Name:      "node-system-admin-client",
+						Annotations: map[string]string{
+							certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+							certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+						},
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte(publicKey),
+						"tls.key": []byte(privateKey),
+					},
+				},
+				&corev1.Secret{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Secret",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "openshift-kube-apiserver",
+						Name:      "node-kubeconfigs",
+						Annotations: map[string]string{
+							annotations.OpenShiftComponent:              "kube-apiserver",
+							certrotation.CertificateNotBeforeAnnotation: "some-old-not-before",
+							certrotation.CertificateNotAfterAnnotation:  "some-old-not-after",
+						},
+					},
+					Data: map[string][]byte{
+						"localhost.kubeconfig":          generateKubeConfig("localhost", "https://localhost:6443"),
+						"localhost-recovery.kubeconfig": generateKubeConfig("localhost-recovery", "https://localhost:6443"),
+						"lb-ext.kubeconfig":             generateKubeConfig("lb-ext", lbExtServer),
+						"lb-int.kubeconfig":             generateKubeConfig("lb-int", lbIntServer),
+					},
+				},
+			},
+			infrastructure: &configv1.Infrastructure{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "",
+					Name:      "cluster",
+				},
+				Status: configv1.InfrastructureStatus{
+					APIServerURL:         lbExtServer,
+					APIServerInternalURL: lbIntServer,
+				},
+			},
+			expectedErr: nil,
+			expectedActions: []clienttesting.Action{
+				clienttesting.DeleteActionImpl{
+					ActionImpl: clienttesting.ActionImpl{
+						Namespace: "openshift-kube-apiserver",
+						Verb:      "delete",
+						Resource:  corev1.SchemeGroupVersion.WithResource("secrets"),
+					},
+					Name: "node-kubeconfigs",
+				},
+				clienttesting.CreateActionImpl{
+					ActionImpl: clienttesting.ActionImpl{
+						Namespace: "openshift-kube-apiserver",
+						Verb:      "create",
+						Resource:  corev1.SchemeGroupVersion.WithResource("secrets"),
+					},
+					Object: &corev1.Secret{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "v1",
+							Kind:       "Secret",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace:       "openshift-kube-apiserver",
+							Name:            "node-kubeconfigs",
+							Labels:          map[string]string{},
+							OwnerReferences: []metav1.OwnerReference{},
+							Annotations: map[string]string{
+								annotations.OpenShiftComponent:              "kube-apiserver",
+								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
+								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+							},
+						},
+						Data: map[string][]byte{
+							"localhost.kubeconfig":          generateKubeConfig("localhost", "https://localhost:6443"),
+							"localhost-recovery.kubeconfig": generateKubeConfig("localhost-recovery", "https://localhost:6443"),
+							"lb-ext.kubeconfig":             generateKubeConfig("lb-ext", lbExtServer),
+							"lb-int.kubeconfig":             generateKubeConfig("lb-int", lbIntServer),
+						},
+						Type: corev1.SecretTypeOpaque,
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
