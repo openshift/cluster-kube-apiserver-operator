@@ -123,6 +123,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			apiserver.ObserveShutdownDelayDuration,
 			apiserver.ObserveGracefulTerminationDuration,
 			apiserver.ObserveSendRetryAfterWhileNotReadyOnce,
+			apiserver.ObserveGoawayChance,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
