@@ -443,6 +443,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeClient,
 		configInformers,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace),
 		controllerContext.EventRecorder,
 	)
 
