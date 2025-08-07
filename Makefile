@@ -17,6 +17,17 @@ IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
+TESTS_EXT_BINARY := kube-apiserver-tests-ext
+TESTS_EXT_PACKAGE := ./cmd/kube-apiserver-tests-ext
+
+TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
+TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+TESTS_EXT_GIT_TREE_STATE := $(shell if git diff --quiet; then echo clean; else echo dirty; fi)
+
+TESTS_EXT_LDFLAGS := -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.CommitFromGit=$(TESTS_EXT_GIT_COMMIT)' \
+                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.BuildDate=$(TESTS_EXT_BUILD_DATE)' \
+                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.GitTreeState=$(TESTS_EXT_GIT_TREE_STATE)'
+
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:
 # $0 - macro name
 # $1 - target name
@@ -84,6 +95,36 @@ test-e2e-sno-disruptive: GO_TEST_FLAGS += -timeout 3h
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
 test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
+
+# -------------------------------------------------------------------
+# Build binary with metadata (CI-compliant)
+# -------------------------------------------------------------------
+.PHONY: tests-ext-build
+tests-ext-build:
+	GOOS=$(GOOS) GOARCH=$(GOARCH) GO_COMPLIANCE_POLICY=exempt_all CGO_ENABLED=0 \
+	go build -o $(TESTS_EXT_BINARY) -ldflags "$(TESTS_EXT_LDFLAGS)" $(TESTS_EXT_PACKAGE)
+
+# -------------------------------------------------------------------
+# Run "update" and strip env-specific metadata
+# -------------------------------------------------------------------
+.PHONY: tests-ext-update
+tests-ext-update: tests-ext-build
+	./$(TESTS_EXT_BINARY) update
+	for f in .openshift-tests-extension/*.json; do \
+		jq 'map(del(.codeLocations))' "$$f" > tmpp && mv tmpp "$$f"; \
+	done
+
+# -------------------------------------------------------------------
+# Run go test on ./test/extended/... with proper flags
+# -------------------------------------------------------------------
+.PHONY: test-extended
+test-extended: GO_TEST_PACKAGES := ./test/extended/...
+test-extended: GO_TEST_FLAGS += -v
+test-extended: GO_TEST_FLAGS += -timeout 3h
+test-extended: GO_TEST_FLAGS += -p 1
+test-extended: test-unit
+test-extended:
+	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator

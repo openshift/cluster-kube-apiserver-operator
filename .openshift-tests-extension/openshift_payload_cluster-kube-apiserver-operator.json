@@ -1,0 +1,12 @@
+[
+  {
+    "name": "[Jira:KAS][sig-api-machinery] sanity test should always pass [Suite:openshift/cluster-kube-apiserver-operator/conformance/parallel]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserver-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  }
+]
