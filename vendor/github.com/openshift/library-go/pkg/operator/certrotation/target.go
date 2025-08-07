@@ -113,14 +113,22 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	updateDetail := ""
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotationsForSecret(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
+		if needsMetadataUpdate {
+			updateDetail = fmt.Sprintf("annotations set to %#v", c.AdditionalAnnotations)
+		}
 		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
+		if needsTypeChange {
+			updateDetail = "updated secret type"
+		}
 		updateRequired = needsMetadataUpdate || needsTypeChange
 	}
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, creationRequired); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
+		updateDetail = fmt.Sprintf("content change: %s", reason)
 		if err = setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret, c.Validity, c.Refresh, signingCertKeyPair, c.CertCreator, c.AdditionalAnnotations); err != nil {
 			return nil, err
 		}
@@ -143,11 +151,11 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err)
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err, updateDetail)
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+		klog.V(2).Infof("Updated secret %s/%s, reason: %s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name, updateDetail)
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	}
 
