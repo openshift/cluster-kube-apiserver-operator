@@ -611,7 +611,7 @@ func newCertRotationController(
 			Name:      "kube-control-plane-signer",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
+				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
@@ -628,7 +628,7 @@ func newCertRotationController(
 			Name:      "kube-control-plane-signer-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
+				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
