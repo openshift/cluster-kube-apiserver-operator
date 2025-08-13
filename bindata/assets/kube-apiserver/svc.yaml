@@ -11,3 +11,12 @@ spec:
   - name: https
     port: 443
     targetPort: 6443
+    protocol: TCP
+  - name: insecure-readyz
+    port: 6080
+    targetPort: 6080
+    protocol: TCP
+  - name: check-endpoints
+    port: 17697
+    targetPort: 17697
+    protocol: TCP
