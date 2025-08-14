@@ -351,11 +351,11 @@ func TestObserveExternalOIDC(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, actualConfig) {
-				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, actualConfig))
+				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, actualConfig))
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tt.expectedSynced, synced))
+				t.Errorf("expected resources not synced: %s", diff.Diff(tt.expectedSynced, synced))
 			}
 		})
 	}
@@ -424,7 +424,7 @@ func TestValidateSourceConfigMap(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedConfigMap, cm) {
-				t.Errorf("unexpected config map: %s", diff.ObjectReflectDiff(tt.expectedConfigMap, cm))
+				t.Errorf("unexpected config map: %s", diff.Diff(tt.expectedConfigMap, cm))
 			}
 
 		})
