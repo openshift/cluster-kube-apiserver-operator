@@ -315,8 +315,8 @@ func TestPodSecurityViolationController(t *testing.T) {
 				},
 			},
 			expectedViolation:    false,
-			expectedEnforceLabel: "",
-			expectedError:        true,
+			expectedEnforceLabel: "restricted",
+			expectedError:        false,
 		},
 		{
 			name:     "error against inconclusive namespace",
@@ -328,8 +328,8 @@ func TestPodSecurityViolationController(t *testing.T) {
 				},
 			},
 			expectedViolation:    false,
-			expectedEnforceLabel: "",
-			expectedError:        true,
+			expectedEnforceLabel: "restricted",
+			expectedError:        false,
 		},
 	} {
 		tt := tt
@@ -357,7 +357,7 @@ func TestPodSecurityViolationController(t *testing.T) {
 				},
 			}
 
-			isViolating, err := controller.isNamespaceViolating(context.TODO(), tt.namespace)
+			isViolating, _, err := controller.isNamespaceViolating(context.TODO(), tt.namespace)
 			if (err != nil) != tt.expectedError {
 				t.Errorf("expected error %v, got %v", tt.expectedError, err)
 			}
