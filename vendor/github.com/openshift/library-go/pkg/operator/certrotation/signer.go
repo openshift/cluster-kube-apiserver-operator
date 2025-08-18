@@ -87,6 +87,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			updateReasons = append(updateReasons, reason)
 		}
 		updateRequired = len(updateReasons) > 0
+		klog.V(2).Infof("Signer %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	// run Update if signer content needs changing
@@ -105,6 +106,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 		updateRequired = true
 		signerUpdated = true
+		klog.V(2).Infof("Signer %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	if creationRequired {
@@ -116,6 +118,8 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		klog.V(2).Infof("Created secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	} else if updateRequired {
+		klog.V(2).Infof("Signer %s/%s got updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
+
 		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, signingCertKeyPairSecret, metav1.UpdateOptions{})
 		if apierrors.IsConflict(err) {
 			// ignore error if its attempting to update outdated version of the secret
