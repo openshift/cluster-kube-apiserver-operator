@@ -17,8 +17,8 @@ IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
-TESTS_EXT_BINARY := kube-apiserver-tests-ext
-TESTS_EXT_PACKAGE := ./cmd/kube-apiserver-tests-ext
+TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
+TESTS_EXT_PACKAGE := ./cmd/cluster-kube-apiserver-operator-tests-ext
 
 TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
 TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
