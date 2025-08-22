@@ -113,21 +113,26 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(targetCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(targetCertKeyPairSecret)
-		updateRequired = needsMetadataUpdate || needsTypeChange
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&targetCertKeyPairSecret.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		if reason := ensureSecretTLSTypeSet(targetCertKeyPairSecret); len(reason) > 0 {
+			updateReasons = append(updateReasons, reason)
+		}
+		updateRequired = len(updateReasons) > 0
+		klog.V(2).Infof("Target %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", targetCertKeyPairSecret.Name, targetCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	if reason := c.CertCreator.NeedNewTargetCertKeyPair(targetCertKeyPairSecret, signingCertKeyPair, caBundleCerts, c.Refresh, c.RefreshOnlyWhenExpired, creationRequired); len(reason) > 0 {
 		c.EventRecorder.Eventf("TargetUpdateRequired", "%q in %q requires a new target cert/key pair: %v", c.Name, c.Namespace, reason)
+		updateReasons = append(updateReasons, fmt.Sprintf("content change: %s", reason))
 		if err = setTargetCertKeyPairSecretAndTLSAnnotations(targetCertKeyPairSecret, c.Validity, c.Refresh, signingCertKeyPair, c.CertCreator, c.AdditionalAnnotations); err != nil {
 			return nil, err
 		}
 
 		LabelAsManagedSecret(targetCertKeyPairSecret, CertificateTypeTarget)
-
 		updateRequired = true
+		klog.V(2).Infof("Target %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", targetCertKeyPairSecret.Name, targetCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 	if creationRequired {
 		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Create(ctx, targetCertKeyPairSecret, metav1.CreateOptions{})
@@ -138,16 +143,18 @@ func (c RotatedSelfSignedCertKeySecret) EnsureTargetCertKeyPair(ctx context.Cont
 		klog.V(2).Infof("Created secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	} else if updateRequired {
+		klog.V(2).Infof("Target %s/%s got updateRequired %v c.RefreshOnlyWhenExpired %v", targetCertKeyPairSecret.Name, targetCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 		actualTargetCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, targetCertKeyPairSecret, metav1.UpdateOptions{})
 		if apierrors.IsConflict(err) {
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err)
+		updateReasonsJoined := strings.Join(updateReasons, ", ")
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualTargetCertKeyPairSecret, err, updateReasonsJoined)
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name)
+		klog.V(2).Infof("Updated secret %s/%s, reason: %s", actualTargetCertKeyPairSecret.Namespace, actualTargetCertKeyPairSecret.Name, updateReasonsJoined)
 		targetCertKeyPairSecret = actualTargetCertKeyPairSecret
 	}
 

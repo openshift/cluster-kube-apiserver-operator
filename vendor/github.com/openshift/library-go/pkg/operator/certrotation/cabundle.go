@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -67,32 +69,36 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 	}
 
 	// run Update if metadata needs changing unless running in RefreshOnlyWhenExpired mode
+	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsOwnerUpdate := false
-		if c.Owner != nil {
-			needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
-		}
-		needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
-		updateRequired = needsOwnerUpdate || needsMetadataUpdate
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&caBundleConfigMap.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		updateRequired = len(updateReasons) > 0
 	}
 
+	originalCABundle := caBundleConfigMap.Data["ca-bundle.crt"]
 	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
 	if err != nil {
 		return nil, err
 	}
-	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil || !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
-		reason := ""
-		if creationRequired {
-			reason = "configmap doesn't exist"
-		} else if originalCABundleConfigMap.Data == nil {
-			reason = "configmap is empty"
-		} else if !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
-			reason = fmt.Sprintf("signer update %s", signingCertKeyPairLocation)
-		}
-		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert: %s", c.Name, c.Namespace, reason)
-		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
+	newCABundle := caBundleConfigMap.Data["ca-bundle.crt"]
+	diff := cmp.Diff(originalCABundle, newCABundle)
+	if diff != "" {
+		klog.V(2).Infof("CA bundle %s/%s diff:\n%s", caBundleConfigMap.Name, caBundleConfigMap.Namespace, diff)
+	}
 
+	reason := ""
+	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil {
+		reason = "configmap is empty"
+	} else if !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
+		reason = fmt.Sprintf("signer update %s", signingCertKeyPairLocation)
+	}
+	klog.V(2).Infof("CA bundle %s/%s reason: %s", caBundleConfigMap.Name, caBundleConfigMap.Namespace, reason)
+	if !creationRequired && reason != "" {
+		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires update: %s", c.Name, c.Namespace, reason)
+		updateReasons = append(updateReasons, fmt.Sprintf("content change: %s", reason))
+		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
 		updateRequired = true
+		klog.V(2).Infof("CA bundle %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", caBundleConfigMap.Name, caBundleConfigMap.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	if creationRequired {
@@ -101,19 +107,21 @@ func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingC
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name, certs.CertificateBundleToString(updatedCerts))
 		caBundleConfigMap = actualCABundleConfigMap
 	} else if updateRequired {
+		klog.V(2).Infof("CA bundle %s/%s got updateRequired %v c.RefreshOnlyWhenExpired %v", caBundleConfigMap.Name, caBundleConfigMap.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap, metav1.UpdateOptions{})
 		if apierrors.IsConflict(err) {
 			// ignore error if its attempting to update outdated version of the configmap
 			return nil, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err)
+		updateReasonsJoined := strings.Join(updateReasons, ", ")
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err, updateReasonsJoined)
 		if err != nil {
 			return nil, err
 		}
-		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
+		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s due to %s with:\n%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name, updateReasonsJoined, certs.CertificateBundleToString(updatedCerts))
 		caBundleConfigMap = actualCABundleConfigMap
 	}
 

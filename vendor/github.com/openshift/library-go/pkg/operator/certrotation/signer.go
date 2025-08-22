@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -79,10 +80,14 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
-		updateRequired = needsMetadataUpdate || needsTypeChange
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&signingCertKeyPairSecret.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		if reason := ensureSecretTLSTypeSet(signingCertKeyPairSecret); len(reason) > 0 {
+			updateReasons = append(updateReasons, reason)
+		}
+		updateRequired = len(updateReasons) > 0
+		klog.V(2).Infof("Signer %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	// run Update if signer content needs changing
@@ -92,6 +97,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
+		updateReasons = append(updateReasons, fmt.Sprintf("signer update: %s", reason))
 		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
 			return nil, false, err
 		}
@@ -100,6 +106,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 
 		updateRequired = true
 		signerUpdated = true
+		klog.V(2).Infof("Signer %s/%s set updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
 	}
 
 	if creationRequired {
@@ -111,16 +118,19 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 		klog.V(2).Infof("Created secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	} else if updateRequired {
+		klog.V(2).Infof("Signer %s/%s got updateRequired %v c.RefreshOnlyWhenExpired %v", signingCertKeyPairSecret.Name, signingCertKeyPairSecret.Namespace, updateRequired, c.RefreshOnlyWhenExpired)
+
 		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, signingCertKeyPairSecret, metav1.UpdateOptions{})
 		if apierrors.IsConflict(err) {
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, false, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
+		updateReasonsJoined := strings.Join(updateReasons, ", ")
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err, updateReasonsJoined)
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+		klog.V(2).Infof("Updated secret %s/%s, reason: %s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name, updateReasonsJoined)
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
@@ -152,16 +162,16 @@ func ensureOwnerReference(meta *metav1.ObjectMeta, owner *metav1.OwnerReference)
 func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, refreshOnlyWhenExpired bool) (bool, string) {
 	annotations := secret.Annotations
 	notBefore, notAfter, reason := getValidityFromAnnotations(annotations)
-	if len(reason) > 0 {
-		return true, reason
-	}
-
 	if time.Now().After(notAfter) {
 		return true, "already expired"
 	}
 
 	if refreshOnlyWhenExpired {
 		return false, ""
+	}
+
+	if len(reason) > 0 {
+		return true, reason
 	}
 
 	validity := notAfter.Sub(notBefore)
@@ -181,19 +191,23 @@ func needNewSigningCertKeyPair(secret *corev1.Secret, refresh time.Duration, ref
 func getValidityFromAnnotations(annotations map[string]string) (notBefore time.Time, notAfter time.Time, reason string) {
 	notAfterString := annotations[CertificateNotAfterAnnotation]
 	if len(notAfterString) == 0 {
+		klog.V(2).Infof("Validity from annotations %v: missing notAfter", annotations)
 		return notBefore, notAfter, "missing notAfter"
 	}
 	notAfter, err := time.Parse(time.RFC3339, notAfterString)
 	if err != nil {
-		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notAfterString)
+		klog.V(2).Infof("Validity from annotations %v: bad notAfter expiry", annotations)
+		return notBefore, notAfter, fmt.Sprintf("bad notAfter expiry: %q", notAfterString)
 	}
 	notBeforeString := annotations[CertificateNotBeforeAnnotation]
-	if len(notAfterString) == 0 {
+	if len(notBeforeString) == 0 {
+		klog.V(2).Infof("Validity from annotations %v: missing notBefore", annotations)
 		return notBefore, notAfter, "missing notBefore"
 	}
 	notBefore, err = time.Parse(time.RFC3339, notBeforeString)
 	if err != nil {
-		return notBefore, notAfter, fmt.Sprintf("bad expiry: %q", notBeforeString)
+		klog.V(2).Infof("Validity from annotations %v: bad notBefore expiry", annotations)
+		return notBefore, notAfter, fmt.Sprintf("bad notBefore expiry: %q", notBeforeString)
 	}
 
 	return notBefore, notAfter, ""
