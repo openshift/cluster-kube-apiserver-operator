@@ -170,7 +170,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			}
 			if tc.expectedMsgLines != condition.Message {
 				t.Errorf("Expected condition message to match %q.", tc.expectedMsgLines)
-				t.Log(diff.StringDiff(tc.expectedMsgLines, condition.Message))
+				t.Log(diff.Diff(tc.expectedMsgLines, condition.Message))
 			}
 			if t.Failed() {
 				t.Logf("Condition message: %s", condition.Message)

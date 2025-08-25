@@ -565,7 +565,7 @@ func TestMergeStringSlices(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expected, merged) {
-				t.Errorf("unexpected merged slice: %s", diff.ObjectReflectDiff(tt.expected, merged))
+				t.Errorf("unexpected merged slice: %s", diff.Diff(tt.expected, merged))
 			}
 
 		})
