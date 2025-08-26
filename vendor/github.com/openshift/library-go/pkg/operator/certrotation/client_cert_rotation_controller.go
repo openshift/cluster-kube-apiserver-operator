@@ -143,7 +143,7 @@ func (c CertRotationController) SyncWorker(ctx context.Context) error {
 	}
 
 	cabundleCerts, err := c.CABundleConfigMap.EnsureConfigMapCABundle(ctx, signingCertKeyPair, c.getSigningCertKeyPairLocation())
-	if err != nil {
+	if err != nil || cabundleCerts == nil {
 		return err
 	}
 
