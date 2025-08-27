@@ -8,6 +8,7 @@ import (
 	securityv1listers "github.com/openshift/client-go/security/listers/security/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -60,6 +61,9 @@ func (c *sccReconcileController) sync(ctx context.Context, controllerContext fac
 	sccName := controllerContext.QueueKey()
 	scc, err := c.sccLister.Get(sccName)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 
