@@ -364,7 +364,7 @@ func newCertRotationController(
 			Name:      "service-network-serving-ca",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
-				Description:   "CA for recognizing the kube-apiserver when connecting via the service network (kuberentes.default.svc).",
+				Description:   "CA for recognizing the kube-apiserver when connecting via the service network (kubernetes.default.svc).",
 				// ServiceNetworkServing is not being tested directly, but this CA will be rotated when
 				// other signers are updated and needs to have the same metadata set
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]",
