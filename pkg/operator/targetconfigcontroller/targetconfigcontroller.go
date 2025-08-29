@@ -219,6 +219,10 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
+	_, _, err = manageKubeAPICheckEndpointsConfig(ctx, c.kubeClient.CoreV1(), recorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-check-endpoints-config", err))
+	}
 	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
@@ -301,6 +305,11 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 		return nil, false, err
 	}
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
+}
+
+func manageKubeAPICheckEndpointsConfig(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/check-endpoints-config-cm.yaml"))
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, configMap)
 }
 
 func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
