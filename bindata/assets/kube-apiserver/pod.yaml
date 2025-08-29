@@ -288,6 +288,7 @@ spec:
       readOnlyRootFilesystem: true
   terminationGracePeriodSeconds: {{.GracefulTerminationDuration}}
   hostNetwork: true
+  priority: 2000001000
   priorityClassName: system-node-critical
   tolerations:
   - operator: "Exists"
