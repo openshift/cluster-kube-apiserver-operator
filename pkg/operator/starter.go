@@ -660,6 +660,9 @@ var CertConfigMaps = []installer.UnrevisionedResource{
 
 	// kubeconfig for check-endpoints
 	{Name: "check-endpoints-kubeconfig"},
+
+	// kube-apiserver-operator-config (TLS cipherSuites/minTLSVersion for check-endpoints).
+	{Name: "kube-apiserver-operator-config"},
 }
 
 var CertSecrets = []installer.UnrevisionedResource{

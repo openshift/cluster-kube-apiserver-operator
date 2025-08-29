@@ -95,5 +95,13 @@ func NewResourceSyncController(
 		return nil, err
 	}
 
+	// this config contains the cipherSuites and minTLSVersion which is used by check-endpoints
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "kube-apiserver-operator-config"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "kube-apiserver-operator-config"},
+	); err != nil {
+		return nil, err
+	}
+
 	return resourceSyncController, nil
 }
