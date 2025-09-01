@@ -767,7 +767,7 @@ func newCertRotationController(
 			Name:      "control-plane-node-admin-client-cert-key",
 			AdditionalAnnotations: certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
-				Description:                      "kube-controller-manager and kube-scheduler client certificates.",
+				Description:                      "Client certificate and key for the control plane node kubeconfig",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"control-plane-node.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
