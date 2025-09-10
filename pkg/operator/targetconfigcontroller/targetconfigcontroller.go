@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
+	applycorev1 "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -402,22 +403,37 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 		return nil, false, err
 	}
 
-	if creationRequired {
-		caBundleConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Create(ctx, requiredConfigMap, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(recorder, caBundleConfigMap, err)
+	patch := applycorev1.ConfigMap(caBundleConfigMapName, operatorclient.TargetNamespace)
+	patch.WithData(requiredConfigMap.Data)
+	tmp := &metav1.ObjectMeta{}
+	additionalAnnotations.EnsureTLSMetadataUpdate(tmp)
+	patch.WithAnnotations(tmp.Annotations)
+
+	if creationRequired || updateRequired {
+
+		result, err := client.ConfigMaps(operatorclient.TargetNamespace).Apply(ctx, patch, metav1.ApplyOptions{Force: true, FieldManager: "cluster-kube-apiserver-operator"})
+
+		// emit events
+		if (result != nil && result.ResourceVersion == "1") || creationRequired {
+			// either the configmap was created or we expected it to be created and it failed
+			resourcehelper.ReportCreateEvent(recorder, caBundleConfigMap, err)
+		} else {
+			// an existing configmap was updated, even if we expected it to be created
+			resourcehelper.ReportUpdateEvent(recorder, caBundleConfigMap, err)
+		}
+
+		// handle the err from the Apply call
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Created client CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
-		return caBundleConfigMap, true, nil
-	} else if updateRequired {
-		caBundleConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Update(ctx, requiredConfigMap, metav1.UpdateOptions{})
-		resourcehelper.ReportUpdateEvent(recorder, caBundleConfigMap, err)
-		if err != nil {
-			return nil, false, err
+
+		if result.ResourceVersion == "1" {
+			klog.V(2).Infof("Created client CA bundle configmap %s/%s", result.Namespace, result.Name)
+		} else {
+			klog.V(2).Infof("Updated client CA bundle configmap %s/%s", result.Namespace, result.Name)
 		}
-		klog.V(2).Infof("Updated client CA bundle configmap %s/%s", caBundleConfigMap.Namespace, caBundleConfigMap.Name)
-		return caBundleConfigMap, true, nil
+
+		return result, true, nil
 	}
 
 	return caBundleConfigMap, false, nil
