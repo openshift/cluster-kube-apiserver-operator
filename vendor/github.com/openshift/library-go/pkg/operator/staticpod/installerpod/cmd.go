@@ -3,7 +3,6 @@ package installerpod
 import (
 	"context"
 	"fmt"
-	"k8s.io/utils/clock"
 	"os"
 	"path"
 	"sort"
@@ -11,28 +10,28 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/blang/semver/v4"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/library-go/pkg/config/client"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resource/retry"
-	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal"
+	"github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicfiles"
 	"github.com/openshift/library-go/pkg/operator/staticpod/internal/flock"
 )
 
@@ -258,14 +257,8 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			secretBaseName = o.prefixFor(secret.Name)
 		}
 		contentDir := path.Join(resourceDir, "secrets", secretBaseName)
-		klog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
+		if err := atomicfiles.SyncDirectory("secret", secret.ObjectMeta, contentDir, secret.Data, 0600); err != nil {
 			return err
-		}
-		for filename, content := range secret.Data {
-			if err := writeSecret(content, path.Join(contentDir, filename)); err != nil {
-				return err
-			}
 		}
 	}
 	for _, configmap := range configs {
@@ -274,17 +267,10 @@ func (o *InstallOptions) copySecretsAndConfigMaps(ctx context.Context, resourceD
 			configMapBaseName = o.prefixFor(configmap.Name)
 		}
 		contentDir := path.Join(resourceDir, "configmaps", configMapBaseName)
-		klog.Infof("Creating directory %q ...", contentDir)
-		if err := os.MkdirAll(contentDir, 0755); err != nil {
+		if err := atomicfiles.SyncDirectory("configmap", configmap.ObjectMeta, contentDir, configmap.Data, 0600); err != nil {
 			return err
 		}
-		for filename, content := range configmap.Data {
-			if err := writeConfig([]byte(content), path.Join(contentDir, filename)); err != nil {
-				return err
-			}
-		}
 	}
-
 	return nil
 }
 
@@ -623,24 +609,4 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 		return err
 	}
 	return nil
-}
-
-func writeConfig(content []byte, fullFilename string) error {
-	klog.Infof("Writing config file %q ...", fullFilename)
-
-	filePerms := os.FileMode(0600)
-	if strings.HasSuffix(fullFilename, ".sh") {
-		filePerms = 0755
-	}
-	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
-}
-
-func writeSecret(content []byte, fullFilename string) error {
-	klog.Infof("Writing secret manifest %q ...", fullFilename)
-
-	filePerms := os.FileMode(0600)
-	if strings.HasSuffix(fullFilename, ".sh") {
-		filePerms = 0700
-	}
-	return staticpod.WriteFileAtomic(content, filePerms, fullFilename)
 }
