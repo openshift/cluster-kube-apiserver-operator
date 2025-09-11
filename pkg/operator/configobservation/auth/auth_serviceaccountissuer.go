@@ -128,16 +128,14 @@ func observedConfig(existingConfig map[string]interface{},
 	// If the issuer is not set in KAS, we rely on the config-overrides.yaml to set both
 	// the issuer and the api-audiences but configure the jwks-uri to point to
 	// the LB so that it does not default to KAS IP which is not included in the serving certs
-	if observedActiveIssuer == defaultServiceAccountIssuerValue {
-		infrastructureConfig, err := getInfrastructureConfig("cluster")
-		if err != nil {
-			return existingConfig, append(errs, err)
-		}
-		if apiServerExternalURL := infrastructureConfig.Status.APIServerURL; len(apiServerExternalURL) == 0 {
-			return existingConfig, append(errs, fmt.Errorf("APIServerURL missing from infrastructure/cluster"))
-		} else {
-			apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerExternalURL + "/openid/v1/jwks"}
-		}
+	infrastructureConfig, err := getInfrastructureConfig("cluster")
+	if err != nil {
+		return existingConfig, append(errs, err)
+	}
+	if apiServerExternalURL := infrastructureConfig.Status.APIServerURL; len(apiServerExternalURL) == 0 {
+		return existingConfig, append(errs, fmt.Errorf("APIServerURL missing from infrastructure/cluster"))
+	} else {
+		apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerExternalURL + "/openid/v1/jwks"}
 	}
 
 	return map[string]interface{}{"apiServerArguments": apiServerArguments}, errs
