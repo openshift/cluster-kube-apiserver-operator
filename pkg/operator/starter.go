@@ -632,6 +632,9 @@ var RevisionConfigMaps = []revision.RevisionResource{
 
 	// optional configmap containing the OIDC structured auth config
 	{Name: auth.AuthConfigCMName, Optional: true},
+	// kube-apiserver-check-endpoints-config: TLS cipherSuites/minTLSVersion for check-endpoints.
+	// set kube-apiserver-check-endpoints-config Optional to true as this cm is not existed in the current revision when upgrade
+	{Name: "kube-apiserver-check-endpoints-config", Optional: true},
 }
 
 // RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
