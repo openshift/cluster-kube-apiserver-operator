@@ -36,6 +36,10 @@ func readAllYaml(path string, t *testing.T) {
 			return false, nil
 		}
 		// there is an alert message containing $labels strings that cause the reader to fail.
+		if strings.HasSuffix(info.Name(), "kube-apiserver-down.yaml") {
+			return false, nil
+		}
+		// there is an alert message containing $labels strings that cause the reader to fail.
 		if strings.HasSuffix(info.Name(), "api-usage.yaml") {
 			return false, nil
 		}
