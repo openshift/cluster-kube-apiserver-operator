@@ -24,6 +24,7 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		{KubeVersionRange: semver.MustParseRange("< 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
 		{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
 		{KubeVersionRange: semver.MustParseRange(">= 1.32.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta1"}},
+		{KubeVersionRange: semver.MustParseRange(">= 1.33.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}},
 	},
 	"VolumeAttributesClass": {{GroupVersion: schema.GroupVersion{Group: "storage.k8s.io", Version: "v1beta1"}}},
 }
