@@ -17,8 +17,16 @@ import (
 
 var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
 	"MutatingAdmissionPolicy": {
-		{KubeVersionRange: semver.MustParseRange("< 1.34.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
-		{KubeVersionRange: semver.MustParseRange(">= 1.34.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
+		// Both v1alpha1 and v1beta1 versions must be served pre-GA because e2e tests exercise both APIs.
+		// A GA OpenShift release could inadvertently serve these versions if MutatingAdmissionPolicy
+		// gets added to the default featureSet in openshift/api as part of transitioning from
+		// (feature off, v1beta1 off) to (feature on, v1 on).
+		// To prevent that, version ranges below include min and max bounds.
+		// TODO: Update version ranges when rebasing to k8s v1.35+
+		// - If v1 resources are available in 1.35: remove all MutatingAdmissionPolicy references
+		// - If no v1 resources: bump ranges to "<1.36.0" and reassess in next rebase
+		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
+		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 	},
 	"DynamicResourceAllocation": {
 		{KubeVersionRange: semver.MustParseRange("< 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
@@ -62,7 +70,6 @@ var (
 // either will only be set if both can be successfully set. Otherwise, the existing config is
 // returned pruned but otherwise unmodified.
 func NewFeatureGateObserverWithRuntimeConfig(featureWhitelist sets.Set[configv1.FeatureGateName], featureBlacklist sets.Set[configv1.FeatureGateName], featureGateAccessor featuregates.FeatureGateAccess, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) configobserver.ObserveConfigFunc {
-
 	featureGateObserver := featuregates.NewObserveFeatureFlagsFunc(
 		featureWhitelist,
 		featureBlacklist,
