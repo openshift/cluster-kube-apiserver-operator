@@ -28,14 +28,14 @@ spec:
             severity: warning
         - alert: KubeAPIDown
           annotations:
-            description: KubeAPI has disappeared from Prometheus target discovery.
+            description: KubeAPI on node {{ $labels.node }} has disappeared from Prometheus target discovery.
             runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-kube-apiserver-operator/KubeAPIDown.md
             summary: Target disappeared from Prometheus target discovery.
           expr: |
-            absent(up{job="apiserver"} == 1)
+            (kube_node_role{role="master"} * on(node) group_left(internal_ip) kube_node_info) unless on(internal_ip) (label_replace(up{job="apiserver"}, "internal_ip", "$1", "instance", "(.+):6443")) > 0
           for: 15m
           labels:
-            severity: critical
+            severity: warning
         - alert: KubeAPITerminatedRequests
           annotations:
             description: The kubernetes apiserver has terminated {{ $value | humanizePercentage }} of its incoming requests.
