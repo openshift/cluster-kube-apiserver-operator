@@ -48,8 +48,7 @@ metadata:
     exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   endpoints:
-  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
-    interval: 30s
+  - interval: 30s
     metricRelabelings:
     - action: drop
       regex: etcd_(debugging|disk|server).*
@@ -109,12 +108,11 @@ spec:
     tlsConfig:
       caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
       serverName: kubernetes
-      certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
-      keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
   jobLabel: component
   namespaceSelector:
     matchNames:
     - default
+  scrapeClass: tls-client-certificate-auth
   selector:
     matchLabels:
       component: apiserver
