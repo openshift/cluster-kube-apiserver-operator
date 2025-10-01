@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
@@ -79,10 +80,10 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 	}
 
 	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
+	updateReasons := []string{}
 	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
-		updateRequired = needsMetadataUpdate || needsTypeChange
+		updateReasons = append(updateReasons, ensureOwnerRefAndTLSAnnotations(&signingCertKeyPairSecret.ObjectMeta, c.Owner, c.AdditionalAnnotations)...)
+		updateRequired = len(updateReasons) > 0
 	}
 
 	// run Update if signer content needs changing
@@ -92,6 +93,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
+		updateReasons = append(updateReasons, fmt.Sprintf("signer update: %s", reason))
 		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
 			return nil, false, err
 		}
@@ -116,11 +118,12 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			// ignore error if its attempting to update outdated version of the secret
 			return nil, false, nil
 		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
+		updateReasonsJoined := strings.Join(updateReasons, ", ")
+		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err, updateReasonsJoined)
 		if err != nil {
 			return nil, false, err
 		}
-		klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
+		klog.V(2).Infof("Updated secret %s/%s, reason: %s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name, updateReasonsJoined)
 		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
 	}
 
