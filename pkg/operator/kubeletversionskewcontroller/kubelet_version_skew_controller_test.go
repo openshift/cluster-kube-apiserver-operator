@@ -65,7 +65,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor version (1.20.1) on node test001 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet minor version (1.20.1) on node test001 will not be supported in the next OpenShift minor version upgrade to 4.9.",
 		},
 		{
 			name:             "UnsupportedNextUpgrade/Odd",
@@ -81,7 +81,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on nodes test001 and test002 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet minor versions on nodes test001 and test002 will not be supported in the next OpenShift minor version upgrade to 4.9.",
 		},
 		{
 			name:             "ThreeNodesNotSynced",
@@ -89,7 +89,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on nodes test001, test002, and test003 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet minor versions on nodes test001, test002, and test003 will not be supported in the next OpenShift minor version upgrade to 4.9.",
 		},
 		{
 			name:             "ManyNodesNotSynced",
@@ -97,7 +97,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1, -1, -1, 0, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on 5 nodes will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet minor versions on 5 nodes will not be supported in the next OpenShift minor version upgrade to 4.9.",
 		},
 		{
 			name:             "SkewedUnsupported/Even",
@@ -121,7 +121,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(-1, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor version (1.20.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet minor version (1.20.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade 4.10.",
 		},
 		{
 			name:             "Unsupported",
