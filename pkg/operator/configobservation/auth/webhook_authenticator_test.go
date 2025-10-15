@@ -176,7 +176,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 
 			gotConfig, errs := ObserveWebhookTokenAuthenticator(listers, eventRecorder, tt.existingConfig)
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, gotConfig) {
-				t.Errorf("unexpected config diff: %s", diff.ObjectReflectDiff(tt.expectedConfig, gotConfig))
+				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, gotConfig))
 			}
 
 			gotAuthenticator, _, err := unstructured.NestedStringSlice(gotConfig, webhookTokenAuthenticatorPath...)
@@ -204,7 +204,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tt.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tt.expectedSynced, synced))
+				t.Errorf("expected resources not synced: %s", diff.Diff(tt.expectedSynced, synced))
 			}
 		})
 	}
