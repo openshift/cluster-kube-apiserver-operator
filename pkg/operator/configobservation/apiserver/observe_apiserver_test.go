@@ -80,7 +80,7 @@ func TestObserveUserClientCABundle(t *testing.T) {
 				t.Errorf("did not expect observed config to be updated : %s", result)
 			}
 			if !equality.Semantic.DeepEqual(tc.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tc.expectedSynced, synced))
+				t.Errorf("expected resources not synced: %s", diff.Diff(tc.expectedSynced, synced))
 			}
 		})
 	}
@@ -514,10 +514,10 @@ func TestObserveNamedCertificates(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(tc.expected, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(tc.expected, result))
+				t.Errorf("result does not match expected config: %s", diff.Diff(tc.expected, result))
 			}
 			if !equality.Semantic.DeepEqual(tc.expectedSynced, synced) {
-				t.Errorf("expected resources not synced: %s", diff.ObjectReflectDiff(tc.expectedSynced, synced))
+				t.Errorf("expected resources not synced: %s", diff.Diff(tc.expectedSynced, synced))
 			}
 		})
 	}
