@@ -79,7 +79,7 @@ func TestObserveAdditionalCORSAllowedOrigins(t *testing.T) {
 				t.Errorf("Expected 0 errors, got %v.", len(errs))
 			}
 			if !equality.Semantic.DeepEqual(tc.expected, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(tc.expected, result))
+				t.Errorf("result does not match expected config: %s", diff.Diff(tc.expected, result))
 			}
 		})
 	}

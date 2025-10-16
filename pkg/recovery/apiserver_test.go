@@ -131,7 +131,7 @@ func TestApiserverRecoveryPod(t *testing.T) {
 						"diff: %s",
 					tc.expectedPod,
 					pod,
-					diff.ObjectReflectDiff(tc.expectedPod, pod),
+					diff.Diff(tc.expectedPod, pod),
 				))
 			}
 		})
