@@ -1,0 +1,25 @@
+diff --no-dereference -N -r current/vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/installer_controller.go updated/vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/installer_controller.go
+10d9
+< 	"sort"
+122d120
+< 	lastMissingEvent         map[string]time.Time
+1124,1140c1122
+< 	sort.Strings(eventMessages)
+< 	key := strings.Join(eventMessages, ",")
+< 
+< 	if c.lastMissingEvent == nil {
+< 		c.lastMissingEvent = make(map[string]time.Time)
+< 	}
+< 
+< 	now := time.Now()
+< 	if c.now != nil {
+< 		now = c.now()
+< 	}
+< 
+< 	if lastTime, exists := c.lastMissingEvent[key]; !exists || now.Sub(lastTime) > 30*time.Second {
+< 		c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
+< 		c.lastMissingEvent[key] = now
+< 	}
+< 
+---
+> 	c.eventRecorder.Warningf("RequiredInstallerResourcesMissing", strings.Join(eventMessages, ", "))
