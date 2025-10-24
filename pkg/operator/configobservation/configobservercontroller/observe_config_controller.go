@@ -97,6 +97,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(preRunCacheSynced,
 					operatorClient.Informer().HasSynced,
+					operatorInformer.Operator().V1().KubeAPIServers().Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer().HasSynced,
 					kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer().HasSynced,
@@ -125,6 +126,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			apiserver.ObserveSendRetryAfterWhileNotReadyOnce,
 			apiserver.ObserveGoawayChance,
 			apiserver.ObserveAdmissionPlugins,
+			apiserver.NewObserveEventTTL(featureGateAccessor),
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
