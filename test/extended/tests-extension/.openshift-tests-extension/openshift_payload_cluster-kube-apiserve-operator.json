@@ -1,0 +1,42 @@
+[
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=5m [Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserve-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=10m [Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserve-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=15m [Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserve-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery] sanity test should always pass [Suite:openshift/cluster-kube-apiserver-operator/conformance/parallel]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserve-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  }
+]
