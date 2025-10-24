@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	// The import below is necessary to ensure that the OAS operator tests are registered with the extension.
-	_ "github.com/openshift/cluster-kube-apiserver-operator/test/extended"
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/extended/tests-extension"
 )
 
 func main() {

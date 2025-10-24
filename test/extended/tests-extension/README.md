@@ -10,9 +10,9 @@ They use the framework: https://github.com/openshift-eng/openshift-tests-extensi
 | Command                                                                                    | Description                                                              |
 |--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `make tests-ext-build`                                                                     | Builds the test extension binary.                                        |
-| `./cluster-kube-apiserver-operator-tests-ext list`                                    | Lists all available test cases.                                          |
-| `./cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>`                  | Runs a test suite. e.g., `openshift/cluster-kube-apiserver-operator/conformance/parallel` |
-| `./cluster-kube-apiserver-operator-tests-ext run <test-name>`                         | Runs one specific test.                                                  |
+| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext list`           | Lists all available test cases.                                          |
+| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>` | Runs a test suite. e.g., `openshift/cluster-kube-apiserver-operator/conformance/parallel` |
+| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run <test-name>` | Runs one specific test.                                                  |
 
 
 ## How to Run the Tests Locally
@@ -22,6 +22,7 @@ Use the environment variable `KUBECONFIG` to point to your cluster configuration
 
 ```shell
 export KUBECONFIG=path/to/kubeconfig
+test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run <test-name>
 ./cluster-kube-apiserver-operator-tests-ext run <test-name>
 ```
 
