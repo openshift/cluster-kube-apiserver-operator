@@ -104,7 +104,7 @@ test-e2e-sno-disruptive: test-unit
 tests-ext-build:
 	cd $(TESTS_EXT_DIR) && \
 	GOOS=$(GOOS) GOARCH=$(GOARCH) GO_COMPLIANCE_POLICY=exempt_all CGO_ENABLED=0 \
-	go build -o $(TESTS_EXT_BINARY) -ldflags "$(TESTS_EXT_LDFLAGS)" $(TESTS_EXT_PACKAGE)
+	go build -mod=mod -o $(TESTS_EXT_BINARY) -ldflags "$(TESTS_EXT_LDFLAGS)" $(TESTS_EXT_PACKAGE)
 
 # -------------------------------------------------------------------
 # Run "update" and strip env-specific metadata
