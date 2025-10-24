@@ -10,9 +10,9 @@ They use the framework: https://github.com/openshift-eng/openshift-tests-extensi
 | Command                                                                                    | Description                                                              |
 |--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `make tests-ext-build`                                                                     | Builds the test extension binary.                                        |
-| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext list`           | Lists all available test cases.                                          |
-| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>` | Runs a test suite. e.g., `openshift/cluster-kube-apiserver-operator/conformance/parallel` |
-| `test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run <test-name>` | Runs one specific test.                                                  |
+| `test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list`        | Lists all available test cases.                                          |
+| `test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>` | Runs a test suite. e.g., `openshift/cluster-kube-apiserver-operator/conformance/parallel` |
+| `test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run <test-name>` | Runs one specific test.                                                  |
 
 
 ## How to Run the Tests Locally
@@ -22,8 +22,7 @@ Use the environment variable `KUBECONFIG` to point to your cluster configuration
 
 ```shell
 export KUBECONFIG=path/to/kubeconfig
-test/extended/tests-extension/cluster-kube-apiserver-operator-tests-ext run <test-name>
-./cluster-kube-apiserver-operator-tests-ext run <test-name>
+test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run <test-name>
 ```
 
 ### Local Test using OCP
@@ -49,17 +48,40 @@ export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
 
 **Example:**
 ```shell
-./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all
+test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all
 ```
 
 ## Writing Tests
 
-You can write tests in the `test/extended/` directory.
+You can write tests in the `test/extended/tests-extension/` directory.
+
+### Test Module Structure
+
+This test extension uses a **separate Go module** to isolate test dependencies from the production operator code:
+
+```
+test/extended/tests-extension/
+├── go.mod                                        # Separate module with test dependencies
+├── go.sum
+├── Makefile                                      # Build targets for test binary
+├── bin/                                          # Built test binaries (gitignored)
+│   └── cluster-kube-apiserver-operator-tests-ext
+├── cmd/cluster-kube-apiserver-operator-tests-ext/
+│   └── main.go                                   # Test binary entry point
+└── tests/                                        # Test packages
+    └── *.go
+```
+
+**Key Benefits:**
+- Production `go.mod` remains clean (no ginkgo, gomega, test framework dependencies)
+- Test dependencies are isolated in `test/extended/tests-extension/go.mod`
+- Prevents dependency version conflicts between operator and test framework
 
 ## Development Workflow
 
-- Add or update tests in: `test/extended/`
-- Run `make build` to build the operator binary and `make tests-ext-build` for the test binary.
+- Add or update tests in: `test/extended/tests-extension/`
+- When adding new test dependencies, run `go mod tidy` from within `test/extended/tests-extension/`
+- Run `make build` to build the operator binary and `make tests-ext-build` for the test binary
 - You can run the full suite or one test using the commands in the table above.
 - Before committing your changes:
     - Run `make tests-ext-update`
@@ -67,7 +89,7 @@ You can write tests in the `test/extended/` directory.
 
 ## How to Rename a Test
 
-1. Run `./cluster-kube-apiserver-operator-tests-ext list` to see the current test names
+1. Run `test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list` to see the current test names
 2. Find the name of the test you want to rename
 3. Add a Ginkgo label with the original name, like this:
 
@@ -85,8 +107,8 @@ It("should pass a renamed sanity check",
 
 ## How to Delete a Test
 
-1. Run `./cluster-kube-apiserver-operator-tests-ext list` to find the test name
-2. Add the test name to the `IgnoreObsoleteTests` block in `cmd/cluster-kube-apiserver-operator-tests-ext/main.go`, like this:
+1. Run `test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list` to find the test name
+2. Add the test name to the `IgnoreObsoleteTests` block in `test/extended/tests-extension/cmd/cluster-kube-apiserver-operator-tests-ext/main.go`, like this:
 
 ```go
 ext.IgnoreObsoleteTests(
@@ -137,11 +159,11 @@ More info: https://docs.ci.openshift.org/docs/architecture/ci-operator/#testing-
 | Target                   | Description                                                                  |
 |--------------------------|------------------------------------------------------------------------------|
 | `make build`             | Builds the operator binary.                                                      |
-| `make tests-ext-build`   | Builds the test extension binary.                                            |
+| `make tests-ext-build`   | Builds the test extension binary into `test/extended/tests-extension/bin/`. |
 | `make tests-ext-update`  | Updates the metadata JSON file and cleans machine-specific codeLocations.    |
 | `make verify`            | Runs formatting, vet, and linter.                                            |
 
-**Note:** Metadata is stored in: `.openshift-tests-extension/openshift_payload_cluster-kube-apiserver-operator.json`
+**Note:** Metadata is stored in: `test/extended/tests-extension/.openshift-tests-extension/openshift_payload_cluster-kube-apiserver-operator.json`
 
 ## FAQ
 
