@@ -1,0 +1,15 @@
+reviewers:
+  - p0lyn0mial
+  - benluddy
+  - sanchezl
+  - dgrisonnet
+  - wangke19
+  - xingxingxia
+approvers:
+  - p0lyn0mial
+  - benluddy
+  - sanchezl
+  - dgrisonnet
+  - wangke19
+  - xingxingxia
+component: "kube-apiserver"
