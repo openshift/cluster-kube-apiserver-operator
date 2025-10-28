@@ -61,16 +61,17 @@ list-test-names: build #HELP Show current full test names
 	@$(TOOLS_BIN_DIR)/$(BINARY_NAME) list -o names
 
 .PHONY: run-suite
-run-suite: build #HELP Run a test suite (usage: make run-suite SUITE=<suite-name> ARTIFACT_DIR=<dir>)
+run-suite: build #HELP Run a test suite (usage: make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>])
 	@if [ -z "$(SUITE)" ]; then \
-		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [ARTIFACT_DIR=<dir>]"; \
+		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]"; \
 		exit 1; \
 	fi
-	@ARTIFACT_DIR_ARG=""; \
-	if [ -n "$(ARTIFACT_DIR)" ]; then \
-		ARTIFACT_DIR_ARG="--artifact-dir=$(ARTIFACT_DIR)"; \
+	@JUNIT_ARG=""; \
+	if [ -n "$(JUNIT_DIR)" ]; then \
+		mkdir -p $(JUNIT_DIR); \
+		JUNIT_ARG="--junit-path=$(JUNIT_DIR)/junit.xml"; \
 	fi; \
-	$(TOOLS_BIN_DIR)/$(BINARY_NAME) run-suite $(SUITE) $$ARTIFACT_DIR_ARG
+	$(TOOLS_BIN_DIR)/$(BINARY_NAME) run-suite $(SUITE) $$JUNIT_ARG
 
 .PHONY: clean-metadata
 clean-metadata: #HELP Remove 'codeLocations' from metadata JSON

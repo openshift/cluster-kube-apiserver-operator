@@ -25,11 +25,11 @@ import (
 
 func main() {
 	registry := e.NewRegistry()
-	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserve-operator")
+	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
 	// Suite: conformance/parallel (fast, parallel-safe)
 	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-kube-apiserve-operator/conformance/parallel",
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
 		Parents: []string{"openshift/conformance/parallel"},
 		Qualifiers: []string{
 			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
@@ -38,7 +38,7 @@ func main() {
 
 	// Suite: conformance/serial (explicitly serial tests)
 	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-kube-apiserve-operator/conformance/serial",
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/serial",
 		Parents: []string{"openshift/conformance/serial"},
 		Qualifiers: []string{
 			`name.contains("[Serial]")`,
@@ -47,7 +47,7 @@ func main() {
 
 	// Suite: optional/slow (long-running tests)
 	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-kube-apiserve-operator/optional/slow",
+		Name:    "openshift/cluster-kube-apiserver-operator/optional/slow",
 		Parents: []string{"openshift/optional/slow"},
 		Qualifiers: []string{
 			`name.contains("[Slow]")`,
@@ -56,7 +56,7 @@ func main() {
 
 	// Suite: all (includes everything)
 	ext.AddSuite(e.Suite{
-		Name: "openshift/cluster-kube-apiserve-operator/all",
+		Name: "openshift/cluster-kube-apiserver-operator/all",
 	})
 
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()

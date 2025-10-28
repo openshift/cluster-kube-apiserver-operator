@@ -123,7 +123,7 @@ tests-ext-clean:
 # -------------------------------------------------------------------
 .PHONY: run-suite
 run-suite:
-	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) ARTIFACT_DIR=$(ARTIFACT_DIR)
+	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) JUNIT_DIR=$(JUNIT_DIR)
 
 # -------------------------------------------------------------------
 # Run go test on ./test/extended/... with proper flags
