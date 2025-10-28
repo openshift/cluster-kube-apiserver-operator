@@ -18,7 +18,8 @@ ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
 TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
-TESTS_EXT_PACKAGE := ./cmd/cluster-kube-apiserver-operator-tests-ext
+TESTS_EXT_DIR := ./test/extended/tests-extension
+TESTS_EXT_PACKAGE := ./cmd
 
 TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
 TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -101,18 +102,28 @@ test-e2e-sno-disruptive: test-unit
 # -------------------------------------------------------------------
 .PHONY: tests-ext-build
 tests-ext-build:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) GO_COMPLIANCE_POLICY=exempt_all CGO_ENABLED=0 \
-	go build -o $(TESTS_EXT_BINARY) -ldflags "$(TESTS_EXT_LDFLAGS)" $(TESTS_EXT_PACKAGE)
+	$(MAKE) -C test/extended/tests-extension build
 
 # -------------------------------------------------------------------
 # Run "update" and strip env-specific metadata
 # -------------------------------------------------------------------
 .PHONY: tests-ext-update
-tests-ext-update: tests-ext-build
-	./$(TESTS_EXT_BINARY) update
-	for f in .openshift-tests-extension/*.json; do \
-		jq 'map(del(.codeLocations))' "$$f" > tmpp && mv tmpp "$$f"; \
-	done
+tests-ext-update:
+	$(MAKE) -C test/extended/tests-extension build-update
+
+# -------------------------------------------------------------------
+# Clean test extension binaries
+# -------------------------------------------------------------------
+.PHONY: tests-ext-clean
+tests-ext-clean:
+	$(MAKE) -C $(TESTS_EXT_DIR) clean
+
+# -------------------------------------------------------------------
+# Run test suite
+# -------------------------------------------------------------------
+.PHONY: run-suite
+run-suite:
+	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) JUNIT_DIR=$(JUNIT_DIR)
 
 # -------------------------------------------------------------------
 # Run go test on ./test/extended/... with proper flags
@@ -126,7 +137,7 @@ test-extended: test-unit
 test-extended:
 	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
 
-clean:
+clean: tests-ext-clean
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
 
