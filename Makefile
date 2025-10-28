@@ -112,6 +112,20 @@ tests-ext-update:
 	$(MAKE) -C test/extended/tests-extension build-update
 
 # -------------------------------------------------------------------
+# Clean test extension binaries
+# -------------------------------------------------------------------
+.PHONY: tests-ext-clean
+tests-ext-clean:
+	$(MAKE) -C $(TESTS_EXT_DIR) clean
+
+# -------------------------------------------------------------------
+# Run test suite
+# -------------------------------------------------------------------
+.PHONY: run-suite
+run-suite:
+	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) ARTIFACT_DIR=$(ARTIFACT_DIR)
+
+# -------------------------------------------------------------------
 # Run go test on ./test/extended/... with proper flags
 # -------------------------------------------------------------------
 .PHONY: test-extended
@@ -123,7 +137,7 @@ test-extended: test-unit
 test-extended:
 	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
 
-clean:
+clean: tests-ext-clean
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
 
