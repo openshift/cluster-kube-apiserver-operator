@@ -60,6 +60,18 @@ clean: #HELP Remove build artifacts
 list-test-names: build #HELP Show current full test names
 	@$(TOOLS_BIN_DIR)/$(BINARY_NAME) list -o names
 
+.PHONY: run-suite
+run-suite: build #HELP Run a test suite (usage: make run-suite SUITE=<suite-name> ARTIFACT_DIR=<dir>)
+	@if [ -z "$(SUITE)" ]; then \
+		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [ARTIFACT_DIR=<dir>]"; \
+		exit 1; \
+	fi
+	@ARTIFACT_DIR_ARG=""; \
+	if [ -n "$(ARTIFACT_DIR)" ]; then \
+		ARTIFACT_DIR_ARG="--artifact-dir=$(ARTIFACT_DIR)"; \
+	fi; \
+	$(TOOLS_BIN_DIR)/$(BINARY_NAME) run-suite $(SUITE) $$ARTIFACT_DIR_ARG
+
 .PHONY: clean-metadata
 clean-metadata: #HELP Remove 'codeLocations' from metadata JSON
 	@echo "Cleaning metadata (removing codeLocations)..."
