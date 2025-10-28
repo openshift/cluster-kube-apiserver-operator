@@ -1,0 +1,18 @@
+reviewers:
+  - p0lyn0mial
+  - sttts
+  - soltysh
+  - deads2k
+  - tkashem
+  - benluddy
+  - mfojtik
+approvers:
+  - p0lyn0mial
+  - sttts
+  - soltysh
+  - deads2k
+  - tkashem
+  - benluddy
+  - mfojtik
+component: "Kube APIServer"
+subcomponent: cluster-kube-apiserver-operator
