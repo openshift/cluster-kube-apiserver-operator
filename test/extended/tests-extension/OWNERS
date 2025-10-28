@@ -5,6 +5,8 @@ reviewers:
   - xingxingxia
   - wangke19
   - gangwgr
+  - dgrisonnet
+  - dinhxuanvu
 approvers:
   - p0lyn0mial
   - tkashem
@@ -12,5 +14,7 @@ approvers:
   - xingxingxia
   - wangke19
   - gangwgr
+  - dgrisonnet
+  - dinhxuanvu
 component: "Kube APIServer"
 subcomponent: cluster-kube-apiserver-operator
