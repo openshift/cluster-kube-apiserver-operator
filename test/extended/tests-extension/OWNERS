@@ -1,0 +1,16 @@
+reviewers:
+  - p0lyn0mial
+  - tkashem
+  - benluddy
+  - xingxingxia
+  - wangke19
+  - gangwgr
+approvers:
+  - p0lyn0mial
+  - tkashem
+  - benluddy
+  - xingxingxia
+  - wangke19
+  - gangwgr
+component: "Kube APIServer"
+subcomponent: cluster-kube-apiserver-operator
