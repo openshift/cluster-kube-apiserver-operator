@@ -67,7 +67,7 @@ spec:
       name: logs
     - mountPath: /var/log/kube-apiserver
       name: audit-dir
-    - mountPath: /var/run/kms
+    - mountPath: /var/run/kms/
       name: kms-dir
     livenessProbe:
       httpGet:
@@ -141,5 +141,6 @@ spec:
       path: /var/log/kube-apiserver
     name: audit-dir
   - hostPath:
-      path: /var/run/kms
+      path: /var/run/kms/
+      type: Directory
     name: kms-dir
