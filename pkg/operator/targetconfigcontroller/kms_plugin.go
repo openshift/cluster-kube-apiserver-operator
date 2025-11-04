@@ -20,7 +20,7 @@ const (
 	KMSPluginImageEnvVar = "KMS_PLUGIN_IMAGE"
 
 	// DefaultKMSPluginImage is the fallback image if KMS_PLUGIN_IMAGE is not set
-	DefaultKMSPluginImage = "registry.k8s.io/kms-plugin/aws-encryption-provider:v1.0.0"
+	DefaultKMSPluginImage = "quay.io/fmissi/aws-kms-plugin:0.1.0"
 )
 
 // getKMSEncryptionConfig checks if KMS encryption is enabled and returns the configuration
@@ -73,7 +73,7 @@ func injectKMSPlugin(ctx context.Context, pod *corev1.Pod, apiserverLister confi
 
 	// Validate the image is set
 	if kmsPluginImage == "" {
-		return fmt.Errorf("KMS plugin image is required when KMS encryption is enabled")
+		kmsPluginImage = DefaultKMSPluginImage
 	}
 
 	klog.Infof("Injecting KMS plugin sidecar container (image: %s)", kmsPluginImage)
