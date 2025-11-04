@@ -15,6 +15,8 @@ import (
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -51,21 +53,24 @@ type TargetConfigController struct {
 	targetImagePullSpec   string
 	operatorImagePullSpec string
 	operatorImageVersion  string
+	kmsPluginImage        string
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
 	kubeClient      kubernetes.Interface
 	configMapLister corev1listers.ConfigMapLister
+	apiserverLister configv1listers.APIServerLister
 
 	isStartupMonitorEnabledFn      func() (bool, error)
 	requireMultipleEtcdEndpointsFn func() bool
 }
 
 func NewTargetConfigController(
-	targetImagePullSpec, operatorImagePullSpec, operatorImageVersion string,
+	targetImagePullSpec, operatorImagePullSpec, operatorImageVersion, kmsPluginImage string,
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	apiserverInformer configv1informers.APIServerInformer,
 	kubeClient kubernetes.Interface,
 	isStartupMonitorEnabledFn func() (bool, error),
 	requireMultipleEtcdEndpointsFn func() bool,
@@ -75,9 +80,11 @@ func NewTargetConfigController(
 		targetImagePullSpec:            targetImagePullSpec,
 		operatorImagePullSpec:          operatorImagePullSpec,
 		operatorImageVersion:           operatorImageVersion,
+		kmsPluginImage:                 kmsPluginImage,
 		operatorClient:                 operatorClient,
 		kubeClient:                     kubeClient,
 		configMapLister:                kubeInformersForNamespaces.ConfigMapLister(),
+		apiserverLister:                apiserverInformer.Lister(),
 		isStartupMonitorEnabledFn:      isStartupMonitorEnabledFn,
 		requireMultipleEtcdEndpointsFn: requireMultipleEtcdEndpointsFn,
 	}
@@ -91,6 +98,7 @@ func NewTargetConfigController(
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().ConfigMaps().Informer(),
+		apiserverInformer.Informer(),
 	).WithSync(c.sync).ResyncEvery(time.Minute).ToController("TargetConfigController", eventRecorder.WithComponentSuffix("target-config-controller"))
 }
 
@@ -219,7 +227,18 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(
+		ctx,
+		c.kubeClient.CoreV1(),
+		c.apiserverLister,
+		c.isStartupMonitorEnabledFn,
+		recorder,
+		operatorSpec,
+		c.targetImagePullSpec,
+		c.operatorImagePullSpec,
+		c.operatorImageVersion,
+		c.kmsPluginImage,
+	)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -303,11 +322,17 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
-	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
-	if err != nil {
-		return nil, false, err
-	}
+func managePods(
+	ctx context.Context,
+	client coreclientv1.ConfigMapsGetter,
+	apiserverLister configv1listers.APIServerLister,
+	isStartupMonitorEnabledFn func() (bool, error),
+	recorder events.Recorder,
+	operatorSpec *operatorv1.StaticPodOperatorSpec,
+	imagePullSpec, operatorImagePullSpec, operatorImageVersion, kmsPluginImage string,
+) (*corev1.ConfigMap, bool, error) {
+	appliedPodTemplate, err := manageTemplate(
+		string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
 	required := resourceread.ReadPodV1OrDie([]byte(appliedPodTemplate))
 
 	var observedConfig map[string]interface{}
@@ -322,6 +347,11 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, isSta
 	proxyEnvVars := proxyMapToEnvVars(proxyConfig)
 	for i, container := range required.Spec.Containers {
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
+	}
+
+	// Inject KMS plugin sidecar if KMS encryption is enabled
+	if err := injectKMSPlugin(ctx, required, apiserverLister, kmsPluginImage); err != nil {
+		return nil, false, fmt.Errorf("failed to inject KMS plugin: %v", err)
 	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
