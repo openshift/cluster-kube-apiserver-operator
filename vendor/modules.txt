@@ -349,7 +349,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20251015151611-6fc7a74b67c5
+# github.com/openshift/library-go v0.0.0-20251015151611-6fc7a74b67c5 => github.com/ardaguclu/library-go v0.0.0-20251105113502-16d1ed44142d
 ## explicit; go 1.24.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -386,6 +386,7 @@ github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
 github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/deployer
 github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig
+github.com/openshift/library-go/pkg/operator/encryption/kms
 github.com/openshift/library-go/pkg/operator/encryption/observer
 github.com/openshift/library-go/pkg/operator/encryption/secrets
 github.com/openshift/library-go/pkg/operator/encryption/state
@@ -424,6 +425,8 @@ github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodfallb
 github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate
 github.com/openshift/library-go/pkg/operator/staticpod/installerpod
 github.com/openshift/library-go/pkg/operator/staticpod/internal
+github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir
+github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir/types
 github.com/openshift/library-go/pkg/operator/staticpod/internal/flock
 github.com/openshift/library-go/pkg/operator/staticpod/prune
 github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor
@@ -1608,3 +1611,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20251105113502-16d1ed44142d
