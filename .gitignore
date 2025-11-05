@@ -1,5 +1,6 @@
 /cluster-kube-apiserver-operator
-/cluster-kube-apiserver-operator-tests-ext
+/test/extended/tests-extension/bin/
+/bin/
 .idea/
 /_output/
 telepresence.log
