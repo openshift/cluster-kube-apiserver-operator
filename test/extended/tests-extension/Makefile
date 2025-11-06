@@ -1,6 +1,12 @@
 # Get the directory where this Makefile is, so we can use it below for including
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
 
+# Include the library makefile from build-machinery-go
+include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/, \
+	golang.mk \
+	targets/openshift/deps.mk \
+)
+
 # Definitions for the extended tests
 GO_PKG_NAME := github.com/openshift-eng/openshift-tests-extension
 
@@ -22,25 +28,20 @@ help: #HELP Display essential help.
 	@awk 'BEGIN {FS = ":[^#]*#HELP"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_0-9-]+:.*#HELP / { printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 } ' $(MAKEFILE_LIST)
 
 #SECTION Development
+# Note: verify target is extended from build-machinery-go's golang.mk
+# which provides verify-gofmt and verify-govet
 .PHONY: verify #HELP To verify the code
-verify: tidy fmt vet
+verify: verify-deps
 
-.PHONY: tidy #HELP Run go mod tidy.
+.PHONY: tidy #HELP Run go mod tidy and vendor.
 tidy:
 	go mod tidy
-
-.PHONY: fmt
-fmt: #HELP Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
-vet: #HELP Run go vet against code.
-	go vet ./...
+	go mod vendor
 
 .PHONY: build
 build: #HELP Build the extended tests binary
 	@mkdir -p $(TOOLS_BIN_DIR)
-	GO_COMPLIANCE_POLICY="exempt_all" CGO_ENABLED=0 go build -mod=mod -ldflags "$(LDFLAGS)" -o $(TOOLS_BIN_DIR)/$(BINARY_NAME) ./cmd/...
+	GO_COMPLIANCE_POLICY="exempt_all" CGO_ENABLED=0 go build -mod=vendor -ldflags "$(LDFLAGS)" -o $(TOOLS_BIN_DIR)/$(BINARY_NAME) ./cmd/...
 
 .PHONY: update-metadata
 update-metadata: build #HELP Build and run 'update-metadata' to generate test metadata
