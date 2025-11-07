@@ -95,6 +95,42 @@ test/extended/tests-extension/
 - **Cleaner dependency management**: Test dependencies isolated in `test/extended/tests-extension/go.mod`
 - **Better CI performance**: Smaller images, faster pulls, less storage
 
+### Dependency Management
+
+The test module has its own `go.mod` with test-specific dependencies:
+
+```go
+module github.com/openshift/cluster-kube-apiserver-operator/test/extended/tests-extension
+
+require (
+    github.com/onsi/ginkgo/v2 v2.22.0        // Test framework
+    github.com/onsi/gomega v1.36.1           // Assertion library
+    github.com/openshift-eng/openshift-tests-extension v0.0.0-... // OTE framework
+    // Note: build-machinery-go is NOT vendored here - we use parent's copy
+)
+
+replace (
+    github.com/openshift/cluster-kube-apiserver-operator => ../../..
+)
+```
+
+**Build tooling consistency:** The test module references the parent repo's vendored `build-machinery-go` instead of duplicating it:
+
+```makefile
+# In test/extended/tests-extension/Makefile
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+include $(addprefix $(REPO_ROOT)/vendor/github.com/openshift/build-machinery-go/make/, \
+    golang.mk \
+    targets/openshift/deps.mk \
+)
+```
+
+**Benefits:**
+- Single source of truth for build tooling
+- Smaller test module (no build-machinery-go duplication)
+- Same build consistency as root module
+- No need for `tools.go` file
+
 ## Writing Tests
 
 You can write tests in the `test/extended/tests-extension/` directory.

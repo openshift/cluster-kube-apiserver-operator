@@ -1,8 +1,9 @@
 # Get the directory where this Makefile is, so we can use it below for including
 DIR := $(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
 
-# Include the library makefile from build-machinery-go
-include $(addprefix $(DIR)/vendor/github.com/openshift/build-machinery-go/make/, \
+# Reference parent repo's build-machinery-go (no need to vendor it in test module)
+REPO_ROOT := $(shell git rev-parse --show-toplevel)
+include $(addprefix $(REPO_ROOT)/vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
 	targets/openshift/deps.mk \
 )
