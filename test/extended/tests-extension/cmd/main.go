@@ -87,6 +87,25 @@ func main() {
 		}
 	})
 
+	// Extract timeout from test name if present (e.g., [Timeout:50m])
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		// Look for [Timeout:XXm] or [Timeout:XXh] pattern in test name
+		if strings.Contains(spec.Name, "[Timeout:") {
+			start := strings.Index(spec.Name, "[Timeout:")
+			if start != -1 {
+				end := strings.Index(spec.Name[start:], "]")
+				if end != -1 {
+					// Extract the timeout value (e.g., "50m" from "[Timeout:50m]")
+					timeoutTag := spec.Name[start+len("[Timeout:") : start+end]
+					if spec.Tags == nil {
+						spec.Tags = make(map[string]string)
+					}
+					spec.Tags["timeout"] = timeoutTag
+				}
+			}
+		}
+	})
+
 	// Ignore obsolete tests
 	ext.IgnoreObsoleteTests(
 	// "[sig-openshift-apiserver] <test name here>",
