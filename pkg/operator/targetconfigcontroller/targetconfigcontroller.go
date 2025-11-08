@@ -237,6 +237,11 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/trusted-ca-bundle", err))
 	}
 
+	err = ensureKubeAPIServerExtensionAuthenticationCA(ctx, c.kubeClient.CoreV1(), recorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/extension-apiserver-authentication", err))
+	}
+
 	err = ensureLocalhostRecoverySAToken(ctx, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", err))
@@ -505,6 +510,43 @@ func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV
 	}
 
 	return err
+}
+
+func ensureKubeAPIServerExtensionAuthenticationCA(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+	required := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/extension-apiserver-authentication-cm.yaml"))
+	cmClient := client.ConfigMaps(metav1.NamespaceSystem)
+
+	cm, err := cmClient.Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
+	if err != nil {
+		// kube-apiserver creates this CM; don't degrade while waiting.
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	// Ensure that the config map is updated with the required annotations
+	modified := false
+	if cm.Annotations == nil {
+		cm.Annotations = make(map[string]string)
+	}
+
+	for key, expected := range required.Annotations {
+		if actual, ok := cm.Annotations[key]; !ok || actual != expected {
+			cm.Annotations[key] = expected
+			modified = true
+		}
+	}
+
+	if modified {
+		if _, err := cmClient.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+			recorder.Warningf("AnnotationUpdateFailed", "Failed to update annotations on configmap kube-system/extension-apiserver-authentication: %v", err)
+			return err
+		}
+		return nil
+	}
+
+	return nil
 }
 
 func ensureLocalhostRecoverySAToken(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
