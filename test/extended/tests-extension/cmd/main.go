@@ -28,29 +28,34 @@ func main() {
 	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
 	// Suite: conformance/parallel (fast, parallel-safe)
+	// Rule 1: Tests without [Serial], [Slow], or extended [Timeout:] tags run in parallel
 	ext.AddSuite(e.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
 		Parents: []string{"openshift/conformance/parallel"},
 		Qualifiers: []string{
-			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
+			`!(name.contains("[Serial]") || name.contains("[Slow]") || name.contains("[Timeout:60m]") || name.contains("[Timeout:90m]") || name.contains("[Timeout:120m]"))`,
 		},
 	})
 
-	// Suite: conformance/serial (explicitly serial tests)
+	// Suite: conformance/serial (explicitly serial tests, but NOT slow or extended timeout tests)
+	// Rule 2 & 4: Tests with [Serial] or [Serial][Disruptive] run only in serial suite
+	// Exclude [Slow] and extended [Timeout:] tests - they go to slow suite instead
 	ext.AddSuite(e.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/conformance/serial",
 		Parents: []string{"openshift/conformance/serial"},
 		Qualifiers: []string{
-			`name.contains("[Serial]")`,
+			`name.contains("[Serial]") && !name.contains("[Slow]") && !(name.contains("[Timeout:60m]") || name.contains("[Timeout:90m]") || name.contains("[Timeout:120m]"))`,
 		},
 	})
 
-	// Suite: optional/slow (long-running tests)
+	// Suite: optional/slow (long-running and extended timeout tests)
+	// Rule 3 & 5: Tests with [Slow] or extended [Timeout:] run in slow suite
+	// Tests with [Slow][Disruptive][Timeout:] will run serially due to [Serial] tag
 	ext.AddSuite(e.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/optional/slow",
 		Parents: []string{"openshift/optional/slow"},
 		Qualifiers: []string{
-			`name.contains("[Slow]")`,
+			`name.contains("[Slow]") || (name.contains("[Timeout:") && (name.contains("[Timeout:60m]") || name.contains("[Timeout:90m]") || name.contains("[Timeout:120m]")))`,
 		},
 	})
 
