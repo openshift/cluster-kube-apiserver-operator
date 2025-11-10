@@ -31,6 +31,64 @@ The binary will be located at: `test/extended/tests-extension/bin/cluster-kube-a
 | `./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>` | Runs a test suite directly. |
 | `./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext run-test <test-name>` | Runs one specific test. |
 
+### Listing Suites and Tests
+
+```bash
+# List all available suites
+./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list suites
+
+# List tests in a suite
+./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/all
+
+# Show suite info with qualifiers (filtering logic)
+./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext info | jq '.suites'
+
+# Count tests in a suite
+./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list tests --suite=<suite-name> | jq 'length'
+
+# Extract just test names
+./test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext list tests --suite=<suite-name> | jq -r '.[] | .name'
+```
+
+## Test Suite Organization
+
+Tests are automatically distributed into different suites based on tags in the test names. This ensures proper test execution and prevents duplication.
+
+### Available Suites
+
+| Suite Name | Purpose |
+|------------|---------|
+| `openshift/cluster-kube-apiserver-operator/conformance/parallel` | Fast, parallel-safe tests |
+| `openshift/cluster-kube-apiserver-operator/conformance/serial` | Serial execution tests |
+| `openshift/cluster-kube-apiserver-operator/optional/slow` | Long-running and timeout tests |
+| `openshift/cluster-kube-apiserver-operator/all` | All tests |
+
+### Test Distribution Rules
+
+Tests are distributed into suites based on tags in the test name:
+
+1. **Parallel Suite**: Tests WITHOUT `[Serial]`, `[Slow]`, or `[Timeout:]` tags
+   - Example: `[sig-api-machinery] sanity test should always pass`
+
+2. **Serial Suite**: Tests WITH `[Serial]` tag but NOT `[Slow]` tag
+   - Example: `[Serial][Disruptive] should update configuration`
+   - Example: `[Serial][Timeout:30m] should complete eventually`
+
+3. **Slow Suite**: Tests WITH `[Slow]` tag OR tests WITH `[Timeout:]` tag that are NOT `[Serial]`
+   - Example: `[Slow][Serial][Timeout:90m] should configure eventTTLMinutes` (has `[Slow]`)
+   - Example: `[Timeout:45m] should wait for long operation` (has `[Timeout:]` but no `[Serial]`)
+
+**Note:** Each test runs in exactly one suite to avoid duplication.
+
+### Common Test Tags
+
+| Tag | Purpose |
+|-----|---------|
+| `[Serial]` | Must run sequentially |
+| `[Slow]` | Long-running test |
+| `[Timeout:XXm]` | Custom timeout (supports any duration like 30m, 45m, 90m, 120m, etc.) |
+| `[Disruptive]` | Modifies cluster state (automatically tagged as `[Serial]`) |
+
 ## How to Run the Tests Locally
 
 The tests can be run locally using the `cluster-kube-apiserver-operator-tests-ext` binary against an OpenShift cluster.
@@ -134,6 +192,34 @@ include $(addprefix $(REPO_ROOT)/vendor/github.com/openshift/build-machinery-go/
 ## Writing Tests
 
 You can write tests in the `test/extended/tests-extension/` directory.
+
+### Adding Test Tags
+
+When writing tests, include appropriate tags in the test description to ensure correct suite distribution:
+
+```go
+// Fast parallel test (no tags needed)
+g.It("should pass basic validation", func() {
+    // test code
+})
+
+// Serial test
+g.It("should modify cluster state [Serial][Disruptive]", func() {
+    // test code
+})
+
+// Slow test with timeout
+g.It("should complete long operation [Timeout:60m][Slow]", func() {
+    // test code
+})
+
+// Serial test with timeout (goes to serial suite, not slow)
+g.It("should wait for rollout [Serial][Timeout:30m]", func() {
+    // test code
+})
+```
+
+After adding or modifying tests, always run `make tests-ext-update` to update test metadata.
 
 ## Development Workflow
 
