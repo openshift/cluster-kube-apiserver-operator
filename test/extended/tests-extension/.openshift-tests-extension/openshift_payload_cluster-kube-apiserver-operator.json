@@ -1,0 +1,57 @@
+[
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=5m [Timeout:90m][Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {
+      "Lifecycle:informing": {}
+    },
+    "tags": {
+      "timeout": "90m"
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserver-operator",
+    "lifecycle": "informing",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=10m [Timeout:90m][Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {
+      "Lifecycle:informing": {}
+    },
+    "tags": {
+      "timeout": "90m"
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserver-operator",
+    "lifecycle": "informing",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration should configure and validate eventTTLMinutes=15m [Timeout:90m][Serial][Disruptive][Slow][Suite:openshift/cluster-kube-apiserver-operator/conformance/serial]",
+    "labels": {
+      "Lifecycle:informing": {}
+    },
+    "tags": {
+      "timeout": "90m"
+    },
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserver-operator",
+    "lifecycle": "informing",
+    "environmentSelector": {}
+  },
+  {
+    "name": "[Jira:kube-apiserver][sig-api-machinery] sanity test should always pass [Suite:openshift/cluster-kube-apiserver-operator/conformance/parallel]",
+    "labels": {},
+    "resources": {
+      "isolation": {}
+    },
+    "source": "openshift:payload:cluster-kube-apiserver-operator",
+    "lifecycle": "blocking",
+    "environmentSelector": {}
+  }
+]
