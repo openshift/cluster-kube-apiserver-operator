@@ -39,6 +39,11 @@ runAsUser:
   type: MustRunAsRange
   uidRangeMin: 1000
   uidRangeMax: 65534
+runAsGroup:
+  type: MustRunAsRange
+  ranges:
+  - min: 1000
+    max: 65534
 seLinuxContext:
   type: MustRunAs
 seccompProfiles:
