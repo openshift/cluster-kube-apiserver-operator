@@ -28,18 +28,6 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
 		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 	},
-	"DynamicResourceAllocation": {
-		// We are promoting DRA to GA in OpenShift 4.21 (1.34), and the
-		// alpha/beta apis will not be served starting with 4.21.
-		// Set the max upper bound to '< 1.34.0' so these alpha/beta
-		// apis are not enabled once the rebase PR lands and the
-		// k8s version is updated to 1.34.x.
-		// TODO: remove the enablement key for the alpha/beta enablement once
-		// we remove the {Tech|Dev}Preview feature gate from openshift/api
-		{KubeVersionRange: semver.MustParseRange("< 1.34.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
-		{KubeVersionRange: semver.MustParseRange("< 1.34.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta1"}},
-		{KubeVersionRange: semver.MustParseRange("< 1.34.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}},
-	},
 	"VolumeAttributesClass": {{GroupVersion: schema.GroupVersion{Group: "storage.k8s.io", Version: "v1beta1"}}},
 }
 
