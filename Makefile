@@ -18,8 +18,8 @@ ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
 TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
-TESTS_EXT_DIR := ./test/extended/tests-extension
-TESTS_EXT_PACKAGE := ./cmd
+TESTS_EXT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
+TESTS_EXT_OUTPUT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
 
 TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
 TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -102,28 +102,38 @@ test-e2e-sno-disruptive: test-unit
 # -------------------------------------------------------------------
 .PHONY: tests-ext-build
 tests-ext-build:
-	$(MAKE) -C test/extended/tests-extension build
+	@mkdir -p $(TESTS_EXT_OUTPUT_DIR)
+	CGO_ENABLED=0 go build -ldflags "$(TESTS_EXT_LDFLAGS)" -o $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) $(TESTS_EXT_DIR)
 
 # -------------------------------------------------------------------
 # Run "update" and strip env-specific metadata
 # -------------------------------------------------------------------
 .PHONY: tests-ext-update
-tests-ext-update:
-	$(MAKE) -C test/extended/tests-extension build-update
+tests-ext-update: tests-ext-build
+	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) update
 
 # -------------------------------------------------------------------
 # Clean test extension binaries
 # -------------------------------------------------------------------
 .PHONY: tests-ext-clean
 tests-ext-clean:
-	$(MAKE) -C $(TESTS_EXT_DIR) clean
+	rm -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY)
 
 # -------------------------------------------------------------------
 # Run test suite
 # -------------------------------------------------------------------
 .PHONY: run-suite
-run-suite:
-	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) JUNIT_DIR=$(JUNIT_DIR)
+run-suite: tests-ext-build
+	@if [ -z "$(SUITE)" ]; then \
+		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]"; \
+		exit 1; \
+	fi
+	@JUNIT_ARG=""; \
+	if [ -n "$(JUNIT_DIR)" ]; then \
+		mkdir -p $(JUNIT_DIR); \
+		JUNIT_ARG="--junit-path=$(JUNIT_DIR)/junit.xml"; \
+	fi; \
+	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) run-suite $(SUITE) $$JUNIT_ARG
 
 # -------------------------------------------------------------------
 # Run go test on ./test/extended/... with proper flags
