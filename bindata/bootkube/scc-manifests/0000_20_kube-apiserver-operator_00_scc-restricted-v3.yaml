@@ -40,7 +40,7 @@ runAsUser:
   uidRangeMin: 1000
   uidRangeMax: 65534
 runAsGroup:
-  type: MustRunAsRange
+  type: MustRunAs
   ranges:
   - min: 1000
     max: 65534
