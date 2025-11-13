@@ -1,0 +1,141 @@
+/*
+This command is used to run the Cluster Kube API Server Operator tests extension for OpenShift.
+It registers the Cluster Kube API Server Operator tests with the OpenShift Tests Extension framework
+and provides a command-line interface to execute them.
+For further information, please refer to the documentation at:
+https://github.com/openshift-eng/openshift-tests-extension/blob/main/cmd/example-tests/main.go
+*/
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
+	e "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
+	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
+	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
+
+	"github.com/spf13/cobra"
+
+	// The import below is necessary to ensure that the tests are registered with the extension.
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
+)
+
+func main() {
+	registry := e.NewRegistry()
+	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
+
+	// Suite: conformance/parallel (fast, parallel-safe)
+	// Rule 1: Tests without [Serial], [Slow], or [Timeout:] tags run in parallel
+	ext.AddSuite(e.Suite{
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
+		Parents: []string{"openshift/conformance/parallel"},
+		Qualifiers: []string{
+			`!(name.contains("[Serial]") || name.contains("[Slow]") || name.contains("[Timeout:"))`,
+		},
+	})
+
+	// Suite: conformance/serial (explicitly serial tests, but NOT slow tests)
+	// Rule 2 & 4: Tests with [Serial] or [Serial][Disruptive] run only in serial suite
+	// Tests with [Serial][Timeout:] go to serial (timeout on serial test)
+	// Exclude [Slow] tests - they go to slow suite instead
+	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
+	ext.AddSuite(e.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
+		Parents:     []string{"openshift/conformance/serial"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Serial]") && !name.contains("[Slow]")`,
+		},
+	})
+
+	// Suite: optional/slow (long-running tests and non-serial timeout tests)
+	// Rule 3 & 5: Tests with [Slow] OR tests with [Timeout:] that are NOT [Serial]
+	// Tests with [Slow][Disruptive][Timeout:] will run serially due to [Serial] tag
+	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
+	ext.AddSuite(e.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/optional/slow",
+		Parents:     []string{"openshift/optional/slow"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Slow]") || (name.contains("[Timeout:") && !name.contains("[Serial]"))`,
+		},
+	})
+
+	// Suite: all (includes everything)
+	ext.AddSuite(e.Suite{
+		Name: "openshift/cluster-kube-apiserver-operator/all",
+	})
+
+	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
+	if err != nil {
+		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
+	}
+
+	// Ensure [Disruptive] tests are also [Serial]
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		if strings.Contains(spec.Name, "[Disruptive]") && !strings.Contains(spec.Name, "[Serial]") {
+			spec.Name = strings.ReplaceAll(
+				spec.Name,
+				"[Disruptive]",
+				"[Serial][Disruptive]",
+			)
+		}
+	})
+
+	// Preserve original-name labels for renamed tests
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		for label := range spec.Labels {
+			if strings.HasPrefix(label, "original-name:") {
+				parts := strings.SplitN(label, "original-name:", 2)
+				if len(parts) > 1 {
+					spec.OriginalName = parts[1]
+				}
+			}
+		}
+	})
+
+	// Extract timeout from test name if present (e.g., [Timeout:50m])
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		// Look for [Timeout:XXm] or [Timeout:XXh] pattern in test name
+		if strings.Contains(spec.Name, "[Timeout:") {
+			start := strings.Index(spec.Name, "[Timeout:")
+			if start != -1 {
+				end := strings.Index(spec.Name[start:], "]")
+				if end != -1 {
+					// Extract the timeout value (e.g., "50m" from "[Timeout:50m]")
+					timeoutTag := spec.Name[start+len("[Timeout:") : start+end]
+					if spec.Tags == nil {
+						spec.Tags = make(map[string]string)
+					}
+					spec.Tags["timeout"] = timeoutTag
+				}
+			}
+		}
+	})
+
+	// Ignore obsolete tests
+	ext.IgnoreObsoleteTests(
+	// "[sig-api-machinery] <test name here>",
+	)
+
+	// Initialize environment before running any tests
+	specs.AddBeforeAll(func() {
+		// do stuff
+	})
+
+	ext.AddSpecs(specs)
+	registry.Register(ext)
+
+	root := &cobra.Command{
+		Long: "Cluster Kube API Server Operator Tests Extension",
+	}
+
+	root.AddCommand(cmd.DefaultExtensionCommands(registry)...)
+
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}

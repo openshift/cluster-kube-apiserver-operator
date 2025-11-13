@@ -4,7 +4,7 @@ COPY . .
 ENV GO_PACKAGE github.com/openshift/cluster-kube-apiserver-operator
 RUN make build --warn-undefined-variables \
     && make tests-ext-build \
-    && gzip test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext
+    && gzip cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext
 
 FROM registry.ci.openshift.org/ocp/4.21:base-rhel9
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/bootstrap-manifests /usr/share/bootkube/manifests/bootstrap-manifests/
@@ -13,7 +13,7 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/bindata/bootkube/scc-manifests /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/vendor/github.com/openshift/api/apiserver/v1/zz_generated.crd-manifests/kube-apiserver_apirequestcounts.crd.yaml /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
-COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/test/extended/tests-extension/bin/cluster-kube-apiserver-operator-tests-ext.gz /usr/bin/
+COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext.gz /usr/bin/
 
 COPY manifests /manifests
 COPY bindata/bootkube/scc-manifests /manifests
