@@ -13,35 +13,37 @@ From the repository root:
 make tests-ext-build
 ```
 
-The binary will be located at: `cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests`
+The binary will be located at: `cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext`
 
 ### Running Tests
 
 | Command                                                                    | Description                                                              |
 |----------------------------------------------------------------------------|--------------------------------------------------------------------------|
 | `make tests-ext-build`                                                     | Builds the test extension binary.                           |
-| `make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]`                     | Runs a test suite (e.g., `SUITE=openshift/cluster-kube-apiserver-operator/conformance/parallel`). |
-| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list`  | Lists all available test cases.                                          |
-| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests run-suite <suite-name>` | Runs a test suite directly. |
-| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests run-test <test-name>` | Runs one specific test. |
+| `make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]`                     | Runs a test suite with optional JUnit XML output. |
+| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list`  | Lists all available test cases.                                          |
+| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-suite <suite-name>` | Runs a test suite. Serial/slow suites automatically run tests one at a time. |
+| `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-test <test-name>` | Runs one specific test. |
+
+**Note:** The `conformance/serial` and `optional/slow` suites automatically enforce serial execution (one test at a time) via the suite's `Parallelism: 1` configuration. No special flags are needed.
 
 ### Listing Suites and Tests
 
 ```bash
 # List all available suites
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list suites
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list suites
 
 # List tests in a suite
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list tests --suite=openshift/cluster-kube-apiserver-operator/all
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/all
 
 # Show suite info with qualifiers (filtering logic)
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests info | jq '.suites'
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext info | jq '.suites'
 
 # Count tests in a suite
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list tests --suite=<suite-name> | jq 'length'
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list tests --suite=<suite-name> | jq 'length'
 
 # Extract just test names
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list tests --suite=<suite-name> | jq -r '.[] | .name'
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list tests --suite=<suite-name> | jq -r '.[] | .name'
 ```
 
 ## Test Suite Organization
@@ -50,12 +52,12 @@ Tests are automatically distributed into different suites based on tags in the t
 
 ### Available Suites
 
-| Suite Name | Purpose |
-|------------|---------|
-| `openshift/cluster-kube-apiserver-operator/conformance/parallel` | Fast, parallel-safe tests |
-| `openshift/cluster-kube-apiserver-operator/conformance/serial` | Serial execution tests |
-| `openshift/cluster-kube-apiserver-operator/optional/slow` | Long-running and timeout tests |
-| `openshift/cluster-kube-apiserver-operator/all` | All tests |
+| Suite Name | Purpose | Parallelism |
+|------------|---------|-------------|
+| `openshift/cluster-kube-apiserver-operator/conformance/parallel` | Fast, parallel-safe tests | Default (10 concurrent) |
+| `openshift/cluster-kube-apiserver-operator/conformance/serial` | Serial execution tests | `Parallelism: 1` (serial) |
+| `openshift/cluster-kube-apiserver-operator/optional/slow` | Long-running and timeout tests | `Parallelism: 1` (serial) |
+| `openshift/cluster-kube-apiserver-operator/all` | All tests | Default (10 concurrent) |
 
 ### Test Distribution Rules
 
@@ -78,19 +80,56 @@ Tests are distributed into suites based on tags in the test name:
 
 | Tag | Purpose |
 |-----|---------|
-| `[Serial]` | Must run sequentially |
+| `[Serial]` | Must run sequentially (one test at a time) |
 | `[Slow]` | Long-running test |
 | `[Timeout:XXm]` | Custom timeout (supports any duration like 30m, 45m, 90m, 120m, etc.) |
 | `[Disruptive]` | Modifies cluster state (automatically tagged as `[Serial]`) |
 
+### Serial Test Execution
+
+Tests tagged with `[Serial]` must run one at a time to prevent interference with cluster state.
+
+**How Serial Execution Works:**
+
+Serial execution is enforced at the **suite level** using the `Parallelism: 1` configuration in `cmd/cluster-kube-apiserver-operator-tests/main.go`:
+
+```go
+ext.AddSuite(e.Suite{
+    Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
+    Parallelism: 1,  // Enforces serial execution
+    // ...
+})
+```
+
+**Execution Behavior:**
+
+| Execution Method | Serial Execution | How It Works |
+|------------------|------------------|--------------|
+| `openshift-tests run openshift/conformance/serial` | Automatic | Built-in serial detection in openshift-tests binary |
+| `./binary run-suite .../conformance/serial` | Automatic | Suite config: `Parallelism: 1` |
+| `./binary run-suite .../optional/slow` | Automatic | Suite config: `Parallelism: 1` |
+| `make run-suite SUITE=...` | Automatic | Uses suite config: `Parallelism: 1` |
+
+**Why This Matters:**
+
+Tests that modify cluster state (like EventTTL configuration tests) will interfere with each other if run in parallel:
+- Test 1 sets `eventTTLMinutes=5`
+- Test 2 sets `eventTTLMinutes=10` (simultaneously)
+- Test 3 sets `eventTTLMinutes=15` (simultaneously)
+- Result: All tests read incorrect values and fail
+
+**Solution:**
+
+The `conformance/serial` and `optional/slow` suites have `Parallelism: 1` configured, which ensures tests run one at a time regardless of how you invoke the test binary.
+
 ## How to Run the Tests Locally
 
-The tests can be run locally using the `cluster-kube-apiserver-operator-tests` binary against an OpenShift cluster.
+The tests can be run locally using the `cluster-kube-apiserver-operator-tests-ext` binary against an OpenShift cluster.
 Use the environment variable `KUBECONFIG` to point to your cluster configuration file such as:
 
 ```shell
 export KUBECONFIG=path/to/kubeconfig
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests run-test <test-name>
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-test <test-name>
 ```
 
 ### Local Test using OCP
@@ -112,17 +151,33 @@ mv ~/Downloads/cluster-bot-2025-08-06-082741.kubeconfig ~/.kube/cluster-bot.kube
 export KUBECONFIG=~/.kube/cluster-bot.kubeconfig
 ```
 
-3. Run the tests using the `cluster-kube-apiserver-operator-tests` binary.
+3. Run the tests using the `cluster-kube-apiserver-operator-tests-ext` binary.
 
 **Example:**
 ```shell
-./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests run-suite openshift/cluster-kube-apiserver-operator/all
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all
 ```
 
 Or using make from the root directory:
 ```shell
 make run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
 ```
+
+#### Running Serial/Slow Tests
+
+Serial and slow test suites automatically enforce serial execution (one test at a time) via the suite's `Parallelism: 1` configuration:
+
+```shell
+# Using make
+make run-suite SUITE=openshift/cluster-kube-apiserver-operator/optional/slow JUNIT_DIR=/tmp/junit-results
+
+# Or using binary directly (no special flags needed)
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext \
+  run-suite openshift/cluster-kube-apiserver-operator/optional/slow \
+  --junit-path=/tmp/junit-results/junit.xml
+```
+
+Both commands run tests serially because the suite configuration has `Parallelism: 1`. No `-c 1` flag is required.
 
 ## Test Module Structure
 
@@ -131,7 +186,7 @@ The test extension uses a **single module approach** where test code and product
 ```
 ├── cmd/cluster-kube-apiserver-operator-tests/              # Test extension main package
 │   ├── main.go                                             # Test binary entry point
-│   └── cluster-kube-apiserver-operator-tests               # Test binary (built here)
+│   └── cluster-kube-apiserver-operator-tests-ext           # Test binary (built here)
 ├── test/e2e/                                               # End-to-end tests
 │   ├── event_ttl.go                                        # EventTTL tests
 │   ├── doc.go                                              # Package documentation
@@ -207,7 +262,7 @@ After adding or modifying tests, always run `make tests-ext-update` to update te
 
 ## How to Rename a Test
 
-1. Run `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list` to see the current test names
+1. Run `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list` to see the current test names
 2. Find the name of the test you want to rename
 3. Add a Ginkgo label with the original name, like this:
 
@@ -225,7 +280,7 @@ It("should pass a renamed sanity check",
 
 ## How to Delete a Test
 
-1. Run `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests list` to find the test name
+1. Run `./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list` to find the test name
 2. Add the test name to the `IgnoreObsoleteTests` block in `cmd/cluster-kube-apiserver-operator-tests/main.go`, like this:
 
 ```go
@@ -330,6 +385,71 @@ The single module approach:
 - Follows the pattern agreed upon by the team (see Slack discussion)
 - Uses existing Makefile patterns with build-machinery-go
 - Avoids complexity of syncing versions between modules
+
+### How does serial execution work for serial/slow test suites?
+
+Serial execution is enforced at the **suite configuration level** using the `Parallelism` field in the OTE framework.
+
+**Background:**
+
+Tests that modify cluster state (like EventTTL configuration) must run one at a time to prevent interference:
+```
+Problem (parallel execution):
+Test 1: Sets eventTTLMinutes=5  (at 10:00:00)
+Test 2: Sets eventTTLMinutes=10 (at 10:00:00)  ← Overwrites Test 1
+Test 3: Sets eventTTLMinutes=15 (at 10:00:00)  ← Overwrites Tests 1 & 2
+Result: All tests fail because they read wrong values
+```
+
+**The Solution:**
+
+Suite configuration in `cmd/cluster-kube-apiserver-operator-tests/main.go` sets `Parallelism: 1`:
+
+```go
+ext.AddSuite(e.Suite{
+    Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
+    Parents:     []string{"openshift/conformance/serial"},
+    Parallelism: 1,  // Enforces serial execution (one test at a time)
+    Qualifiers: []string{
+        `name.contains("[Serial]") && !name.contains("[Slow]")`,
+    },
+})
+```
+
+**How It Works:**
+
+The OTE framework's `run-suite` command checks if the suite has a `Parallelism` value set and uses it instead of the default concurrency (`-c 10`). This ensures:
+
+- Serial/slow suites always run tests one at a time
+- No special command-line flags needed
+- Works consistently in CI and local development
+- Matches behavior of `openshift-tests run openshift/conformance/serial`
+
+**Implementation Details:**
+
+The vendor fix in `pkg/cmd/cmdrun/runsuite.go` respects the suite's Parallelism:
+
+```go
+// Use suite's Parallelism if set, otherwise use command-line flag
+concurrency := opts.concurrencyFlags.MaxConcurency
+if suite.Parallelism > 0 {
+    concurrency = suite.Parallelism
+}
+```
+
+### What vendor modifications were made?
+
+To enable proper serial execution and fix JSON parsing issues, the following vendor files were modified:
+
+1. **vendor/.../pkg/cmd/cmdrun/runsuite.go** - Modified to respect suite's `Parallelism` field
+   - Previously: Always used command-line `-c` flag (default: 10)
+   - Now: Uses suite's `Parallelism` if set, otherwise falls back to `-c` flag
+
+2. **vendor/.../pkg/ginkgo/util.go** - Suppressed Ginkgo reporter output to prevent JSON contamination
+   - Previously: Ginkgo wrote "FAIL!" text to stdout, breaking JSON parsing
+   - Now: Uses `io.Discard` writer and `Verbose: false` to suppress reporter output
+
+These modifications are temporary and should be upstreamed to the openshift-tests-extension repository.
 
 ### How to get help with OTE?
 

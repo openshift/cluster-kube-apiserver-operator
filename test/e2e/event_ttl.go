@@ -106,6 +106,15 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 
 			// Collect existing enabled features
 			existingFeatures := make(map[string]bool)
+			// If switching from a predefined feature set, preserve all currently enabled features
+			if originalFeatureSet != "CustomNoUpgrade" {
+				for _, fgStatus := range featureGate.Status.FeatureGates {
+					for _, enabled := range fgStatus.Enabled {
+						existingFeatures[string(enabled.Name)] = true
+					}
+				}
+			}
+			// Also include any features already in CustomNoUpgrade.Enabled
 			if currentFG.Spec.CustomNoUpgrade != nil && currentFG.Spec.CustomNoUpgrade.Enabled != nil {
 				for _, f := range currentFG.Spec.CustomNoUpgrade.Enabled {
 					existingFeatures[string(f)] = true
@@ -444,6 +453,8 @@ func waitForFeatureGateEnabled(ctx context.Context, configClient *configclient.C
 	})
 }
 
+// TODO: Move this function to https://github.com/openshift/library-go/tree/master/test as a common utility
+// for waiting for API server rollouts across multiple operator repositories.
 func waitForAPIServerRollout(ctx context.Context, kubeClient *kubernetes.Clientset, timeout time.Duration) error {
 	// First, get the current revision and pod creation times BEFORE we start waiting
 	initialPods, err := kubeClient.CoreV1().Pods(operatorclient.TargetNamespace).List(ctx, metav1.ListOptions{

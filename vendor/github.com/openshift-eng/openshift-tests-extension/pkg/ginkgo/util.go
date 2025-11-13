@@ -1,8 +1,10 @@
 package ginkgo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -34,8 +36,9 @@ func configureGinkgo() (*types.SuiteConfig, *types.ReporterConfig, error) {
 	reporterConfig.Verbose = true
 	ginkgo.SetReporterConfig(reporterConfig)
 
-	// Write output to Stderr
-	ginkgo.GinkgoWriter = ginkgo.NewWriter(os.Stderr)
+	// Note: Don't override GinkgoWriter to os.Stderr - let Ginkgo use its default
+	// capturing writer so that g.By() output is captured in CapturedGinkgoWriterOutput
+	// ginkgo.GinkgoWriter = ginkgo.NewWriter(os.Stderr)
 	ginkgo.GinkgoLogr = GinkgoLogrFunc(ginkgo.GinkgoWriter)
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
@@ -81,16 +84,36 @@ func BuildExtensionTestSpecsFromOpenShiftGinkgoSuite(selectFns ...ext.SelectFunc
 					Name: spec.Text(),
 				}
 
+				// Keep Verbose = true to capture g.By() output
+				// We'll filter out the reporter summary from the captured output later
+				reporterConfigCopy := *reporterConfig
+				reporterConfigCopy.Verbose = true
+
+				// Create a buffer to capture g.By() output AND write to stderr for real-time visibility
+				var outputBuffer bytes.Buffer
+				multiWriter := io.MultiWriter(&outputBuffer, os.Stderr)
+				captureWriter := ginkgo.NewWriter(multiWriter)
+
+				// Temporarily redirect GinkgoWriter to capture output
+				originalWriter := ginkgo.GinkgoWriter
+				ginkgo.GinkgoWriter = captureWriter
+				defer func() {
+					ginkgo.GinkgoWriter = originalWriter
+				}()
+
 				var summary types.SpecReport
-				ginkgo.GetSuite().RunSpec(spec, ginkgo.Labels{}, "", cwd, ginkgo.GetFailer(), ginkgo.GetWriter(), *suiteConfig,
-					*reporterConfig)
+				ginkgo.GetSuite().RunSpec(spec, ginkgo.Labels{}, "", cwd, ginkgo.GetFailer(), captureWriter, *suiteConfig,
+					reporterConfigCopy)
 				for _, report := range ginkgo.GetSuite().GetReport().SpecReports {
 					if report.NumAttempts > 0 {
 						summary = report
 					}
 				}
 
-				result.Output = summary.CapturedGinkgoWriterOutput
+				// Use the captured buffer output instead of CapturedGinkgoWriterOutput
+				// because we redirected GinkgoWriter to our custom buffer
+				// Filter out Ginkgo reporter summary lines to prevent JSON contamination
+				result.Output = filterGinkgoReporterOutput(outputBuffer.String())
 				result.Error = summary.CapturedStdOutErr
 
 				switch {
@@ -187,6 +210,39 @@ func MustLifecycle(l string) ext.Lifecycle {
 	default:
 		panic(fmt.Sprintf("unknown test lifecycle: %s", l))
 	}
+}
+
+// filterGinkgoReporterOutput removes Ginkgo reporter summary lines from output
+// to prevent contamination of JSON output while preserving test's own logging (g.By() calls)
+func filterGinkgoReporterOutput(output string) string {
+	var filtered []string
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Skip Ginkgo reporter summary lines
+		if strings.HasPrefix(trimmed, "Running Suite:") ||
+			strings.HasPrefix(trimmed, "=======") ||
+			strings.HasPrefix(trimmed, "Random Seed:") ||
+			strings.HasPrefix(trimmed, "Will run ") ||
+			strings.HasPrefix(trimmed, "Ran ") ||
+			strings.HasPrefix(trimmed, "SUCCESS!") ||
+			strings.HasPrefix(trimmed, "FAIL!") ||
+			trimmed == "•" || // Progress indicator
+			trimmed == "" && len(filtered) == 0 { // Skip leading empty lines
+			continue
+		}
+
+		filtered = append(filtered, line)
+	}
+
+	// Remove trailing empty lines
+	for len(filtered) > 0 && strings.TrimSpace(filtered[len(filtered)-1]) == "" {
+		filtered = filtered[:len(filtered)-1]
+	}
+
+	return strings.Join(filtered, "\n")
 }
 
 func lastFilenameSegment(filename string) string {
