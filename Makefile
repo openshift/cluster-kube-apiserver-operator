@@ -113,13 +113,6 @@ tests-ext-update: tests-ext-build
 	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) update
 
 # -------------------------------------------------------------------
-# Clean test extension binaries
-# -------------------------------------------------------------------
-.PHONY: tests-ext-clean
-tests-ext-clean:
-	rm -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY)
-
-# -------------------------------------------------------------------
 # Run test suite
 # -------------------------------------------------------------------
 .PHONY: run-suite
@@ -135,20 +128,9 @@ run-suite: tests-ext-build
 	fi; \
 	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) run-suite $(SUITE) $$JUNIT_ARG
 
-# -------------------------------------------------------------------
-# Run go test on ./test/extended/... with proper flags
-# -------------------------------------------------------------------
-.PHONY: test-extended
-test-extended: GO_TEST_PACKAGES := ./test/extended/...
-test-extended: GO_TEST_FLAGS += -v
-test-extended: GO_TEST_FLAGS += -timeout 3h
-test-extended: GO_TEST_FLAGS += -p 1
-test-extended: test-unit
-test-extended:
-	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
-
-clean: tests-ext-clean
+clean:
 	$(RM) ./cluster-kube-apiserver-operator
+	rm -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY)
 .PHONY: clean
 
 # Configure the 'telepresence' target
