@@ -18,6 +18,9 @@ import (
 	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 
 	"github.com/spf13/cobra"
+
+	// Import test packages to register tests with Ginkgo
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
