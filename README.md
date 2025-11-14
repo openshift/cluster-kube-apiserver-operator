@@ -178,3 +178,35 @@ $ oc adm release new --from-release=registry.svc.ci.openshift.org/openshift/orig
 $ cd ../installer
 $ OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/sttts/origin-release:latest bin/openshift-install cluster ...
 ```
+
+## Tests
+
+This repository uses the [OpenShift Tests Extension (OTE)](https://github.com/openshift-eng/openshift-tests-extension) framework for end-to-end tests.
+
+### Building the test binary
+
+```bash
+make tests-ext-build
+```
+
+### Running test suites
+
+```bash
+# Run a specific test suite
+make run-suite SUITE=openshift/cluster-kube-apiserver-operator/all
+
+# Run with JUnit output
+make run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
+```
+
+### Listing available tests and suites
+
+```bash
+# List all test suites
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list suites
+
+# List tests in a suite
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/all
+```
+
+For more information about the OTE framework, see the [openshift-tests-extension documentation](https://github.com/openshift-eng/openshift-tests-extension).

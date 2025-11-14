@@ -18,16 +18,8 @@ ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
 TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
-TESTS_EXT_DIR := ./test/extended/tests-extension
-TESTS_EXT_PACKAGE := ./cmd
-
-TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
-TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-TESTS_EXT_GIT_TREE_STATE := $(shell if git diff --quiet; then echo clean; else echo dirty; fi)
-
-TESTS_EXT_LDFLAGS := -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.CommitFromGit=$(TESTS_EXT_GIT_COMMIT)' \
-                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.BuildDate=$(TESTS_EXT_BUILD_DATE)' \
-                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.GitTreeState=$(TESTS_EXT_GIT_TREE_STATE)'
+TESTS_EXT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
+TESTS_EXT_OUTPUT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
 
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:
 # $0 - macro name
@@ -98,47 +90,34 @@ test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
 
 # -------------------------------------------------------------------
-# Build binary with metadata (CI-compliant)
+# Ensure test binary has correct name and location
 # -------------------------------------------------------------------
 .PHONY: tests-ext-build
-tests-ext-build:
-	$(MAKE) -C test/extended/tests-extension build
-
-# -------------------------------------------------------------------
-# Run "update" and strip env-specific metadata
-# -------------------------------------------------------------------
-.PHONY: tests-ext-update
-tests-ext-update:
-	$(MAKE) -C test/extended/tests-extension build-update
-
-# -------------------------------------------------------------------
-# Clean test extension binaries
-# -------------------------------------------------------------------
-.PHONY: tests-ext-clean
-tests-ext-clean:
-	$(MAKE) -C $(TESTS_EXT_DIR) clean
+tests-ext-build: build
+	@mkdir -p $(TESTS_EXT_OUTPUT_DIR)
+	@if [ -f cluster-kube-apiserver-operator-tests ] && [ ! -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) ]; then \
+		mv cluster-kube-apiserver-operator-tests $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY); \
+	fi
 
 # -------------------------------------------------------------------
 # Run test suite
 # -------------------------------------------------------------------
 .PHONY: run-suite
-run-suite:
-	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) JUNIT_DIR=$(JUNIT_DIR)
+run-suite: tests-ext-build
+	@if [ -z "$(SUITE)" ]; then \
+		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]"; \
+		exit 1; \
+	fi
+	@JUNIT_ARG=""; \
+	if [ -n "$(JUNIT_DIR)" ]; then \
+		mkdir -p $(JUNIT_DIR); \
+		JUNIT_ARG="--junit-path=$(JUNIT_DIR)/junit.xml"; \
+	fi; \
+	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) run-suite $(SUITE) $$JUNIT_ARG
 
-# -------------------------------------------------------------------
-# Run go test on ./test/extended/... with proper flags
-# -------------------------------------------------------------------
-.PHONY: test-extended
-test-extended: GO_TEST_PACKAGES := ./test/extended/...
-test-extended: GO_TEST_FLAGS += -v
-test-extended: GO_TEST_FLAGS += -timeout 3h
-test-extended: GO_TEST_FLAGS += -p 1
-test-extended: test-unit
-test-extended:
-	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
-
-clean: tests-ext-clean
+clean:
 	$(RM) ./cluster-kube-apiserver-operator
+	rm -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY)
 .PHONY: clean
 
 # Configure the 'telepresence' target
