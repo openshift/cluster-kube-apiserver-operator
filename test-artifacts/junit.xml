@@ -1,0 +1,5 @@
+<testsuite name="openshift/cluster-kube-apiserver-operator/conformance/parallel" tests="1" skipped="0" failures="0" time="0">
+    <testcase name="[sig-api-machinery] Debug Quick Test should show detailed logging in under 10 seconds [Debug][Quick]" time="2">
+        <system-out>  ------------------------------&#xA;  [sig-api-machinery] Debug Quick Test should show detailed logging in under 10 seconds [Debug][Quick] [Lifecycle:informing]&#xA;  /Users/rgangwar/Downloads/backupoffice/cluster-kube-apiserver-operator/test/e2e/event_ttl.go:655&#xA;    STEP: === Quick Debug Test Started === @ 11/13/25 22:13:56.34&#xA;    STEP: Step 1: Testing logging output @ 11/13/25 22:13:56.341&#xA;    STEP:   [OK] Waited 2 seconds @ 11/13/25 22:13:58.341&#xA;    STEP: Step 2: Checking basic assertions @ 11/13/25 22:13:58.341&#xA;    STEP:   [OK] Basic math works @ 11/13/25 22:13:58.341&#xA;    STEP: === Test Completed in 2.000662833s === @ 11/13/25 22:13:58.341&#xA;  • [2.001 seconds]&#xA;  ------------------------------</system-out>
+    </testcase>
+</testsuite>

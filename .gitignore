@@ -1,5 +1,6 @@
 /cluster-kube-apiserver-operator
-/test/extended/tests-extension/bin/
+/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests
+/cmd/cluster-kube-apiserver-operator-tests/.openshift-tests-extension/
 /bin/
 .idea/
 /_output/
