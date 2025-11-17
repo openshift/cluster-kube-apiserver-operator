@@ -3,7 +3,8 @@ WORKDIR /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY . .
 ENV GO_PACKAGE github.com/openshift/cluster-kube-apiserver-operator
 RUN make build --warn-undefined-variables \
-    && make tests-ext-build \
+    && mkdir -p cmd/cluster-kube-apiserver-operator-tests \
+    && mv cluster-kube-apiserver-operator-tests cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext \
     && gzip cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext
 
 FROM registry.ci.openshift.org/ocp/4.21:base-rhel9

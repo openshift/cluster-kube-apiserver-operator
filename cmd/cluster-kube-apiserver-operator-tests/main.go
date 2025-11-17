@@ -8,92 +8,42 @@ https://github.com/openshift-eng/openshift-tests-extension/blob/main/cmd/example
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
-	"strings"
-
-	"github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
-	e "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
-	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
-	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 
 	"github.com/spf13/cobra"
+	"k8s.io/component-base/cli"
 
-	// Import test packages to register tests with Ginkgo
-	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
+	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
+	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
 func main() {
-	registry := e.NewRegistry()
-	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
+	command := newOperatorTestCommand(context.Background())
+	code := cli.Run(command)
+	os.Exit(code)
+}
 
-	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
-	if err != nil {
-		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
+func newOperatorTestCommand(ctx context.Context) *cobra.Command {
+	registry := oteextension.NewRegistry()
+
+	// Register extension before adding commands
+	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
+	registry.Register(extension)
+
+	cmd := &cobra.Command{
+		Use:   "cluster-kube-apiserver-operator-tests",
+		Short: "A binary used to run cluster-kube-apiserver-operator tests as part of OTE.",
 	}
 
-	// Ensure [Disruptive] tests are also [Serial]
-	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
-		if strings.Contains(spec.Name, "[Disruptive]") && !strings.Contains(spec.Name, "[Serial]") {
-			spec.Name = strings.ReplaceAll(
-				spec.Name,
-				"[Disruptive]",
-				"[Serial][Disruptive]",
-			)
-		}
-	})
-
-	// Preserve original-name labels for renamed tests
-	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
-		for label := range spec.Labels {
-			if strings.HasPrefix(label, "original-name:") {
-				parts := strings.SplitN(label, "original-name:", 2)
-				if len(parts) > 1 {
-					spec.OriginalName = parts[1]
-				}
-			}
-		}
-	})
-
-	// Extract timeout from test name if present (e.g., [Timeout:50m])
-	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
-		// Look for [Timeout:XXm] or [Timeout:XXh] pattern in test name
-		if strings.Contains(spec.Name, "[Timeout:") {
-			start := strings.Index(spec.Name, "[Timeout:")
-			if start != -1 {
-				end := strings.Index(spec.Name[start:], "]")
-				if end != -1 {
-					// Extract the timeout value (e.g., "50m" from "[Timeout:50m]")
-					timeoutTag := spec.Name[start+len("[Timeout:") : start+end]
-					if spec.Tags == nil {
-						spec.Tags = make(map[string]string)
-					}
-					spec.Tags["timeout"] = timeoutTag
-				}
-			}
-		}
-	})
-
-	// Ignore obsolete tests
-	ext.IgnoreObsoleteTests(
-	// "[sig-api-machinery] <test name here>",
-	)
-
-	// Initialize environment before running any tests
-	specs.AddBeforeAll(func() {
-		// do stuff
-	})
-
-	ext.AddSpecs(specs)
-	registry.Register(ext)
-
-	root := &cobra.Command{
-		Long: "Cluster Kube API Server Operator Tests Extension",
+	if v := version.Get().String(); len(v) == 0 {
+		cmd.Version = "<unknown>"
+	} else {
+		cmd.Version = v
 	}
 
-	root.AddCommand(cmd.DefaultExtensionCommands(registry)...)
+	cmd.AddCommand(otecmd.DefaultExtensionCommands(registry)...)
 
-	if err := root.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return cmd
 }

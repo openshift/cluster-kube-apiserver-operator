@@ -5,3 +5,8 @@
 .idea/
 /_output/
 telepresence.log
+
+# Test extension binaries
+/cluster-kube-apiserver-operator-tests
+/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext
+/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext.gz

@@ -1,13 +1,14 @@
 all: build
 .PHONY: all
 
+
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
 	targets/openshift/images.mk \
 	targets/openshift/deps.mk \
 	targets/openshift/operator/telepresence.mk \
-	targets/openshift/tests-extension.mk \
+	targets/openshift/test-suite.mk \
 )
 
 # Exclude e2e tests from unit testing
@@ -18,9 +19,8 @@ IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
 
-TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
-TESTS_EXT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
-TESTS_EXT_OUTPUT_DIR := ./cmd/cluster-kube-apiserver-operator-tests
+TESTS_BINARY := cluster-kube-apiserver-operator-tests-ext
+TESTS_DIR := ./cmd/cluster-kube-apiserver-operator-tests
 
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:
 # $0 - macro name
