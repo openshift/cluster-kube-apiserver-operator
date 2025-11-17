@@ -7,6 +7,7 @@ include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	targets/openshift/images.mk \
 	targets/openshift/deps.mk \
 	targets/openshift/operator/telepresence.mk \
+	targets/openshift/tests-extension.mk \
 )
 
 # Exclude e2e tests from unit testing
@@ -89,35 +90,8 @@ test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
 test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
 
-# -------------------------------------------------------------------
-# Ensure test binary has correct name and location
-# -------------------------------------------------------------------
-.PHONY: tests-ext-build
-tests-ext-build: build
-	@mkdir -p $(TESTS_EXT_OUTPUT_DIR)
-	@if [ -f cluster-kube-apiserver-operator-tests ] && [ ! -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) ]; then \
-		mv cluster-kube-apiserver-operator-tests $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY); \
-	fi
-
-# -------------------------------------------------------------------
-# Run test suite
-# -------------------------------------------------------------------
-.PHONY: run-suite
-run-suite: tests-ext-build
-	@if [ -z "$(SUITE)" ]; then \
-		echo "Error: SUITE variable is required. Usage: make run-suite SUITE=<suite-name> [JUNIT_DIR=<dir>]"; \
-		exit 1; \
-	fi
-	@JUNIT_ARG=""; \
-	if [ -n "$(JUNIT_DIR)" ]; then \
-		mkdir -p $(JUNIT_DIR); \
-		JUNIT_ARG="--junit-path=$(JUNIT_DIR)/junit.xml"; \
-	fi; \
-	$(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY) run-suite $(SUITE) $$JUNIT_ARG
-
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
-	rm -f $(TESTS_EXT_OUTPUT_DIR)/$(TESTS_EXT_BINARY)
 .PHONY: clean
 
 # Configure the 'telepresence' target
