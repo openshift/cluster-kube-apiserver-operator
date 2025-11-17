@@ -27,48 +27,6 @@ func main() {
 	registry := e.NewRegistry()
 	ext := e.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
-	// Suite: conformance/parallel (fast, parallel-safe)
-	// Rule 1: Tests without [Serial], [Slow], or [Timeout:] tags run in parallel
-	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
-		Parents: []string{"openshift/conformance/parallel"},
-		Qualifiers: []string{
-			`!(name.contains("[Serial]") || name.contains("[Slow]") || name.contains("[Timeout:"))`,
-		},
-	})
-
-	// Suite: conformance/serial (explicitly serial tests, but NOT slow tests)
-	// Rule 2 & 4: Tests with [Serial] or [Serial][Disruptive] run only in serial suite
-	// Tests with [Serial][Timeout:] go to serial (timeout on serial test)
-	// Exclude [Slow] tests - they go to slow suite instead
-	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
-	ext.AddSuite(e.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
-		Parents:     []string{"openshift/conformance/serial"},
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Serial]") && !name.contains("[Slow]")`,
-		},
-	})
-
-	// Suite: optional/slow (long-running tests and non-serial timeout tests)
-	// Rule 3 & 5: Tests with [Slow] OR tests with [Timeout:] that are NOT [Serial]
-	// Tests with [Slow][Disruptive][Timeout:] will run serially due to [Serial] tag
-	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
-	ext.AddSuite(e.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/optional/slow",
-		Parents:     []string{"openshift/optional/slow"},
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Slow]") || (name.contains("[Timeout:") && !name.contains("[Serial]"))`,
-		},
-	})
-
-	// Suite: all (includes everything)
-	ext.AddSuite(e.Suite{
-		Name: "openshift/cluster-kube-apiserver-operator/all",
-	})
-
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
