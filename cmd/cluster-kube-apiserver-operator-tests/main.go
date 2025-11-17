@@ -17,6 +17,8 @@ import (
 	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
 	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+
+	"k8s.io/klog/v2"
 )
 
 func main() {
@@ -26,15 +28,17 @@ func main() {
 }
 
 func newOperatorTestCommand(ctx context.Context) *cobra.Command {
-	registry := oteextension.NewRegistry()
-
-	// Register extension before adding commands
-	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
-	registry.Register(extension)
+	registry := prepareOperatorTestsRegistry()
 
 	cmd := &cobra.Command{
 		Use:   "cluster-kube-apiserver-operator-tests",
 		Short: "A binary used to run cluster-kube-apiserver-operator tests as part of OTE.",
+		Run: func(cmd *cobra.Command, args []string) {
+			// no-op, logic is provided by the OTE framework
+			if err := cmd.Help(); err != nil {
+				klog.Fatal(err)
+			}
+		},
 	}
 
 	if v := version.Get().String(); len(v) == 0 {
@@ -46,4 +50,17 @@ func newOperatorTestCommand(ctx context.Context) *cobra.Command {
 	cmd.AddCommand(otecmd.DefaultExtensionCommands(registry)...)
 
 	return cmd
+}
+
+// prepareOperatorTestsRegistry creates the OTE registry for this operator.
+//
+// Note:
+//
+// This method must be called before adding the registry to the OTE framework.
+func prepareOperatorTestsRegistry() *oteextension.Registry {
+	registry := oteextension.NewRegistry()
+	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
+
+	registry.Register(extension)
+	return registry
 }
