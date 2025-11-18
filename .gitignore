@@ -1,12 +1,10 @@
 /cluster-kube-apiserver-operator
-/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests
-/cmd/cluster-kube-apiserver-operator-tests/.openshift-tests-extension/
+/.openshift-tests-extension/openshift_payload_cluster-kube-apiserver-operator.json
 /bin/
 .idea/
 /_output/
 telepresence.log
 
 # Test extension binaries
-/cluster-kube-apiserver-operator-tests
-/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext
-/cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext.gz
+/cluster-kube-apiserver-operator-tests-ext
+/cluster-kube-apiserver-operator-tests-ext.gz
