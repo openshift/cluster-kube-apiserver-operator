@@ -1,6 +1,7 @@
 all: build
 .PHONY: all
 
+
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
@@ -16,18 +17,6 @@ IMAGE_REGISTRY :=registry.svc.ci.openshift.org
 
 ENCRYPTION_PROVIDERS=aescbc aesgcm
 ENCRYPTION_PROVIDER?=aescbc
-
-TESTS_EXT_BINARY := cluster-kube-apiserver-operator-tests-ext
-TESTS_EXT_DIR := ./test/extended/tests-extension
-TESTS_EXT_PACKAGE := ./cmd
-
-TESTS_EXT_GIT_COMMIT := $(shell git rev-parse --short HEAD)
-TESTS_EXT_BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-TESTS_EXT_GIT_TREE_STATE := $(shell if git diff --quiet; then echo clean; else echo dirty; fi)
-
-TESTS_EXT_LDFLAGS := -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.CommitFromGit=$(TESTS_EXT_GIT_COMMIT)' \
-                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.BuildDate=$(TESTS_EXT_BUILD_DATE)' \
-                     -X 'github.com/openshift-eng/openshift-tests-extension/pkg/version.GitTreeState=$(TESTS_EXT_GIT_TREE_STATE)'
 
 # This will call a macro called "build-image" which will generate image specific targets based on the parameters:
 # $0 - macro name
@@ -97,47 +86,7 @@ test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
 test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
 
-# -------------------------------------------------------------------
-# Build binary with metadata (CI-compliant)
-# -------------------------------------------------------------------
-.PHONY: tests-ext-build
-tests-ext-build:
-	$(MAKE) -C test/extended/tests-extension build
-
-# -------------------------------------------------------------------
-# Run "update" and strip env-specific metadata
-# -------------------------------------------------------------------
-.PHONY: tests-ext-update
-tests-ext-update:
-	$(MAKE) -C test/extended/tests-extension build-update
-
-# -------------------------------------------------------------------
-# Clean test extension binaries
-# -------------------------------------------------------------------
-.PHONY: tests-ext-clean
-tests-ext-clean:
-	$(MAKE) -C $(TESTS_EXT_DIR) clean
-
-# -------------------------------------------------------------------
-# Run test suite
-# -------------------------------------------------------------------
-.PHONY: run-suite
-run-suite:
-	$(MAKE) -C $(TESTS_EXT_DIR) run-suite SUITE=$(SUITE) JUNIT_DIR=$(JUNIT_DIR)
-
-# -------------------------------------------------------------------
-# Run go test on ./test/extended/... with proper flags
-# -------------------------------------------------------------------
-.PHONY: test-extended
-test-extended: GO_TEST_PACKAGES := ./test/extended/...
-test-extended: GO_TEST_FLAGS += -v
-test-extended: GO_TEST_FLAGS += -timeout 3h
-test-extended: GO_TEST_FLAGS += -p 1
-test-extended: test-unit
-test-extended:
-	GO111MODULE=on go test $(GO_TEST_FLAGS) $(GO_TEST_PACKAGES)
-
-clean: tests-ext-clean
+clean:
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
 
