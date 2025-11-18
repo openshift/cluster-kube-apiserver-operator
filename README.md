@@ -189,14 +189,16 @@ This repository uses the [OpenShift Tests Extension (OTE)](https://github.com/op
 make tests-ext-build
 ```
 
-### Running test suites
+### Running test suites and tests
 
 ```bash
-# Run a specific test suite
-make run-suite SUITE=openshift/cluster-kube-apiserver-operator/all
+# Run a specific test suite or test
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-test "test-name"
 
 # Run with JUnit output
-make run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
+./cmd/cluster-kube-apiserver-operator-tests/cluster-kube-apiserver-operator-tests-ext run-test TEST=openshift/cluster-kube-apiserver-operator/all/test-name JUNIT_DIR=/tmp/junit-results
 ```
 
 ### Listing available tests and suites

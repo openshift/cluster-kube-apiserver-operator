@@ -35,11 +35,7 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
-require (
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.1
-	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-)
+require github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -60,7 +56,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/gonum/blas v0.0.0-20181208220705-f22b278b28ac // indirect
