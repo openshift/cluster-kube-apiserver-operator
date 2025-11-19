@@ -16,9 +16,7 @@ const (
 	syncerControllerName = "pod-security-admission-label-synchronization-controller"
 )
 
-var (
-	alertLabels = sets.New(psapi.WarnLevelLabel, psapi.AuditLevelLabel)
-)
+var alertLabels = sets.New(psapi.WarnLevelLabel, psapi.AuditLevelLabel)
 
 // isNamespaceViolating checks if a namespace is ready for Pod Security Admission enforcement.
 // It returns true if the namespace is violating the Pod Security Admission policy, along with
@@ -64,7 +62,7 @@ func determineEnforceLabelForNamespace(ns *applyconfiguration.NamespaceApplyConf
 			return level
 		}
 
-		klog.V(2).InfoS("invalid level in scc annotation", "value", level)
+		klog.V(2).InfoS("invalid level in scc annotation", "value", pssAnnotation)
 	}
 
 	var targetLevel psapi.Level

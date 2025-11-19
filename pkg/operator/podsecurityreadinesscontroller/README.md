@@ -53,8 +53,8 @@ Violating namespaces are categorized for telemetry analysis:
 | `runLevelZero`   | Core namespaces: `kube-system`, `default`, `kube-public`        | Platform infrastructure tracking       |
 | `openshift`      | Namespaces with `openshift-` prefix                             | OpenShift component tracking           |
 | `disabledSyncer` | Label `security.openshift.io/scc.podSecurityLabelSync: "false"` | Intentionally excluded namespaces      |
-| `userSCC`        | Contains user workloads that violate PSA                        | SCC vs PSA policy conflicts |
-| `customer`       | All other violating namespaces                                  | Customer workload compatibility issues |
+| `userSCC`        | Contains user workloads that violate PSA                        | SCC vs PSA policy conflicts            |
+| `unknown`        | All other violating namespaces                                  | We simply don't know                   |
 | `inconclusive`   | Evaluation failed due to API errors                             | Operational problems                   |
 
 #### User SCC Detection
@@ -82,12 +82,12 @@ The controller updates `OperatorStatus` conditions for each violation type:
 
 ```go
 type podSecurityOperatorConditions struct {
-    violatingRunLevelZeroNamespaces   []string
-    violatingOpenShiftNamespaces      []string  
-    violatingDisabledSyncerNamespaces []string
-    violatingCustomerNamespaces       []string
-    userSCCViolationNamespaces        []string
-    inconclusiveNamespaces            []string
+	violatingOpenShiftNamespaces      []string // PodSecurityOpenshiftEvaluationConditionsDetected
+	violatingRunLevelZeroNamespaces   []string // PodSecurityRunLevelZeroEvaluationConditionsDetected
+	violatingDisabledSyncerNamespaces []string // PodSecurityDisabledSyncerEvaluationConditionsDetected
+	violatingUserSCCNamespaces        []string // PodSecurityUserSCCEvaluationConditionsDetected
+	violatingUnclassifiedNamespaces   []string // PodSecurityUnknownEvaluationConditionsDetected
+	inconclusiveNamespaces            []string // PodSecurityInconclusiveEvaluationConditionsDetected
 }
 ```
 
