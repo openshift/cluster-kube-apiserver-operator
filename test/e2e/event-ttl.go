@@ -182,13 +182,17 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 				"featureSet": originalFeatureSet,
 			},
 		}
-		if len(originalEnabledFeatures) > 0 {
+		if originalFeatureSet == "CustomNoUpgrade" && len(originalEnabledFeatures) > 0 {
 			restorePatch["spec"].(map[string]interface{})["customNoUpgrade"] = map[string]interface{}{
 				"enabled": originalEnabledFeatures,
 			}
 		}
-		restorePatchBytes, _ := json.Marshal(restorePatch)
-		_, err := configClient.ConfigV1().FeatureGates().Patch(ctx, "cluster", types.MergePatchType, restorePatchBytes, metav1.PatchOptions{})
+		if originalFeatureSet != "CustomNoUpgrade" {
+			restorePatch["spec"].(map[string]interface{})["customNoUpgrade"] = nil
+		}
+		restorePatchBytes, err := json.Marshal(restorePatch)
+		o.Expect(err).NotTo(o.HaveOccurred(), "Failed to marshal feature gate restore patch")
+		_, err = configClient.ConfigV1().FeatureGates().Patch(ctx, "cluster", types.MergePatchType, restorePatchBytes, metav1.PatchOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred(), "Failed to restore feature gate configuration")
 		{
 			g.By("  [OK] Feature gate configuration restored")
