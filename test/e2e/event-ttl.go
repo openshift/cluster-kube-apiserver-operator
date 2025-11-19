@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -142,7 +143,13 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 					},
 				},
 			}
+			fmt.Fprintf(os.Stderr, "[DEBUG BeforeAll] Marshaling feature gate enable patch: %+v\n", patchData)
 			patchBytes, err := json.Marshal(patchData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[ERROR BeforeAll] json.Marshal failed: %v\n", err)
+			} else {
+				fmt.Fprintf(os.Stderr, "[DEBUG BeforeAll] Marshal success: %s\n", string(patchBytes))
+			}
 			o.Expect(err).NotTo(o.HaveOccurred())
 
 			_, err = configClient.ConfigV1().FeatureGates().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
@@ -190,7 +197,13 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		if originalFeatureSet != "CustomNoUpgrade" {
 			restorePatch["spec"].(map[string]interface{})["customNoUpgrade"] = nil
 		}
+		fmt.Fprintf(os.Stderr, "[DEBUG AfterAll] Marshaling feature gate restore patch: %+v\n", restorePatch)
 		restorePatchBytes, err := json.Marshal(restorePatch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[ERROR AfterAll] json.Marshal failed: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "[DEBUG AfterAll] Marshal success: %s\n", string(restorePatchBytes))
+		}
 		o.Expect(err).NotTo(o.HaveOccurred(), "Failed to marshal feature gate restore patch")
 		_, err = configClient.ConfigV1().FeatureGates().Patch(ctx, "cluster", types.MergePatchType, restorePatchBytes, metav1.PatchOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred(), "Failed to restore feature gate configuration")
@@ -215,7 +228,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 	for _, ttlMinutes := range testValues {
 		ttl := ttlMinutes
 
-		g.It(fmt.Sprintf("should configure and validate eventTTLMinutes=%dm [Timeout:60m][Disruptive][Slow][Serial][OTP]", ttl), ote.Informing(), func() {
+		g.It(fmt.Sprintf("should configure and validate eventTTLMinutes=%dm [Timeout:60m][Slow][Serial][OTP]", ttl), ote.Informing(), func() {
 			startTime := time.Now()
 			g.By(fmt.Sprintf("=== Starting test for eventTTLMinutes=%d at %s ===", ttl, startTime.Format(time.RFC3339)))
 
@@ -243,7 +256,13 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 					restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
 					g.By(fmt.Sprintf("  Restoring original eventTTLMinutes=%d", originalEventTTL))
 				}
+				fmt.Fprintf(os.Stderr, "[DEBUG Test Cleanup] Marshaling eventTTLMinutes restore patch: %+v\n", restore)
 				restoreBytes, marshalErr := json.Marshal(restore)
+				if marshalErr != nil {
+					fmt.Fprintf(os.Stderr, "[ERROR Test Cleanup] json.Marshal failed: %v\n", marshalErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "[DEBUG Test Cleanup] Marshal success: %s\n", string(restoreBytes))
+				}
 				o.Expect(marshalErr).NotTo(o.HaveOccurred(), "Failed to marshal restore patch")
 				_, cleanupErr := operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
 				o.Expect(cleanupErr).NotTo(o.HaveOccurred(), "Failed to cleanup eventTTLMinutes configuration")
@@ -272,7 +291,13 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 					"eventTTLMinutes": ttl,
 				},
 			}
+			fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshaling eventTTLMinutes=%d patch: %+v\n", ttl, patchData)
 			patchBytes, err := json.Marshal(patchData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[ERROR Test Config] json.Marshal failed: %v\n", err)
+			} else {
+				fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshal success: %s\n", string(patchBytes))
+			}
 			o.Expect(err).NotTo(o.HaveOccurred())
 			g.By(fmt.Sprintf("  Patch data: %s", string(patchBytes)))
 

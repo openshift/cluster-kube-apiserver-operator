@@ -18,6 +18,7 @@ import (
 	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
+	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 
@@ -26,15 +27,28 @@ import (
 )
 
 func main() {
-	registry := prepareOperatorTestsRegistry()
+	cmd, err := newOperatorTestCommand()
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	code := cli.Run(cmd)
+	os.Exit(code)
+}
+
+func newOperatorTestCommand() (*cobra.Command, error) {
+	registry, err := prepareOperatorTestsRegistry()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare test registry: %w", err)
+	}
+
 	cmd := &cobra.Command{
 		Use:   "cluster-kube-apiserver-operator-tests",
 		Short: "A binary used to run cluster-kube-apiserver-operator tests as part of OTE.",
 		Run: func(cmd *cobra.Command, args []string) {
 			// no-op, logic is provided by the OTE framework
 			if err := cmd.Help(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+				klog.Fatal(err)
 			}
 		},
 	}
@@ -47,8 +61,7 @@ func main() {
 
 	cmd.AddCommand(otecmd.DefaultExtensionCommands(registry)...)
 
-	code := cli.Run(cmd)
-	os.Exit(code)
+	return cmd, nil
 }
 
 // prepareOperatorTestsRegistry creates the OTE registry for this operator.
@@ -56,7 +69,7 @@ func main() {
 // Note:
 //
 // This method must be called before adding the registry to the OTE framework.
-func prepareOperatorTestsRegistry() *oteextension.Registry {
+func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	registry := oteextension.NewRegistry()
 	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
@@ -76,9 +89,8 @@ func prepareOperatorTestsRegistry() *oteextension.Registry {
 	// Exclude [Slow] tests - they go to slow suite instead
 	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
 	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
-		Parents:     []string{"openshift/conformance/serial"},
-		Parallelism: 1,
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/serial",
+		Parents: []string{"openshift/conformance/serial"},
 		Qualifiers: []string{
 			`name.contains("[Serial]") && !name.contains("[Slow]")`,
 		},
@@ -89,9 +101,8 @@ func prepareOperatorTestsRegistry() *oteextension.Registry {
 	// Tests with [Slow][Disruptive][Timeout:] will run serially due to [Serial] tag
 	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
 	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/optional/slow",
-		Parents:     []string{"openshift/optional/slow"},
-		Parallelism: 1,
+		Name:    "openshift/cluster-kube-apiserver-operator/optional/slow",
+		Parents: []string{"openshift/optional/slow"},
 		Qualifiers: []string{
 			`name.contains("[Slow]") || (name.contains("[Timeout:") && !name.contains("[Serial]"))`,
 		},
@@ -105,31 +116,8 @@ func prepareOperatorTestsRegistry() *oteextension.Registry {
 	// Build ginkgo test specs from the test/e2e package
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
-		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))
+		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
 	}
-
-	// Ensure [Disruptive] tests are also [Serial]
-	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
-		if strings.Contains(spec.Name, "[Disruptive]") && !strings.Contains(spec.Name, "[Serial]") {
-			spec.Name = strings.ReplaceAll(
-				spec.Name,
-				"[Disruptive]",
-				"[Serial][Disruptive]",
-			)
-		}
-	})
-
-	// Preserve original-name labels for renamed tests
-	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
-		for label := range spec.Labels {
-			if strings.HasPrefix(label, "original-name:") {
-				parts := strings.SplitN(label, "original-name:", 2)
-				if len(parts) > 1 {
-					spec.OriginalName = parts[1]
-				}
-			}
-		}
-	})
 
 	// Extract timeout from test name if present (e.g., [Timeout:50m])
 	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
@@ -155,14 +143,9 @@ func prepareOperatorTestsRegistry() *oteextension.Registry {
 	// "[sig-api-machinery] <test name here>",
 	)
 
-	// Initialize environment before running any tests
-	specs.AddBeforeAll(func() {
-		// do stuff
-	})
-
 	// Add the discovered test specs to the extension
 	extension.AddSpecs(specs)
 
 	registry.Register(extension)
-	return registry
+	return registry, nil
 }
