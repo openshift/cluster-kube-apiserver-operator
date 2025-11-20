@@ -38,7 +38,18 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 	g.BeforeAll(func() {
 		// Initialize clients first
 		ctx = context.TODO()
+
+		// Redirect stdout temporarily to prevent "Found configuration..." from polluting JSON output
+		oldStdout := os.Stdout
+		devNull, _ := os.Open(os.DevNull)
+		os.Stdout = devNull
+
 		kubeConfig, err := libgotest.NewClientConfigForTest()
+
+		// Restore stdout immediately
+		os.Stdout = oldStdout
+		devNull.Close()
+
 		o.Expect(err).NotTo(o.HaveOccurred(), "failed to get kube config")
 
 		kubeClient, err = kubernetes.NewForConfig(kubeConfig)
