@@ -77,6 +77,9 @@ func main() {
 package adapter
 
 import (
+	"fmt"
+
+	g "github.com/onsi/ginkgo/v2"
 	extensiontests "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 )
 
@@ -98,6 +101,23 @@ var standardGoTestMetadata = []GoTestConfig{
 func GetStandardGoTestSpecs() extensiontests.ExtensionTestSpecs {
 	return BuildExtensionTestSpecsFromGoTestMetadata(standardGoTestMetadata)
 }
+
+// Register standard Go tests with Ginkgo for nice "Running Suite" output
+// This var _ = pattern runs at package init time
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator Standard Go Tests", func() {
+	for _, config := range standardGoTestMetadata {
+		config := config // capture loop variable
+
+		testName := config.TestFile
+		if config.TestPattern != "" {
+			testName = fmt.Sprintf("%s:%s", config.TestFile, config.TestPattern)
+		}
+
+		// Run the test using RunGoTestFile
+		// RunGoTestFile will add tags to the test name, so don't add them here
+		RunGoTestFile(testName, config)
+	}
+})
 `)
 
 	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {

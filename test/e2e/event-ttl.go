@@ -194,16 +194,19 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			return
 		}
 
+		// Skip restoration if we're already on CustomNoUpgrade
+		// Attempting to patch CustomNoUpgrade (even to the same value) fails with
+		// "CustomNoUpgrade may not be changed"
+		if originalFeatureSet == "CustomNoUpgrade" {
+			g.By("=== Cleanup: Original feature set was CustomNoUpgrade, skipping restore (immutable) ===")
+			return
+		}
+
 		g.By("=== Cleanup: Restoring original feature gate configuration ===")
 		restorePatch := map[string]interface{}{
 			"spec": map[string]interface{}{
 				"featureSet": originalFeatureSet,
 			},
-		}
-		if originalFeatureSet == "CustomNoUpgrade" && len(originalEnabledFeatures) > 0 {
-			restorePatch["spec"].(map[string]interface{})["customNoUpgrade"] = map[string]interface{}{
-				"enabled": originalEnabledFeatures,
-			}
 		}
 		if originalFeatureSet != "CustomNoUpgrade" {
 			restorePatch["spec"].(map[string]interface{})["customNoUpgrade"] = nil

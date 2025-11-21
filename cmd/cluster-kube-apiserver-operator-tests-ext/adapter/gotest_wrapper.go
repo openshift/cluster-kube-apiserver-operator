@@ -14,7 +14,6 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	ext "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
-	ote "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/openshift-eng/openshift-tests-extension/pkg/util/sets"
 )
 
@@ -44,10 +43,9 @@ func RunGoTestFile(description string, config GoTestConfig) bool {
 	}
 
 	// Determine lifecycle
+	// User requirement: "all old go standard cases should be considered as serial by default but not informing"
+	// This means lifecycle should be nil (blocking), not ote.Informing()
 	lifecycle := config.Lifecycle
-	if lifecycle == nil {
-		lifecycle = ote.Informing()
-	}
 
 	g.It(fullTestName, lifecycle, func() {
 		g.By(fmt.Sprintf("Running go test on %s", testName))
@@ -492,14 +490,15 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 			// Run the test
 			runErr := cmd.Run()
 
-			// Parse JSON output
+			// Parse JSON output and format it for human readability
 			output := stdout.String()
-			result.Output = output
-
 			lines := strings.Split(output, "\n")
 			passed := 0
 			failed := 0
+			skipped := 0
+			var formattedOutput strings.Builder
 
+			// Build human-readable output from JSON events
 			for _, line := range lines {
 				if line == "" {
 					continue
@@ -507,25 +506,56 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 
 				var event struct {
 					Action  string  `json:"Action"`
+					Package string  `json:"Package"`
 					Test    string  `json:"Test"`
+					Output  string  `json:"Output"`
 					Elapsed float64 `json:"Elapsed"`
 				}
 
 				if err := json.Unmarshal([]byte(line), &event); err != nil {
+					// Not JSON, might be regular output - include it
 					continue
 				}
 
 				switch event.Action {
+				case "run":
+					if event.Test != "" {
+						formattedOutput.WriteString(fmt.Sprintf("=== RUN   %s\n", event.Test))
+					}
+				case "output":
+					if event.Test != "" && event.Output != "" {
+						// Include test output (this captures the actual test logs)
+						formattedOutput.WriteString(event.Output)
+					}
 				case "pass":
 					if event.Test != "" {
 						passed++
+						formattedOutput.WriteString(fmt.Sprintf("--- PASS: %s (%.2fs)\n", event.Test, event.Elapsed))
 					}
 				case "fail":
 					if event.Test != "" {
 						failed++
+						formattedOutput.WriteString(fmt.Sprintf("--- FAIL: %s (%.2fs)\n", event.Test, event.Elapsed))
+					}
+				case "skip":
+					if event.Test != "" {
+						skipped++
+						formattedOutput.WriteString(fmt.Sprintf("--- SKIP: %s\n", event.Test))
 					}
 				}
 			}
+
+			// Add summary
+			formattedOutput.WriteString(fmt.Sprintf("\nResults: %d passed, %d failed, %d skipped\n", passed, failed, skipped))
+
+			// Add stderr if present
+			if stderr.Len() > 0 {
+				formattedOutput.WriteString("\nTest Errors:\n")
+				formattedOutput.WriteString(stderr.String())
+			}
+
+			// Store formatted output instead of raw JSON
+			result.Output = formattedOutput.String()
 
 			// Check result
 			if runErr != nil || failed > 0 {
