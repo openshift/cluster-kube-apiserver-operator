@@ -11,3 +11,4 @@ telepresence.log
 
 # Auto-generated test metadata (generated at build time)
 /cmd/cluster-kube-apiserver-operator-tests-ext/adapter/standard_go_tests.go
+cmd/cluster-kube-apiserver-operator-tests-ext/adapter/compiled_tests/

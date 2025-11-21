@@ -44,7 +44,8 @@ func main() {
 	os.Setenv("TEST_ROOT_DIR", repoRoot)
 
 	// Auto-discover all tests from test/e2e* directories
-	configs, err := adapter.AutoDiscoverAllGoTests([]string{"Serial"}, nil)
+	// Default: Serial tag, Informing lifecycle (can be overridden per-test via comments)
+	configs, err := adapter.AutoDiscoverAllGoTests([]string{"Serial"}, "Informing")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to discover tests: %v\n", err)
 		os.Exit(1)
@@ -77,9 +78,6 @@ func main() {
 package adapter
 
 import (
-	"fmt"
-
-	g "github.com/onsi/ginkgo/v2"
 	extensiontests "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 )
 
@@ -103,40 +101,30 @@ var standardGoTestMetadata = []GoTestConfig{
 			tagsStr = fmt.Sprintf("[]string{%s}", strings.Join(tagList, ", "))
 		}
 
-		// Include timeout if present
+		// Build config line with all fields
+		sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: %s",
+			config.TestFile, config.TestPattern, tagsStr))
+
 		if config.Timeout != "" {
-			sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: %s, Timeout: %q},\n",
-				config.TestFile, config.TestPattern, tagsStr, config.Timeout))
-		} else {
-			sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: %s},\n",
-				config.TestFile, config.TestPattern, tagsStr))
+			sb.WriteString(fmt.Sprintf(", Timeout: %q", config.Timeout))
 		}
+
+		if config.Lifecycle != "" {
+			sb.WriteString(fmt.Sprintf(", Lifecycle: %q", config.Lifecycle))
+		}
+
+		sb.WriteString("},\n")
 	}
 
 	sb.WriteString(`}
 
-// GetStandardGoTestSpecs returns ExtensionTestSpecs for standard Go tests
+// BuildExtensionTestSpecsFromGoTestMetadata returns ExtensionTestSpecs for standard Go tests
 // This function is called by main.go to register the tests with OTE
-func GetStandardGoTestSpecs() extensiontests.ExtensionTestSpecs {
-	return BuildExtensionTestSpecsFromGoTestMetadata(standardGoTestMetadata)
+// It uses the embedded standardGoTestMetadata and returns specs that can be filtered and executed
+// Following the Cypress pattern: tests are registered as ExtensionTestSpec for OTE filtering and execution
+func BuildExtensionTestSpecsFromGoTestMetadata() (extensiontests.ExtensionTestSpecs, error) {
+	return buildExtensionTestSpecsFromMetadata(standardGoTestMetadata), nil
 }
-
-// Register standard Go tests with Ginkgo for nice "Running Suite" output
-// This var _ = pattern runs at package init time
-var _ = g.Describe("[sig-api-machinery] kube-apiserver operator Standard Go Tests", func() {
-	for _, config := range standardGoTestMetadata {
-		config := config // capture loop variable
-
-		testName := config.TestFile
-		if config.TestPattern != "" {
-			testName = fmt.Sprintf("%s:%s", config.TestFile, config.TestPattern)
-		}
-
-		// Run the test using RunGoTestFile
-		// RunGoTestFile will add tags to the test name, so don't add them here
-		RunGoTestFile(testName, config)
-	}
-})
 `)
 
 	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {

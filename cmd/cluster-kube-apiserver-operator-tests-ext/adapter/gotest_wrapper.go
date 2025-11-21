@@ -5,16 +5,29 @@ package adapter
 import (
 	"bytes"
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	g "github.com/onsi/ginkgo/v2"
 	ext "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 	"github.com/openshift-eng/openshift-tests-extension/pkg/util/sets"
+)
+
+// Embed precompiled test binaries (compiled during build)
+//
+//go:embed compiled_tests/*.test
+var embeddedTestBinaries embed.FS
+
+var (
+	extractedBinariesPath string
+	extractOnce           sync.Once
 )
 
 // GoTestConfig represents configuration for running a go test file
@@ -23,7 +36,7 @@ type GoTestConfig struct {
 	TestPattern string   // e.g., "TestOperator.*" or empty for all tests
 	Tags        []string // OTE tags like ["Serial", "Slow"]
 	Timeout     string   // e.g., "5m", "1h" - optional timeout for the test
-	Lifecycle   g.Labels // OTE lifecycle
+	Lifecycle   string   // "Blocking" or "Informing" - defaults to "Informing"
 }
 
 // RunGoTestFile wraps execution of a standard Go test file (ending in _test.go)
@@ -286,9 +299,10 @@ func getTestRootDir() (string, error) {
 
 // TestDiscoveryInfo holds information about a discovered test
 type TestDiscoveryInfo struct {
-	Name    string
-	Timeout string   // Empty if no timeout specified
-	Tags    []string // Tags from comment like: // Tags: Slow, Serial
+	Name      string
+	Timeout   string   // Empty if no timeout specified
+	Tags      []string // Tags from comment like: // Tags: Slow, Serial
+	Lifecycle string   // "Blocking" or "Informing" from comment like: // Lifecycle: Blocking
 }
 
 // DiscoverGoTests automatically discovers all Test* functions from a _test.go file
@@ -319,11 +333,12 @@ func DiscoverGoTests(testFile string) ([]TestDiscoveryInfo, error) {
 		return nil, fmt.Errorf("failed to read test file: %v", err)
 	}
 
-	// Parse source to find Test* function names, timeouts, and tags
+	// Parse source to find Test* function names, timeouts, tags, and lifecycle
 	var tests []TestDiscoveryInfo
 	lines := strings.Split(string(content), "\n")
 	var currentTimeout string
 	var currentTags []string
+	var currentLifecycle string
 
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
@@ -353,6 +368,14 @@ func DiscoverGoTests(testFile string) ([]TestDiscoveryInfo, error) {
 			}
 		}
 
+		// Check for lifecycle comment: // Lifecycle: Blocking or // Lifecycle: Informing
+		if strings.HasPrefix(trimmedLine, "//") && strings.Contains(trimmedLine, "Lifecycle:") {
+			parts := strings.Split(trimmedLine, "Lifecycle:")
+			if len(parts) == 2 {
+				currentLifecycle = strings.TrimSpace(parts[1])
+			}
+		}
+
 		// Look for "func TestXxx(t *testing.T)" or "func TestXxx(tt *testing.T)" pattern
 		if strings.HasPrefix(trimmedLine, "func Test") && (strings.Contains(trimmedLine, "(t *testing.T)") || strings.Contains(trimmedLine, "(tt *testing.T)")) {
 			// Extract function name
@@ -364,13 +387,15 @@ func DiscoverGoTests(testFile string) ([]TestDiscoveryInfo, error) {
 					funcName = funcName[:idx]
 				}
 				tests = append(tests, TestDiscoveryInfo{
-					Name:    funcName,
-					Timeout: currentTimeout,
-					Tags:    currentTags,
+					Name:      funcName,
+					Timeout:   currentTimeout,
+					Tags:      currentTags,
+					Lifecycle: currentLifecycle,
 				})
 				// Reset for next test
 				currentTimeout = ""
 				currentTags = nil
+				currentLifecycle = ""
 			}
 		}
 	}
@@ -380,7 +405,7 @@ func DiscoverGoTests(testFile string) ([]TestDiscoveryInfo, error) {
 
 // AutoDiscoverGoTestFile creates test configs by auto-discovering tests from a file
 // NO HARDCODING - automatically finds all Test* functions!
-func AutoDiscoverGoTestFile(testFile string, defaultTags []string, defaultLifecycle g.Labels) ([]GoTestConfig, error) {
+func AutoDiscoverGoTestFile(testFile string, defaultTags []string, defaultLifecycle string) ([]GoTestConfig, error) {
 	tests, err := DiscoverGoTests(testFile)
 	if err != nil {
 		return nil, err
@@ -394,12 +419,18 @@ func AutoDiscoverGoTestFile(testFile string, defaultTags []string, defaultLifecy
 			tags = testInfo.Tags
 		}
 
+		// Use lifecycle from comment if present, otherwise use defaultLifecycle
+		lifecycle := defaultLifecycle
+		if testInfo.Lifecycle != "" {
+			lifecycle = testInfo.Lifecycle
+		}
+
 		configs = append(configs, GoTestConfig{
 			TestFile:    testFile,
 			TestPattern: testInfo.Name,
 			Tags:        tags,
 			Timeout:     testInfo.Timeout,
-			Lifecycle:   defaultLifecycle,
+			Lifecycle:   lifecycle,
 		})
 	}
 
@@ -449,7 +480,8 @@ func DiscoverAllTestFiles() ([]string, error) {
 
 // AutoDiscoverAllGoTests discovers ALL *_test.go files and their Test* functions
 // ZERO HARDCODING - fully automatic discovery!
-func AutoDiscoverAllGoTests(defaultTags []string, defaultLifecycle g.Labels) ([]GoTestConfig, error) {
+// Default lifecycle is "Informing" unless overridden by comment tags
+func AutoDiscoverAllGoTests(defaultTags []string, defaultLifecycle string) ([]GoTestConfig, error) {
 	// Find all *_test.go files
 	testFiles, err := DiscoverAllTestFiles()
 	if err != nil {
@@ -480,9 +512,10 @@ func AutoDiscoverAllGoTests(defaultTags []string, defaultLifecycle g.Labels) ([]
 	return allConfigs, nil
 }
 
-// BuildExtensionTestSpecsFromGoTestMetadata converts GoTestConfig metadata to ExtensionTestSpec
-// Similar to: https://github.com/openshift-eng/openshift-tests-extension/blob/main/pkg/cypress/util.go#L45
-func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.ExtensionTestSpecs {
+// buildExtensionTestSpecsFromMetadata converts GoTestConfig metadata to ExtensionTestSpec
+// Following the Cypress pattern: https://github.com/openshift-eng/openshift-tests-extension/blob/main/pkg/cypress/util.go
+// This is an internal helper function. The public API is in standard_go_tests.go
+func buildExtensionTestSpecsFromMetadata(metadata []GoTestConfig) ext.ExtensionTestSpecs {
 	specs := ext.ExtensionTestSpecs{}
 
 	for _, config := range metadata {
@@ -504,9 +537,11 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 			fullTestName += fmt.Sprintf(" [Timeout:%s]", config.Timeout)
 		}
 
-		// Determine lifecycle (config.Lifecycle is g.Labels which is unused here)
-		// For standard Go tests, lifecycle is always blocking unless explicitly set
-		lifecycle := ext.LifecycleBlocking
+		// Determine lifecycle from config (default is Informing)
+		lifecycle := ext.LifecycleInforming
+		if strings.EqualFold(config.Lifecycle, "Blocking") {
+			lifecycle = ext.LifecycleBlocking
+		}
 
 		// Create labels set and tags map
 		labels := sets.Set[string]{}
@@ -520,128 +555,9 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 			tags["timeout"] = config.Timeout
 		}
 
-		// Create the test execution function
+		// Create the test execution function (following Cypress pattern)
 		runFunc := func(ctx context.Context) *ext.ExtensionTestResult {
-			result := &ext.ExtensionTestResult{
-				Result: ext.ResultPassed,
-			}
-
-			// Build go test command
-			args := []string{"test", "-v", "-json"}
-
-			// Add test pattern if specified
-			if config.TestPattern != "" {
-				args = append(args, "-run", config.TestPattern)
-			}
-
-			// Add the test file (use basename only)
-			args = append(args, filepath.Base(config.TestFile))
-
-			// Get test root directory
-			testRoot, err := getTestRootDir()
-			if err != nil {
-				result.Result = ext.ResultFailed
-				result.Error = fmt.Sprintf("Failed to get test root directory: %v", err)
-				return result
-			}
-
-			// Navigate to test directory
-			testDir := filepath.Join(testRoot, filepath.Dir(config.TestFile))
-			if !strings.Contains(config.TestFile, "/") && !strings.Contains(config.TestFile, string(filepath.Separator)) {
-				testDir = filepath.Join(testRoot, "test", "e2e")
-			}
-
-			cmd := exec.Command("go", args...)
-			cmd.Dir = testDir
-
-			// Capture output
-			var stdout, stderr bytes.Buffer
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
-
-			// Inherit environment
-			cmd.Env = os.Environ()
-
-			// Run the test
-			runErr := cmd.Run()
-
-			// Parse JSON output and format it for human readability
-			output := stdout.String()
-			lines := strings.Split(output, "\n")
-			passed := 0
-			failed := 0
-			skipped := 0
-			var formattedOutput strings.Builder
-
-			// Build human-readable output from JSON events
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-
-				var event struct {
-					Action  string  `json:"Action"`
-					Package string  `json:"Package"`
-					Test    string  `json:"Test"`
-					Output  string  `json:"Output"`
-					Elapsed float64 `json:"Elapsed"`
-				}
-
-				if err := json.Unmarshal([]byte(line), &event); err != nil {
-					// Not JSON, might be regular output - include it
-					continue
-				}
-
-				switch event.Action {
-				case "run":
-					if event.Test != "" {
-						formattedOutput.WriteString(fmt.Sprintf("=== RUN   %s\n", event.Test))
-					}
-				case "output":
-					if event.Test != "" && event.Output != "" {
-						// Include test output (this captures the actual test logs)
-						formattedOutput.WriteString(event.Output)
-					}
-				case "pass":
-					if event.Test != "" {
-						passed++
-						formattedOutput.WriteString(fmt.Sprintf("--- PASS: %s (%.2fs)\n", event.Test, event.Elapsed))
-					}
-				case "fail":
-					if event.Test != "" {
-						failed++
-						formattedOutput.WriteString(fmt.Sprintf("--- FAIL: %s (%.2fs)\n", event.Test, event.Elapsed))
-					}
-				case "skip":
-					if event.Test != "" {
-						skipped++
-						formattedOutput.WriteString(fmt.Sprintf("--- SKIP: %s\n", event.Test))
-					}
-				}
-			}
-
-			// Add summary
-			formattedOutput.WriteString(fmt.Sprintf("\nResults: %d passed, %d failed, %d skipped\n", passed, failed, skipped))
-
-			// Add stderr if present
-			if stderr.Len() > 0 {
-				formattedOutput.WriteString("\nTest Errors:\n")
-				formattedOutput.WriteString(stderr.String())
-			}
-
-			// Store formatted output instead of raw JSON
-			result.Output = formattedOutput.String()
-
-			// Check result
-			if runErr != nil || failed > 0 {
-				result.Result = ext.ResultFailed
-				result.Error = fmt.Sprintf("go test failed for %s: %d tests failed", testName, failed)
-				if stderr.Len() > 0 {
-					result.Error += "\nStderr: " + stderr.String()
-				}
-			}
-
-			return result
+			return runGoTest(testName, config.TestFile, config.TestPattern)
 		}
 
 		// Create ExtensionTestSpec
@@ -657,4 +573,145 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 	}
 
 	return specs
+}
+
+// runGoTest executes a precompiled Go test binary (similar to runCypressTest in Cypress adapter)
+// This follows the pattern: https://github.com/openshift-eng/openshift-tests-extension/blob/main/pkg/cypress/util.go
+func runGoTest(testName, testFile, testPattern string) *ext.ExtensionTestResult {
+	result := &ext.ExtensionTestResult{
+		Name: testName,
+	}
+
+	// Get the precompiled test binary path
+	testBinary := getCompiledTestBinary(testFile)
+	if testBinary == "" {
+		result.Result = ext.ResultFailed
+		result.Error = fmt.Sprintf("precompiled test binary not found for %s", testFile)
+		return result
+	}
+
+	// Build test command arguments
+	args := []string{"-test.v"}
+	if testPattern != "" {
+		args = append(args, "-test.run", testPattern)
+	}
+
+	// Execute the precompiled test binary
+	cmd := exec.Command(testBinary, args...)
+
+	// Capture output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Inherit environment (including KUBECONFIG)
+	cmd.Env = os.Environ()
+
+	// Run the test
+	runErr := cmd.Run()
+
+	// Parse output
+	output := stdout.String()
+	stderrStr := stderr.String()
+
+	// Determine result
+	if runErr != nil {
+		result.Result = ext.ResultFailed
+		result.Error = fmt.Sprintf("test failed: %v", runErr)
+		if stderrStr != "" {
+			result.Error += "\n" + stderrStr
+		}
+	} else {
+		result.Result = ext.ResultPassed
+	}
+
+	result.Output = output
+	if stderrStr != "" {
+		result.Output += "\nStderr:\n" + stderrStr
+	}
+
+	return result
+}
+
+// extractEmbeddedBinaries extracts all embedded test binaries to a temp directory
+// This is called once on first use
+func extractEmbeddedBinaries() error {
+	var extractErr error
+	extractOnce.Do(func() {
+		// Create temp directory for extracted binaries
+		tempDir, err := os.MkdirTemp("", "gotest-binaries-*")
+		if err != nil {
+			extractErr = fmt.Errorf("failed to create temp directory: %w", err)
+			return
+		}
+		extractedBinariesPath = tempDir
+
+		// Extract all .test files from embedded FS
+		err = fs.WalkDir(embeddedTestBinaries, "compiled_tests", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".test") {
+				return nil
+			}
+
+			// Read embedded file
+			data, err := embeddedTestBinaries.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read embedded file %s: %w", path, err)
+			}
+
+			// Write to temp directory
+			fileName := filepath.Base(path)
+			outputPath := filepath.Join(tempDir, fileName)
+			if err := os.WriteFile(outputPath, data, 0755); err != nil {
+				return fmt.Errorf("failed to write file %s: %w", outputPath, err)
+			}
+
+			return nil
+		})
+		if err != nil {
+			extractErr = fmt.Errorf("failed to extract binaries: %w", err)
+			return
+		}
+	})
+	return extractErr
+}
+
+// getCompiledTestBinary returns the path to the precompiled test binary for a given test file
+// Test binaries are embedded in the OTE binary and extracted to temp directory on first use
+func getCompiledTestBinary(testFile string) string {
+	// Extract embedded binaries if not already done
+	if err := extractEmbeddedBinaries(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to extract embedded test binaries: %v\n", err)
+		return ""
+	}
+
+	// Determine binary name based on test file path
+	testDir := filepath.Dir(testFile)
+	baseName := filepath.Base(testDir)
+
+	var binaryName string
+	switch {
+	case strings.Contains(testDir, "e2e-encryption-rotation"):
+		binaryName = "e2e-encryption-rotation.test"
+	case strings.Contains(testDir, "e2e-encryption-perf"):
+		binaryName = "e2e-encryption-perf.test"
+	case strings.Contains(testDir, "e2e-encryption"):
+		binaryName = "e2e-encryption.test"
+	case strings.Contains(testDir, "e2e-sno-disruptive"):
+		binaryName = "e2e-sno-disruptive.test"
+	case baseName == "e2e" || testDir == "test/e2e":
+		binaryName = "e2e.test"
+	default:
+		return ""
+	}
+
+	// Return path to extracted binary
+	binaryPath := filepath.Join(extractedBinariesPath, binaryName)
+	if _, err := os.Stat(binaryPath); err == nil {
+		return binaryPath
+	}
+
+	return ""
 }
