@@ -8,3 +8,6 @@ telepresence.log
 # Test extension binaries
 /cluster-kube-apiserver-operator-tests-ext
 /cluster-kube-apiserver-operator-tests-ext.gz
+
+# Auto-generated test metadata (generated at build time)
+/cmd/cluster-kube-apiserver-operator-tests-ext/adapter/standard_go_tests.go

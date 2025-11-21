@@ -107,3 +107,9 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 .PHONY: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
+
+# generate test metadata for OTE extension
+build: generate-test-metadata
+.PHONY: generate-test-metadata
+generate-test-metadata:
+	@cd cmd/cluster-kube-apiserver-operator-tests-ext/adapter && go run generate_metadata.go

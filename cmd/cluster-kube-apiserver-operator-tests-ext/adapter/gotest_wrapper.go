@@ -1,5 +1,7 @@
 package adapter
 
+//go:generate go run generate_metadata.go
+
 import (
 	"bytes"
 	"encoding/json"
