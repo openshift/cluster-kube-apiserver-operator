@@ -90,8 +90,27 @@ var standardGoTestMetadata = []GoTestConfig{
 
 	for _, config := range configs {
 		sb.WriteString(fmt.Sprintf("\t// %s\n", config.TestFile))
-		sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: []string{\"Serial\"}},\n",
-			config.TestFile, config.TestPattern))
+
+		// Format tags array
+		var tagsStr string
+		if len(config.Tags) == 0 {
+			tagsStr = "[]string{}"
+		} else {
+			tagList := make([]string, len(config.Tags))
+			for i, tag := range config.Tags {
+				tagList[i] = fmt.Sprintf("%q", tag)
+			}
+			tagsStr = fmt.Sprintf("[]string{%s}", strings.Join(tagList, ", "))
+		}
+
+		// Include timeout if present
+		if config.Timeout != "" {
+			sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: %s, Timeout: %q},\n",
+				config.TestFile, config.TestPattern, tagsStr, config.Timeout))
+		} else {
+			sb.WriteString(fmt.Sprintf("\t{TestFile: %q, TestPattern: %q, Tags: %s},\n",
+				config.TestFile, config.TestPattern, tagsStr))
+		}
 	}
 
 	sb.WriteString(`}

@@ -77,20 +77,19 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
 	// Suite: conformance/parallel (fast, parallel-safe)
-	// Rule: Tests without [Serial], [Slow], or [Timeout:] tags run in parallel
+	// Rule: Tests without [Serial] or [Slow] tags run in parallel
+	// [Timeout:] tag is allowed - it just means the test needs more time
 	extension.AddSuite(oteextension.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
 		Parents: []string{"openshift/conformance/parallel"},
 		Qualifiers: []string{
-			`!(name.contains("[Serial]") || name.contains("[Slow]") || name.contains("[Timeout:"))`,
+			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
 		},
 	})
 
 	// Suite: conformance/serial (explicitly serial tests, but NOT slow tests)
-	// Rule 2 & 4: Tests with [Serial] or [Serial][Disruptive] run only in serial suite
-	// Tests with [Serial][Timeout:] go to serial (timeout on serial test)
-	// Exclude [Slow] tests - they go to slow suite instead
-	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
+	// Rule: Tests with [Serial] but NOT [Slow]
+	// [Serial][Timeout:] tests go here (serial test that needs extra time)
 	extension.AddSuite(oteextension.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/conformance/serial",
 		Parents: []string{"openshift/conformance/serial"},
@@ -99,15 +98,14 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
-	// Suite: optional/slow (long-running tests and non-serial timeout tests)
-	// Rule 3 & 5: Tests with [Slow] OR tests with [Timeout:] that are NOT [Serial]
-	// Tests with [Slow][Disruptive][Timeout:] will run serially due to [Serial] tag
-	// Parallelism: 1 enforces serial execution even when run without -c 1 flag
+	// Suite: optional/slow (long-running tests marked with [Slow] tag)
+	// Rule: Only tests with [Slow] tag
+	// Can be [Slow], [Slow][Serial], [Slow][Timeout:60m], etc.
 	extension.AddSuite(oteextension.Suite{
 		Name:    "openshift/cluster-kube-apiserver-operator/optional/slow",
 		Parents: []string{"openshift/optional/slow"},
 		Qualifiers: []string{
-			`name.contains("[Slow]") || (name.contains("[Timeout:") && !name.contains("[Serial]"))`,
+			`name.contains("[Slow]")`,
 		},
 	})
 

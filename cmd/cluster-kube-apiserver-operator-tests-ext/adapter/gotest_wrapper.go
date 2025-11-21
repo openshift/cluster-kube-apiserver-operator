@@ -22,6 +22,7 @@ type GoTestConfig struct {
 	TestFile    string   // e.g., "operator_test.go"
 	TestPattern string   // e.g., "TestOperator.*" or empty for all tests
 	Tags        []string // OTE tags like ["Serial", "Slow"]
+	Timeout     string   // e.g., "5m", "1h" - optional timeout for the test
 	Lifecycle   g.Labels // OTE lifecycle
 }
 
@@ -40,6 +41,11 @@ func RunGoTestFile(description string, config GoTestConfig) bool {
 		for _, tag := range config.Tags {
 			fullTestName += fmt.Sprintf(" [%s]", tag)
 		}
+	}
+
+	// Add timeout tag if present
+	if config.Timeout != "" {
+		fullTestName += fmt.Sprintf(" [Timeout:%s]", config.Timeout)
 	}
 
 	// Determine lifecycle
@@ -278,10 +284,17 @@ func getTestRootDir() (string, error) {
 	return os.Getwd()
 }
 
+// TestDiscoveryInfo holds information about a discovered test
+type TestDiscoveryInfo struct {
+	Name    string
+	Timeout string   // Empty if no timeout specified
+	Tags    []string // Tags from comment like: // Tags: Slow, Serial
+}
+
 // DiscoverGoTests automatically discovers all Test* functions from a _test.go file
 // testFile can be relative path like "test/e2e/operator_test.go" or just "operator_test.go"
-// Returns a list of test names found in the file
-func DiscoverGoTests(testFile string) ([]string, error) {
+// Returns a list of test discovery info found in the file
+func DiscoverGoTests(testFile string) ([]TestDiscoveryInfo, error) {
 	// Get test root directory (supports TEST_ROOT_DIR env var)
 	testRoot, err := getTestRootDir()
 	if err != nil {
@@ -306,22 +319,58 @@ func DiscoverGoTests(testFile string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read test file: %v", err)
 	}
 
-	// Parse source to find Test* function names
-	var tests []string
+	// Parse source to find Test* function names, timeouts, and tags
+	var tests []TestDiscoveryInfo
 	lines := strings.Split(string(content), "\n")
+	var currentTimeout string
+	var currentTags []string
+
 	for _, line := range lines {
-		line = strings.TrimSpace(line)
+		trimmedLine := strings.TrimSpace(line)
+
+		// Check for timeout comment: // Timeout: 10m
+		if strings.HasPrefix(trimmedLine, "//") && strings.Contains(trimmedLine, "Timeout:") {
+			parts := strings.Split(trimmedLine, "Timeout:")
+			if len(parts) == 2 {
+				currentTimeout = strings.TrimSpace(parts[1])
+			}
+		}
+
+		// Check for tags comment: // Tags: Slow, Serial
+		if strings.HasPrefix(trimmedLine, "//") && strings.Contains(trimmedLine, "Tags:") {
+			parts := strings.Split(trimmedLine, "Tags:")
+			if len(parts) == 2 {
+				tagStr := strings.TrimSpace(parts[1])
+				// Split by comma and trim each tag
+				tagList := strings.Split(tagStr, ",")
+				currentTags = []string{}
+				for _, tag := range tagList {
+					trimmedTag := strings.TrimSpace(tag)
+					if trimmedTag != "" {
+						currentTags = append(currentTags, trimmedTag)
+					}
+				}
+			}
+		}
+
 		// Look for "func TestXxx(t *testing.T)" or "func TestXxx(tt *testing.T)" pattern
-		if strings.HasPrefix(line, "func Test") && (strings.Contains(line, "(t *testing.T)") || strings.Contains(line, "(tt *testing.T)")) {
+		if strings.HasPrefix(trimmedLine, "func Test") && (strings.Contains(trimmedLine, "(t *testing.T)") || strings.Contains(trimmedLine, "(tt *testing.T)")) {
 			// Extract function name
-			parts := strings.Fields(line)
+			parts := strings.Fields(trimmedLine)
 			if len(parts) >= 2 {
 				funcName := parts[1]
 				// Remove the parameter part
 				if idx := strings.Index(funcName, "("); idx != -1 {
 					funcName = funcName[:idx]
 				}
-				tests = append(tests, funcName)
+				tests = append(tests, TestDiscoveryInfo{
+					Name:    funcName,
+					Timeout: currentTimeout,
+					Tags:    currentTags,
+				})
+				// Reset for next test
+				currentTimeout = ""
+				currentTags = nil
 			}
 		}
 	}
@@ -338,11 +387,18 @@ func AutoDiscoverGoTestFile(testFile string, defaultTags []string, defaultLifecy
 	}
 
 	var configs []GoTestConfig
-	for _, testName := range tests {
+	for _, testInfo := range tests {
+		// Use tags from comment if present, otherwise use defaultTags
+		tags := defaultTags
+		if len(testInfo.Tags) > 0 {
+			tags = testInfo.Tags
+		}
+
 		configs = append(configs, GoTestConfig{
 			TestFile:    testFile,
-			TestPattern: testName,
-			Tags:        defaultTags,
+			TestPattern: testInfo.Name,
+			Tags:        tags,
+			Timeout:     testInfo.Timeout,
 			Lifecycle:   defaultLifecycle,
 		})
 	}
@@ -404,7 +460,15 @@ func AutoDiscoverAllGoTests(defaultTags []string, defaultLifecycle g.Labels) ([]
 
 	// For each test file, discover its Test* functions
 	for _, testFile := range testFiles {
-		configs, err := AutoDiscoverGoTestFile(testFile, defaultTags, defaultLifecycle)
+		// Determine tags based on filename
+		// Files with "parallel" in name get empty tags (no Serial)
+		// Other files get default tags (Serial)
+		fileTags := defaultTags
+		if strings.Contains(strings.ToLower(testFile), "parallel") {
+			fileTags = []string{} // No Serial tag for parallel test files
+		}
+
+		configs, err := AutoDiscoverGoTestFile(testFile, fileTags, defaultLifecycle)
 		if err != nil {
 			// Log but don't fail - some files might not have tests
 			fmt.Fprintf(os.Stderr, "Warning: failed to discover tests in %s: %v\n", testFile, err)
@@ -435,14 +499,25 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 			fullTestName += fmt.Sprintf(" [%s]", tag)
 		}
 
+		// Add timeout tag if present
+		if config.Timeout != "" {
+			fullTestName += fmt.Sprintf(" [Timeout:%s]", config.Timeout)
+		}
+
 		// Determine lifecycle (config.Lifecycle is g.Labels which is unused here)
 		// For standard Go tests, lifecycle is always blocking unless explicitly set
 		lifecycle := ext.LifecycleBlocking
 
-		// Create labels set
+		// Create labels set and tags map
 		labels := sets.Set[string]{}
 		for _, tag := range config.Tags {
 			labels[tag] = struct{}{}
+		}
+
+		// Create tags map for timeout
+		tags := make(map[string]string)
+		if config.Timeout != "" {
+			tags["timeout"] = config.Timeout
 		}
 
 		// Create the test execution function
@@ -574,6 +649,7 @@ func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.Exte
 			Name:      fullTestName,
 			Labels:    labels,
 			Lifecycle: lifecycle,
+			Tags:      tags,
 			Run:       runFunc,
 		}
 
