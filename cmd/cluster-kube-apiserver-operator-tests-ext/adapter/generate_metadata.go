@@ -76,6 +76,10 @@ func main() {
 
 package adapter
 
+import (
+	extensiontests "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
+)
+
 // Pre-discovered test metadata - embedded in binary at build time.
 // To regenerate: developers run discovery locally and update this list.
 var standardGoTestMetadata = []GoTestConfig{
@@ -89,13 +93,11 @@ var standardGoTestMetadata = []GoTestConfig{
 
 	sb.WriteString(`}
 
-// Register standard Go tests with Ginkgo/OTE.
-// This var _ declaration runs at package import time, registering tests before main() runs.
-// Similar to how Ginkgo tests use var _ = g.Describe(...).
-var _ = RunGoTestSuite(GoTestSuite{
-	Description: "[sig-api-machinery] kube-apiserver operator Standard Go Tests",
-	TestFiles:   standardGoTestMetadata,
-})
+// GetStandardGoTestSpecs returns ExtensionTestSpecs for standard Go tests
+// This function is called by main.go to register the tests with OTE
+func GetStandardGoTestSpecs() extensiontests.ExtensionTestSpecs {
+	return BuildExtensionTestSpecsFromGoTestMetadata(standardGoTestMetadata)
+}
 `)
 
 	if err := os.WriteFile(outputPath, []byte(sb.String()), 0644); err != nil {

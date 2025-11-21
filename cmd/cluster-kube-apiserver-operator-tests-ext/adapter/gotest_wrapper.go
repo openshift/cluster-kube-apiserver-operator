@@ -4,6 +4,7 @@ package adapter
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,7 +13,9 @@ import (
 	"strings"
 
 	g "github.com/onsi/ginkgo/v2"
+	ext "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 	ote "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
+	"github.com/openshift-eng/openshift-tests-extension/pkg/util/sets"
 )
 
 // GoTestConfig represents configuration for running a go test file
@@ -57,11 +60,21 @@ func RunGoTestFile(description string, config GoTestConfig) bool {
 			args = append(args, "-run", config.TestPattern)
 		}
 
-		// Add the test file
-		args = append(args, config.TestFile)
+		// Add the test file (use basename only)
+		args = append(args, filepath.Base(config.TestFile))
 
-		// Get current directory for test execution
-		testDir := "./test/e2e"
+		// Get test root directory (supports TEST_ROOT_DIR env var)
+		testRoot, err := getTestRootDir()
+		if err != nil {
+			g.Fail(fmt.Sprintf("Failed to get test root directory: %v", err))
+			return
+		}
+
+		// Navigate to test directory
+		testDir := filepath.Join(testRoot, filepath.Dir(config.TestFile))
+		if !strings.Contains(config.TestFile, "/") && !strings.Contains(config.TestFile, string(filepath.Separator)) {
+			testDir = filepath.Join(testRoot, "test", "e2e")
+		}
 
 		g.By(fmt.Sprintf("Executing: go %s (in %s)", strings.Join(args, " "), testDir))
 
@@ -77,7 +90,7 @@ func RunGoTestFile(description string, config GoTestConfig) bool {
 		cmd.Env = os.Environ()
 
 		// Run the test
-		err := cmd.Run()
+		err = cmd.Run()
 
 		// Output the results
 		stdoutStr := stdout.String()
@@ -403,4 +416,139 @@ func AutoDiscoverAllGoTests(defaultTags []string, defaultLifecycle g.Labels) ([]
 	}
 
 	return allConfigs, nil
+}
+
+// BuildExtensionTestSpecsFromGoTestMetadata converts GoTestConfig metadata to ExtensionTestSpec
+// Similar to: https://github.com/openshift-eng/openshift-tests-extension/blob/main/pkg/cypress/util.go#L45
+func BuildExtensionTestSpecsFromGoTestMetadata(metadata []GoTestConfig) ext.ExtensionTestSpecs {
+	specs := ext.ExtensionTestSpecs{}
+
+	for _, config := range metadata {
+		config := config // capture loop variable
+
+		testName := config.TestFile
+		if config.TestPattern != "" {
+			testName = fmt.Sprintf("%s:%s", config.TestFile, config.TestPattern)
+		}
+
+		// Build test name with tags
+		fullTestName := fmt.Sprintf("[sig-api-machinery] kube-apiserver operator Standard Go Tests %s", testName)
+		for _, tag := range config.Tags {
+			fullTestName += fmt.Sprintf(" [%s]", tag)
+		}
+
+		// Determine lifecycle (config.Lifecycle is g.Labels which is unused here)
+		// For standard Go tests, lifecycle is always blocking unless explicitly set
+		lifecycle := ext.LifecycleBlocking
+
+		// Create labels set
+		labels := sets.Set[string]{}
+		for _, tag := range config.Tags {
+			labels[tag] = struct{}{}
+		}
+
+		// Create the test execution function
+		runFunc := func(ctx context.Context) *ext.ExtensionTestResult {
+			result := &ext.ExtensionTestResult{
+				Result: ext.ResultPassed,
+			}
+
+			// Build go test command
+			args := []string{"test", "-v", "-json"}
+
+			// Add test pattern if specified
+			if config.TestPattern != "" {
+				args = append(args, "-run", config.TestPattern)
+			}
+
+			// Add the test file (use basename only)
+			args = append(args, filepath.Base(config.TestFile))
+
+			// Get test root directory
+			testRoot, err := getTestRootDir()
+			if err != nil {
+				result.Result = ext.ResultFailed
+				result.Error = fmt.Sprintf("Failed to get test root directory: %v", err)
+				return result
+			}
+
+			// Navigate to test directory
+			testDir := filepath.Join(testRoot, filepath.Dir(config.TestFile))
+			if !strings.Contains(config.TestFile, "/") && !strings.Contains(config.TestFile, string(filepath.Separator)) {
+				testDir = filepath.Join(testRoot, "test", "e2e")
+			}
+
+			cmd := exec.Command("go", args...)
+			cmd.Dir = testDir
+
+			// Capture output
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
+			// Inherit environment
+			cmd.Env = os.Environ()
+
+			// Run the test
+			runErr := cmd.Run()
+
+			// Parse JSON output
+			output := stdout.String()
+			result.Output = output
+
+			lines := strings.Split(output, "\n")
+			passed := 0
+			failed := 0
+
+			for _, line := range lines {
+				if line == "" {
+					continue
+				}
+
+				var event struct {
+					Action  string  `json:"Action"`
+					Test    string  `json:"Test"`
+					Elapsed float64 `json:"Elapsed"`
+				}
+
+				if err := json.Unmarshal([]byte(line), &event); err != nil {
+					continue
+				}
+
+				switch event.Action {
+				case "pass":
+					if event.Test != "" {
+						passed++
+					}
+				case "fail":
+					if event.Test != "" {
+						failed++
+					}
+				}
+			}
+
+			// Check result
+			if runErr != nil || failed > 0 {
+				result.Result = ext.ResultFailed
+				result.Error = fmt.Sprintf("go test failed for %s: %d tests failed", testName, failed)
+				if stderr.Len() > 0 {
+					result.Error += "\nStderr: " + stderr.String()
+				}
+			}
+
+			return result
+		}
+
+		// Create ExtensionTestSpec
+		spec := &ext.ExtensionTestSpec{
+			Name:      fullTestName,
+			Labels:    labels,
+			Lifecycle: lifecycle,
+			Run:       runFunc,
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }

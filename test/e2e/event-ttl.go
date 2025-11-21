@@ -254,8 +254,15 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 				g.By(fmt.Sprintf("  Current eventTTLMinutes: %d", originalEventTTL))
 			}
 
+			// Track whether this test actually changes the TTL value
+			didChangeTTL := originalEventTTL != ttl
+
 			// Cleanup eventTTLMinutes configuration after test
 			defer func() {
+				if !didChangeTTL {
+					g.By(fmt.Sprintf("\nSkipping eventTTLMinutes restore for %d: value was unchanged", ttl))
+					return
+				}
 				g.By(fmt.Sprintf("\nCleaning up eventTTLMinutes=%d configuration", ttl))
 				restore := map[string]interface{}{"spec": map[string]interface{}{}}
 				if originalEventTTL == 0 {
@@ -293,45 +300,49 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 				}
 			}()
 
-			// Step 1: Configure eventTTLMinutes
-			g.By(fmt.Sprintf("Step 1: Configuring eventTTLMinutes=%d in KubeAPIServer CR", ttl))
+			// Step 1: Configure eventTTLMinutes if needed
+			g.By(fmt.Sprintf("Step 1: Ensuring eventTTLMinutes=%d in KubeAPIServer CR", ttl))
 			configStartTime := time.Now()
 
-			patchData := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"eventTTLMinutes": ttl,
-				},
-			}
-			fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshaling eventTTLMinutes=%d patch: %+v\n", ttl, patchData)
-			patchBytes, err := json.Marshal(patchData)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "[ERROR Test Config] json.Marshal failed: %v\n", err)
+			if !didChangeTTL {
+				g.By(fmt.Sprintf("  eventTTLMinutes is already %d, skipping patch and rollout", ttl))
 			} else {
-				fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshal success: %s\n", string(patchBytes))
+				patchData := map[string]interface{}{
+					"spec": map[string]interface{}{
+						"eventTTLMinutes": ttl,
+					},
+				}
+				fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshaling eventTTLMinutes=%d patch: %+v\n", ttl, patchData)
+				patchBytes, err := json.Marshal(patchData)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[ERROR Test Config] json.Marshal failed: %v\n", err)
+				} else {
+					fmt.Fprintf(os.Stderr, "[DEBUG Test Config] Marshal success: %s\n", string(patchBytes))
+				}
+				o.Expect(err).NotTo(o.HaveOccurred())
+				g.By(fmt.Sprintf("  Patch data: %s", string(patchBytes)))
+
+				_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+				o.Expect(err).NotTo(o.HaveOccurred())
+				g.By(fmt.Sprintf("[OK] eventTTLMinutes=%d patch applied at %s", ttl, time.Now().Format(time.RFC3339)))
+
+				// Verify the CR was actually updated
+				updatedCfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+				o.Expect(err).NotTo(o.HaveOccurred())
+				o.Expect(updatedCfg.Spec.EventTTLMinutes).To(o.Equal(ttl), "CR spec.eventTTLMinutes should be updated")
+				g.By(fmt.Sprintf("  [VERIFIED] KubeAPIServer CR now has eventTTLMinutes=%d", updatedCfg.Spec.EventTTLMinutes))
+
+				// Step 2: Wait for rollout
+				g.By("Step 2: Waiting for new revision to roll out (timeout: 20 minutes)...")
+				rolloutStartTime := time.Now()
+				g.By(fmt.Sprintf("  Rollout started at: %s", rolloutStartTime.Format(time.RFC3339)))
+
+				err = waitForAPIServerRollout(ctx, kubeClient, 20*time.Minute)
+				o.Expect(err).NotTo(o.HaveOccurred())
+				rolloutDuration := time.Since(rolloutStartTime)
+				g.By(fmt.Sprintf("[OK] New revision rolled out successfully in %v", rolloutDuration))
+				g.By(fmt.Sprintf("  Configuration took: %v total", time.Since(configStartTime)))
 			}
-			o.Expect(err).NotTo(o.HaveOccurred())
-			g.By(fmt.Sprintf("  Patch data: %s", string(patchBytes)))
-
-			_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
-			o.Expect(err).NotTo(o.HaveOccurred())
-			g.By(fmt.Sprintf("[OK] eventTTLMinutes=%d patch applied at %s", ttl, time.Now().Format(time.RFC3339)))
-
-			// Verify the CR was actually updated
-			updatedCfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
-			o.Expect(err).NotTo(o.HaveOccurred())
-			o.Expect(updatedCfg.Spec.EventTTLMinutes).To(o.Equal(ttl), "CR spec.eventTTLMinutes should be updated")
-			g.By(fmt.Sprintf("  [VERIFIED] KubeAPIServer CR now has eventTTLMinutes=%d", updatedCfg.Spec.EventTTLMinutes))
-
-			// Step 2: Wait for rollout
-			g.By("Step 2: Waiting for new revision to roll out (timeout: 20 minutes)...")
-			rolloutStartTime := time.Now()
-			g.By(fmt.Sprintf("  Rollout started at: %s", rolloutStartTime.Format(time.RFC3339)))
-
-			err = waitForAPIServerRollout(ctx, kubeClient, 20*time.Minute)
-			o.Expect(err).NotTo(o.HaveOccurred())
-			rolloutDuration := time.Since(rolloutStartTime)
-			g.By(fmt.Sprintf("[OK] New revision rolled out successfully in %v", rolloutDuration))
-			g.By(fmt.Sprintf("  Configuration took: %v total", time.Since(configStartTime)))
 
 			// Step 3: Verify configuration in the config file
 			// Note: kube-apiserver loads arguments from config.yaml, not from pod.spec.args

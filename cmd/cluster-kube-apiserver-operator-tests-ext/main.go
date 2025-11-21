@@ -24,8 +24,8 @@ import (
 
 	// The imports below are necessary to ensure that ALL tests are registered:
 	// - Ginkgo tests (event-ttl.go, etc.) from test/e2e
-	// - Standard Go tests (via standard_go_tests.go wrapper) from adapter
-	_ "github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/adapter"
+	// - Standard Go tests specs are added via adapter.GetStandardGoTestSpecs()
+	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/adapter"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
@@ -121,6 +121,10 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
 	}
+
+	// Add standard Go test specs
+	standardGoSpecs := adapter.GetStandardGoTestSpecs()
+	specs = append(specs, standardGoSpecs...)
 
 	// Extract timeout from test name if present (e.g., [Timeout:50m])
 	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
