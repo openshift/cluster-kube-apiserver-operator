@@ -20,35 +20,14 @@ import (
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/adapter"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 
-	// The import below is necessary to ensure that Ginkgo tests (event-ttl.go, etc.) are registered
+	// The imports below are necessary to ensure that ALL tests are registered:
+	// - Ginkgo tests (event-ttl.go, etc.) from test/e2e
+	// - Standard Go tests (via standard_go_tests.go wrapper) from adapter
+	_ "github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/adapter"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
-
-// Register auto-discovered tests from *_test.go files at init time
-func init() {
-	// Auto-discover ALL *_test.go files and their Test* functions
-	// Default: Serial tests, NOT informing (blocking/failing tests)
-	testConfigs, err := adapter.AutoDiscoverAllGoTests(
-		[]string{"Serial"}, // All old standard Go tests are Serial by default
-		nil,                // NOT informing - these are blocking tests
-	)
-	if err != nil {
-		// Errors go to stderr, won't pollute JSON output
-		fmt.Fprintf(os.Stderr, "Warning: Failed to auto-discover tests: %v\n", err)
-		return
-	}
-
-	if len(testConfigs) > 0 {
-		// Register all discovered tests with Ginkgo
-		adapter.RunGoTestSuite(adapter.GoTestSuite{
-			Description: "[sig-api-machinery] kube-apiserver operator Standard Go Tests",
-			TestFiles:   testConfigs,
-		})
-	}
-}
 
 func main() {
 	cmd, err := newOperatorTestCommand()

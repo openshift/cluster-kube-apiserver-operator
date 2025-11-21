@@ -152,17 +152,17 @@ func RunGoTestSuite(suite GoTestSuite) bool {
 				// Add the test file
 				args = append(args, filepath.Base(testConfig.TestFile))
 
-				// Get project root
-				projectRoot, err := os.Getwd()
+				// Get test root directory (supports TEST_ROOT_DIR env var)
+				testRoot, err := getTestRootDir()
 				if err != nil {
-					g.Fail(fmt.Sprintf("Failed to get working directory: %v", err))
+					g.Fail(fmt.Sprintf("Failed to get test root directory: %v", err))
 					return
 				}
 
 				// Navigate to test directory
-				testDir := filepath.Join(projectRoot, filepath.Dir(testConfig.TestFile))
+				testDir := filepath.Join(testRoot, filepath.Dir(testConfig.TestFile))
 				if !strings.Contains(testConfig.TestFile, "/") && !strings.Contains(testConfig.TestFile, string(filepath.Separator)) {
-					testDir = filepath.Join(projectRoot, "test", "e2e")
+					testDir = filepath.Join(testRoot, "test", "e2e")
 				}
 
 				g.By(fmt.Sprintf("Executing: go %s (in %s)", strings.Join(args, " "), testDir))
@@ -253,14 +253,26 @@ func RunGoTestSuite(suite GoTestSuite) bool {
 	return true
 }
 
+// getTestRootDir returns the root directory for test files
+// Similar to Cypress pattern: uses TEST_ROOT_DIR env var or falls back to current directory
+func getTestRootDir() (string, error) {
+	// Check for TEST_ROOT_DIR environment variable (like Cypress)
+	if testRoot := os.Getenv("TEST_ROOT_DIR"); testRoot != "" {
+		return testRoot, nil
+	}
+
+	// Fall back to current working directory
+	return os.Getwd()
+}
+
 // DiscoverGoTests automatically discovers all Test* functions from a _test.go file
 // testFile can be relative path like "test/e2e/operator_test.go" or just "operator_test.go"
 // Returns a list of test names found in the file
 func DiscoverGoTests(testFile string) ([]string, error) {
-	// Get project root
-	projectRoot, err := os.Getwd()
+	// Get test root directory (supports TEST_ROOT_DIR env var)
+	testRoot, err := getTestRootDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %v", err)
+		return nil, fmt.Errorf("failed to get test root directory: %v", err)
 	}
 
 	// Build full path - testFile might already include "test/e2e/" prefix
@@ -269,10 +281,10 @@ func DiscoverGoTests(testFile string) ([]string, error) {
 		testFilePath = testFile
 	} else if strings.HasPrefix(testFile, "test/") || strings.HasPrefix(testFile, "test"+string(filepath.Separator)) {
 		// testFile already includes test/ prefix
-		testFilePath = filepath.Join(projectRoot, testFile)
+		testFilePath = filepath.Join(testRoot, testFile)
 	} else {
 		// Old behavior - assume test/e2e directory
-		testFilePath = filepath.Join(projectRoot, "test", "e2e", testFile)
+		testFilePath = filepath.Join(testRoot, "test", "e2e", testFile)
 	}
 
 	// Read the source file to find Test* functions
@@ -326,14 +338,15 @@ func AutoDiscoverGoTestFile(testFile string, defaultTags []string, defaultLifecy
 }
 
 // DiscoverAllTestFiles finds all *_test.go files in test/e2e* directories
-// Returns file paths relative to project root (e.g., "test/e2e/operator_test.go")
+// Returns file paths relative to test root (e.g., "test/e2e/operator_test.go")
+// Uses TEST_ROOT_DIR environment variable if set (like Cypress pattern)
 func DiscoverAllTestFiles() ([]string, error) {
-	projectRoot, err := os.Getwd()
+	testRoot, err := getTestRootDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %v", err)
+		return nil, fmt.Errorf("failed to get test root directory: %v", err)
 	}
 
-	testBaseDir := filepath.Join(projectRoot, "test")
+	testBaseDir := filepath.Join(testRoot, "test")
 
 	// Find all directories matching test/e2e*
 	pattern := filepath.Join(testBaseDir, "e2e*")
@@ -353,8 +366,8 @@ func DiscoverAllTestFiles() ([]string, error) {
 		}
 
 		for _, match := range matches {
-			// Store relative path from project root
-			relPath, err := filepath.Rel(projectRoot, match)
+			// Store relative path from test root
+			relPath, err := filepath.Rel(testRoot, match)
 			if err != nil {
 				continue
 			}
