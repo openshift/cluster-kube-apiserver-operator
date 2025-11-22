@@ -679,7 +679,7 @@ func extractEmbeddedBinaries() error {
 }
 
 // getCompiledTestBinary returns the path to the precompiled test binary for a given test file
-// Test binaries are embedded in the OTE binary and extracted to temp directory on first use
+// Binary name is derived from directory name (e.g., test/e2e -> e2e.test)
 func getCompiledTestBinary(testFile string) string {
 	// Extract embedded binaries if not already done
 	if err := extractEmbeddedBinaries(); err != nil {
@@ -687,25 +687,10 @@ func getCompiledTestBinary(testFile string) string {
 		return ""
 	}
 
-	// Determine binary name based on test file path
-	testDir := filepath.Dir(testFile)
-	baseName := filepath.Base(testDir)
-
-	var binaryName string
-	switch {
-	case strings.Contains(testDir, "e2e-encryption-rotation"):
-		binaryName = "e2e-encryption-rotation.test"
-	case strings.Contains(testDir, "e2e-encryption-perf"):
-		binaryName = "e2e-encryption-perf.test"
-	case strings.Contains(testDir, "e2e-encryption"):
-		binaryName = "e2e-encryption.test"
-	case strings.Contains(testDir, "e2e-sno-disruptive"):
-		binaryName = "e2e-sno-disruptive.test"
-	case baseName == "e2e" || testDir == "test/e2e":
-		binaryName = "e2e.test"
-	default:
-		return ""
-	}
+	// Determine binary name from directory: test/e2e-encryption -> e2e-encryption.test
+	testDir := filepath.Dir(testFile)           // "test/e2e-encryption"
+	baseName := filepath.Base(testDir)          // "e2e-encryption"
+	binaryName := baseName + ".test"            // "e2e-encryption.test"
 
 	// Return path to extracted binary
 	binaryPath := filepath.Join(extractedBinariesPath, binaryName)
