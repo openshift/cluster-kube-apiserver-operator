@@ -22,10 +22,10 @@ import (
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 
-	// The imports below are necessary to ensure that ALL tests are registered:
-	// - Ginkgo tests (event-ttl.go, etc.) from test/e2e
-	// - Standard Go tests via adapter package (both Ginkgo registration and ExtensionTestSpec)
-	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/adapter"
+	// Import test packages
+	// - Pure Ginkgo tests from test/e2e
+	// - Standard Go tests via gotest adapter (compiled binaries)
+	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/gotest"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
@@ -114,22 +114,23 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Name: "openshift/cluster-kube-apiserver-operator/all",
 	})
 
-	// Build ginkgo test specs from the test/e2e package
+	// Build ginkgo test specs from test/e2e package
 	// This includes pure Ginkgo tests (event-ttl.go, etc.)
-	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
+	ginkgoSpecs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
 	}
 
-	// Add standard Go test specs (following Cypress pattern)
-	// These are standard Go tests (*_test.go) converted to ExtensionTestSpec
-	// This allows running existing tests WITHOUT code changes
-	// All standard Go tests are Serial and blocking by default
-	standardGoSpecs, err := adapter.BuildExtensionTestSpecsFromGoTestMetadata()
+	// Build standard Go test specs from compiled test binaries
+	// This follows the OTE adapter pattern (like Cypress/Ginkgo)
+	// Works WITHOUT source code - uses compiled binaries embedded in the extension binary
+	goTestSpecs, err := gotest.BuildExtensionTestSpecs()
 	if err != nil {
-		return nil, fmt.Errorf("couldn't build extension test specs from standard go tests: %w", err)
+		return nil, fmt.Errorf("couldn't build extension test specs from compiled go tests: %w", err)
 	}
-	specs = append(specs, standardGoSpecs...)
+
+	// Combine all specs
+	specs := append(ginkgoSpecs, goTestSpecs...)
 
 	// Extract timeout from test name if present (e.g., [Timeout:50m])
 	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {

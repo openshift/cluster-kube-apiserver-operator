@@ -88,6 +88,7 @@ test-e2e-sno-disruptive: test-unit
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
+	$(RM) -r cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests
 .PHONY: clean
 
 # Configure the 'telepresence' target
@@ -108,24 +109,24 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
 
-# compile test packages into standalone test binaries (following Cypress pattern)
-# MUST run BEFORE generate-test-metadata (which compiles adapter with go:embed)
-# Binaries are compiled to cmd/.../adapter/compiled_tests/ and embedded in the OTE binary
-.PHONY: compile-test-binaries
-compile-test-binaries:
+# Compile standard Go tests for OTE extension
+# Auto-discovers test/e2e* directories and compiles them
+.PHONY: update-generated-bindata
+update-generated-bindata:
 	@echo "Compiling test binaries for OTE extension..."
-	@mkdir -p cmd/cluster-kube-apiserver-operator-tests-ext/adapter/compiled_tests
+	@mkdir -p cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests
 	@for dir in test/e2e*; do \
-		if [ -d "$$dir" ] && ls $$dir/*_test.go >/dev/null 2>&1; then \
-			binary_name=$$(basename $$dir).test; \
-			echo "  Compiling $$dir -> compiled_tests/$$binary_name"; \
-			go test -c -o cmd/cluster-kube-apiserver-operator-tests-ext/adapter/compiled_tests/$$binary_name ./$$dir || echo "  Warning: $$dir compilation failed"; \
+		if [ -d "$$dir" ]; then \
+			name=$$(basename $$dir); \
+			echo "  Compiling $$dir..."; \
+			go test -c -o cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests/$$name.test ./$$dir || exit 1; \
 		fi \
 	done
-	@echo "Test binaries compiled successfully"
+	@echo "Generating test metadata..."
+	@go run ./cmd/cluster-kube-apiserver-operator-tests-ext/gotest/generate_metadata.go \
+		cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests/metadata.json \
+		test/e2e*
+	@echo "Test binaries and metadata compiled successfully"
 
-# generate test metadata for OTE extension (runs AFTER compile-test-binaries)
-build: compile-test-binaries generate-test-metadata
-.PHONY: generate-test-metadata
-generate-test-metadata:
-	@cd cmd/cluster-kube-apiserver-operator-tests-ext/adapter && go run generate_metadata.go
+# Hook into build to compile test binaries first
+build: update-generated-bindata
