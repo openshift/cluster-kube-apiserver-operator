@@ -13,6 +13,7 @@ import (
 
 var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
+// Timeout: 60m
 func TestEncryptionTypeIdentity(t *testing.T) {
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -37,6 +38,7 @@ func TestEncryptionTypeUnset(t *testing.T) {
 	})
 }
 
+// Timeout: 60m
 func TestEncryptionTurnOnAndOff(t *testing.T) {
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{

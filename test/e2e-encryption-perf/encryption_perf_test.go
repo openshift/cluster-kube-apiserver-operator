@@ -29,6 +29,7 @@ const (
 
 var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
+// Timeout: 60m
 func TestPerfEncryption(tt *testing.T) {
 	operatorClient := operatorencryption.GetOperator(tt)
 	library.TestPerfEncryption(tt, library.PerfScenario{

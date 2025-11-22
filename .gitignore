@@ -8,3 +8,6 @@ telepresence.log
 # Test extension binaries
 /cluster-kube-apiserver-operator-tests-ext
 /cluster-kube-apiserver-operator-tests-ext.gz
+
+# Compiled test binaries (compiled at build time, embedded in OTE extension binary)
+cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests/

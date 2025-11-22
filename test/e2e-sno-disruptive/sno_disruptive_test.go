@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// Timeout: 60m
 func TestFallback(tt *testing.T) {
 	t := commontesthelpers.NewE(tt)
 	cs := getClients(t)
