@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 	"time"
 
 	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
@@ -25,7 +26,9 @@ func runSingleTest(ctx context.Context, binaryPath string, testName string, meta
 		EndTime:   nil, // Will be set by OTE framework
 	}
 
-	if metadata.Lifecycle == "Blocking" {
+	// Set lifecycle based on metadata (case-insensitive check)
+	// Default to Informing for safety
+	if strings.EqualFold(metadata.Lifecycle, "Blocking") {
 		result.Lifecycle = et.LifecycleBlocking
 	}
 
