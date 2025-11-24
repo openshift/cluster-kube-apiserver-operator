@@ -88,7 +88,7 @@ test-e2e-sno-disruptive: test-unit
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
-	$(RM) -r cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests
+	$(RM) ./cluster-kube-apiserver-operator-tests-ext
 .PHONY: clean
 
 # Configure the 'telepresence' target
@@ -109,24 +109,9 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
 
-# Compile standard Go tests for OTE extension
-# Auto-discovers test/e2e* directories and compiles them
-.PHONY: update-generated-bindata
-update-generated-bindata:
-	@echo "Compiling test binaries for OTE extension..."
-	@mkdir -p cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests
-	@for dir in test/e2e*; do \
-		if [ -d "$$dir" ]; then \
-			name=$$(basename $$dir); \
-			echo "  Compiling $$dir..."; \
-			go test -c -o cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests/$$name.test ./$$dir || exit 1; \
-		fi \
-	done
-	@echo "Generating test metadata..."
-	@go run ./cmd/cluster-kube-apiserver-operator-tests-ext/gotest/generate_metadata.go \
-		cmd/cluster-kube-apiserver-operator-tests-ext/gotest/compiled_tests/metadata.json \
-		test/e2e*
-	@echo "Test binaries and metadata compiled successfully"
+# Build test extension binary (auto-discovers all test/e2e* directories)
+.PHONY: build-extension
+build-extension:
+	go build -o ./cluster-kube-apiserver-operator-tests-ext ./cmd/cluster-kube-apiserver-operator-tests-ext
 
-# Hook into build to compile test binaries first
-build: update-generated-bindata
+build: build-extension

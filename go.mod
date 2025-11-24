@@ -77,7 +77,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/gomega v1.38.2
+	github.com/onsi/gomega v1.38.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
@@ -132,8 +132,11 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-require github.com/onsi/ginkgo/v2 v2.25.1
+require github.com/onsi/ginkgo/v2 v2.25.1 // indirect
 
 require github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20250416174521-4eb003743b54
+
+// Use local openshift-tests-extension with custom Go test framework
+replace github.com/openshift-eng/openshift-tests-extension => /Users/rgangwar/office-work/openshift-tests-extension

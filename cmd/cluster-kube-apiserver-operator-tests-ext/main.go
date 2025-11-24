@@ -15,18 +15,12 @@ import (
 	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
 	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
 	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
-	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
+	gotest "github.com/openshift-eng/openshift-tests-extension/pkg/gotest"
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
-
-	// Import test packages
-	// - Pure Ginkgo tests from test/e2e
-	// - Standard Go tests via gotest adapter (compiled binaries)
-	"github.com/openshift/cluster-kube-apiserver-operator/cmd/cluster-kube-apiserver-operator-tests-ext/gotest"
-	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
@@ -114,23 +108,15 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Name: "openshift/cluster-kube-apiserver-operator/all",
 	})
 
-	// Build ginkgo test specs from test/e2e package
-	// This includes pure Ginkgo tests (event-ttl.go, etc.)
-	ginkgoSpecs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
-	if err != nil {
-		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
+	// Build Go test specs using custom framework (auto-discover all test/e2e* directories)
+	goTestConfig := gotest.Config{
+		TestPrefix:      "[sig-api-machinery] kube-apiserver operator",
+		TestDirectories: discoverTestDirectories(),
 	}
-
-	// Build standard Go test specs from compiled test binaries
-	// This follows the OTE adapter pattern (like Cypress/Ginkgo)
-	// Works WITHOUT source code - uses compiled binaries embedded in the extension binary
-	goTestSpecs, err := gotest.BuildExtensionTestSpecs()
+	specs, err := gotest.BuildExtensionTestSpecs(goTestConfig)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't build extension test specs from compiled go tests: %w", err)
+		return nil, fmt.Errorf("couldn't build extension test specs from go tests: %w", err)
 	}
-
-	// Combine all specs
-	specs := append(ginkgoSpecs, goTestSpecs...)
 
 	// Define tests to skip (both Ginkgo and GoTest)
 	testsToSkip := map[string]bool{
@@ -176,4 +162,24 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 
 	registry.Register(extension)
 	return registry, nil
+}
+
+// discoverTestDirectories automatically finds all test/e2e* directories
+func discoverTestDirectories() []string {
+	var dirs []string
+
+	// Find all test/e2e* directories
+	entries, err := os.ReadDir("test")
+	if err != nil {
+		klog.Warningf("Failed to read test directory: %v", err)
+		return dirs
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "e2e") {
+			dirs = append(dirs, fmt.Sprintf("test/%s", entry.Name()))
+		}
+	}
+
+	return dirs
 }
