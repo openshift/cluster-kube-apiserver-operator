@@ -9,6 +9,8 @@ import (
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
+// Tags: Serial
+// Timeout: 60m
 func TestEncryptionTypeAESCBC(t *testing.T) {
 	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,

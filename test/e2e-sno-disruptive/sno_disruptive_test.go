@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
+// Timeout: 120m
+// Tags: Serial
 func TestFallback(tt *testing.T) {
 	t := commontesthelpers.NewE(tt)
 	cs := getClients(t)

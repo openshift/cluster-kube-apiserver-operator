@@ -193,12 +193,12 @@ make build
 
 ```bash
 # Run a specific test suite or test
-./cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all
 ./cluster-kube-apiserver-operator-tests-ext run-test "test-name"
 
 # Run with JUnit output
-./cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
-./cluster-kube-apiserver-operator-tests-ext run-test TEST=openshift/cluster-kube-apiserver-operator/all/test-name JUNIT_DIR=/tmp/junit-results
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all --junit-path=/tmp/junit.xml
+./cluster-kube-apiserver-operator-tests-ext run-test "test-name" --junit-path=/tmp/junit.xml
 ```
 
 ### Listing available tests and suites
@@ -209,6 +209,9 @@ make build
 
 # List tests in a suite
 ./cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/all
+
+# for concurrency
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/all -c 1
 ```
 
 For more information about the OTE framework, see the [openshift-tests-extension documentation](https://github.com/openshift-eng/openshift-tests-extension).

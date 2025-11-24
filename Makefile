@@ -88,6 +88,7 @@ test-e2e-sno-disruptive: test-unit
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
+	$(RM) ./cluster-kube-apiserver-operator-tests-ext
 .PHONY: clean
 
 # Configure the 'telepresence' target
@@ -107,3 +108,10 @@ verify-bindata-v4.1.0: verify-apirequestcounts-crd
 .PHONY: verify-apirequestcounts-crd
 verify-apirequestcounts-crd:
 	diff -Naup $(APIREQUESTCOUNT_CRD_SOURCE) $(APIREQUESTCOUNT_CRD_TARGET)
+
+# Build test extension binary (auto-discovers all test/e2e* directories)
+.PHONY: build-extension
+build-extension:
+	go build -o ./cluster-kube-apiserver-operator-tests-ext ./cmd/cluster-kube-apiserver-operator-tests-ext
+
+build: build-extension
