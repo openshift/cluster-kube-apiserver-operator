@@ -41,8 +41,8 @@ func discoverTestsFromBinary(binaryPath string, binaryName string) (et.Extension
 			// Default metadata if not found
 			metadata = TestMetadataEntry{
 				Name:      testName,
-				Tags:      []string{"Serial"},
-				Lifecycle: "Informing",
+				Tags:      []string{}, // Default: No tags = Parallel
+				Lifecycle: "Blocking", // Default: Blocking
 			}
 		}
 

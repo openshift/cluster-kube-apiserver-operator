@@ -132,6 +132,21 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	// Combine all specs
 	specs := append(ginkgoSpecs, goTestSpecs...)
 
+	// Define tests to skip (both Ginkgo and GoTest)
+	testsToSkip := map[string]bool{
+		// Add more tests to skip here
+		// "[sig-api-machinery] kube-apiserver operator TestOtherTest [Serial]": true,
+	}
+
+	// Filter out skipped tests
+	var filteredSpecs et.ExtensionTestSpecs
+	for _, spec := range specs {
+		if !testsToSkip[spec.Name] {
+			filteredSpecs = append(filteredSpecs, spec)
+		}
+	}
+	specs = filteredSpecs
+
 	// Extract timeout from test name if present (e.g., [Timeout:50m])
 	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
 		// Look for [Timeout:XXm] or [Timeout:XXh] pattern in test name
@@ -151,9 +166,9 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		}
 	})
 
-	// Ignore obsolete tests
+	// Ignore obsolete tests (for update command validation only)
 	extension.IgnoreObsoleteTests(
-	// "[sig-api-machinery] <test name here>",
+	//"[sig-api-machinery] kube-apiserver operator TestEncryptionRotation [Serial]",
 	)
 
 	// Add the discovered test specs to the extension

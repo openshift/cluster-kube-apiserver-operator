@@ -18,6 +18,8 @@ var provider = flag.String("provider", "aescbc", "encryption provider used by th
 // TestEncryptionRotation first encrypts data then it forces a key
 // rotation by setting the "encyrption.Reason" in the operator's configuration
 // file
+// Tags: Serial
+// Timeout: 120m
 func TestEncryptionRotation(t *testing.T) {
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{

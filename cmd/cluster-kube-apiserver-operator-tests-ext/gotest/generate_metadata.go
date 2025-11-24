@@ -114,8 +114,8 @@ func parseTestFile(testFile string) ([]TestMetadataEntry, error) {
 
 		test := TestMetadataEntry{
 			Name:      fn.Name.Name,
-			Tags:      []string{"Serial"}, // Default: Serial (for safety)
-			Lifecycle: "Informing",        // Default: all tests are informing
+			Tags:      []string{}, // Default: No tags = Parallel (add "// Tags: Serial" to make serial)
+			Lifecycle: "Blocking", // Default: Blocking (add "// Lifecycle: Informing" to override)
 		}
 
 		// Parse comments
