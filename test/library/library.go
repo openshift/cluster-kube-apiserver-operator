@@ -20,7 +20,7 @@ var (
 
 // GenerateNameForTest generates a name of the form `prefix + test name + random string` that
 // can be used as a resource name. Convert the result to lowercase to use as a dns label.
-func GenerateNameForTest(t *testing.T, prefix string) string {
+func GenerateNameForTest(t testing.TB, prefix string) string {
 	n, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	require.NoError(t, err)
 	name := []byte(fmt.Sprintf("%s%s-%016x", prefix, t.Name(), n.Int64()))
