@@ -8,27 +8,39 @@ https://github.com/openshift-eng/openshift-tests-extension/blob/main/cmd/example
 package main
 
 import (
-	"context"
+	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
-	"k8s.io/component-base/cli"
+	"strings"
 
 	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
 	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
+	et "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
+	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
+	"github.com/spf13/cobra"
+	"k8s.io/component-base/cli"
+	"k8s.io/klog/v2"
+
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 
-	"k8s.io/klog/v2"
+	// Import test packages to register Ginkgo tests
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
-	command := newOperatorTestCommand(context.Background())
-	code := cli.Run(command)
+	cmd, err := newOperatorTestCommand()
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	code := cli.Run(cmd)
 	os.Exit(code)
 }
 
-func newOperatorTestCommand(ctx context.Context) *cobra.Command {
-	registry := prepareOperatorTestsRegistry()
+func newOperatorTestCommand() (*cobra.Command, error) {
+	registry, err := prepareOperatorTestsRegistry()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare test registry: %w", err)
+	}
 
 	cmd := &cobra.Command{
 		Use:   "cluster-kube-apiserver-operator-tests",
@@ -49,7 +61,7 @@ func newOperatorTestCommand(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(otecmd.DefaultExtensionCommands(registry)...)
 
-	return cmd
+	return cmd, nil
 }
 
 // prepareOperatorTestsRegistry creates the OTE registry for this operator.
@@ -57,10 +69,82 @@ func newOperatorTestCommand(ctx context.Context) *cobra.Command {
 // Note:
 //
 // This method must be called before adding the registry to the OTE framework.
-func prepareOperatorTestsRegistry() *oteextension.Registry {
+func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	registry := oteextension.NewRegistry()
 	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
+	// Suite: conformance/parallel (fast, parallel-safe)
+	// Rule: Tests without [Serial] or [Slow] tags run in parallel
+	// [Timeout:] tag is allowed - it just means the test needs more time
+	extension.AddSuite(oteextension.Suite{
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/parallel",
+		Parents: []string{"openshift/conformance/parallel"},
+		Qualifiers: []string{
+			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
+		},
+	})
+
+	// Suite: conformance/serial (explicitly serial tests, but NOT slow tests)
+	// Rule: Tests with [Serial] but NOT [Slow]
+	// [Serial][Timeout:] tests go here (serial test that needs extra time)
+	extension.AddSuite(oteextension.Suite{
+		Name:    "openshift/cluster-kube-apiserver-operator/conformance/serial",
+		Parents: []string{"openshift/conformance/serial"},
+		Qualifiers: []string{
+			`name.contains("[Serial]") && !name.contains("[Slow]")`,
+		},
+	})
+
+	// Suite: optional/slow (long-running tests marked with [Slow] tag)
+	// Rule: Only tests with [Slow] tag
+	// Can be [Slow], [Slow][Serial], [Slow][Timeout:60m], etc.
+	extension.AddSuite(oteextension.Suite{
+		Name:    "openshift/cluster-kube-apiserver-operator/optional/slow",
+		Parents: []string{"openshift/optional/slow"},
+		Qualifiers: []string{
+			`name.contains("[Slow]")`,
+		},
+	})
+
+	// Suite: all (includes everything)
+	extension.AddSuite(oteextension.Suite{
+		Name: "openshift/cluster-kube-apiserver-operator/all",
+	})
+
+	// Build Ginkgo test specs from test/e2e package
+	// This includes all tests wrapped with Ginkgo (operator_ginkgo_test.go)
+	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
+	}
+
+	// Extract timeout from test name if present (e.g., [Timeout:50m])
+	specs = specs.Walk(func(spec *et.ExtensionTestSpec) {
+		// Look for [Timeout:XXm] or [Timeout:XXh] pattern in test name
+		if strings.Contains(spec.Name, "[Timeout:") {
+			start := strings.Index(spec.Name, "[Timeout:")
+			if start != -1 {
+				end := strings.Index(spec.Name[start:], "]")
+				if end != -1 {
+					// Extract the timeout value (e.g., "50m" from "[Timeout:50m]")
+					timeoutTag := spec.Name[start+len("[Timeout:") : start+end]
+					if spec.Tags == nil {
+						spec.Tags = make(map[string]string)
+					}
+					spec.Tags["timeout"] = timeoutTag
+				}
+			}
+		}
+	})
+
+	// Ignore obsolete tests (for update command validation only)
+	extension.IgnoreObsoleteTests(
+	// "[sig-api-machinery] kube-apiserver operator TestOldTest",
+	)
+
+	// Add the discovered test specs to the extension
+	extension.AddSpecs(specs)
+
 	registry.Register(extension)
-	return registry
+	return registry, nil
 }

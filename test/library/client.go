@@ -2,6 +2,7 @@ package library
 
 import (
 	"fmt"
+	"os"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -14,7 +15,8 @@ func NewClientConfigForTest() (*rest.Config, error) {
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loader, &clientcmd.ConfigOverrides{ClusterInfo: api.Cluster{InsecureSkipTLSVerify: true}})
 	config, err := clientConfig.ClientConfig()
 	if err == nil {
-		fmt.Printf("Found configuration for host %v.\n", config.Host)
+		// Write to stderr to avoid polluting stdout when tests use --output=json
+		fmt.Fprintf(os.Stderr, "Found configuration for host %v.\n", config.Host)
 	}
 	return config, err
 }
