@@ -3,6 +3,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -20,11 +21,11 @@ func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *te
 	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
 		clusterOperator, err := client.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			fmt.Println("ClusterOperator/kube-apiserver does not yet exist.")
+			fmt.Fprintln(os.Stderr, "ClusterOperator/kube-apiserver does not yet exist.")
 			return false, nil
 		}
 		if err != nil {
-			fmt.Println("Unable to retrieve ClusterOperator/kube-apiserver:", err)
+			fmt.Fprintln(os.Stderr, "Unable to retrieve ClusterOperator/kube-apiserver:", err)
 			return false, err
 		}
 		conditions := clusterOperator.Status.Conditions
@@ -32,7 +33,7 @@ func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *te
 		notProgressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionFalse)
 		notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
 		done := available && notProgressing && notDegraded
-		fmt.Printf("ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v\n", available, !notProgressing, !notDegraded)
+		fmt.Fprintf(os.Stderr, "ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v\n", available, !notProgressing, !notDegraded)
 		return done, nil
 	})
 	if err != nil {
@@ -46,11 +47,11 @@ func WaitForKubeAPIServerStartProgressing(t *testing.T, client configclient.Conf
 	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
 		clusterOperator, err := client.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
-			fmt.Println("ClusterOperator/kube-apiserver does not yet exist.")
+			fmt.Fprintln(os.Stderr, "ClusterOperator/kube-apiserver does not yet exist.")
 			return false, nil
 		}
 		if err != nil {
-			fmt.Println("Unable to retrieve ClusterOperator/kube-apiserver:", err)
+			fmt.Fprintln(os.Stderr, "Unable to retrieve ClusterOperator/kube-apiserver:", err)
 			return false, err
 		}
 		conditions := clusterOperator.Status.Conditions
@@ -58,7 +59,7 @@ func WaitForKubeAPIServerStartProgressing(t *testing.T, client configclient.Conf
 		progressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionTrue)
 		notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
 		done := available && progressing && notDegraded
-		fmt.Printf("ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v\n", available, progressing, !notDegraded)
+		fmt.Fprintf(os.Stderr, "ClusterOperator/kube-apiserver: Available: %v  Progressing: %v  Degraded: %v\n", available, progressing, !notDegraded)
 		return done, nil
 	})
 	if err != nil {

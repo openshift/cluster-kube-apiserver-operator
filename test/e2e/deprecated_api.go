@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,17 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestAPIRemovedInNextReleaseInUse", func() {
+		TestAPIRemovedInNextReleaseInUse(g.GinkgoTB())
+	})
+
+	g.It("TestAPIRemovedInNextEUSReleaseInUse", func() {
+		TestAPIRemovedInNextEUSReleaseInUse(g.GinkgoTB())
+	})
+})
+
+func TestAPIRemovedInNextReleaseInUse(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 
@@ -41,7 +52,7 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	require.NoError(t, err)
-	expr := retrieveAlertExpression(t, ctx, dynamicClient, "APIRemovedInNextReleaseInUse")
+	expr := retrieveAlertExpressionGinkgo(t, ctx, dynamicClient, "APIRemovedInNextReleaseInUse")
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
 	removedRelease := strings.Split(regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`).ReplaceAllString(expr, "$1"), ".")
 	require.Len(t, removedRelease, 2, "Unable to parse the removed release version from the alert expression.")
@@ -55,7 +66,7 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 	require.Equal(t, currentMinor+1, minor)
 }
 
-func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
+func TestAPIRemovedInNextEUSReleaseInUse(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 
@@ -77,7 +88,7 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	require.NoError(t, err)
-	expr := retrieveAlertExpression(t, ctx, dynamicClient, "APIRemovedInNextEUSReleaseInUse")
+	expr := retrieveAlertExpressionGinkgo(t, ctx, dynamicClient, "APIRemovedInNextEUSReleaseInUse")
 	require.NotEmpty(t, expr, "Unable to find the alert expression.")
 	rx := regexp.MustCompile(`.*removed_release="(\d+\.\d+)".*`)
 	if rx.FindStringIndex(expr) != nil {
@@ -117,7 +128,7 @@ func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 
 }
 
-func retrieveAlertExpression(t *testing.T, ctx context.Context, client *dynamic.DynamicClient, alertName string) string {
+func retrieveAlertExpressionGinkgo(t testing.TB, ctx context.Context, client *dynamic.DynamicClient, alertName string) string {
 	prometheusRulesGVR := schema.GroupVersionResource{Group: "monitoring.coreos.com", Version: "v1", Resource: "prometheusrules"}
 	prometheusRule, err := client.Resource(prometheusRulesGVR).Namespace("openshift-kube-apiserver").Get(ctx, "api-usage", metav1.GetOptions{})
 	require.NoError(t, err)
