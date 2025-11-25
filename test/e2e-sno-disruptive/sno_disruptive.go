@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/require"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor/annotations"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	commontesthelpers "github.com/openshift/library-go/test/library/encryption"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,8 +20,13 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func TestFallback(tt *testing.T) {
-	t := commontesthelpers.NewE(tt)
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator sno-disruptive", func() {
+	g.It("TestFallback [Serial][Slow][Timeout:50m]", func() {
+		TestFallback(g.GinkgoTB())
+	})
+})
+
+func TestFallback(t testing.TB) {
 	cs := getClients(t)
 	ctx := context.TODO()
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,13 @@ import (
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
 
-func TestUserClientCABundle(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestUserClientCABundle [Serial][Timeout:20m]", func() {
+		TestUserClientCABundle(g.GinkgoTB())
+	})
+})
+
+func TestUserClientCABundle(t testing.TB) {
 
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
@@ -36,19 +43,19 @@ func TestUserClientCABundle(t *testing.T) {
 	_, err = kubeClient.ConfigMaps("openshift-config").Create(context.TODO(),
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: configMapName},
-			Data:       map[string]string{"ca-bundle.crt": string(encodeCertPEM(clientCA.Certificate))},
+			Data:       map[string]string{"ca-bundle.crt": string(encodeCertPEMGinkgo(clientCA.Certificate))},
 		},
 		metav1.CreateOptions{})
 	require.NoError(t, err)
 
 	// configure user client-ca
 	defer func() {
-		_, err := updateAPIServerClusterConfigSpec(configClient, func(apiServer *configv1.APIServer) {
+		_, err := updateAPIServerClusterConfigSpecGinkgo(configClient, func(apiServer *configv1.APIServer) {
 			apiServer.Spec.ClientCA.Name = ""
 		})
 		assert.NoError(t, err)
 	}()
-	_, err = updateAPIServerClusterConfigSpec(configClient, func(apiServer *configv1.APIServer) {
+	_, err = updateAPIServerClusterConfigSpecGinkgo(configClient, func(apiServer *configv1.APIServer) {
 		apiServer.Spec.ClientCA.Name = configMapName
 	})
 	require.NoError(t, err)

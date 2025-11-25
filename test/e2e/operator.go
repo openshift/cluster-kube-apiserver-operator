@@ -1,12 +1,11 @@
 package e2e
 
 import (
+	"testing"
+
 	"context"
 	"fmt"
-	"strings"
-	"testing"
-	"time"
-
+	g "github.com/onsi/ginkgo/v2"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
@@ -18,9 +17,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/clock"
+	"strings"
+	"time"
 )
 
-func TestOperatorNamespace(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestOperatorNamespace", func() {
+		TestOperatorNamespace(g.GinkgoTB())
+	})
+
+	g.It("TestOperandImageVersion", func() {
+		TestOperandImageVersion(g.GinkgoTB())
+	})
+
+	g.It("TestRevisionLimits", func() {
+		TestRevisionLimits(g.GinkgoTB())
+	})
+
+})
+
+func TestOperatorNamespace(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
@@ -29,7 +45,7 @@ func TestOperatorNamespace(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOperandImageVersion(t *testing.T) {
+func TestOperandImageVersion(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
@@ -45,7 +61,7 @@ func TestOperandImageVersion(t *testing.T) {
 	require.Fail(t, "operator kube-apiserver image version not found")
 }
 
-func TestRevisionLimits(t *testing.T) {
+func TestRevisionLimits(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
@@ -58,11 +74,8 @@ func TestRevisionLimits(t *testing.T) {
 		operator.ExtractStaticPodOperatorSpec,
 		operator.ExtractStaticPodOperatorStatus)
 	require.NoError(t, err)
-
-	// Get current revision limits
 	operatorSpec, _, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(context.TODO())
 	require.NoError(t, err)
-
 	totalRevisionLimit := operatorSpec.SucceededRevisionLimit + operatorSpec.FailedRevisionLimit
 	if operatorSpec.SucceededRevisionLimit == 0 {
 		totalRevisionLimit += 5
@@ -70,11 +83,8 @@ func TestRevisionLimits(t *testing.T) {
 	if operatorSpec.FailedRevisionLimit == 0 {
 		totalRevisionLimit += 5
 	}
-
 	revisions, err := getRevisionStatuses(kubeClient)
 	require.NoError(t, err)
-
-	// Check if revisions are being quickly created to test for operator hotlooping
 	changes := 0
 	pollsWithoutChanges := 0
 	lastRevisionCount := len(revisions)
@@ -82,16 +92,10 @@ func TestRevisionLimits(t *testing.T) {
 		newRevisions, err := getRevisionStatuses(kubeClient)
 		require.NoError(t, err)
 
-		// If there are more revisions than the total allowed Failed and Succeeded revisions, then there must be some that
-		// are InProgress or Unknown (since these do not count toward failed or succeeded), which could indicate zombie revisions.
-		// Check total+1 to account for possibly a current new revision that just hasn't pruned off the oldest one yet.
 		if len(newRevisions) > int(totalRevisionLimit)+1 {
-			// TODO(marun) If number of revisions has been exceeded, need to give time for the pruning controller to
-			// progress rather than immediately failing.
-			// t.Errorf("more revisions (%v) than total allowed (%v): %+v", len(revisions), totalRevisionLimit, revisions)
+
 		}
 
-		// No revisions in the last 30 seconds probably means we're not rapidly creating new ones and can return
 		if len(newRevisions)-lastRevisionCount == 0 {
 			pollsWithoutChanges += 1
 			if pollsWithoutChanges >= 30 {

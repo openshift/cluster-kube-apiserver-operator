@@ -2,13 +2,13 @@ package e2e
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/ghodss/yaml"
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,12 +23,18 @@ import (
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
 
-var clusterDefaultCORSALlowedOrigins = []string{
+var clusterDefaultCORSALlowedOriginsGinkgo = []string{
 	`//127\.0\.0\.1(:|$)`,
 	`//localhost(:|$)`,
 }
 
-func TestAdditionalCORSAllowedOrigins(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestAdditionalCORSAllowedOrigins [Serial][Timeout:20m]", func() {
+		TestAdditionalCORSAllowedOrigins(g.GinkgoTB())
+	})
+})
+
+func TestAdditionalCORSAllowedOrigins(t testing.TB) {
 	// initialize clients
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
@@ -39,16 +45,18 @@ func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 	kubeAPIServerOperatorClient := operatorClient.KubeAPIServers()
 
 	// Check the cluster defaults
-	defaultConfig := getKubeAPIServerConfigOrFail(t, kubeAPIServerOperatorClient)
-	assert.Equal(t, clusterDefaultCORSALlowedOrigins, defaultConfig)
+	defaultConfig := getKubeAPIServerConfigOrFailGinkgo(t, kubeAPIServerOperatorClient)
+	assert.Equal(t, clusterDefaultCORSALlowedOriginsGinkgo, defaultConfig)
 
 	t.Logf("Cluster default CORSAllowedOrigins: %v", defaultConfig)
 
 	testCases := []struct {
+		name               string
 		additionalCORS     []string
 		expectedConfigCORS []string
 	}{
 		{
+			name:           "SingleDomain",
 			additionalCORS: []string{"//valid.domain.com(:|$)"},
 			expectedConfigCORS: []string{
 				`//127\.0\.0\.1(:|$)`,
@@ -57,6 +65,7 @@ func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 			},
 		},
 		{
+			name:           "MultipleDomains",
 			additionalCORS: []string{"//something.*.now(:|$)", "//domain.foreign.it(:|$)"},
 			expectedConfigCORS: []string{
 				`//127\.0\.0\.1(:|$)`,
@@ -66,6 +75,7 @@ func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 			},
 		},
 		{
+			name: "Default",
 			expectedConfigCORS: []string{
 				`//127\.0\.0\.1(:|$)`,
 				`//localhost(:|$)`,
@@ -74,28 +84,27 @@ func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		t.Run(fmt.Sprintf("%v", tc.additionalCORS), func(t *testing.T) {
-			updateAPIServerClusterConfigSpec(configClient, func(apiserver *configv1.APIServer) {
-				apiserver.Spec.AdditionalCORSAllowedOrigins = tc.additionalCORS
-			})
-
-			var currentCORS []string
-			err = wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
-				currentCORS = getKubeAPIServerConfigOrFail(t, kubeAPIServerOperatorClient)
-				if !equality.Semantic.DeepEqual(currentCORS, tc.expectedConfigCORS) {
-					return false, nil
-				}
-				return true, nil
-			})
-			if err != nil {
-				t.Errorf("test %d failed: expected %#v, got %#v", i, tc.expectedConfigCORS, currentCORS)
-			}
+		t.Logf("Running test case: %s", tc.name)
+		updateAPIServerClusterConfigSpecGinkgo(configClient, func(apiserver *configv1.APIServer) {
+			apiserver.Spec.AdditionalCORSAllowedOrigins = tc.additionalCORS
 		})
+
+		var currentCORS []string
+		err = wait.PollImmediate(time.Second, wait.ForeverTestTimeout, func() (bool, error) {
+			currentCORS = getKubeAPIServerConfigOrFailGinkgo(t, kubeAPIServerOperatorClient)
+			if !equality.Semantic.DeepEqual(currentCORS, tc.expectedConfigCORS) {
+				return false, nil
+			}
+			return true, nil
+		})
+		if err != nil {
+			t.Errorf("test %d (%s) failed: expected %#v, got %#v", i, tc.name, tc.expectedConfigCORS, currentCORS)
+		}
 	}
 
 }
 
-func getKubeAPIServerConfigOrFail(t *testing.T, operatorClient operatorclient.KubeAPIServerInterface) []string {
+func getKubeAPIServerConfigOrFailGinkgo(t testing.TB, operatorClient operatorclient.KubeAPIServerInterface) []string {
 	operatorConfig, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
 

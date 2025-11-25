@@ -1,21 +1,11 @@
 package e2e
 
 import (
+	"testing"
+
 	"context"
 	"fmt"
-	"strings"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/require"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/clock"
-
+	g "github.com/onsi/ginkgo/v2"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -25,9 +15,29 @@ import (
 	configv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/clock"
+	"strings"
+	"time"
 )
 
-func TestCertRotationTimeUpgradeable(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestCertRotationTimeUpgradeable", func() {
+		TestCertRotationTimeUpgradeable(g.GinkgoTB())
+	})
+
+	g.It("TestCertRotationStompOnBadType", func() {
+		TestCertRotationStompOnBadType(g.GinkgoTB())
+	})
+
+})
+
+func TestCertRotationTimeUpgradeable(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
@@ -40,12 +50,10 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
-
 	ctx := context.Background()
 	_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 	require.NoError(t, err)
 	require.True(t, v1helpers.IsOperatorConditionTrue(operatorStatus.Conditions, "CertRotationTimeUpgradeable"))
-
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 	t.Logf("Creating unsupported-cert-rotation-config...")
 	_, err = kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Create(context.TODO(), &corev1.ConfigMap{
@@ -56,7 +64,6 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	defer func() {
 		kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Delete(context.TODO(), "unsupported-cert-rotation-config", metav1.DeleteOptions{})
 	}()
-
 	err = wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
 		_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 		if err != nil {
@@ -80,11 +87,9 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 		return false, nil
 	})
 	require.NoError(t, err)
-
 	t.Logf("Removing unsupported-cert-rotation-config...")
 	err = kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace).Delete(context.TODO(), "unsupported-cert-rotation-config", metav1.DeleteOptions{})
 	require.NoError(t, err)
-
 	err = wait.PollImmediate(1*time.Second, 5*time.Second, func() (bool, error) {
 		_, operatorStatus, _, err := operatorClient.GetStaticPodOperatorStateWithQuorum(ctx)
 		if err != nil {
@@ -109,12 +114,10 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCertRotationStompOnBadType(t *testing.T) {
+func TestCertRotationStompOnBadType(t testing.TB) {
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
-
-	// this is inherently racy against a controller
 	err = wait.PollImmediate(10*time.Millisecond, 5*time.Second, func() (done bool, err error) {
 		if err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Delete(context.TODO(), "aggregator-client-signer", metav1.DeleteOptions{}); err != nil {
 			return false, nil
@@ -128,7 +131,6 @@ func TestCertRotationStompOnBadType(t *testing.T) {
 		return true, nil
 	})
 	require.NoError(t, err)
-
 	err = wait.PollImmediate(100*time.Millisecond, 30*time.Second, func() (done bool, err error) {
 		curr, err := kubeClient.CoreV1().Secrets(operatorclient.OperatorNamespace).Get(context.TODO(), "aggregator-client-signer", metav1.GetOptions{})
 		if errors.IsNotFound(err) {

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,7 +31,13 @@ import (
 	test "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 )
 
-func TestNamedCertificates(t *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestNamedCertificates [Serial]", func() {
+		TestNamedCertificates(g.GinkgoTB())
+	})
+})
+
+func TestNamedCertificates(t testing.TB) {
 
 	// create a root certificate authority crypto materials
 	rootCA := test.NewCertificateAuthorityCertificate(t, nil)
@@ -56,21 +63,21 @@ func TestNamedCertificates(t *testing.T) {
 
 	// create secrets for named serving certificates
 	for _, info := range testCertInfoById {
-		_, err := createTLSSecret(kubeClient, "openshift-config", info.secretName, info.crypto.PrivateKey, info.crypto.Certificate)
+		_, err := createTLSSecretGinkgo(kubeClient, "openshift-config", info.secretName, info.crypto.PrivateKey, info.crypto.Certificate)
 		require.NoError(t, err)
 	}
 
 	defer func() {
 		for _, info := range testCertInfoById {
-			err := deleteSecret(kubeClient, "openshift-config", info.secretName)
+			err := deleteSecretGinkgo(kubeClient, "openshift-config", info.secretName)
 			require.NoError(t, err)
 		}
 	}()
 
 	// configure named certificates
 	defer func() {
-		_, err := updateAPIServerClusterConfigSpec(configClient, func(apiserver *configv1.APIServer) {
-			removeNamedCertificatesBySecretName(apiserver,
+		_, err := updateAPIServerClusterConfigSpecGinkgo(configClient, func(apiserver *configv1.APIServer) {
+			removeNamedCertificatesBySecretNameGinkgo(apiserver,
 				testCertInfoById["one"].secretName,
 				testCertInfoById["two"].secretName,
 				testCertInfoById["three"].secretName,
@@ -78,7 +85,7 @@ func TestNamedCertificates(t *testing.T) {
 		})
 		assert.NoError(t, err)
 	}()
-	_, err = updateAPIServerClusterConfigSpec(configClient, func(apiServer *configv1.APIServer) {
+	_, err = updateAPIServerClusterConfigSpecGinkgo(configClient, func(apiServer *configv1.APIServer) {
 		apiServer.Spec.ServingCerts.NamedCertificates = append(
 			apiServer.Spec.ServingCerts.NamedCertificates,
 			configv1.APIServerNamedServingCert{ServingCertificate: configv1.SecretNameReference{Name: testCertInfoById["one"].secretName}},
@@ -90,12 +97,12 @@ func TestNamedCertificates(t *testing.T) {
 
 	// get serial number of default serving certificate
 	// the default is actually the service-network so that we can easily recognize it in error messages for bad names
-	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
-	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
-	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
-	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
-	internalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "internal-loadbalancer-serving-certkey")
-	localhostRecoveryServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFail(t, kubeClient, "openshift-kube-apiserver", "localhost-recovery-serving-certkey")
+	defaultServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
+	localhostServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "localhost-serving-cert-certkey")
+	serviceServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "service-network-serving-certkey")
+	externalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "external-loadbalancer-serving-certkey")
+	internalLoadBalancerCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "internal-loadbalancer-serving-certkey")
+	localhostRecoveryServingCertSerialNumber := serialNumberOfCertificateFromSecretOrFailGinkgo(t, kubeClient, "openshift-kube-apiserver", "localhost-recovery-serving-certkey")
 
 	t.Logf("default serial: %v", defaultServingCertSerialNumber)
 	t.Logf("localhost serial: %v", localhostServingCertSerialNumber)
@@ -172,7 +179,7 @@ func TestNamedCertificates(t *testing.T) {
 		},
 		{
 			name:                 "ServiceIP",
-			serverName:           getKubernetesServiceClusterIPOrFail(t, kubeClient),
+			serverName:           getKubernetesServiceClusterIPOrFailGinkgo(t, kubeClient),
 			expectedSerialNumber: defaultServingCertSerialNumber,
 		},
 		{
@@ -192,12 +199,12 @@ func TestNamedCertificates(t *testing.T) {
 		},
 		{
 			name:                 "ExternalLoadBalancerHostname",
-			serverName:           getExternalAPIServiceHostNameOrFail(t, configClient),
+			serverName:           getExternalAPIServiceHostNameOrFailGinkgo(t, configClient),
 			expectedSerialNumber: externalLoadBalancerCertSerialNumber,
 		},
 		{
 			name:                 "InternalLoadBalancerHostname",
-			serverName:           getInternalAPIServiceHostNameOrFail(t, configClient),
+			serverName:           getInternalAPIServiceHostNameOrFailGinkgo(t, configClient),
 			expectedSerialNumber: internalLoadBalancerCertSerialNumber,
 		},
 		{
@@ -212,23 +219,23 @@ func TestNamedCertificates(t *testing.T) {
 
 	// execute test cases
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// since not all nodes are guaranteed to be updated, give each test case up to a minute to find the right one
-			err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
-				// connect to apiserver using a custom ServerName and examine the returned certificate's
-				// serial number to determine if the expected serving certificate was returned.
-				serialNumber, err := getReturnedCertSerialNumber(kubeConfig.Host, tc.serverName)
-				require.NoError(t, err)
-				return tc.expectedSerialNumber == serialNumber, nil
-			})
+		tc := tc // capture range variable
+		t.Logf("Running test case: %s", tc.name)
+		// since not all nodes are guaranteed to be updated, give each test case up to a minute to find the right one
+		err := wait.PollImmediate(time.Second, time.Minute, func() (bool, error) {
+			// connect to apiserver using a custom ServerName and examine the returned certificate's
+			// serial number to determine if the expected serving certificate was returned.
+			serialNumber, err := getReturnedCertSerialNumberGinkgo(kubeConfig.Host, tc.serverName)
 			require.NoError(t, err)
+			return tc.expectedSerialNumber == serialNumber, nil
 		})
+		require.NoError(t, err, "Test case %s failed", tc.name)
 	}
 }
 
-// getReturnedCertSerialNumber connects to apiserver using a custom ServerName and returns the serial number of
+// getReturnedCertSerialNumberGinkgo connects to apiserver using a custom ServerName and returns the serial number of
 // the certificate that the server presents
-func getReturnedCertSerialNumber(host, serverName string) (string, error) {
+func getReturnedCertSerialNumberGinkgo(host, serverName string) (string, error) {
 	var serialNumber string
 	verifyPeerCertificate := func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		var err error
@@ -254,11 +261,11 @@ func getReturnedCertSerialNumber(host, serverName string) (string, error) {
 	return serialNumber, nil
 }
 
-func deleteSecret(client *clientcorev1.CoreV1Client, namespace, name string) error {
+func deleteSecretGinkgo(client *clientcorev1.CoreV1Client, namespace, name string) error {
 	return client.Secrets(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
-func encodeCertPEM(c *x509.Certificate) []byte {
+func encodeCertPEMGinkgo(c *x509.Certificate) []byte {
 	block := pem.Block{
 		Type:  cert.CertificateBlockType,
 		Bytes: c.Raw,
@@ -266,7 +273,7 @@ func encodeCertPEM(c *x509.Certificate) []byte {
 	return pem.EncodeToMemory(&block)
 }
 
-func createTLSSecret(client *clientcorev1.CoreV1Client, namespace, name string, privateKey *rsa.PrivateKey, certificate *x509.Certificate) (*corev1.Secret, error) {
+func createTLSSecretGinkgo(client *clientcorev1.CoreV1Client, namespace, name string, privateKey *rsa.PrivateKey, certificate *x509.Certificate) (*corev1.Secret, error) {
 	privateKeyBytes, err := keyutil.MarshalPrivateKeyToPEM(privateKey)
 	if err != nil {
 		return nil, err
@@ -277,18 +284,18 @@ func createTLSSecret(client *clientcorev1.CoreV1Client, namespace, name string, 
 			Type:       corev1.SecretTypeTLS,
 			Data: map[string][]byte{
 				corev1.TLSPrivateKeyKey: privateKeyBytes,
-				corev1.TLSCertKey:       encodeCertPEM(certificate),
+				corev1.TLSCertKey:       encodeCertPEMGinkgo(certificate),
 			},
 		}, metav1.CreateOptions{})
 }
 
-func serialNumberOfCertificateFromSecretOrFail(t *testing.T, client *clientcorev1.CoreV1Client, namespace, name string) string {
-	result, err := serialNumberOfCertificateFromSecret(client, namespace, name)
+func serialNumberOfCertificateFromSecretOrFailGinkgo(t testing.TB, client *clientcorev1.CoreV1Client, namespace, name string) string {
+	result, err := serialNumberOfCertificateFromSecretGinkgo(client, namespace, name)
 	require.NoError(t, err)
 	return result
 }
 
-func serialNumberOfCertificateFromSecret(client *clientcorev1.CoreV1Client, namespace, name string) (string, error) {
+func serialNumberOfCertificateFromSecretGinkgo(client *clientcorev1.CoreV1Client, namespace, name string) (string, error) {
 	secret, err := client.Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -300,7 +307,7 @@ func serialNumberOfCertificateFromSecret(client *clientcorev1.CoreV1Client, name
 	return certificates[0].SerialNumber.String(), nil
 }
 
-func updateAPIServerClusterConfigSpec(client *configclient.ConfigV1Client, updateFunc func(spec *configv1.APIServer)) (*configv1.APIServer, error) {
+func updateAPIServerClusterConfigSpecGinkgo(client *configclient.ConfigV1Client, updateFunc func(spec *configv1.APIServer)) (*configv1.APIServer, error) {
 	apiServer, err := client.APIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		apiServer, err = client.APIServers().Create(context.TODO(), &configv1.APIServer{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}}, metav1.CreateOptions{})
@@ -312,7 +319,7 @@ func updateAPIServerClusterConfigSpec(client *configclient.ConfigV1Client, updat
 	return client.APIServers().Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 }
 
-func removeNamedCertificatesBySecretName(apiServer *configv1.APIServer, secretName ...string) {
+func removeNamedCertificatesBySecretNameGinkgo(apiServer *configv1.APIServer, secretName ...string) {
 	var result []configv1.APIServerNamedServingCert
 	for _, namedCertificate := range apiServer.Spec.ServingCerts.NamedCertificates {
 		keep := true
@@ -329,14 +336,14 @@ func removeNamedCertificatesBySecretName(apiServer *configv1.APIServer, secretNa
 	apiServer.Spec.ServingCerts.NamedCertificates = result
 }
 
-func getExternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
-	result, err := getExternalAPIServiceHostName(client)
+func getExternalAPIServiceHostNameOrFailGinkgo(t testing.TB, client *configclient.ConfigV1Client) string {
+	result, err := getExternalAPIServiceHostNameGinkgo(client)
 	require.NoError(t, err)
 	t.Logf("external api service hostname: %v", result)
 	return result
 }
 
-func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
+func getExternalAPIServiceHostNameGinkgo(client *configclient.ConfigV1Client) (string, error) {
 	infrastructure, err := client.Infrastructures().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -348,14 +355,14 @@ func getExternalAPIServiceHostName(client *configclient.ConfigV1Client) (string,
 	return strings.Split(apiServerURL.Host, ":")[0], nil
 }
 
-func getInternalAPIServiceHostNameOrFail(t *testing.T, client *configclient.ConfigV1Client) string {
-	result, err := getInternalAPIServiceHostName(client)
+func getInternalAPIServiceHostNameOrFailGinkgo(t testing.TB, client *configclient.ConfigV1Client) string {
+	result, err := getInternalAPIServiceHostNameGinkgo(client)
 	require.NoError(t, err)
 	t.Logf("internal api service hostname: %v", result)
 	return result
 }
 
-func getInternalAPIServiceHostName(client *configclient.ConfigV1Client) (string, error) {
+func getInternalAPIServiceHostNameGinkgo(client *configclient.ConfigV1Client) (string, error) {
 	infrastructure, err := client.Infrastructures().Get(context.TODO(), "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -367,13 +374,13 @@ func getInternalAPIServiceHostName(client *configclient.ConfigV1Client) (string,
 	return strings.Split(apiServerURL.Host, ":")[0], nil
 }
 
-func getKubernetesServiceClusterIPOrFail(t *testing.T, client *clientcorev1.CoreV1Client) string {
-	result, err := getKubernetesServiceClusterIP(client)
+func getKubernetesServiceClusterIPOrFailGinkgo(t testing.TB, client *clientcorev1.CoreV1Client) string {
+	result, err := getKubernetesServiceClusterIPGinkgo(client)
 	require.NoError(t, err)
 	return result
 }
 
-func getKubernetesServiceClusterIP(client *clientcorev1.CoreV1Client) (string, error) {
+func getKubernetesServiceClusterIPGinkgo(client *clientcorev1.CoreV1Client) (string, error) {
 	service, err := client.Services("default").Get(context.TODO(), "kubernetes", metav1.GetOptions{})
 	if err != nil {
 		return "", err
@@ -390,7 +397,7 @@ type testCertInfo struct {
 	crypto *test.CryptoMaterials
 }
 
-func newTestCertInfo(t *testing.T, id string, signer *test.CryptoMaterials, hosts ...string) *testCertInfo {
+func newTestCertInfo(t testing.TB, id string, signer *test.CryptoMaterials, hosts ...string) *testCertInfo {
 	return &testCertInfo{
 		secretName: strings.ToLower(test.GenerateNameForTest(t, id+"-")),
 		hosts:      hosts,

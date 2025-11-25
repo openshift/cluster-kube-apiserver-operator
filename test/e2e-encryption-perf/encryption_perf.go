@@ -5,13 +5,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
@@ -19,6 +22,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
+	libgotest "github.com/openshift/library-go/test/library"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -27,11 +31,18 @@ const (
 	secretsStatsKey = "created secrets"
 )
 
-var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
+var providerPerf = flag.String("provider-perf", "aescbc", "encryption provider used by the perf tests")
 
-func TestPerfEncryption(tt *testing.T) {
-	operatorClient := operatorencryption.GetOperator(tt)
-	library.TestPerfEncryption(tt, library.PerfScenario{
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator encryption perf", func() {
+	g.It("TestPerfEncryption [Serial][Slow][Timeout:60m]", func() {
+		TestPerfEncryption(g.GinkgoTB())
+	})
+})
+
+func TestPerfEncryption(t testing.TB) {
+	operatorClient := operatorencryption.GetOperator(t)
+
+	scenario := library.PerfScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -85,8 +96,61 @@ func TestPerfEncryption(tt *testing.T) {
 			waitUntilNamespaceActive,
 			library.DBLoaderRepeatParallel(5010, 50, false, createConfigMap, reportConfigMap),
 			library.DBLoaderRepeatParallel(9010, 50, false, createSecret, reportSecret)),
-		EncryptionProvider: configv1.EncryptionType(*provider),
-	})
+		EncryptionProvider: configv1.EncryptionType(*providerPerf),
+	}
+
+	// Replicate the logic from library.TestPerfEncryption but using testing.TB
+	migrationStartedCh := make(chan time.Time, 1)
+
+	populateDatabase(t, scenario.DBLoaderWorkers, scenario.DBLoaderFunc, scenario.AssertDBPopulatedFunc)
+	watchForMigrationControllerProgressingConditionAsync(t, scenario.GetOperatorConditionsFunc, migrationStartedCh)
+	endTimeStamp := runTestEncryption(t, scenario)
+
+	select {
+	case migrationStarted := <-migrationStartedCh:
+		scenario.AssertMigrationTime(t, endTimeStamp.Sub(migrationStarted))
+	default:
+		t.Errorf("unable to calculate the migration time, failed to observe when the migration has started")
+	}
+}
+
+func runTestEncryption(t testing.TB, scenario library.PerfScenario) time.Time {
+	var ts time.Time
+	testEncryptionType(t, library.BasicScenario{
+		Namespace:                       scenario.Namespace,
+		LabelSelector:                   scenario.LabelSelector,
+		EncryptionConfigSecretName:      scenario.EncryptionConfigSecretName,
+		EncryptionConfigSecretNamespace: scenario.EncryptionConfigSecretNamespace,
+		OperatorNamespace:               scenario.OperatorNamespace,
+		TargetGRs:                       scenario.TargetGRs,
+		AssertFunc: func(t testing.TB, clientSet library.ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {
+			// Note that AssertFunc is executed after an encryption secret has been annotated
+			ts = time.Now()
+			scenario.AssertFunc(t, clientSet, expectedMode, scenario.Namespace, scenario.LabelSelector)
+			t.Logf("AssertFunc for TestEncryption scenario with %q provider took %v", scenario.EncryptionProvider, time.Since(ts))
+		},
+	}, scenario.EncryptionProvider)
+	return ts
+}
+
+// testEncryptionType is a helper that replicates library.TestEncryptionType logic using testing.TB
+func testEncryptionType(t testing.TB, scenario library.BasicScenario, provider configv1.EncryptionType) {
+	switch provider {
+	case configv1.EncryptionTypeAESCBC:
+		clientSet := library.SetAndWaitForEncryptionType(t, configv1.EncryptionTypeAESCBC, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+		scenario.AssertFunc(t, clientSet, configv1.EncryptionTypeAESCBC, scenario.Namespace, scenario.LabelSelector)
+		library.AssertEncryptionConfig(t, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
+	case configv1.EncryptionTypeAESGCM:
+		clientSet := library.SetAndWaitForEncryptionType(t, configv1.EncryptionTypeAESGCM, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+		scenario.AssertFunc(t, clientSet, configv1.EncryptionTypeAESGCM, scenario.Namespace, scenario.LabelSelector)
+		library.AssertEncryptionConfig(t, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
+	case configv1.EncryptionTypeIdentity, "":
+		clientSet := library.SetAndWaitForEncryptionType(t, configv1.EncryptionTypeIdentity, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+		scenario.AssertFunc(t, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
+	default:
+		t.Errorf("Unknown encryption type: %s", provider)
+		t.FailNow()
+	}
 }
 
 func createSecret(kubeClient kubernetes.Interface, namespace string, errorCollector func(error), statsCollector func(string)) error {
@@ -156,4 +220,154 @@ func waitUntilNamespaceActive(kubeClient kubernetes.Interface, namespace string,
 		errorCollector(err)
 	}
 	return err
+}
+
+// Helper functions copied from library-go perf_helpers.go (unexported)
+
+func watchForMigrationControllerProgressingConditionAsync(t testing.TB, getOperatorCondFn library.GetOperatorConditionsFuncType, migrationStartedCh chan time.Time) {
+	t.Helper()
+	go watchForMigrationControllerProgressingCondition(t, getOperatorCondFn, migrationStartedCh)
+}
+
+func watchForMigrationControllerProgressingCondition(t testing.TB, getOperatorConditionsFn library.GetOperatorConditionsFuncType, migrationStartedCh chan time.Time) {
+	t.Helper()
+
+	waitPollInterval := time.Second
+	waitPollTimeout := 10 * time.Minute
+
+	t.Logf("Waiting up to %s for the condition %q with the reason %q to be set to true", waitPollTimeout.String(), "EncryptionMigrationControllerProgressing", "Migrating")
+	err := wait.Poll(waitPollInterval, waitPollTimeout, func() (bool, error) {
+		conditions, err := getOperatorConditionsFn(t)
+		if err != nil {
+			return false, err
+		}
+		for _, cond := range conditions {
+			if cond.Type == "EncryptionMigrationControllerProgressing" && cond.Status == operatorv1.ConditionTrue {
+				t.Logf("EncryptionMigrationControllerProgressing condition observed at %v", cond.LastTransitionTime)
+				migrationStartedCh <- cond.LastTransitionTime.Time
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		t.Logf("failed waiting for the condition %q with the reason %q to be set to true, err was %v", "EncryptionMigrationControllerProgressing", "Migrating", err)
+	}
+}
+
+func populateDatabase(t testing.TB, workers int, dbLoaderFun library.DBLoaderFuncType, assertDBPopulatedFunc func(t testing.TB, errorStore map[string]int, statStore map[string]int)) {
+	t.Helper()
+	start := time.Now()
+	defer func() {
+		end := time.Now()
+		t.Logf("Populating etcd took %v", end.Sub(start))
+	}()
+
+	r := newRunner()
+
+	// run executes loaderFunc for each worker
+	r.run(t, workers, dbLoaderFun)
+
+	assertDBPopulatedFunc(t, r.errorStore, r.statsStore)
+}
+
+// runner and related types copied from library-go
+type runner struct {
+	errorStore map[string]int
+	lock       *sync.Mutex
+
+	statsStore map[string]int
+	lockStats  *sync.Mutex
+	wg         *sync.WaitGroup
+}
+
+func newRunner() *runner {
+	r := &runner{}
+
+	r.errorStore = map[string]int{}
+	r.lock = &sync.Mutex{}
+	r.statsStore = map[string]int{}
+	r.lockStats = &sync.Mutex{}
+
+	r.wg = &sync.WaitGroup{}
+
+	return r
+}
+
+func (r *runner) run(t testing.TB, workers int, workFunc ...library.DBLoaderFuncType) {
+	t.Logf("Executing provided load function for %d workers", workers)
+	for i := 0; i < workers; i++ {
+		wrapper := func(wg *sync.WaitGroup) {
+			defer wg.Done()
+			kubeClient, err := newKubeClient(300, 600)
+			if err != nil {
+				t.Errorf("Unable to create a kube client for a worker due to %v", err)
+				r.collectError(err)
+				return
+			}
+			_ = runWorkFunctions(kubeClient, "", r.collectError, r.collectStat, workFunc...)
+		}
+		r.wg.Add(1)
+		go wrapper(r.wg)
+	}
+	r.wg.Wait()
+	t.Log("All workers completed successfully")
+}
+
+func (r *runner) collectError(err error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	errCount, ok := r.errorStore[err.Error()]
+	if !ok {
+		r.errorStore[err.Error()] = 1
+		return
+	}
+	errCount += 1
+	r.errorStore[err.Error()] = errCount
+}
+
+func (r *runner) collectStat(stat string) {
+	r.lockStats.Lock()
+	defer r.lockStats.Unlock()
+	statCount, ok := r.statsStore[stat]
+	if !ok {
+		r.statsStore[stat] = 1
+		return
+	}
+	statCount += 1
+	r.statsStore[stat] = statCount
+}
+
+func runWorkFunctions(kubeClient kubernetes.Interface, namespace string, errorCollector func(error), statsCollector func(string), workFunc ...library.DBLoaderFuncType) error {
+	if len(namespace) == 0 {
+		namespace = createNamespaceName()
+	}
+	for _, work := range workFunc {
+		err := work(kubeClient, namespace, errorCollector, statsCollector)
+		if err != nil {
+			errorCollector(err)
+			return err
+		}
+	}
+	return nil
+}
+
+func createNamespaceName() string {
+	return fmt.Sprintf("encryption-%s", rand.String(10))
+}
+
+func newKubeClient(qps float32, burst int) (kubernetes.Interface, error) {
+	kubeConfig, err := libgotest.NewClientConfigForTest()
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfig.QPS = qps
+	kubeConfig.Burst = burst
+
+	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	return kubeClient, nil
 }
