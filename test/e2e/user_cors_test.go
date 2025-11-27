@@ -30,7 +30,7 @@ var clusterDefaultCORSALlowedOrigins = []string{
 
 func TestAdditionalCORSAllowedOrigins(t *testing.T) {
 	// initialize clients
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)

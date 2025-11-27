@@ -20,7 +20,7 @@ import (
 )
 
 func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 
 	// get current major.minor version
@@ -56,7 +56,7 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 }
 
 func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 
 	// get current major.minor version

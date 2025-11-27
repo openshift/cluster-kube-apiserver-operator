@@ -15,7 +15,7 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Operator] TestTokenRequestAndReview", func() {
+	g.It("[Operator][Serial] TestTokenRequestAndReview", func() {
 		testTokenRequestAndReview()
 	})
 })
@@ -24,7 +24,7 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // configured. A token is requested via the TokenRequest API and
 // validated via the TokenReview API.
 func testTokenRequestAndReview() {
-	kubeConfig, err := testlibrary.NewClientConfigForTest()
+	kubeConfig, err := testlibrary.NewClientConfigForTest(g.GinkgoT())
 	o.Expect(err).NotTo(o.HaveOccurred())
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	o.Expect(err).NotTo(o.HaveOccurred())

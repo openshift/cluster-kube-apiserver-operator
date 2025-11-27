@@ -21,7 +21,7 @@ import (
 )
 
 func TestOperatorNamespace(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestOperatorNamespace(t *testing.T) {
 }
 
 func TestOperandImageVersion(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestOperandImageVersion(t *testing.T) {
 }
 
 func TestRevisionLimits(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	require.NoError(t, err)

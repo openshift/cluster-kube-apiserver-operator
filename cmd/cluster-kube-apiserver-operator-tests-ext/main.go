@@ -19,6 +19,9 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+
+	// Import test packages to register Ginkgo tests
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
@@ -65,7 +68,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	registry := oteextension.NewRegistry()
 	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
-	// The following suite runs tests that verify the operator’s behaviour.
+	// The following suite runs tests that verify the operator's behaviour.
 	// This suite is executed only on pull requests targeting this repository.
 	// Tests tagged with both [Operator] and [Serial] are included in this suite.
 	extension.AddSuite(oteextension.Suite{

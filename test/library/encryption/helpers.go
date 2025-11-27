@@ -22,7 +22,7 @@ import (
 func GetOperator(t testing.TB) operatorv1client.KubeAPIServerInterface {
 	t.Helper()
 
-	kubeConfig, err := operatorlibrary.NewClientConfigForTest()
+	kubeConfig, err := operatorlibrary.NewClientConfigForTest(t)
 	require.NoError(t, err)
 
 	operatorClient, err := operatorv1client.NewForConfig(kubeConfig)

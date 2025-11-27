@@ -30,7 +30,7 @@ const (
 //
 // Note: this test will roll out a new version - multiple times
 func TestBoundTokenSignerController(t *testing.T) {
-	kubeConfig, err := testlibrary.NewClientConfigForTest()
+	kubeConfig, err := testlibrary.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)

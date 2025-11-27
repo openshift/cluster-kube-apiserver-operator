@@ -28,7 +28,7 @@ import (
 )
 
 func TestCertRotationTimeUpgradeable(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	operatorClient, _, err := genericoperatorclient.NewStaticPodOperatorClient(
 		clock.RealClock{},
@@ -110,7 +110,7 @@ func TestCertRotationTimeUpgradeable(t *testing.T) {
 }
 
 func TestCertRotationStompOnBadType(t *testing.T) {
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient := kubernetes.NewForConfigOrDie(kubeConfig)
 

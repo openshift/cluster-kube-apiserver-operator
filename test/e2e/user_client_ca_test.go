@@ -21,7 +21,7 @@ import (
 
 func TestUserClientCABundle(t *testing.T) {
 
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)

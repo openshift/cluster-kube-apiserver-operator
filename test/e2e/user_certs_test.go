@@ -43,7 +43,7 @@ func TestNamedCertificates(t *testing.T) {
 	}
 
 	// initialize clients
-	kubeConfig, err := test.NewClientConfigForTest()
+	kubeConfig, err := test.NewClientConfigForTest(t)
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
