@@ -193,12 +193,15 @@ make build
 
 ```bash
 # Run a specific test suite or test
-./cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial
 ./cluster-kube-apiserver-operator-tests-ext run-test "test-name"
 
+# To run serial suites cases serially, use the following command:
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial -c 1
+
 # Run with JUnit output
-./cluster-kube-apiserver-operator-tests-ext run-suite SUITE=openshift/cluster-kube-apiserver-operator/all JUNIT_DIR=/tmp/junit-results
-./cluster-kube-apiserver-operator-tests-ext run-test TEST=openshift/cluster-kube-apiserver-operator/all/test-name JUNIT_DIR=/tmp/junit-results
+./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial --junit-path=/tmp/junit.xml
+./cluster-kube-apiserver-operator-tests-ext run-test "test-name" --junit-path=/tmp/junit.xml
 ```
 
 ### Listing available tests and suites
@@ -208,7 +211,7 @@ make build
 ./cluster-kube-apiserver-operator-tests-ext list suites
 
 # List tests in a suite
-./cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/all
+./cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/operator/serial
 ```
 
 For more information about the OTE framework, see the [openshift-tests-extension documentation](https://github.com/openshift-eng/openshift-tests-extension).
