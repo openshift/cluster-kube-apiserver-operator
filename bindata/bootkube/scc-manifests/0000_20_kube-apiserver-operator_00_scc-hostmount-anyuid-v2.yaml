@@ -41,6 +41,7 @@ volumes:
 - emptyDir
 - ephemeral
 - hostPath
+- image
 - nfs
 - persistentVolumeClaim
 - projected
