@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -229,7 +228,7 @@ func (r *renderOpts) Run() error {
 	renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGates(featureGates, r.groupVersionsByFeatureGate)
 
 	if len(r.clusterConfigFile) > 0 {
-		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)
+		clusterConfigFileData, err := os.ReadFile(r.clusterConfigFile)
 		if err != nil {
 			return err
 		}
@@ -238,7 +237,7 @@ func (r *renderOpts) Run() error {
 		}
 	}
 	if len(r.clusterAuthFile) > 0 {
-		clusterAuthFileData, err := ioutil.ReadFile(r.clusterAuthFile)
+		clusterAuthFileData, err := os.ReadFile(r.clusterAuthFile)
 		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to load authentication config: %v", err)
 		}
@@ -263,11 +262,11 @@ func (r *renderOpts) Run() error {
 			return fmt.Errorf("failed to generate an RSA keypair for bound SA token signing: %v", err)
 		}
 
-		if err := ioutil.WriteFile(boundSAPrivatePath, privPEM, os.FileMode(0600)); err != nil {
+		if err := os.WriteFile(boundSAPrivatePath, privPEM, os.FileMode(0600)); err != nil {
 			return fmt.Errorf("failed to write private key for bound SA token signing: %v", err)
 		}
 
-		if err := ioutil.WriteFile(boundSAPublicPath, pubPEM, os.FileMode(0644)); err != nil {
+		if err := os.WriteFile(boundSAPublicPath, pubPEM, os.FileMode(0644)); err != nil {
 			return fmt.Errorf("failed to write public key for bound SA token verification: %v", err)
 		}
 	}
@@ -420,7 +419,7 @@ func convertToUnstructured(raw []byte) (map[string]interface{}, error) {
 }
 
 func mustReadTemplateFile(fname string) genericrenderoptions.Template {
-	bs, err := ioutil.ReadFile(fname)
+	bs, err := os.ReadFile(fname)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load %q: %v", fname, err))
 	}
@@ -598,7 +597,7 @@ func generateKeyPairPEM() (pubKeyPEM []byte, privKeyPEM []byte, err error) {
 
 func getInfrastructure(file string) (*configv1.Infrastructure, error) {
 	config := &configv1.Infrastructure{}
-	yamlData, err := ioutil.ReadFile(file)
+	yamlData, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
