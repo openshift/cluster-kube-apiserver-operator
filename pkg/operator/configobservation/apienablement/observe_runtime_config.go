@@ -22,11 +22,12 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		// gets added to the default featureSet in openshift/api as part of transitioning from
 		// (feature off, v1beta1 off) to (feature on, v1 on).
 		// To prevent that, version ranges below include min and max bounds.
-		// TODO: Update version ranges when rebasing to k8s v1.35+
-		// - If v1 resources are available in 1.35: remove all MutatingAdmissionPolicy references
-		// - If no v1 resources: bump ranges to "<1.36.0" and reassess in next rebase
-		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
-		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.35.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
+		// TODO: Update version ranges when rebasing to k8s v1.36+
+		// - If v1 resources are available in 1.36: remove all MutatingAdmissionPolicy references
+		// - If no v1 resources: bump ranges to "<1.37.0" and reassess in next rebase
+		// See api/discovery/apis__admissionregistration.k8s.io__v1.json in the kubernetes repo to easily determine.
+		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.36.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
+		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.36.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 	},
 }
 
