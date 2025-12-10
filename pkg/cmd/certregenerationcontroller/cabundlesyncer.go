@@ -3,6 +3,7 @@ package certregenerationcontroller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -74,15 +75,14 @@ func NewCABundleController(
 }
 
 func (c *CABundleController) Run(ctx context.Context) {
-	defer utilruntime.HandleCrash()
-
-	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
-	// (@deads2k wants time to think it through)
+	defer utilruntime.HandleCrashWithContext(ctx)
 
 	klog.Info("Starting CA bundle controller")
+	var wg sync.WaitGroup
 	defer func() {
 		klog.Info("Shutting down CA bundle controller")
 		c.queue.ShutDown()
+		wg.Wait()
 		klog.Info("CA bundle controller shut down")
 	}()
 
@@ -90,7 +90,9 @@ func (c *CABundleController) Run(ctx context.Context) {
 		return
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		wait.UntilWithContext(ctx, c.runWorker, time.Second)
 	}()
 
