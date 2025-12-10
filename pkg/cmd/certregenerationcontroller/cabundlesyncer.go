@@ -37,7 +37,7 @@ type CABundleController struct {
 	cachesToSync []cache.InformerSynced
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 }
 
 func NewCABundleController(
@@ -49,7 +49,12 @@ func NewCABundleController(
 		configMapGetter: configMapGetter,
 		configMapLister: kubeInformersForNamespaces.ConfigMapLister(),
 		eventRecorder:   eventRecorder.WithComponentSuffix("manage-client-ca-bundle-recovery-controller"),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "CABundleRecoveryController"),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: "CABundleRecoveryController",
+			},
+		),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
