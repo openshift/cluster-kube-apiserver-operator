@@ -32,6 +32,7 @@ const (
 // with respect to the resources it manages.
 //
 // Note: this test will roll out a new version - multiple times
+// TODO: CNTRLPLANE-2223 - Migrate this test to OTE ginkgo framework
 func TestBoundTokenSignerController(t *testing.T) {
 	kubeConfig, err := testlibrary.NewClientConfigForTest()
 	require.NoError(t, err)
