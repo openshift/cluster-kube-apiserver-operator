@@ -19,6 +19,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
+	// Import test packages to register Ginkgo tests
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
