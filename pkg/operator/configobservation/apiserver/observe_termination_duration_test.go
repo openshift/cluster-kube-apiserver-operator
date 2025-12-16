@@ -45,7 +45,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 
 		// scenario 3
 		{
-			name:                  "the gracefulTerminationDuration is extended due to a known AWS issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804a",
+			name:                  "the shutdown-delay-duration is extended due to a known AWS issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804a",
 			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
 			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "194"},
 			platformType:          configv1.AWSPlatformType,
@@ -53,25 +53,17 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 
 		// scenario 4
 		{
-			name:                  "sno: gracefulTerminationDuration reduced to 0s",
+			name:                  "sno: shutdown-delay-duration reduced to 0s",
 			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "15"},
 			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
 		},
 
-		// scenario 5
+		// scenario 4
 		{
 			name:                  "sno takes precedence over platform type",
 			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "15"},
 			controlPlaneTopology:  configv1.SingleReplicaTopologyMode,
 			platformType:          configv1.AWSPlatformType,
-		},
-
-		// scenario 6
-		{
-			name:                  "the gracefulTerminationDuration is extended due to additional delay time needed on GCP see: https://issues.redhat.com/browse/OCPBUGS-61674",
-			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "70"},
-			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "160"},
-			platformType:          configv1.GCPPlatformType,
 		},
 	}
 
@@ -185,23 +177,6 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 			},
 			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
 			platformType:         configv1.AWSPlatformType,
-		},
-
-		// scenario 6
-		{
-			name: "the shutdown-delay-duration is extended due to additional delay time needed on GCP see: https://issues.redhat.com/browse/OCPBUGS-61674",
-			validateKubeAPIConfigFn: func(actualKasConfig kubecontrolplanev1.KubeAPIServerConfig) error {
-				shutdownDurationArgs := actualKasConfig.APIServerArguments["shutdown-delay-duration"]
-				if len(shutdownDurationArgs) != 1 {
-					return fmt.Errorf("expected only one argument under shutdown-delay-duration key, got %d", len(shutdownDurationArgs))
-				}
-				if shutdownDurationArgs[0] != "95s" {
-					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 95s, got %v", shutdownDurationArgs[0])
-				}
-				return nil
-			},
-			existingConfig: kubecontrolplanev1.KubeAPIServerConfig{APIServerArguments: map[string]kubecontrolplanev1.Arguments{"shutdown-delay-duration": {"70s"}}},
-			platformType:   configv1.GCPPlatformType,
 		},
 	}
 

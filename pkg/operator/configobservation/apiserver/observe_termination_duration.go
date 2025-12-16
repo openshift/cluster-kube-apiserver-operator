@@ -44,24 +44,6 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		//
 		// Note this is the official number we got from AWS
 		observedShutdownDelayDuration = "129s"
-	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
-		// We are receiving inconsistent information from the GCP support team.
-		// In some responses, they confirm an additional ~60s delay in traffic propagation,
-		// while in others they state that no such delay exists.
-		//
-		// Regardless of the mixed messaging, we consistently observe late requests in CI.
-		// The latest request observed arrived at 67s with the previous 70s timeout.
-		//
-		// Based on real observations, we update the timeout so that:
-		// 0.8 × NEW_LIMIT ≥ 67s.
-		//
-		// Therefore, the new timeout is set to 95s,
-		// which includes an additional 10s safety buffer to account for timing variance
-		// and ensure late requests do not cross the 80% threshold.
-		//
-		// See: https://console.cloud.google.com/support/cases/detail/v2/65801689?project=openshift-gce-devel
-		// See: https://issues.redhat.com/browse/OCPBUGS-61674
-		observedShutdownDelayDuration = "95s"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
@@ -124,15 +106,6 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		//   additional 60s for finishing all in-flight requests
 		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
 		observedGracefulTerminationDuration = "194"
-	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
-		// 160s is calculated as follows:
-		//   the initial 95s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
-		//   additional 60s for finishing all in-flight requests
-		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-		//
-		// See: https://console.cloud.google.com/support/cases/detail/v2/65801689?project=openshift-gce-devel
-		// See: https://issues.redhat.com/browse/OCPBUGS-61674
-		observedGracefulTerminationDuration = "160"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
