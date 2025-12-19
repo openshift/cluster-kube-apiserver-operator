@@ -491,6 +491,7 @@ github.com/openshift/library-go/pkg/serviceability
 github.com/openshift/library-go/test/library
 github.com/openshift/library-go/test/library/apiserver
 github.com/openshift/library-go/test/library/encryption
+github.com/openshift/library-go/test/ote
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -1683,3 +1684,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+# github.com/openshift/library-go => github.com/gangwgr/library-go v0.0.0-20260106085706-ba758ee80b02

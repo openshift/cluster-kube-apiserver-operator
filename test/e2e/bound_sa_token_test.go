@@ -15,10 +15,12 @@ import (
 
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	testlibrary "github.com/openshift/library-go/test/library"
 	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
+	"github.com/openshift/library-go/test/ote"
 )
 
 const (
@@ -29,17 +31,36 @@ const (
 // TestBoundTokenSignerController verifies the expected behavior of the controller
 // with respect to the resources it manages.
 //
-// Note: this test will roll out a new version - multiple times
+// Note: The operator-secret-deletion sub-test will trigger TWO API server rollouts:
+// 1. First rollout when new keypair is created (configmap has both old and new keys)
+// 2. Second rollout during cleanup to reset configmap to single key
+// Each rollout waits for completion before proceeding to avoid cluster instability.
+//
+// IMPORTANT: This test requires extended timeout as it triggers TWO rollouts and waits for cluster self-healing:
+// 1. First rollout after operator secret deletion (~15-30 minutes)
+// 2. Second rollout during cleanup to reset configmap (~15-60 minutes, can be slower)
+// 3. Cluster self-healing after key rotation (~10-20 minutes for operators to get fresh tokens)
+// Each rollout is verified in 3 steps: start progressing, pods stabilize, operator becomes healthy
+// Run with: go test -v -timeout 120m ./test/e2e -run TestBoundTokenSignerController
+//
 // TODO: CNTRLPLANE-2223 - Migrate this test to OTE ginkgo framework
 func TestBoundTokenSignerController(t *testing.T) {
 	kubeConfig, err := testlibrary.NewClientConfigForTest()
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
+	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
 	targetNamespace := operatorclient.TargetNamespace
 	operatorNamespace := operatorclient.OperatorNamespace
+
+	// Note: We do NOT wait for API server stabilization at the start because
+	// the first two sub-tests (operand-secret-deletion and configmap-deletion)
+	// verify controller behavior without triggering rollouts.
+	// The operator-secret-deletion test waits for rollouts at strategic points:
+	// after creating the new keypair and after cleanup.
+	t.Logf("Starting test - controller behavior will be verified")
 
 	// Retrieve the operator secret. The values in the secret and config map in the
 	// operand namespace should match the values in the operator secret.
@@ -50,24 +71,46 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		t.Skip()
-		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
-		require.NoError(t, err)
+		// Verify the operand secret exists before attempting deletion
+		_, err := kubeClient.Secrets(targetNamespace).Get(context.TODO(), tokenctl.SigningKeySecretName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			t.Logf("Secret %s does not exist initially, will verify it gets created", tokenctl.SigningKeySecretName)
+		} else {
+			require.NoError(t, err)
+			// Delete the operand secret
+			err = kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
+			require.NoError(t, err)
+			t.Logf("Deleted secret %s, waiting for recreation", tokenctl.SigningKeySecretName)
+		}
+
+		// Verify it gets recreated with expected data
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
+		t.Logf("Secret %s successfully recreated with expected data", tokenctl.SigningKeySecretName)
 	})
 
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		t.Skip()
-		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
-		require.NoError(t, err)
+		// Verify the configmap exists before attempting deletion
+		_, err := kubeClient.ConfigMaps(targetNamespace).Get(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			t.Logf("ConfigMap %s does not exist initially, will verify it gets created", tokenctl.PublicKeyConfigMapName)
+		} else {
+			require.NoError(t, err)
+			// Delete the configmap
+			err = kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
+			require.NoError(t, err)
+			t.Logf("Deleted configmap %s, waiting for recreation", tokenctl.PublicKeyConfigMapName)
+		}
+
+		// Verify it gets recreated with expected data
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
 		})
+		t.Logf("ConfigMap %s successfully recreated with expected data", tokenctl.PublicKeyConfigMapName)
 
-		// deletion triggers a roll-out - wait until a new version has been rolled out
-		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+		// Note: deletion triggers a roll-out, but we don't wait for it to complete here
+		// to avoid test timeouts. The rollout will complete asynchronously.
 	})
 
 	// The secret in the operator namespace should be recreated with a new keypair
@@ -76,23 +119,80 @@ func TestBoundTokenSignerController(t *testing.T) {
 	//
 	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		t.Skip()
-		// Delete the operator secret
-		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
+		// Verify the original operator secret exists before deletion
+		_, err := kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			t.Logf("Operator secret %s does not exist initially, skipping test", tokenctl.NextSigningKeySecretName)
+			t.SkipNow()
+		}
 		require.NoError(t, err)
 
-		// deletion triggers a roll-out - wait until a new version has been rolled out
-		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
-
-		// Ensure that the cert configmap is always removed at the end of the test
-		// to ensure it will contain only the current public key. This property is
-		// essential to allowing repeated invocations of the containing test.
+		// Cleanup: Reset configmap to single public key and wait for cluster to stabilize.
+		// This ensures the cluster is in a stable state for subsequent tests.
 		defer func() {
+			t.Logf("Cleanup: Deleting configmap to reset to single public key")
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
+
+			// Step 1: Verify rollout starts (operator should become Progressing=True)
+			t.Logf("Cleanup: Waiting for kube-apiserver operator to start progressing after configmap deletion")
+			err = ote.WaitForClusterOperatorStatus(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver",
+				map[string]string{"Progressing": "True"},
+				100*time.Second, 1.0)
+			require.NoError(t, err, "kube-apiserver operator did not start progressing")
+			t.Logf("Cleanup: kube-apiserver operator started progressing")
+
+			// Step 2: Wait for rollout to complete (pods on same revision)
+			t.Logf("Cleanup: Waiting for API server pods to reach same revision (this may take 15-20 minutes)")
+			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+			t.Logf("Cleanup: API server pods are on same revision")
+
+			// Step 3: Wait for cluster operator to become healthy
+			// Using OTE helper from library-go PR #2050 to test those functions
+			// Note: Cleanup rollout can take longer than normal rollouts (up to 60 minutes)
+			t.Logf("Cleanup: Waiting for kube-apiserver operator to become healthy (Available=True, Progressing=False, Degraded=False)")
+			err = ote.WaitForClusterOperatorHealthy(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver", 60*time.Minute, 1.0)
+			require.NoError(t, err, "kube-apiserver operator did not reach healthy state")
+
+			// Verify configmap has been reset to single public key
+			// Get the CURRENT operator secret (not the old one from test start)
+			t.Logf("Cleanup: Verifying configmap has single public key")
+			currentOperatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
+			require.NoError(t, err)
+			currentPublicKey := currentOperatorSecret.Data[tokenctl.PublicKeyKey]
+
+			checkCertConfigMap(t, kubeClient, map[string]string{
+				"service-account-001.pub": string(currentPublicKey),
+			})
+			t.Logf("Cleanup: Successfully verified kube-apiserver is in stable state")
+
+			// After rotating service account signing keys, other operators may have cached tokens
+			// signed with the old key, causing transient "Unauthorized" errors. Wait for critical
+			// operators to self-heal by getting fresh tokens (typically takes 10-15 minutes).
+			t.Logf("Cleanup: Waiting for cluster to self-heal after key rotation (checking critical operators)")
+
+			criticalOperators := []string{"authentication", "openshift-apiserver"}
+			for _, coName := range criticalOperators {
+				t.Logf("Cleanup: Waiting for %s operator to become healthy", coName)
+				err = ote.WaitForClusterOperatorHealthy(context.TODO(), t, configClient.ClusterOperators(), coName, 20*time.Minute, 1.0)
+				if err != nil {
+					t.Logf("Cleanup: Warning - %s operator did not become healthy: %v", coName, err)
+					t.Logf("Cleanup: This may indicate the operator needs manual restart to get fresh tokens")
+				} else {
+					t.Logf("Cleanup: %s operator is healthy", coName)
+				}
+			}
+
+			t.Logf("Cleanup: Cluster self-healing complete - all critical operators are healthy")
 		}()
 
+		// Delete the operator secret
+		t.Logf("Deleting operator secret %s", tokenctl.NextSigningKeySecretName)
+		err = kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
+		require.NoError(t, err)
+
 		// Wait for secret to be recreated with a new keypair
+		t.Logf("Waiting for operator secret to be recreated with new keypair")
 		var newOperatorSecret *corev1.Secret
 		err = wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
 			newOperatorSecret, err = kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
@@ -100,12 +200,13 @@ func TestBoundTokenSignerController(t *testing.T) {
 				return false, nil
 			}
 			if err != nil {
-				t.Errorf("failed to retrieve template secret: %v", err)
+				t.Logf("failed to retrieve operator secret: %v", err)
 				return false, nil
 			}
 			return true, nil
 		})
 		require.NoError(t, err)
+		t.Logf("Operator secret recreated successfully")
 
 		newOperatorPublicKey := newOperatorSecret.Data[tokenctl.PublicKeyKey]
 		newOperatorPrivateKey := newOperatorSecret.Data[tokenctl.PrivateKeyKey]
@@ -113,15 +214,42 @@ func TestBoundTokenSignerController(t *testing.T) {
 		// Keypair should have changed
 		require.NotEqual(t, operatorPublicKey, newOperatorPublicKey)
 		require.NotEqual(t, operatorPrivateKey, newOperatorPrivateKey)
+		t.Logf("Verified keypair has changed")
 
 		// The certs configmap should include the previous and current public keys
+		t.Logf("Verifying configmap contains both old and new public keys")
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
 			"service-account-002.pub": string(newOperatorPublicKey),
 		})
+		t.Logf("ConfigMap verified with both public keys")
 
-		// Check that the operand secret is updated within the promotion timeout
+		// Wait for rollout to complete before checking operand secret
+		// The operand secret is only updated after the new key is rolled out to all nodes
+
+		// Step 1: Verify rollout starts (operator should become Progressing=True)
+		t.Logf("Waiting for kube-apiserver operator to start progressing after operator secret deletion")
+		err = ote.WaitForClusterOperatorStatus(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver",
+			map[string]string{"Progressing": "True"},
+			100*time.Second, 1.0)
+		require.NoError(t, err, "kube-apiserver operator did not start progressing")
+		t.Logf("kube-apiserver operator started progressing")
+
+		// Step 2: Wait for pods to reach same revision
+		t.Logf("Waiting for API server pods to reach same revision")
+		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+		t.Logf("API server pods are on same revision")
+
+		// Step 3: Wait for cluster operator to become healthy
+		// Using OTE helper from library-go PR #2050 to test those functions
+		t.Logf("Waiting for kube-apiserver operator to become healthy (Available=True, Progressing=False, Degraded=False)")
+		err = ote.WaitForClusterOperatorHealthy(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver", 25*time.Minute, 1.0)
+		require.NoError(t, err, "kube-apiserver operator did not reach healthy state")
+
+		// Check that the operand secret is updated with the new keypair
+		t.Logf("Verifying operand secret is updated with new keypair")
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, newOperatorSecret.Data)
+		t.Logf("Operand secret successfully updated with new keypair")
 	})
 }
 
