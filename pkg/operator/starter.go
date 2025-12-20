@@ -129,7 +129,9 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"openshift-etcd",
 		"openshift-apiserver",
 	)
-	clusterInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "")
+	// OCPBUGS-59626: Use cluster-level informers only, don't watch all namespaces
+	// Remove empty namespace ("") parameter to prevent watching ALL namespaces
+	clusterInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient)
 
 	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(
