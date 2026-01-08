@@ -50,7 +50,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
@@ -59,7 +58,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
@@ -76,7 +74,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 	//
 	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		t.Skip()
 		// Delete the operator secret
 		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
@@ -90,6 +87,9 @@ func TestBoundTokenSignerController(t *testing.T) {
 		defer func() {
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
+
+			// Cleanup deletion also triggers a rollout - wait for stabilization
+			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 		}()
 
 		// Wait for secret to be recreated with a new keypair
