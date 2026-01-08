@@ -32,7 +32,7 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Operator][Serial][Timeout:40m] TestNamedCertificates", func() {
+	g.It("[Operator][Serial][Timeout:40m] testNamedCertificates validates serving certificates for user-defined and system server names", func() {
 		testNamedCertificates(g.GinkgoTB())
 	})
 })
