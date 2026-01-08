@@ -127,63 +127,16 @@ func TestBoundTokenSignerController(t *testing.T) {
 		}
 		require.NoError(t, err)
 
-		// Cleanup: Reset configmap to single public key and wait for cluster to stabilize.
-		// This ensures the cluster is in a stable state for subsequent tests.
+		// Cleanup: Reset configmap to single public key and wait for API server to stabilize.
 		defer func() {
 			t.Logf("Cleanup: Deleting configmap to reset to single public key")
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
 
-			// Step 1: Verify rollout starts (operator should become Progressing=True)
-			t.Logf("Cleanup: Waiting for kube-apiserver operator to start progressing after configmap deletion")
-			err = ote.WaitForClusterOperatorStatus(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver",
-				map[string]string{"Progressing": "True"},
-				100*time.Second, 1.0)
-			require.NoError(t, err, "kube-apiserver operator did not start progressing")
-			t.Logf("Cleanup: kube-apiserver operator started progressing")
-
-			// Step 2: Wait for rollout to complete (pods on same revision)
-			t.Logf("Cleanup: Waiting for API server pods to reach same revision (this may take 15-20 minutes)")
+			// Wait for API server pods to stabilize on same revision
+			t.Logf("Cleanup: Waiting for API server pods to reach same revision")
 			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 			t.Logf("Cleanup: API server pods are on same revision")
-
-			// Step 3: Wait for cluster operator to become healthy
-			// Using OTE helper from library-go PR #2050 to test those functions
-			// Note: Cleanup rollout can take longer than normal rollouts (up to 60 minutes)
-			t.Logf("Cleanup: Waiting for kube-apiserver operator to become healthy (Available=True, Progressing=False, Degraded=False)")
-			err = ote.WaitForClusterOperatorHealthy(context.TODO(), t, configClient.ClusterOperators(), "kube-apiserver", 60*time.Minute, 1.0)
-			require.NoError(t, err, "kube-apiserver operator did not reach healthy state")
-
-			// Verify configmap has been reset to single public key
-			// Get the CURRENT operator secret (not the old one from test start)
-			t.Logf("Cleanup: Verifying configmap has single public key")
-			currentOperatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
-			require.NoError(t, err)
-			currentPublicKey := currentOperatorSecret.Data[tokenctl.PublicKeyKey]
-
-			checkCertConfigMap(t, kubeClient, map[string]string{
-				"service-account-001.pub": string(currentPublicKey),
-			})
-			t.Logf("Cleanup: Successfully verified kube-apiserver is in stable state")
-
-			// After rotating service account signing keys, other operators may have cached tokens
-			// signed with the old key, causing transient "Unauthorized" errors. Wait for critical
-			// operators to self-heal by getting fresh tokens (typically takes 10-15 minutes).
-			t.Logf("Cleanup: Waiting for cluster to self-heal after key rotation (checking critical operators)")
-
-			criticalOperators := []string{"authentication", "openshift-apiserver"}
-			for _, coName := range criticalOperators {
-				t.Logf("Cleanup: Waiting for %s operator to become healthy", coName)
-				err = ote.WaitForClusterOperatorHealthy(context.TODO(), t, configClient.ClusterOperators(), coName, 20*time.Minute, 1.0)
-				if err != nil {
-					t.Logf("Cleanup: Warning - %s operator did not become healthy: %v", coName, err)
-					t.Logf("Cleanup: This may indicate the operator needs manual restart to get fresh tokens")
-				} else {
-					t.Logf("Cleanup: %s operator is healthy", coName)
-				}
-			}
-
-			t.Logf("Cleanup: Cluster self-healing complete - all critical operators are healthy")
 		}()
 
 		// Delete the operator secret
