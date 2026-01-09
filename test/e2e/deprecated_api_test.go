@@ -20,5 +20,4 @@ func TestAPIRemovedInNextReleaseInUse(t *testing.T) {
 // Eventually all tests will be run only as part of the OTE framework.
 func TestAPIRemovedInNextEUSReleaseInUse(t *testing.T) {
 	testAPIRemovedInNextEUSReleaseInUse(t)
-
 }

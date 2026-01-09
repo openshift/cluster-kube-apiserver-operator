@@ -11,16 +11,15 @@ import (
 	"fmt"
 	"os"
 
-	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
-	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
-	oteginkgo "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/spf13/cobra"
+
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
 
+	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
+	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
+	oteginkgo "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
-	// Import test packages to register Ginkgo tests
-	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 )
 
 func main() {
