@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"os/exec"
 	"reflect"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ import (
 
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
+	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	testlibrary "github.com/openshift/library-go/test/library"
@@ -36,6 +39,7 @@ func TestBoundTokenSignerController(t *testing.T) {
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
+	configClient, err := configclient.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
 	targetNamespace := operatorclient.TargetNamespace
@@ -50,7 +54,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
@@ -59,7 +62,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
@@ -76,7 +78,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 	//
 	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		t.Skip()
 		// Delete the operator secret
 		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
@@ -90,6 +91,15 @@ func TestBoundTokenSignerController(t *testing.T) {
 		defer func() {
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
+
+			// Cleanup deletion also triggers a rollout - wait for stabilization
+			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+
+			// Wait for cluster operator to be fully available (node installer to complete)
+			waitForClusterOperatorToBeAvailable(t, configClient)
+
+			// Wait for the full cluster to be stable
+			waitForStableCluster(t)
 		}()
 
 		// Wait for secret to be recreated with a new keypair
@@ -165,6 +175,53 @@ func checkCertConfigMap(t *testing.T, kubeClient *clientcorev1.CoreV1Client, exp
 		return true, nil
 	})
 	require.NoError(t, err)
+}
+
+// waitForClusterOperatorToBeAvailable waits for the kube-apiserver cluster operator to be fully available.
+func waitForClusterOperatorToBeAvailable(t *testing.T, configClient *configclient.ConfigV1Client) {
+	err := wait.PollImmediate(interval, 20*time.Minute, func() (done bool, err error) {
+		clusterOperator, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
+		if err != nil {
+			t.Logf("error getting clusteroperator: %v", err)
+			return false, nil
+		}
+
+		availableCondition := getClusterOperatorCondition(clusterOperator.Status.Conditions, configv1.OperatorAvailable)
+		progressingCondition := getClusterOperatorCondition(clusterOperator.Status.Conditions, configv1.OperatorProgressing)
+		degradedCondition := getClusterOperatorCondition(clusterOperator.Status.Conditions, configv1.OperatorDegraded)
+
+		if availableCondition != nil && availableCondition.Status == configv1.ConditionTrue &&
+			progressingCondition != nil && progressingCondition.Status == configv1.ConditionFalse &&
+			degradedCondition != nil && degradedCondition.Status == configv1.ConditionFalse {
+			return true, nil
+		}
+
+		t.Logf("still waiting for the cluster operator to be available, progressing=%s, available=%s, degraded=%s",
+			progressingCondition.Status, availableCondition.Status, degradedCondition.Status)
+		return false, nil
+	})
+	require.NoError(t, err)
+}
+
+func getClusterOperatorCondition(conditions []configv1.ClusterOperatorStatusCondition, conditionType configv1.ClusterStatusConditionType) *configv1.ClusterOperatorStatusCondition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+// waitForStableCluster waits for the full cluster to be stable using oc adm wait-for-stable-cluster.
+func waitForStableCluster(t *testing.T) {
+	t.Log("waiting for cluster to be stable")
+	cmd := exec.Command("oc", "adm", "wait-for-stable-cluster")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Logf("oc adm wait-for-stable-cluster output: %s", string(output))
+	}
+	require.NoError(t, err, "cluster should be stable")
+	t.Log("cluster is stable")
 }
 
 // TestTokenRequestAndReview checks that bound sa tokens are correctly
