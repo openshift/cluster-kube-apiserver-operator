@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -219,10 +220,23 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
+
+	localhostTokenErr := ensureLocalhostRecoverySAToken(ctx, c.kubeClient.CoreV1(), c.kubeClient.RbacV1())
+	if localhostTokenErr != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", localhostTokenErr))
 	}
+
+	// Create the pod ConfigMap iff we managed to sync the localhost recovery token first.
+	// Otherwise, we deploy the pod and get permission errors initially.
+	if localhostTokenErr == nil {
+		_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
+		}
+	} else {
+		klog.V(2).Infof("Skipping pod ConfigMap creation: localhost-recovery-client token not ready: %v", localhostTokenErr)
+	}
+
 	_, _, err = ManageClientCABundle(ctx, c.configMapLister, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
@@ -235,11 +249,6 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	err = ensureKubeAPIServerTrustedCA(ctx, c.kubeClient.CoreV1(), recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/trusted-ca-bundle", err))
-	}
-
-	err = ensureLocalhostRecoverySAToken(ctx, c.kubeClient.CoreV1(), recorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", err))
 	}
 
 	if len(errors) > 0 {
@@ -507,9 +516,15 @@ func ensureKubeAPIServerTrustedCA(ctx context.Context, client coreclientv1.CoreV
 	return err
 }
 
-func ensureLocalhostRecoverySAToken(ctx context.Context, client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+func ensureLocalhostRecoverySAToken(ctx context.Context, client coreclientv1.CoreV1Interface, rbacClient rbacv1.RbacV1Interface) error {
+	requiredCRB := resourceread.ReadClusterRoleBindingV1OrDie(bindata.MustAsset("assets/kube-apiserver/localhost-recovery-client-crb.yaml"))
 	requiredSA := resourceread.ReadServiceAccountV1OrDie(bindata.MustAsset("assets/kube-apiserver/localhost-recovery-sa.yaml"))
 	requiredToken := resourceread.ReadSecretV1OrDie(bindata.MustAsset("assets/kube-apiserver/localhost-recovery-token.yaml"))
+
+	// Until the ClusterRoleBinding to set up RBAC properly is there, don't do anything.
+	if _, err := rbacClient.ClusterRoleBindings().Get(ctx, requiredCRB.Name, metav1.GetOptions{}); err != nil {
+		return err
+	}
 
 	saClient := client.ServiceAccounts(operatorclient.TargetNamespace)
 	serviceAccount, err := saClient.Get(ctx, requiredSA.Name, metav1.GetOptions{})
