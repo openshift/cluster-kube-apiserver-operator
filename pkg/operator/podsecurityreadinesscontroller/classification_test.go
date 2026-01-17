@@ -29,7 +29,9 @@ func TestClassifyViolatingNamespaceWithAPIErrors(t *testing.T) {
 		return true, nil, fmt.Errorf("simulated API error: connection refused")
 	})
 
-	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks())
+	latestVersion := psapi.LatestVersion()
+
+	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks(), &latestVersion)
 	if err != nil {
 		t.Fatalf("Failed to create PSA evaluator: %v", err)
 	}
@@ -341,7 +343,9 @@ func createTestController(pods []corev1.Pod) (*PodSecurityReadinessController, e
 		}
 	}
 
-	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks())
+	latestVersion := psapi.LatestVersion()
+
+	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks(), &latestVersion)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create PSA evaluator: %v", err)
 	}
