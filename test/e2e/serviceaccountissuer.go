@@ -26,13 +26,13 @@ const (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.Describe("[Operator][Serial] serviceaccountissuer", g.Serial, g.Ordered, func() {
+	g.Describe("[Operator] serviceaccountissuer", g.Ordered, g.Serial, func() {
 		var (
 			kubeClient       clientcorev1.CoreV1Interface
 			authConfigClient configv1.ConfigV1Interface
 		)
 
-		g.BeforeAll(func() {
+		g.BeforeEach(func() {
 			kubeConfig, err := testlibrary.NewClientConfigForTest()
 			require.NoError(g.GinkgoTB(), err)
 
@@ -43,36 +43,23 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 			require.NoError(g.GinkgoTB(), err)
 		})
 
-		testCases := []struct {
-			name            string
-			issuer          string
-			expectedIssuers []string
-		}{
-			{
-				name:            "validates serviceaccountissuer set in authentication config results in apiserver config",
-				issuer:          "https://first.foo.bar",
-				expectedIssuers: []string{"https://first.foo.bar", "https://kubernetes.default.svc"},
-			},
-			{
-				name:            "validates second serviceaccountissuer set in authentication config results in apiserver config with two issuers",
-				issuer:          "https://second.foo.bar",
-				expectedIssuers: []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"},
-			},
-			{
-				name:            "validates no serviceaccountissuer set in authentication config results in apiserver config with default issuer set",
-				issuer:          "",
-				expectedIssuers: []string{"https://kubernetes.default.svc"},
-			},
-		}
+		g.It("validates serviceaccountissuer set in authentication config results in apiserver config [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "https://first.foo.bar")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://first.foo.bar", "https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
 
-		for _, tc := range testCases {
-			tc := tc // capture range variable
-			g.It(tc.name, func() {
-				setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, tc.issuer)
-				err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, tc.expectedIssuers)
-				require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
-			})
-		}
+		g.It("validates second serviceaccountissuer set in authentication config results in apiserver config with two issuers [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "https://second.foo.bar")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
+
+		g.It("validates no serviceaccountissuer set in authentication config results in apiserver config with default issuer set [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
 	})
 })
 
