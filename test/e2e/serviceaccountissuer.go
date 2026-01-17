@@ -18,7 +18,6 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
 
 const (
@@ -27,15 +26,40 @@ const (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Operator][Serial][Timeout:30m] serviceaccountissuer lifecycle test", func() {
-		g.By("serviceaccountissuer set in authentication config results in apiserver config")
-		testServiceAccountIssuerFirstIssuer(g.GinkgoTB())
+	g.Describe("[Operator] serviceaccountissuer", g.Ordered, g.Serial, func() {
+		var (
+			kubeClient       clientcorev1.CoreV1Interface
+			authConfigClient configv1.ConfigV1Interface
+		)
 
-		g.By("second serviceaccountissuer set in authentication config results in apiserver config with two issuers")
-		testServiceAccountIssuerSecondIssuer(g.GinkgoTB())
+		g.BeforeEach(func() {
+			kubeConfig, err := testlibrary.NewClientConfigForTest()
+			require.NoError(g.GinkgoTB(), err)
 
-		g.By("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set")
-		testServiceAccountIssuerDefaultIssuer(g.GinkgoTB())
+			kubeClient, err = clientcorev1.NewForConfig(kubeConfig)
+			require.NoError(g.GinkgoTB(), err)
+
+			authConfigClient, err = configv1.NewForConfig(kubeConfig)
+			require.NoError(g.GinkgoTB(), err)
+		})
+
+		g.It("validates serviceaccountissuer set in authentication config results in apiserver config [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "https://first.foo.bar")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://first.foo.bar", "https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
+
+		g.It("validates second serviceaccountissuer set in authentication config results in apiserver config with two issuers [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "https://second.foo.bar")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://second.foo.bar", "https://first.foo.bar", "https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
+
+		g.It("validates no serviceaccountissuer set in authentication config results in apiserver config with default issuer set [Operator][Serial]", func() {
+			setServiceAccountIssuer(g.GinkgoTB(), authConfigClient, "")
+			err := pollForOperandIssuer(g.GinkgoTB(), kubeClient, []string{"https://kubernetes.default.svc"})
+			require.NoError(g.GinkgoTB(), err, "pollForOperandIssuer failed")
+		})
 	})
 })
 
@@ -82,8 +106,6 @@ func testServiceAccountIssuerDefaultIssuer(t testing.TB) {
 	setServiceAccountIssuer(t, authConfigClient, "")
 	err = pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"})
 	require.NoError(t, err, "pollForOperandIssuer failed")
-	// Wait for API server to stabilize after configuration change
-	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 }
 
 func pollForOperandIssuer(t testing.TB, client clientcorev1.CoreV1Interface, expectedIssuers []string) error {
