@@ -18,7 +18,6 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
 
 const (
@@ -27,14 +26,21 @@ const (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Operator][Serial][Timeout:30m] serviceaccountissuer lifecycle test", func() {
-		g.By("serviceaccountissuer set in authentication config results in apiserver config")
+	// The tests below must be executed in a strict order.
+	//
+	// g.Ordered cannot be used because it is not preserved when Ginkgo
+	// specs are transformed into an extension test spec (OTE)
+	// xref: https://redhat-internal.slack.com/archives/C07RDCVEYJG/p1768802574011809
+	//
+	// For this reason, we use g.By steps to explicitly control the execution flow.
+	g.It("[Operator][Serial] serviceaccountissuer updates propagate to kas config", func() {
+		g.By("set a custom serviceAccountIssuer and expect it plus the default in kas config")
 		testServiceAccountIssuerFirstIssuer(g.GinkgoTB())
 
-		g.By("second serviceaccountissuer set in authentication config results in apiserver config with two issuers")
+		g.By("set a second custom issuer and expect both custom issuers plus the default in kas config")
 		testServiceAccountIssuerSecondIssuer(g.GinkgoTB())
 
-		g.By("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set")
+		g.By("clear serviceAccountIssuer and expect only the default issuer in kas config")
 		testServiceAccountIssuerDefaultIssuer(g.GinkgoTB())
 	})
 })
@@ -82,8 +88,6 @@ func testServiceAccountIssuerDefaultIssuer(t testing.TB) {
 	setServiceAccountIssuer(t, authConfigClient, "")
 	err = pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"})
 	require.NoError(t, err, "pollForOperandIssuer failed")
-	// Wait for API server to stabilize after configuration change
-	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 }
 
 func pollForOperandIssuer(t testing.TB, client clientcorev1.CoreV1Interface, expectedIssuers []string) error {
