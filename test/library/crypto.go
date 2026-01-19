@@ -19,7 +19,7 @@ type CryptoMaterials struct {
 
 // NewServerCertificate returns crypto materials suitable for use by a server. The hosts specified will be added as
 // subject alternate names.
-func NewServerCertificate(t *testing.T, signer *CryptoMaterials, hosts ...string) *CryptoMaterials {
+func NewServerCertificate(t testing.TB, signer *CryptoMaterials, hosts ...string) *CryptoMaterials {
 	var err error
 	server := &CryptoMaterials{}
 	if server.PrivateKey, err = rsa.GenerateKey(rand.Reader, 2048); err != nil {
@@ -52,7 +52,7 @@ func NewServerCertificate(t *testing.T, signer *CryptoMaterials, hosts ...string
 
 // NewCertificateAuthorityCertificate returns crypto materials for a certificate authority. If no parent certificate
 // is specified, the generated certificate will be self-signed.
-func NewCertificateAuthorityCertificate(t *testing.T, parent *x509.Certificate) *CryptoMaterials {
+func NewCertificateAuthorityCertificate(t testing.TB, parent *x509.Certificate) *CryptoMaterials {
 	result := &CryptoMaterials{}
 	var err error
 	if result.PrivateKey, err = rsa.GenerateKey(rand.Reader, 2048); err != nil {
