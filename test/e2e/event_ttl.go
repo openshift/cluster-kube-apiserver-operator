@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration", func() {
+var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL] Event TTL Configuration", g.Ordered, func() {
 	var (
 		kubeClient              *kubernetes.Clientset
 		configClient            *configclient.Clientset
