@@ -59,6 +59,7 @@ func NewKubeletVersionSkewController(
 		apiServerVersion:            semver.MustParse(status.VersionForOperandFromEnv()),
 		minSupportedSkew:            minSupportedKubeletSkewForOpenShiftVersion(openShiftVersion),
 		minSupportedSkewNextVersion: minSupportedKubeletSkewForOpenShiftVersion(nextOpenShiftVersion),
+		nextOpenShiftVersion:        nextOpenShiftVersion,
 	}
 	c.Controller = factory.New().
 		WithSync(c.sync).
@@ -85,6 +86,7 @@ type kubeletVersionSkewController struct {
 	apiServerVersion            semver.Version
 	minSupportedSkew            int
 	minSupportedSkewNextVersion int
+	nextOpenShiftVersion        semver.Version
 }
 
 func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncContext) error {
@@ -181,22 +183,22 @@ func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncC
 		condition.Status = operatorv1.ConditionFalse
 		switch len(skewedLimit) {
 		case 1:
-			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s will not be supported in the next OpenShift minor version upgrade.", skewedLimit.version(), skewedLimit.nodes())
+			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s will not be supported in the next OpenShift minor version upgrade to %d.%d.", skewedLimit.version(), skewedLimit.nodes(), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s will not be supported in the next OpenShift minor version upgrade.", skewedLimit.nodes())
+			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s will not be supported in the next OpenShift minor version upgrade to %d.%d.", skewedLimit.nodes(), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		default:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes will not be supported in the next OpenShift minor version upgrade.", len(skewedLimit))
+			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes will not be supported in the next OpenShift minor version upgrade to %d.%d.", len(skewedLimit), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		}
 	case len(skewedButOK) > 0:
 		condition.Reason = KubeletMinorVersionSupportedNextUpgradeReason
 		condition.Status = operatorv1.ConditionTrue
 		switch len(skewedButOK) {
 		case 1:
-			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade.", skewedButOK.version(), skewedButOK.nodes())
+			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade to %d.%d.", skewedButOK.version(), skewedButOK.nodes(), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade.", skewedButOK.nodes())
+			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade to %d.%d.", skewedButOK.nodes(), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		default:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade.", len(skewedButOK))
+			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade to %d.%d.", len(skewedButOK), c.nextOpenShiftVersion.Major, c.nextOpenShiftVersion.Minor)
 		}
 	default:
 		condition.Reason = KubeletMinorVersionSyncedReason
