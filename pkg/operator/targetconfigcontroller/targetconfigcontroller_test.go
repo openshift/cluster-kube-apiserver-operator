@@ -634,6 +634,7 @@ func TestManageClientCABundle(t *testing.T) {
 			name:               "create new client-ca configmap when none exists",
 			existingConfigMaps: []*corev1.ConfigMap{},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -661,6 +662,7 @@ func TestManageClientCABundle(t *testing.T) {
 				},
 			},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -698,6 +700,7 @@ func TestManageClientCABundle(t *testing.T) {
 				},
 			},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -715,6 +718,7 @@ func TestManageClientCABundle(t *testing.T) {
 			name: "annotations update",
 			existingConfigMaps: []*corev1.ConfigMap{
 				{
+					TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "client-ca",
 						Namespace: operatorclient.TargetNamespace,
@@ -737,6 +741,7 @@ func TestManageClientCABundle(t *testing.T) {
 				},
 			},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -787,6 +792,7 @@ func TestManageClientCABundle(t *testing.T) {
 				},
 			},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -826,6 +832,7 @@ func TestManageClientCABundle(t *testing.T) {
 				},
 			},
 			expectedConfigMap: &corev1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "client-ca",
 					Namespace: operatorclient.TargetNamespace,
@@ -843,7 +850,7 @@ func TestManageClientCABundle(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset()
+			client := fake.NewClientset()
 
 			// Create existing configmaps
 			for _, cm := range test.existingConfigMaps {
@@ -867,7 +874,8 @@ func TestManageClientCABundle(t *testing.T) {
 			// Assert change expectations
 			require.Equal(t, test.expectedChanged, changed, "Expected changed=%v, got changed=%v", test.expectedChanged, changed)
 
-			// Compare with expected configmap
+			// Compare with expected configmap, ignoring managed fields
+			resultConfigMap.ManagedFields = nil
 			require.Equal(t, test.expectedConfigMap, resultConfigMap)
 
 			// Verify the configmap exists in the cluster
@@ -875,7 +883,8 @@ func TestManageClientCABundle(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, storedConfigMap)
 
-			// Ensure the returned configmap matches what's stored in the cluster
+			// Ensure the returned configmap matches what's stored in the cluster, ignoring managed fields
+			storedConfigMap.ManagedFields = nil
 			require.Equal(t, storedConfigMap, resultConfigMap, "returned configmap should match stored configmap")
 
 			// Verify events were recorded if changes were made
