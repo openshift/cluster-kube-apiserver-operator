@@ -86,6 +86,14 @@ test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
 test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
 
+# KMS encryption tests
+test-e2e-encryption-kms: GO_TEST_PACKAGES :=./test/e2e-encryption-kms/...
+test-e2e-encryption-kms: GO_TEST_FLAGS += -v
+test-e2e-encryption-kms: GO_TEST_FLAGS += -timeout 4h
+test-e2e-encryption-kms: GO_TEST_FLAGS += -p 1
+test-e2e-encryption-kms: test-unit
+.PHONY: test-e2e-encryption-kms
+
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
 .PHONY: clean
