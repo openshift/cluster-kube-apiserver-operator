@@ -122,7 +122,6 @@ func TestObservedConfig(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
-
 			newConfig, errs := observedConfig(
 				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers),
 				func(_ string) (*operatorv1.KubeAPIServer, error) {
