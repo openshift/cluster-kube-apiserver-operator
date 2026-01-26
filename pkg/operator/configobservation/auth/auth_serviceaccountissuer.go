@@ -134,12 +134,8 @@ func observedConfig(existingConfig map[string]interface{},
 	}
 	if apiServerExternalURL := infrastructureConfig.Status.APIServerURL; len(apiServerExternalURL) == 0 {
 		return existingConfig, append(errs, fmt.Errorf("APIServerURL missing from infrastructure/cluster"))
-	} else {
-		apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerExternalURL + "/openid/v1/jwks"}
 	}
-
 	return map[string]interface{}{"apiServerArguments": apiServerArguments}, errs
-
 }
 
 // issuersChanged compares the command line flags used for KAS and the operator status service account issuers.
