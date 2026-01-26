@@ -37,6 +37,8 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
+require github.com/onsi/gomega v1.35.1
+
 require (
 	cel.dev/expr v0.24.0 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
@@ -79,7 +81,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/gomega v1.35.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
@@ -135,3 +136,5 @@ require (
 )
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+
+replace github.com/openshift/library-go => github.com/bertinatto/library-go v0.0.0-20260126194344-13c5a957d099
