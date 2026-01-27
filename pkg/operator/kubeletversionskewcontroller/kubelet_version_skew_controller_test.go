@@ -41,7 +41,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSyncedReason,
-			expectedMsgLines: "Kubelet and API server minor versions are synced.",
+			expectedMsgLines: "Kubelet and API server versions are synced.",
 		},
 		{
 			name:             "Synced/Odd",
@@ -49,7 +49,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSyncedReason,
-			expectedMsgLines: "Kubelet and API server minor versions are synced.",
+			expectedMsgLines: "Kubelet and API server versions are synced.",
 		},
 		{
 			name:             "ErrorParsingKubeletVersion",
@@ -65,7 +65,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor version (1.20.1) on node test001 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet version (1.20.1) on node test001 will not be supported in the next OpenShift version upgrade.",
 		},
 		{
 			name:             "UnsupportedNextUpgrade/Odd",
@@ -73,7 +73,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -2, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported kubelet minor version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
+			expectedMsgLines: "Unsupported Kubelet version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
 		},
 		{
 			name:             "TwoNodesNotSynced",
@@ -81,7 +81,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on nodes test001 and test002 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet versions on nodes test001 and test002 will not be supported in the next OpenShift version upgrade.",
 		},
 		{
 			name:             "ThreeNodesNotSynced",
@@ -89,7 +89,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on nodes test001, test002, and test003 will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet versions on nodes test001, test002, and test003 will not be supported in the next OpenShift version upgrade.",
 		},
 		{
 			name:             "ManyNodesNotSynced",
@@ -97,7 +97,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1, -1, -1, 0, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor versions on 5 nodes will not be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet versions on 5 nodes will not be supported in the next OpenShift version upgrade.",
 		},
 		{
 			name:             "SkewedUnsupported/Even",
@@ -105,7 +105,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -3, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported kubelet minor version (1.18.1) on node test001 is too far behind the target API server version (1.21.1).",
+			expectedMsgLines: "Unsupported Kubelet version (1.18.1) on node test001 is too far behind the target API server version (1.21.1).",
 		},
 		{
 			name:             "SkewedUnsupported/Odd",
@@ -113,7 +113,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -2, 0),
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported kubelet minor version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
+			expectedMsgLines: "Unsupported Kubelet version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
 		},
 		{
 			name:             "SkewedButOK/Odd",
@@ -121,7 +121,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(-1, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet minor version (1.20.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade.",
+			expectedMsgLines: "Kubelet version (1.20.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift version upgrade.",
 		},
 		{
 			name:             "Unsupported",
@@ -129,7 +129,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			kubeletVersions:  skewedKubeletVersions(0, -1, 1),
 			expectedStatus:   operatorv1.ConditionUnknown,
 			expectedReason:   KubeletMinorVersionAheadReason,
-			expectedMsgLines: "Unsupported kubelet minor version (1.22.2) on node test002 is ahead of the target API server version (1.21.1).",
+			expectedMsgLines: "Unsupported Kubelet version (1.22.2) on node test002 is ahead of the target API server version (1.21.1).",
 		},
 	}
 	for _, tc := range testCases {
