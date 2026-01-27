@@ -194,8 +194,7 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 		"service-account-issuer": append([]string{issuer}, trustedIssuers...),
 		"api-audiences":          append([]string{issuer}, trustedIssuers...),
 	}
-	//delete(args, "service-account-issuer")
-	//delete(args, "api-audiences")
+
 	args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
 
 	return &kubecontrolplanev1.KubeAPIServerConfig{
