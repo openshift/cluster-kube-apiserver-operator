@@ -36,30 +36,26 @@ func TestObservedConfig(t *testing.T) {
 		expectedIssuer         string
 		expectedTrustedIssuers []string
 		expectedChange         bool
-		expectInternalJWKI     bool
 	}{
 		{
-			name:               "no issuer, no previous issuer means we default",
-			existingIssuer:     "",
-			issuer:             defaultServiceAccountIssuerValue,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
+			name:           "no issuer, no previous issuer means we default",
+			existingIssuer: "",
+			issuer:         defaultServiceAccountIssuerValue,
+			expectedIssuer: defaultServiceAccountIssuerValue,
 		},
 		{
-			name:               "no issuer, previous issuer",
-			existingIssuer:     "https://example.com",
-			issuer:             defaultServiceAccountIssuerValue,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
-			expectedChange:     true,
+			name:           "no issuer, previous issuer",
+			existingIssuer: "https://example.com",
+			issuer:         defaultServiceAccountIssuerValue,
+			expectedIssuer: defaultServiceAccountIssuerValue,
+			expectedChange: true,
 		},
 		{
-			name:               "issuer set, no previous issuer",
-			existingIssuer:     "",
-			issuer:             "https://example.com",
-			expectedIssuer:     "https://example.com",
-			expectInternalJWKI: true,
-			expectedChange:     true,
+			name:           "issuer set, no previous issuer",
+			existingIssuer: "",
+			issuer:         "https://example.com",
+			expectedIssuer: "https://example.com",
+			expectedChange: true,
 		},
 		{
 			name:                   "previous issuer was default, new is custom value",
@@ -68,15 +64,13 @@ func TestObservedConfig(t *testing.T) {
 			expectedIssuer:         "https://example.com",
 			trustedIssuers:         []string{defaultServiceAccountIssuerValue},
 			expectedTrustedIssuers: []string{defaultServiceAccountIssuerValue},
-			expectInternalJWKI:     true, // now jwks-uri should always point to LB URL
 			expectedChange:         true,
 		},
 		{
-			name:               "issuer set, previous issuer same",
-			existingIssuer:     "https://example.com",
-			issuer:             "https://example.com",
-			expectedIssuer:     "https://example.com",
-			expectInternalJWKI: true,
+			name:           "issuer set, previous issuer same",
+			existingIssuer: "https://example.com",
+			issuer:         "https://example.com",
+			expectedIssuer: "https://example.com",
 		},
 		{
 			name:                   "issuer set, previous issuer and trusted issuers same",
@@ -85,39 +79,34 @@ func TestObservedConfig(t *testing.T) {
 			trustedIssuers:         []string{"https://trusted.example.com"},
 			expectedIssuer:         "https://example.com",
 			expectedTrustedIssuers: []string{"https://trusted.example.com"},
-			expectInternalJWKI:     true,
 		},
 		{
-			name:               "issuer set, previous issuer different",
-			existingIssuer:     "https://example.com",
-			issuer:             "https://example2.com",
-			expectedIssuer:     "https://example2.com",
-			expectInternalJWKI: true,
-			expectedChange:     true,
+			name:           "issuer set, previous issuer different",
+			existingIssuer: "https://example.com",
+			issuer:         "https://example2.com",
+			expectedIssuer: "https://example2.com",
+			expectedChange: true,
 		},
 		{
-			name:               "auth getter error",
-			existingIssuer:     "https://example2.com",
-			issuer:             "https://example.com",
-			authError:          expectedErrAuth,
-			expectedIssuer:     "https://example2.com",
-			expectInternalJWKI: true,
+			name:           "auth getter error",
+			existingIssuer: "https://example2.com",
+			issuer:         "https://example.com",
+			authError:      expectedErrAuth,
+			expectedIssuer: "https://example2.com",
 		},
 		{
-			name:               "infra getter error",
-			existingIssuer:     defaultServiceAccountIssuerValue,
-			issuer:             defaultServiceAccountIssuerValue,
-			infraError:         expectedErrInfra,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
+			name:           "infra getter error",
+			existingIssuer: defaultServiceAccountIssuerValue,
+			issuer:         defaultServiceAccountIssuerValue,
+			infraError:     expectedErrInfra,
+			expectedIssuer: defaultServiceAccountIssuerValue,
 		},
 		{
-			name:               "custom issuer, no previous issuer",
-			existingIssuer:     "",
-			issuer:             "https://custom.com",
-			expectedIssuer:     "https://custom.com",
-			expectInternalJWKI: true, // should always set jwks-uri
-			expectedChange:     true,
+			name:           "custom issuer, no previous issuer",
+			existingIssuer: "",
+			issuer:         "https://custom.com",
+			expectedIssuer: "https://custom.com",
+			expectedChange: true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -166,16 +155,10 @@ func TestObservedConfig(t *testing.T) {
 
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
 			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
-			if tc.expectInternalJWKI {
-				if !ok {
-					t.Errorf("expected service-account-jwks-uri to be set, it is not")
-				} else {
-					require.Equal(t, uri, kubecontrolplanev1.Arguments{testLBURI})
-				}
-			}
-			if !tc.expectInternalJWKI && ok {
-				t.Errorf("expected no service-account-jwks-uri to be set, it is %+v", uri.String())
-			}
+			// Always expect JWKS URI to be set now
+			require.True(t, ok, "expected service-account-jwks-uri to be set")
+			require.Equal(t, kubecontrolplanev1.Arguments{testLBURI}, uri)
+
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
