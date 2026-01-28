@@ -35,10 +35,10 @@ const (
 // KubeletVersionSkewController sets Upgradeable=False if the kubelet
 // version on a node prevents upgrading to a supported OpenShift version.
 //
-// For odd OpenShift minor versions, kubelet versions 0 or 1 minor
+// For odd OpenShift versions, kubelet versions 0 or 1 minor
 // versions behind the API server version are supported.
 //
-// For even OpenShift minor versions, kubelet versions 0, 1, or 2
+// For even OpenShift versions, kubelet versions 0, 1, or 2
 // minor versions behind the API server version are supported.
 type KubeletVersionSkewController interface {
 	factory.Controller
@@ -118,8 +118,8 @@ func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncC
 			continue
 		}
 		skew := int(kubeletVersion.Minor - c.apiServerVersion.Minor)
-		// Assume that an OpenShift minor version upgrade also bumps to the next kube minor version. Revisit
-		// this in the future if an OpenShift minor version upgrade ever skips or repeats a kube minor version.
+		// Assume that an OpenShift version upgrade also bumps to the next kube version. Revisit
+		// this in the future if an OpenShift version upgrade ever skips or repeats a kube version.
 		skewNextVersion := skew - 1
 		switch {
 		case skew == 0:
@@ -148,22 +148,22 @@ func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncC
 		condition.Status = operatorv1.ConditionFalse
 		switch len(skewedUnsupported) {
 		case 1:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor version (%v) on node %s is too far behind the target API server version (%v).", skewedUnsupported.version(), skewedUnsupported.nodes(), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet version (%v) on node %s is too far behind the target API server version (%v).", skewedUnsupported.version(), skewedUnsupported.nodes(), c.apiServerVersion)
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor versions on nodes %s are too far behind the target API server version (%v).", skewedUnsupported.nodes(), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet versions on nodes %s are too far behind the target API server version (%v).", skewedUnsupported.nodes(), c.apiServerVersion)
 		default:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor versions on %d nodes are too far behind the target API server version (%v).", len(skewedUnsupported), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet versions on %d nodes are too far behind the target API server version (%v).", len(skewedUnsupported), c.apiServerVersion)
 		}
 	case len(unsupported) > 0:
 		condition.Reason = KubeletMinorVersionAheadReason
 		condition.Status = operatorv1.ConditionUnknown
 		switch len(unsupported) {
 		case 1:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor version (%v) on node %s is ahead of the target API server version (%v).", unsupported.version(), unsupported.nodes(), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet version (%v) on node %s is ahead of the target API server version (%v).", unsupported.version(), unsupported.nodes(), c.apiServerVersion)
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor versions on nodes %s are ahead of the target API server version (%v).", unsupported.nodes(), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet versions on nodes %s are ahead of the target API server version (%v).", unsupported.nodes(), c.apiServerVersion)
 		default:
-			condition.Message = fmt.Sprintf("Unsupported kubelet minor versions on %d nodes are ahead of the target API server version (%v).", len(unsupported), c.apiServerVersion)
+			condition.Message = fmt.Sprintf("Unsupported Kubelet versions on %d nodes are ahead of the target API server version (%v).", len(unsupported), c.apiServerVersion)
 		}
 	case len(errors) > 0:
 		condition.Reason = KubeletVersionUnknownReason
@@ -181,27 +181,27 @@ func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncC
 		condition.Status = operatorv1.ConditionFalse
 		switch len(skewedLimit) {
 		case 1:
-			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s will not be supported in the next OpenShift minor version upgrade.", skewedLimit.version(), skewedLimit.nodes())
+			condition.Message = fmt.Sprintf("Kubelet version (%v) on node %s will not be supported in the next OpenShift version upgrade.", skewedLimit.version(), skewedLimit.nodes())
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s will not be supported in the next OpenShift minor version upgrade.", skewedLimit.nodes())
+			condition.Message = fmt.Sprintf("Kubelet versions on nodes %s will not be supported in the next OpenShift version upgrade.", skewedLimit.nodes())
 		default:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes will not be supported in the next OpenShift minor version upgrade.", len(skewedLimit))
+			condition.Message = fmt.Sprintf("Kubelet versions on %d nodes will not be supported in the next OpenShift version upgrade.", len(skewedLimit))
 		}
 	case len(skewedButOK) > 0:
 		condition.Reason = KubeletMinorVersionSupportedNextUpgradeReason
 		condition.Status = operatorv1.ConditionTrue
 		switch len(skewedButOK) {
 		case 1:
-			condition.Message = fmt.Sprintf("Kubelet minor version (%v) on node %s is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift minor version upgrade.", skewedButOK.version(), skewedButOK.nodes())
+			condition.Message = fmt.Sprintf("Kubelet version (%v) on node %s is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift version upgrade.", skewedButOK.version(), skewedButOK.nodes())
 		case 2, 3:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on nodes %s are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade.", skewedButOK.nodes())
+			condition.Message = fmt.Sprintf("Kubelet versions on nodes %s are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift version upgrade.", skewedButOK.nodes())
 		default:
-			condition.Message = fmt.Sprintf("Kubelet minor versions on %d nodes are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift minor version upgrade.", len(skewedButOK))
+			condition.Message = fmt.Sprintf("Kubelet versions on %d nodes are behind the expected API server version; nevertheless, they will continue to be supported in the next OpenShift version upgrade.", len(skewedButOK))
 		}
 	default:
 		condition.Reason = KubeletMinorVersionSyncedReason
 		condition.Status = operatorv1.ConditionTrue
-		condition.Message = "Kubelet and API server minor versions are synced."
+		condition.Message = "Kubelet and API server versions are synced."
 	}
 
 	_, _, err = v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(condition))
