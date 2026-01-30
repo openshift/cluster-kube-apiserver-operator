@@ -36,22 +36,19 @@ func TestObservedConfig(t *testing.T) {
 		expectedIssuer         string
 		expectedTrustedIssuers []string
 		expectedChange         bool
-		expectInternalJWKI     bool
 	}{
 		{
-			name:               "no issuer, no previous issuer means we default",
-			existingIssuer:     "",
-			issuer:             defaultServiceAccountIssuerValue,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
+			name:           "no issuer, no previous issuer means we default",
+			existingIssuer: "",
+			issuer:         defaultServiceAccountIssuerValue,
+			expectedIssuer: defaultServiceAccountIssuerValue,
 		},
 		{
-			name:               "no issuer, previous issuer",
-			existingIssuer:     "https://example.com",
-			issuer:             defaultServiceAccountIssuerValue,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
-			expectedChange:     true,
+			name:           "no issuer, previous issuer",
+			existingIssuer: "https://example.com",
+			issuer:         defaultServiceAccountIssuerValue,
+			expectedIssuer: defaultServiceAccountIssuerValue,
+			expectedChange: true,
 		},
 		{
 			name:           "issuer set, no previous issuer",
@@ -67,7 +64,6 @@ func TestObservedConfig(t *testing.T) {
 			expectedIssuer:         "https://example.com",
 			trustedIssuers:         []string{defaultServiceAccountIssuerValue},
 			expectedTrustedIssuers: []string{defaultServiceAccountIssuerValue},
-			expectInternalJWKI:     false, // this proves we remove the internal api LB when custom value is set
 			expectedChange:         true,
 		},
 		{
@@ -99,17 +95,22 @@ func TestObservedConfig(t *testing.T) {
 			expectedIssuer: "https://example2.com",
 		},
 		{
-			name:               "infra getter error",
-			existingIssuer:     defaultServiceAccountIssuerValue,
-			issuer:             defaultServiceAccountIssuerValue,
-			infraError:         expectedErrInfra,
-			expectedIssuer:     defaultServiceAccountIssuerValue,
-			expectInternalJWKI: true,
+			name:           "infra getter error",
+			existingIssuer: defaultServiceAccountIssuerValue,
+			issuer:         defaultServiceAccountIssuerValue,
+			infraError:     expectedErrInfra,
+			expectedIssuer: defaultServiceAccountIssuerValue,
+		},
+		{
+			name:           "custom issuer, no previous issuer",
+			existingIssuer: "",
+			issuer:         "https://custom.com",
+			expectedIssuer: "https://custom.com",
+			expectedChange: true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
-
 			newConfig, errs := observedConfig(
 				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers),
 				func(_ string) (*operatorv1.KubeAPIServer, error) {
@@ -154,16 +155,10 @@ func TestObservedConfig(t *testing.T) {
 
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
 			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
-			if tc.expectInternalJWKI {
-				if !ok {
-					t.Errorf("expected service-account-jwks-uri to be set, it is not")
-				} else {
-					require.Equal(t, uri, kubecontrolplanev1.Arguments{testLBURI})
-				}
-			}
-			if !tc.expectInternalJWKI && ok {
-				t.Errorf("expected no service-account-jwks-uri to be set, it is %+v", uri.String())
-			}
+			// Always expect JWKS URI to be set now
+			require.True(t, ok, "expected service-account-jwks-uri to be set")
+			require.Equal(t, kubecontrolplanev1.Arguments{testLBURI}, uri)
+
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
@@ -199,11 +194,8 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 		"service-account-issuer": append([]string{issuer}, trustedIssuers...),
 		"api-audiences":          append([]string{issuer}, trustedIssuers...),
 	}
-	if issuer == defaultServiceAccountIssuerValue {
-		//delete(args, "service-account-issuer")
-		//delete(args, "api-audiences")
-		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
-	}
+
+	args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
 
 	return &kubecontrolplanev1.KubeAPIServerConfig{
 		TypeMeta: metav1.TypeMeta{
