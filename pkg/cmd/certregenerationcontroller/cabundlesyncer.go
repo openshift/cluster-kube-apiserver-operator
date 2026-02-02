@@ -33,7 +33,8 @@ type CABundleController struct {
 
 	eventRecorder events.Recorder
 
-	cachesToSync []cache.InformerSynced
+	cachesToSync     []cache.InformerSynced
+	cacheSyncTimeout time.Duration
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -86,7 +87,11 @@ func (c *CABundleController) Run(ctx context.Context) {
 		klog.Info("CA bundle controller shut down")
 	}()
 
-	if !cache.WaitForNamedCacheSync("CABundleController", ctx.Done(), c.cachesToSync...) {
+	if err := c.WaitForReady(ctx); err != nil {
+		klog.Errorf("Failed to wait for CA bundle controller to become ready: %v", err)
+		if ctx.Err() == nil {
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
 		return
 	}
 
@@ -95,6 +100,31 @@ func (c *CABundleController) Run(ctx context.Context) {
 	}()
 
 	<-ctx.Done()
+}
+
+// SetCacheSyncTimeout sets the timeout to be used when waiting for caches to sync.
+// Using value <= 0 disables the timeout.
+//
+// Must be called before Run.
+func (c *CABundleController) SetCacheSyncTimeout(timeout time.Duration) {
+	c.cacheSyncTimeout = timeout
+}
+
+func (c *CABundleController) WaitForReady(ctx context.Context) error {
+	klog.InfoS("Waiting for CA bundle controller to sync caches", "timeout", c.cacheSyncTimeout)
+
+	if c.cacheSyncTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.cacheSyncTimeout)
+		defer cancel()
+	}
+
+	if !cache.WaitForNamedCacheSync("CABundleController", ctx.Done(), c.cachesToSync...) {
+		return fmt.Errorf("waiting for cache sync interrupted: %w", ctx.Err())
+	}
+
+	klog.Info("CA bundle controller cache sync complete")
+	return nil
 }
 
 func (c *CABundleController) runWorker(ctx context.Context) {
