@@ -136,3 +136,7 @@ require (
 )
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+
+// TODO: Remove this replace once library-go PR #2085 is merged
+// Pulls from gangwgr:kms-test which includes KMS encryption test scenarios
+replace github.com/openshift/library-go => github.com/gangwgr/library-go v0.0.0-20260203081611-39f5b11d63db
