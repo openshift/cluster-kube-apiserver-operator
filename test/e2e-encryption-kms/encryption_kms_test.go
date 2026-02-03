@@ -26,7 +26,7 @@ import (
 // 10. Verifies secret is NOT encrypted again
 // 11. Cleans up the KMS plugin
 func TestKMSEncryptionOnOff(t *testing.T) {
-	t.Cleanup(librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage))
+	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage)
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
