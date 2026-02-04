@@ -152,12 +152,26 @@ func TestObservedConfig(t *testing.T) {
 					Kind: "KubeAPIServerConfig",
 				},
 			}
-
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
+			// Determine expected JWKS URI based on what observedConfig will do
+			var expectedJWKSURI string
+			switch {
+			case tc.authError != nil:
+				// auth error → keep existing issuer
+				expectedJWKSURI = tc.existingIssuer + "/openid/v1/jwks"
+			case tc.infraError != nil:
+				// infra error → fallback to default service account issuer
+				expectedJWKSURI = "https://kubernetes.default.svc/openid/v1/jwks"
+			case tc.issuer == defaultServiceAccountIssuerValue:
+				expectedJWKSURI = "https://lb.example.com/openid/v1/jwks"
+			default:
+				expectedJWKSURI = tc.issuer + "/openid/v1/jwks"
+			}
+			// Check that JWKS URI is correctly set
 			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
 			// Always expect JWKS URI to be set now
 			require.True(t, ok, "expected service-account-jwks-uri to be set")
-			require.Equal(t, kubecontrolplanev1.Arguments{testLBURI}, uri)
+			require.Equal(t, kubecontrolplanev1.Arguments{expectedJWKSURI}, uri)
 
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
@@ -194,8 +208,14 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 		"service-account-issuer": append([]string{issuer}, trustedIssuers...),
 		"api-audiences":          append([]string{issuer}, trustedIssuers...),
 	}
-
-	args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{testLBURI}
+	// Determine JWKS URI dynamically
+	var jwksURI string
+	if issuer == defaultServiceAccountIssuerValue {
+		jwksURI = "https://lb.example.com/openid/v1/jwks" // default issuer uses APIServerURL
+	} else {
+		jwksURI = issuer + "/openid/v1/jwks" // custom issuer
+	}
+	args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{jwksURI}
 
 	return &kubecontrolplanev1.KubeAPIServerConfig{
 		TypeMeta: metav1.TypeMeta{
