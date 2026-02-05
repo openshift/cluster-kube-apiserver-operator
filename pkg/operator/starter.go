@@ -257,6 +257,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			"assets/alerts/kube-apiserver-requests.yaml",
 			"assets/alerts/kube-apiserver-slos-basic.yaml",
 			"assets/alerts/podsecurity-violations.yaml",
+			// Network policies
+			"assets/kube-apiserver/networkpolicy-operand-allow.yaml",
+			// Default-deny policies must be applied last
+			"assets/kube-apiserver/networkpolicy-operand-default-deny.yaml",
 		},
 		(&resourceapply.ClientHolder{}).
 			WithKubernetes(kubeClient).
