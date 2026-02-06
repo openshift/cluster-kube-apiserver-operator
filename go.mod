@@ -2,6 +2,11 @@ module github.com/openshift/cluster-kube-apiserver-operator
 
 go 1.24.0
 
+replace (
+	github.com/openshift/api => github.com/damdo/api v0.0.0-20260206112359-95307c567b3a
+	github.com/openshift/library-go => github.com/damdo/library-go v0.0.0-20260210092446-ce4ea87e45cd
+)
+
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver/v4 v4.0.0
