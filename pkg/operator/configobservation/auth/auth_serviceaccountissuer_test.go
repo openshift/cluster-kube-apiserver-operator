@@ -36,26 +36,30 @@ func TestObservedConfig(t *testing.T) {
 		expectedIssuer         string
 		expectedTrustedIssuers []string
 		expectedChange         bool
+		expectedJWKSURI        string
 	}{
 		{
-			name:           "no issuer, no previous issuer means we default",
-			existingIssuer: "",
-			issuer:         defaultServiceAccountIssuerValue,
-			expectedIssuer: defaultServiceAccountIssuerValue,
+			name:            "no issuer, no previous issuer means we default",
+			existingIssuer:  "",
+			issuer:          defaultServiceAccountIssuerValue,
+			expectedIssuer:  defaultServiceAccountIssuerValue,
+			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks",
 		},
 		{
-			name:           "no issuer, previous issuer",
-			existingIssuer: "https://example.com",
-			issuer:         defaultServiceAccountIssuerValue,
-			expectedIssuer: defaultServiceAccountIssuerValue,
-			expectedChange: true,
+			name:            "no issuer, previous issuer",
+			existingIssuer:  "https://example.com",
+			issuer:          defaultServiceAccountIssuerValue,
+			expectedIssuer:  defaultServiceAccountIssuerValue,
+			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks",
+			expectedChange:  true,
 		},
 		{
-			name:           "issuer set, no previous issuer",
-			existingIssuer: "",
-			issuer:         "https://example.com",
-			expectedIssuer: "https://example.com",
-			expectedChange: true,
+			name:            "issuer set, no previous issuer",
+			existingIssuer:  "",
+			issuer:          "https://example.com",
+			expectedIssuer:  "https://example.com",
+			expectedJWKSURI: "https://example.com/openid/v1/jwks",
+			expectedChange:  true,
 		},
 		{
 			name:                   "previous issuer was default, new is custom value",
@@ -64,13 +68,15 @@ func TestObservedConfig(t *testing.T) {
 			expectedIssuer:         "https://example.com",
 			trustedIssuers:         []string{defaultServiceAccountIssuerValue},
 			expectedTrustedIssuers: []string{defaultServiceAccountIssuerValue},
+			expectedJWKSURI:        "https://example.com/openid/v1/jwks",
 			expectedChange:         true,
 		},
 		{
-			name:           "issuer set, previous issuer same",
-			existingIssuer: "https://example.com",
-			issuer:         "https://example.com",
-			expectedIssuer: "https://example.com",
+			name:            "issuer set, previous issuer same",
+			existingIssuer:  "https://example.com",
+			issuer:          "https://example.com",
+			expectedIssuer:  "https://example.com",
+			expectedJWKSURI: "https://example.com/openid/v1/jwks",
 		},
 		{
 			name:                   "issuer set, previous issuer and trusted issuers same",
@@ -79,34 +85,40 @@ func TestObservedConfig(t *testing.T) {
 			trustedIssuers:         []string{"https://trusted.example.com"},
 			expectedIssuer:         "https://example.com",
 			expectedTrustedIssuers: []string{"https://trusted.example.com"},
+			expectedJWKSURI:        "https://example.com/openid/v1/jwks",
 		},
 		{
-			name:           "issuer set, previous issuer different",
-			existingIssuer: "https://example.com",
-			issuer:         "https://example2.com",
-			expectedIssuer: "https://example2.com",
-			expectedChange: true,
+			name:            "issuer set, previous issuer different",
+			existingIssuer:  "https://example.com",
+			issuer:          "https://example2.com",
+			expectedIssuer:  "https://example2.com",
+			expectedJWKSURI: "https://example2.com/openid/v1/jwks",
+			expectedChange:  true,
 		},
 		{
-			name:           "auth getter error",
-			existingIssuer: "https://example2.com",
-			issuer:         "https://example.com",
-			authError:      expectedErrAuth,
-			expectedIssuer: "https://example2.com",
+			name:            "auth getter error",
+			existingIssuer:  "https://example2.com",
+			issuer:          "https://example.com",
+			authError:       expectedErrAuth,
+			expectedIssuer:  "https://example2.com",
+			expectedJWKSURI: "https://example2.com/openid/v1/jwks", // preserve existing
 		},
 		{
-			name:           "infra getter error",
-			existingIssuer: defaultServiceAccountIssuerValue,
-			issuer:         defaultServiceAccountIssuerValue,
-			infraError:     expectedErrInfra,
-			expectedIssuer: defaultServiceAccountIssuerValue,
+			name:            "infra getter error",
+			existingIssuer:  defaultServiceAccountIssuerValue,
+			issuer:          defaultServiceAccountIssuerValue,
+			infraError:      expectedErrInfra,
+			expectedIssuer:  defaultServiceAccountIssuerValue,
+			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks", // no previous + infra error -> do NOT set JWKS
 		},
 		{
-			name:           "custom issuer, no previous issuer",
-			existingIssuer: "",
-			issuer:         "https://custom.com",
-			expectedIssuer: "https://custom.com",
-			expectedChange: true,
+			name:            "default issuer, no previous issuer, infra getter error",
+			existingIssuer:  "",
+			issuer:          defaultServiceAccountIssuerValue,
+			expectedIssuer:  defaultServiceAccountIssuerValue,
+			infraError:      expectedErrInfra,
+			expectedJWKSURI: "",
+			expectedChange:  true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -153,48 +165,16 @@ func TestObservedConfig(t *testing.T) {
 				},
 			}
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
-			// Determine expected JWKS URI based on what observedConfig will do
-			var (
-				expectedJWKSURI string
-				expectJWKSSet   bool
-			)
-			switch {
-			case tc.authError != nil:
-				// auth error -> config shouldn't change; keep existing
-				if tc.existingIssuer != "" {
-					expectedJWKSURI = tc.existingIssuer + "/openid/v1/jwks"
-					expectJWKSSet = true
-				}
-
-			case tc.infraError != nil:
-				// infra error -> preserve existing JWKS from existing config, not from issuer
-				if tc.existingIssuer != "" {
-					expectedJWKSURI = "https://lb.example.com/openid/v1/jwks"
-					expectJWKSSet = true
-				} else {
-					// no previous JWKS and infra failed -> DO NOT set
-					expectJWKSSet = false
-				}
-
-			case tc.issuer == defaultServiceAccountIssuerValue:
-				// default issuer + infra OK -> use LB
-				expectedJWKSURI = "https://lb.example.com/openid/v1/jwks"
-				expectJWKSSet = true
-
-			default:
-				// custom issuer -> always <issuer>/openid/v1/jwks
-				expectedJWKSURI = tc.issuer + "/openid/v1/jwks"
-				expectJWKSSet = true
-			}
 
 			// Check that JWKS URI is correctly set
 			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
-			if expectJWKSSet {
+			if tc.expectedJWKSURI != "" {
 				require.True(t, ok, "expected service-account-jwks-uri to be set")
-				require.Equal(t, kubecontrolplanev1.Arguments{expectedJWKSURI}, uri)
+				require.Equal(t, kubecontrolplanev1.Arguments{tc.expectedJWKSURI}, uri)
 			} else {
 				require.False(t, ok, "did not expect service-account-jwks-uri to be set")
 			}
+
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
@@ -232,13 +212,13 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 	}
 	// Determine JWKS URI dynamically
 	var jwksURI string
-	if issuer == defaultServiceAccountIssuerValue {
+	switch issuer {
+	case defaultServiceAccountIssuerValue:
 		jwksURI = "https://lb.example.com/openid/v1/jwks" // default issuer uses APIServerURL
-	} else {
-		jwksURI = issuer + "/openid/v1/jwks" // custom issuer
+		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{jwksURI}
+	case "":
+		jwksURI = ""
 	}
-	args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{jwksURI}
-
 	return &kubecontrolplanev1.KubeAPIServerConfig{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "KubeAPIServerConfig",
