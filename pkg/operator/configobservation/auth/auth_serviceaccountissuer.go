@@ -125,14 +125,17 @@ func observedConfig(existingConfig map[string]interface{},
 		"api-audiences":          apiServerArgumentValue,
 	}
 
-	// If the issuer is not set in KAS, we rely on the config-overrides.yaml to set both
-	// the issuer and the api-audiences but configure the jwks-uri to point to
-	// the LB so that it does not default to KAS IP which is not included in the serving certs
-	// Configure service-account-jwks-uri based on the issuer type:
-	//  • Default issuer → use API server endpoint (<apiServerURL>/openid/v1/jwks) to avoid TLS SAN issues.
-	//  • Custom issuer → assume OIDC-style endpoint at <issuer>/openid/v1/jwks.
-	//  • Private cluster users are expected to serve OIDC metadata and JWKS at that issuer URL.
-	//  • Any other JWKS location would require a future enhancement (RFE) and is not currently supported.
+	// If the issuer is not set in KAS, we rely on config-overrides.yaml to provide both
+	// the service-account-issuer and api-audiences. In that case, we still configure
+	// service-account-jwks-uri to point at the API server load balancer endpoint so we
+	// don’t fall back to the KAS IP, which is not included in the serving cert SANs.
+	//
+	// The service-account-jwks-uri is configured based on the issuer type:
+	//   • Default issuer → use the API server endpoint (<apiServerURL>/openid/v1/jwks) to avoid TLS SAN issues.
+	//   • Custom issuer  → assume an OIDC-style issuer and use <issuer>/openid/v1/jwks.
+	//   • Private cluster users are expected to serve OIDC metadata and JWKS at the issuer URL.
+	//   • Any other JWKS location would require a future enhancement (RFE) and is not currently supported.
+
 	if observedActiveIssuer == defaultServiceAccountIssuerValue {
 		// Default issuer → use API LB
 		infrastructureConfig, err := getInfrastructureConfig("cluster")

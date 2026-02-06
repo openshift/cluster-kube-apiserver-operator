@@ -154,25 +154,47 @@ func TestObservedConfig(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
 			// Determine expected JWKS URI based on what observedConfig will do
-			var expectedJWKSURI string
+			var (
+				expectedJWKSURI string
+				expectJWKSSet   bool
+			)
 			switch {
 			case tc.authError != nil:
-				// auth error → keep existing issuer
-				expectedJWKSURI = tc.existingIssuer + "/openid/v1/jwks"
+				// auth error -> config shouldn't change; keep existing
+				if tc.existingIssuer != "" {
+					expectedJWKSURI = tc.existingIssuer + "/openid/v1/jwks"
+					expectJWKSSet = true
+				}
+
 			case tc.infraError != nil:
-				// infra error → fallback to default service account issuer
-				expectedJWKSURI = "https://kubernetes.default.svc/openid/v1/jwks"
+				// infra error -> preserve existing JWKS from existing config, not from issuer
+				if tc.existingIssuer != "" {
+					expectedJWKSURI = "https://lb.example.com/openid/v1/jwks"
+					expectJWKSSet = true
+				} else {
+					// no previous JWKS and infra failed -> DO NOT set
+					expectJWKSSet = false
+				}
+
 			case tc.issuer == defaultServiceAccountIssuerValue:
+				// default issuer + infra OK -> use LB
 				expectedJWKSURI = "https://lb.example.com/openid/v1/jwks"
+				expectJWKSSet = true
+
 			default:
+				// custom issuer -> always <issuer>/openid/v1/jwks
 				expectedJWKSURI = tc.issuer + "/openid/v1/jwks"
+				expectJWKSSet = true
 			}
+
 			// Check that JWKS URI is correctly set
 			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
-			// Always expect JWKS URI to be set now
-			require.True(t, ok, "expected service-account-jwks-uri to be set")
-			require.Equal(t, kubecontrolplanev1.Arguments{expectedJWKSURI}, uri)
-
+			if expectJWKSSet {
+				require.True(t, ok, "expected service-account-jwks-uri to be set")
+				require.Equal(t, kubecontrolplanev1.Arguments{expectedJWKSURI}, uri)
+			} else {
+				require.False(t, ok, "did not expect service-account-jwks-uri to be set")
+			}
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
