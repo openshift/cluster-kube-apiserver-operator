@@ -1,0 +1,12 @@
+# NOTE: This asset defines the required annotations for the live
+# kube-system/extension-apiserver-authentication ConfigMap. It is not
+# applied directly; the operator reads these annotations and reconciles
+# them on the existing ConfigMap created by kube-apiserver.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extension-apiserver-authentication
+  namespace: kube-system
+  annotations:
+    "openshift.io/owning-component": "kube-apiserver"
+    "openshift.io/description": "CA holding the root certificate bundle used to verify client certificates on incoming requests"
