@@ -333,6 +333,12 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
 	}
 
+	// TODO: placeholder
+	kmsPluginImage := "quay.io/openshifttest/mock-kms-plugin@sha256:998e1d48eba257f589ab86c30abd5043f662213e9aeff253e1c308301879d48a"
+	if err := addKMSPluginSidecar(&required.Spec, kmsPluginImage, featureGateAccessor); err != nil {
+		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
+	}
+
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)
 	configMap.Data["forceRedeploymentReason"] = operatorSpec.ForceRedeploymentReason
