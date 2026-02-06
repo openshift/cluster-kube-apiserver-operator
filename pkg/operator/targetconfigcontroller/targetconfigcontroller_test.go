@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -27,8 +28,10 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/openshift/api/annotations"
+	configv1 "github.com/openshift/api/config/v1"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -1216,4 +1219,116 @@ func generateTemporaryCertificate() (certPEM []byte, err error) {
 	})
 
 	return certPEM, nil
+}
+
+func Test_manageCheckEndpointsConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		observedConfig map[string]any
+		expectedConfig operatorv1alpha1.GenericOperatorConfig
+	}{
+		{
+			name: "observed TLS config is merged with defaults",
+			observedConfig: map[string]any{
+				"servingInfo": map[string]any{
+					"minTLSVersion": "VersionTLS13",
+					"cipherSuites": []any{
+						"TLS_AES_128_GCM_SHA256",
+						"TLS_AES_256_GCM_SHA384",
+					},
+				},
+			},
+			expectedConfig: operatorv1alpha1.GenericOperatorConfig{
+				ServingInfo: configv1.HTTPServingInfo{
+					ServingInfo: configv1.ServingInfo{
+						MinTLSVersion: "VersionTLS13",
+						CipherSuites: []string{
+							"TLS_AES_128_GCM_SHA256",
+							"TLS_AES_256_GCM_SHA384",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:           "empty observed config uses only defaults",
+			observedConfig: nil,
+			expectedConfig: operatorv1alpha1.GenericOperatorConfig{
+				ServingInfo: configv1.HTTPServingInfo{
+					ServingInfo: configv1.ServingInfo{},
+				},
+			},
+		},
+		{
+			name: "only minTLSVersion is observed",
+			observedConfig: map[string]any{
+				"servingInfo": map[string]any{
+					"minTLSVersion": "VersionTLS12",
+				},
+			},
+			expectedConfig: operatorv1alpha1.GenericOperatorConfig{
+				ServingInfo: configv1.HTTPServingInfo{
+					ServingInfo: configv1.ServingInfo{
+						MinTLSVersion: "VersionTLS12",
+					},
+				},
+			},
+		},
+		{
+			name: "only cipherSuites are observed",
+			observedConfig: map[string]any{
+				"servingInfo": map[string]any{
+					"cipherSuites": []any{
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+					},
+				},
+			},
+			expectedConfig: operatorv1alpha1.GenericOperatorConfig{
+				ServingInfo: configv1.HTTPServingInfo{
+					ServingInfo: configv1.ServingInfo{
+						CipherSuites: []string{
+							"ECDHE-ECDSA-AES128-GCM-SHA256",
+							"ECDHE-RSA-AES128-GCM-SHA256",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			cli := fake.NewSimpleClientset().CoreV1()
+			rec := events.NewInMemoryRecorder("test", clock.RealClock{})
+
+			observed, err := yaml.Marshal(tt.observedConfig)
+			require.NoError(t, err)
+
+			spec := &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{
+						Raw: observed,
+					},
+				},
+			}
+
+			resultConfigMap, _, err := manageCheckEndpointsConfig(ctx, cli, rec, spec)
+			require.NoError(t, err)
+
+			var actualConfig operatorv1alpha1.GenericOperatorConfig
+			err = json.Unmarshal(
+				[]byte(resultConfigMap.Data["config.yaml"]), &actualConfig,
+			)
+			require.NoError(t, err)
+
+			tt.expectedConfig.TypeMeta = metav1.TypeMeta{
+				APIVersion: "operator.openshift.io/v1alpha1",
+				Kind:       "GenericOperatorConfig",
+			}
+
+			require.Equal(t, tt.expectedConfig, actualConfig)
+		})
+	}
 }

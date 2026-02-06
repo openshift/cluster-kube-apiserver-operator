@@ -15,6 +15,7 @@ import (
 
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -224,6 +225,10 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
+	_, _, err = manageCheckEndpointsConfig(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "configmap/check-endpoints-config", err))
+	}
 	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
@@ -269,6 +274,25 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	}
 
 	return false, nil
+}
+
+func manageCheckEndpointsConfig(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
+	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/check-endpoints-config-map.yaml"))
+	defaultConfig := bindata.MustAsset("assets/config/default-check-endpoints-config.yaml")
+
+	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
+		&operatorv1alpha1.GenericOperatorConfig{},
+		configMap,
+		"config.yaml",
+		nil,
+		defaultConfig,
+		operatorSpec.ObservedConfig.Raw,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
 func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
