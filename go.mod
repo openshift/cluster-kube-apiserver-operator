@@ -13,6 +13,7 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.61
 	github.com/onsi/ginkgo/v2 v2.21.0
+	github.com/onsi/gomega v1.35.1
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
 	github.com/openshift/api v0.0.0-20260126183958-606bd613f9f7
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
