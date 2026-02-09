@@ -3,6 +3,7 @@ package certregenerationcontroller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -117,8 +118,19 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		o.controllerContext.EventRecorder,
 	)
 
-	go configInformers.Start(ctx.Done())
-	go featureGateAccessor.Run(ctx)
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	// cancel must happen before wg.Wait (so in a later defer), otherwise we can get stuck on early return.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	configInformers.Start(ctx.Done())
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		featureGateAccessor.Run(ctx)
+	}()
 
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
@@ -155,14 +167,15 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	dynamicInformers.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 
-	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
-	// (@deads2k wants time to think it through)
-
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		kubeAPIServerCertRotationController.Run(ctx, 1)
 	}()
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		caBundleController.Run(ctx)
 	}()
 
