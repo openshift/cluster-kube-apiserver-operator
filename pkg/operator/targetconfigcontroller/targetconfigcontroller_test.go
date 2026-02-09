@@ -26,13 +26,17 @@ import (
 	"k8s.io/utils/clock"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/go-cmp/cmp"
 	"github.com/openshift/api/annotations"
 	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/cluster-kube-apiserver-operator/bindata"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/stretchr/testify/require"
+	clientgotesting "k8s.io/client-go/testing"
 )
 
 var codec = scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
@@ -1216,4 +1220,178 @@ func generateTemporaryCertificate() (certPEM []byte, err error) {
 	})
 
 	return certPEM, nil
+}
+
+// TestEnsureKubeAPIServerExtensionAuthenticationCA tests the behavior of ensureKubeAPIServerExtensionAuthenticationCA
+func TestEnsureKubeAPIServerExtensionAuthenticationCA(t *testing.T) {
+	ctx := context.Background()
+	recorder := events.NewInMemoryRecorder("test", clock.RealClock{})
+
+	t.Run("configmap not found (Get error)", func(t *testing.T) {
+		// Create a fake client with no configmap in kube-system
+		client := fake.NewSimpleClientset()
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err != nil {
+			t.Fatalf("expected nil error when configmap is missing, got: %v", err)
+		}
+	})
+
+	t.Run("get failure (non-NotFound) returns error", func(t *testing.T) {
+		client := fake.NewSimpleClientset()
+		client.Fake.PrependReactor("get", "configmaps", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("conflict")
+		})
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err == nil || !strings.Contains(err.Error(), "conflict") {
+			t.Fatalf("expected non-NotFound get error to propagate, got: %v", err)
+		}
+	})
+
+	t.Run("configmap exists but missing annotations, update succeeds", func(t *testing.T) {
+		// Create a configmap without annotations
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "extension-apiserver-authentication",
+				Namespace: "kube-system",
+			},
+		}
+		client := fake.NewSimpleClientset(cm)
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err != nil {
+			t.Fatalf("expected nil error after update, got: %v", err)
+		}
+		updatedCM, err := client.CoreV1().ConfigMaps("kube-system").Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed to get updated configmap: %v", err)
+		}
+		if updatedCM.Annotations == nil || updatedCM.Annotations[annotations.OpenShiftComponent] != "kube-apiserver" {
+			t.Fatalf("expected annotation not set, got: %v", updatedCM.Annotations)
+		}
+	})
+
+	t.Run("configmap exists with correct annotations, no update needed", func(t *testing.T) {
+		required := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/extension-apiserver-authentication-cm.yaml"))
+
+		// Create a configmap with the expected annotation already present
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "extension-apiserver-authentication",
+				Namespace:   "kube-system",
+				Annotations: required.Annotations,
+			},
+		}
+		client := fake.NewSimpleClientset(cm)
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err != nil {
+			t.Fatalf("expected nil error when annotations are already correct, got: %v", err)
+		}
+
+		// Check that client only did one action
+		if len(client.Actions()) != 1 {
+			t.Fatalf("expected one action, got: %v", client.Actions())
+		}
+		action := client.Actions()[0]
+		if action.GetVerb() != "get" {
+			t.Fatalf("expected get action, got: %v", action)
+		}
+		getAction := action.(clientgotesting.GetAction)
+		if getAction.GetName() != "extension-apiserver-authentication" {
+			t.Fatalf("expected get action for configmap 'extension-apiserver-authentication', got: %v", getAction)
+		}
+		if getAction.GetNamespace() != "kube-system" {
+			t.Fatalf("expected get action for namespace 'kube-system', got: %v", getAction)
+		}
+	})
+
+	t.Run("update failure propagates error", func(t *testing.T) {
+		// Create a configmap without annotations
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "extension-apiserver-authentication",
+				Namespace: "kube-system",
+			},
+		}
+		client := fake.NewSimpleClientset(cm)
+
+		// Inject reactor to simulate update failure
+		client.Fake.PrependReactor("update", "configmaps", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+			return true, nil, fmt.Errorf("simulated update failure")
+		})
+
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err == nil || !strings.Contains(err.Error(), "simulated update failure") {
+			t.Fatalf("expected update failure error, got: %v", err)
+		}
+	})
+
+	t.Run("unrelated annotations are not removed", func(t *testing.T) {
+		unrelatedAnnotations := map[string]string{
+			"unrelated.annotation/key1": "value1",
+			"unrelated.annotation/key2": "value2",
+		}
+
+		// Create a configmap with unrelated annotations
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "extension-apiserver-authentication",
+				Namespace:   "kube-system",
+				Annotations: unrelatedAnnotations,
+			},
+		}
+		client := fake.NewSimpleClientset(cm)
+
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err != nil {
+			t.Fatalf("expected nil error, got: %v", err)
+		}
+
+		updatedCM, err := client.CoreV1().ConfigMaps("kube-system").Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed to get updated configmap: %v", err)
+		}
+
+		required := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/extension-apiserver-authentication-cm.yaml"))
+
+		expectedAnnotations := map[string]string{}
+		for k, v := range required.Annotations {
+			expectedAnnotations[k] = v
+		}
+		for k, v := range unrelatedAnnotations {
+			expectedAnnotations[k] = v
+		}
+
+		diff := cmp.Diff(expectedAnnotations, updatedCM.Annotations)
+		if diff != "" {
+			t.Fatalf("expected annotations to match, but got diff:\n%s", diff)
+		}
+	})
+
+	t.Run("configmap exists with incorrect OpenShiftComponent annotation, update succeeds", func(t *testing.T) {
+		// Create a configmap with an incorrect OpenShiftComponent annotation
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "extension-apiserver-authentication",
+				Namespace: "kube-system",
+				Annotations: map[string]string{
+					annotations.OpenShiftComponent: "incorrect-value",
+				},
+			},
+		}
+		client := fake.NewSimpleClientset(cm)
+
+		err := ensureKubeAPIServerExtensionAuthenticationCA(ctx, client.CoreV1(), recorder)
+		if err != nil {
+			t.Fatalf("expected nil error, got: %v", err)
+		}
+
+		updatedCM, err := client.CoreV1().ConfigMaps("kube-system").Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed to get updated configmap: %v", err)
+		}
+
+		// Verify the OpenShiftComponent annotation is updated to the correct value
+		if updatedCM.Annotations == nil || updatedCM.Annotations[annotations.OpenShiftComponent] != "kube-apiserver" {
+			t.Errorf("expected annotation %s=kube-apiserver, got: %v", annotations.OpenShiftComponent, updatedCM.Annotations)
+		}
+	})
 }
