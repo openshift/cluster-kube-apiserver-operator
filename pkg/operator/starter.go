@@ -635,9 +635,10 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	// optional configmap containing the OIDC structured auth config
 	{Name: auth.AuthConfigCMName, Optional: true},
 
-	// this configmap holds the configuration for the check-endpoints container. we
-	// need this to set the tls profile as this container also listens.
-	{Name: "check-endpoints-config"},
+	// this configmap holds the configuration for the check-endpoints container. we need this to set the tls
+	// profile as this container also listens. marked as optional to avoid RequiredInstallerResourcesMissing
+	// events during upgrades when old revisions don't have this ConfigMap.
+	{Name: "check-endpoints-config", Optional: true},
 }
 
 // RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
