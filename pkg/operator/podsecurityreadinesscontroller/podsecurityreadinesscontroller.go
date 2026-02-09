@@ -51,7 +51,9 @@ func NewPodSecurityReadinessController(
 		return nil, err
 	}
 
-	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks())
+	latestVersion := psapi.LatestVersion()
+
+	psaEvaluator, err := policy.NewEvaluator(policy.DefaultChecks(), &latestVersion)
 	if err != nil {
 		return nil, err
 	}
