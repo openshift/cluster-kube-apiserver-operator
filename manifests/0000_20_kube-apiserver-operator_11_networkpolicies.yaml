@@ -1,0 +1,143 @@
+# Default-deny policy for the openshift-kube-apiserver-operator namespace.
+# This policy selects all pods in the namespace and enables default-deny for both
+# ingress and egress by specifying policyTypes without any allow rules.
+#
+# NetworkPolicies are additive (use OR logic):
+# - This policy enables default-deny for all pods
+# - Subsequent policies add specific allow rules
+# - If any policy allows traffic, that traffic is permitted
+# - Policies cannot override or block traffic allowed by other policies
+#
+# Without this policy, all pods would have unrestricted network access (allow-all).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow egress to DNS for the kube-apiserver-operator.
+# The operator needs DNS resolution to resolve service names and API endpoints.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-dns
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector: {}
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+      podSelector:
+        matchLabels:
+          dns.operator.openshift.io/daemonset-dns: default
+    ports:
+    - protocol: TCP
+      port: 5353
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  policyTypes:
+  - Egress
+---
+# Allow egress to the Kubernetes API server.
+# The kube-apiserver-operator needs to communicate with the API server to:
+# - Watch and update kube-apiserver resources
+# - Manage pods, services, and other resources in the openshift-kube-apiserver namespace
+# - Update cluster operator status
+# - Watch nodes and other cluster resources
+#
+# Note: We allow all egress because the API server IP address and port can vary
+# depending on cluster configuration (external load balancer, internal service, etc.).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-apiserver
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector: {}
+  egress:
+  - {}
+  policyTypes:
+  - Egress
+---
+# Allow egress to kube-apiserver endpoints.
+# The kube-apiserver-operator needs to communicate with kube-apiserver pods to:
+# - Manage the kube-apiserver cluster
+# - Check kube-apiserver health and status (readyz endpoint)
+# - Perform configuration updates
+#
+# kube-apiserver pods run with hostNetwork: true, which means they bypass
+# NetworkPolicy entirely. Since the operator needs to connect to kube-apiserver on the
+# host network, we must allow egress to the kube-apiserver port (6443)
+# without destination restrictions.
+#
+# Note: We allow egress on this specific port to any destination because:
+# 1. kube-apiserver runs on the host network and is accessed via node IPs
+# 2. NetworkPolicy cannot select host-networked pods
+# 3. The operator discovers kube-apiserver endpoints dynamically via the API server
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-kube-apiserver
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app: kube-apiserver-operator
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 6443
+  policyTypes:
+  - Egress
+---
+# Allow ingress to the metrics endpoint from Prometheus.
+# The kube-apiserver-operator exposes metrics on port 8443 (containerPort) which is mapped
+# to port 443 via the "metrics" service.
+#
+# This policy allows Prometheus (and other monitoring components) running in namespaces
+# with the host-network policy group label to scrape metrics from the operator.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-metrics
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app: kube-apiserver-operator
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          policy-group.network.openshift.io/host-network: ""
+    ports:
+    - protocol: TCP
+      port: 8443
+  policyTypes:
+  - Ingress
