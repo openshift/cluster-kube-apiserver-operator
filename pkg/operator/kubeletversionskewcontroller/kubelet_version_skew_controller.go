@@ -3,7 +3,6 @@ package kubeletversionskewcontroller
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -68,11 +67,14 @@ func NewKubeletVersionSkewController(
 }
 
 func minSupportedKubeletSkewForOpenShiftVersion(v semver.Version) int {
-	switch v.Minor % 2 {
-	case 0: // even OpenShift versions
-		return -2
-	case 1: // odd OpenShift versions
-		return -1
+	// first EUS of the 5.y series would be 5.2, then 5.5, then 5.8. after 5.8
+	switch v.Minor % 3 {
+	case 0: // 5.0, 5.3, etc.
+		return -1 // allow kubelets to lag by one, e.g. 5.2 kubelets vs. 5.3 control plane, but not 5.1 kubelets
+	case 1: // 5.1, 5.4, etc.
+		return -2 // allow kubelets to lag by two, e.g. 5.2 kubelets vs. 5.4 control plane, but not 5.1 kubelets
+	case 2: // 5.2, 5.5, etc.
+		return -3 // allow kubelets to lag by three, e.g. 5.2 kubelets vs. 5.5 control plane, but not 5.1 kubelets
 	default:
 		panic("should not happen")
 	}
@@ -128,7 +130,7 @@ func (c *kubeletVersionSkewController) sync(ctx context.Context, _ factory.SyncC
 		case skew < c.minSupportedSkew:
 			// already in an unsupported state
 			skewedUnsupported = append(skewedUnsupported, nodeKubeletInfo{node: node.Name, version: &kubeletVersion})
-		case skewNextVersion < c.minSupportedSkewNextVersion:
+		case skewNextVersion <= c.minSupportedSkewNextVersion:
 			// upgrading to next minor version of API server would result in an unsupported config
 			skewedLimit = append(skewedLimit, nodeKubeletInfo{node: node.Name, version: &kubeletVersion})
 		case skew < 0:
@@ -248,8 +250,6 @@ func (n nodeKubeletInfos) version() *semver.Version {
 func nodeKubeletVersion(node *corev1.Node) (semver.Version, error) {
 	return semver.Parse(strings.TrimPrefix(node.Status.NodeInfo.KubeletVersion, "v"))
 }
-
-var byNodeRegexp = regexp.MustCompile(`node [^ ]*`)
 
 type byName []*corev1.Node
 
