@@ -638,7 +638,7 @@ var RevisionConfigMaps = []revision.RevisionResource{
 	// this configmap holds the configuration for the check-endpoints container. we need this to set the tls
 	// profile as this container also listens. marked as optional to avoid RequiredInstallerResourcesMissing
 	// events during upgrades when old revisions don't have this ConfigMap.
-	{Name: "check-endpoints-config", Optional: true},
+	{Name: "check-endpoints-config"},
 }
 
 // RevisionSecrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.

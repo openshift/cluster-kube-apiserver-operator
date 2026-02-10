@@ -50,6 +50,7 @@ spec:
         command: ["cluster-kube-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
+        - "--v=4"
         resources:
           requests:
             memory: 50Mi
@@ -119,8 +120,8 @@ spec:
       - key: "node.kubernetes.io/unreachable"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120
