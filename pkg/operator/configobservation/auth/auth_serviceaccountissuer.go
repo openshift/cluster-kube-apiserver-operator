@@ -131,10 +131,29 @@ func observedConfig(existingConfig map[string]interface{},
 	// don’t fall back to the KAS IP, which is not included in the serving cert SANs.
 	//
 	// The service-account-jwks-uri is configured based on the issuer type:
-	//   • Default issuer → use the API server endpoint (<apiServerURL>/openid/v1/jwks) to avoid TLS SAN issues.
-	//   • Custom issuer  → assume an OIDC-style issuer and use <issuer>/openid/v1/jwks.
-	//   • Private cluster users are expected to serve OIDC metadata and JWKS at the issuer URL.
-	//   • Any other JWKS location would require a future enhancement (RFE) and is not currently supported.
+	//
+	// Default issuer:
+	//   We set service-account-jwks-uri to the API server load balancer endpoint
+	//   (<apiServerURL>/openid/v1/jwks) so clients don’t fall back to the KAS IP,
+	//   which is not covered by the serving certificate SANs.
+	//
+	// Custom issuer:
+	//   A custom issuer is expected to be an OIDC issuer (a URL). It should fall into
+	//   one of two categories:
+	//
+	//   1) Issuer is the external cluster URL. In this case, the API server already
+	//      serves both the discovery document and public keys at:
+	//        - <issuer>/.well-known/openid-configuration
+	//        - <issuer>/openid/v1/jwks
+	//      This is effectively the same behavior as the default issuer case.
+	//
+	//   2) Issuer is any other URL. In this case, we expect the user to host both the
+	//      OIDC discovery document and JWKS outside of the cluster at:
+	//        - <issuer>/.well-known/openid-configuration
+	//        - <issuer>/openid/v1/jwks
+	//
+	//   Any other JWKS location would require a future enhancement (RFE) and is not
+	//   currently supported.
 
 	if observedActiveIssuer == defaultServiceAccountIssuerValue {
 		// Default issuer → use API LB

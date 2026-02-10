@@ -43,14 +43,14 @@ func TestObservedConfig(t *testing.T) {
 			existingIssuer:  "",
 			issuer:          defaultServiceAccountIssuerValue,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
-			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks",
+			expectedJWKSURI: testLBURI,
 		},
 		{
 			name:            "no issuer, previous issuer",
 			existingIssuer:  "https://example.com",
 			issuer:          defaultServiceAccountIssuerValue,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
-			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks",
+			expectedJWKSURI: testLBURI,
 			expectedChange:  true,
 		},
 		{
@@ -109,16 +109,15 @@ func TestObservedConfig(t *testing.T) {
 			issuer:          defaultServiceAccountIssuerValue,
 			infraError:      expectedErrInfra,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
-			expectedJWKSURI: "https://lb.example.com/openid/v1/jwks", // no previous + infra error -> do NOT set JWKS
+			expectedJWKSURI: testLBURI, // no previous + infra error -> do NOT set JWKS
 		},
 		{
 			name:            "default issuer, no previous issuer, infra getter error",
 			existingIssuer:  "",
 			issuer:          defaultServiceAccountIssuerValue,
-			expectedIssuer:  defaultServiceAccountIssuerValue,
+			expectedIssuer:  "",
 			infraError:      expectedErrInfra,
 			expectedJWKSURI: "",
-			expectedChange:  true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -214,10 +213,15 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 	var jwksURI string
 	switch issuer {
 	case defaultServiceAccountIssuerValue:
-		jwksURI = "https://lb.example.com/openid/v1/jwks" // default issuer uses APIServerURL
+		jwksURI = testLBURI // default issuer uses APIServerURL
 		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{jwksURI}
 	case "":
 		jwksURI = ""
+	default:
+		// custom issuer
+		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{
+			issuer + "/openid/v1/jwks",
+		}
 	}
 	return &kubecontrolplanev1.KubeAPIServerConfig{
 		TypeMeta: metav1.TypeMeta{
