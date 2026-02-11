@@ -123,7 +123,7 @@ func TestObservedConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
 			newConfig, errs := observedConfig(
-				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers),
+				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers, tc.expectedJWKSURI),
 				func(_ string) (*operatorv1.KubeAPIServer, error) {
 					return kasStatusForIssuer(tc.issuer, tc.trustedIssuers...), tc.authError
 				},
@@ -141,7 +141,7 @@ func TestObservedConfig(t *testing.T) {
 			if tc.authError == nil && tc.infraError == nil {
 				require.Len(t, errs, 0)
 			}
-			expectedConfig = apiConfigForIssuer(tc.expectedIssuer, tc.expectedTrustedIssuers)
+			expectedConfig = apiConfigForIssuer(tc.expectedIssuer, tc.expectedTrustedIssuers, tc.expectedJWKSURI)
 
 			// Check that errors are passed through
 			if tc.authError != nil {
@@ -164,16 +164,9 @@ func TestObservedConfig(t *testing.T) {
 				},
 			}
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
-
-			// Check that JWKS URI is correctly set
-			uri, ok := unmarshalledConfig.APIServerArguments["service-account-jwks-uri"]
-			if tc.expectedJWKSURI != "" {
-				require.True(t, ok, "expected service-account-jwks-uri to be set")
-				require.Equal(t, kubecontrolplanev1.Arguments{tc.expectedJWKSURI}, uri)
-			} else {
-				require.False(t, ok, "did not expect service-account-jwks-uri to be set")
-			}
-
+			// Build the expected configuration using the parameters from the test table.
+			expectedConfig = apiConfigForIssuer(tc.expectedIssuer, tc.expectedTrustedIssuers, tc.expectedJWKSURI)
+			// Deep comparison of the entire configuration handles the JWKS URI check automatically.
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
 		})
@@ -204,24 +197,16 @@ func kasStatusForIssuer(active string, trustedIssuers ...string) *operatorv1.Kub
 	}
 }
 
-func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplanev1.KubeAPIServerConfig {
+func apiConfigForIssuer(issuer string, trustedIssuers []string, jwksURI string) *kubecontrolplanev1.KubeAPIServerConfig {
 	args := map[string]kubecontrolplanev1.Arguments{
 		"service-account-issuer": append([]string{issuer}, trustedIssuers...),
 		"api-audiences":          append([]string{issuer}, trustedIssuers...),
 	}
-	// Determine JWKS URI dynamically
-	var jwksURI string
-	switch issuer {
-	case defaultServiceAccountIssuerValue:
-		jwksURI = testLBURI // default issuer uses APIServerURL
+	// Only include the JWKS URI if it is non-empty. This ensures that the
+	// service-account-jwks-uri flag is omitted from the configuration
+	// when not required, rather than being passed as an empty string.
+	if jwksURI != "" {
 		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{jwksURI}
-	case "":
-		jwksURI = ""
-	default:
-		// custom issuer
-		args["service-account-jwks-uri"] = kubecontrolplanev1.Arguments{
-			issuer + "/openid/v1/jwks",
-		}
 	}
 	return &kubecontrolplanev1.KubeAPIServerConfig{
 		TypeMeta: metav1.TypeMeta{
@@ -234,8 +219,8 @@ func apiConfigForIssuer(issuer string, trustedIssuers []string) *kubecontrolplan
 // unstructuredAPIConfigForIssuer round-trips through the golang type
 // to ensure the input to the function under test will match what will
 // be received at runtime.
-func unstructuredAPIConfigForIssuer(t *testing.T, issuer string, trustedIssuers []string) map[string]interface{} {
-	config := apiConfigForIssuer(issuer, trustedIssuers)
+func unstructuredAPIConfigForIssuer(t *testing.T, issuer string, trustedIssuers []string, jwksURI string) map[string]interface{} {
+	config := apiConfigForIssuer(issuer, trustedIssuers, jwksURI)
 	// Unmarshaling to unstructured requires explicitly setting kind
 	config.TypeMeta = metav1.TypeMeta{
 		Kind: "KubeAPIServerConfig",
