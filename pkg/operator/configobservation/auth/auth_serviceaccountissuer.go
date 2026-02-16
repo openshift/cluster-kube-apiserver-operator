@@ -125,18 +125,55 @@ func observedConfig(existingConfig map[string]interface{},
 		"api-audiences":          apiServerArgumentValue,
 	}
 
-	// If the issuer is not set in KAS, we rely on the config-overrides.yaml to set both
-	// the issuer and the api-audiences but configure the jwks-uri to point to
-	// the LB so that it does not default to KAS IP which is not included in the serving certs
+	// If the issuer is not set in KAS, we rely on config-overrides.yaml to provide both
+	// the service-account-issuer and api-audiences. In that case, we still configure
+	// service-account-jwks-uri to point at the API server load balancer endpoint so we
+	// don’t fall back to the KAS IP, which is not included in the serving cert SANs.
+	//
+	// The service-account-jwks-uri is configured based on the issuer type:
+	//
+	// Default issuer:
+	//   We set service-account-jwks-uri to the API server load balancer endpoint
+	//   (<apiServerURL>/openid/v1/jwks) so clients don’t fall back to the KAS IP,
+	//   which is not covered by the serving certificate SANs.
+	//
+	// Custom issuer:
+	//   A custom issuer is expected to be an OIDC issuer (a URL). It should fall into
+	//   one of two categories:
+	//
+	//   1) Issuer is the external cluster URL. In this case, the API server already
+	//      serves both the discovery document and public keys at:
+	//        - <issuer>/.well-known/openid-configuration
+	//        - <issuer>/openid/v1/jwks
+	//      This is effectively the same behavior as the default issuer case.
+	//
+	//   2) Issuer is any other URL. In this case, we expect the user to host both the
+	//      OIDC discovery document and JWKS outside of the cluster at:
+	//        - <issuer>/.well-known/openid-configuration
+	//        - <issuer>/openid/v1/jwks
+	//
+	//   Any other JWKS location would require a future enhancement (RFE) and is not
+	//   currently supported.
+
 	if observedActiveIssuer == defaultServiceAccountIssuerValue {
+		// Default issuer → use API LB
 		infrastructureConfig, err := getInfrastructureConfig("cluster")
 		if err != nil {
 			return existingConfig, append(errs, err)
 		}
-		if apiServerExternalURL := infrastructureConfig.Status.APIServerURL; len(apiServerExternalURL) == 0 {
+
+		apiServerExternalURL := infrastructureConfig.Status.APIServerURL
+		if len(apiServerExternalURL) == 0 {
 			return existingConfig, append(errs, fmt.Errorf("APIServerURL missing from infrastructure/cluster"))
-		} else {
-			apiServerArguments["service-account-jwks-uri"] = []interface{}{apiServerExternalURL + "/openid/v1/jwks"}
+		}
+
+		apiServerArguments["service-account-jwks-uri"] = []interface{}{
+			apiServerExternalURL + "/openid/v1/jwks",
+		}
+	} else {
+		// Custom issuer → assume OIDC-style issuer
+		apiServerArguments["service-account-jwks-uri"] = []interface{}{
+			observedActiveIssuer + "/openid/v1/jwks",
 		}
 	}
 
