@@ -7,6 +7,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -15,7 +17,7 @@ const (
 	kmsPluginSocketPath    = "/var/run/kmsplugin"
 )
 
-func addKMSPluginSidecar(podSpec *corev1.PodSpec, kmsPluginImage string, featureGateAccessor featuregates.FeatureGateAccess) error {
+func addKMSPluginSidecar(podSpec *corev1.PodSpec, kmsPluginImage string, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, targetNamespace string) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -37,6 +39,12 @@ func addKMSPluginSidecar(podSpec *corev1.PodSpec, kmsPluginImage string, feature
 		if container.Name == kmsPluginContainerName {
 			return nil
 		}
+	}
+
+	_, err = secretLister.Secrets(targetNamespace).Get("quay-pull-secret-for-kms")
+	if err != nil {
+		klog.Warning("kms is disabled: could not find get secret with quay creds: %v", err)
+		return nil
 	}
 
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
