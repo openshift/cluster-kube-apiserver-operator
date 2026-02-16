@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	kmsPluginContainerName = "kms-plugin"
-	kmsPluginSocketVolume  = "kms-plugin-socket"
-	kmsPluginSocketPath    = "/var/run/kmsplugin"
+	kmsPluginContainerName  = "kms-plugin"
+	kmsPluginSocketPath     = "/var/run/kmsplugin"
+	vaultKMSCredentialsName = "vault-kms-credentials"
+	quayPullSecretName      = "quay-pull-secret"
 )
 
 func addKMSPluginSidecar(podSpec *corev1.PodSpec, kmsPluginImage string, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, targetNamespace string) error {
@@ -41,35 +42,103 @@ func addKMSPluginSidecar(podSpec *corev1.PodSpec, kmsPluginImage string, feature
 		}
 	}
 
-	_, err = secretLister.Secrets(targetNamespace).Get("quay-pull-secret-for-kms")
+	_, err = secretLister.Secrets(targetNamespace).Get(vaultKMSCredentialsName)
 	if err != nil {
-		klog.Warning("kms is disabled: could not find get secret with quay creds: %v", err)
+		klog.Warningf("kms is disabled: could not find vault-kms-credentials secret: %v", err)
 		return nil
 	}
+
+	_, err = secretLister.Secrets(targetNamespace).Get(quayPullSecretName)
+	if err != nil {
+		klog.Warningf("kms is disabled: could not find quay-pull-secret secret: %v", err)
+		return nil
+	}
+
+	// For Vault KMS plugin image pull authentication
+	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets, corev1.LocalObjectReference{Name: quayPullSecretName})
 
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:            kmsPluginContainerName,
 		Image:           kmsPluginImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"/kms-plugin"},
+		ImagePullPolicy: corev1.PullAlways,
+		Command:         []string{"/bin/sh", "-c"},
 		Args: []string{
-			"--socket=" + kmsPluginSocketPath + "/kms.sock",
+			`echo "$VAULT_SECRET_ID" > /tmp/secret-id
+exec /vault-kube-kms \
+  -listen-address=unix://` + kmsPluginSocketPath + `/kms.sock \
+  -vault-address=$VAULT_ADDR \
+  -vault-namespace=$VAULT_NAMESPACE \
+  -transit-mount=transit \
+  -transit-key=$VAULT_KEY_NAME \
+  -log-level=debug-extended \
+  -approle-role-id=$VAULT_ROLE_ID \
+  -approle-secret-id-path=/tmp/secret-id`,
 		},
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Env: []corev1.EnvVar{
+			{
+				Name: "VAULT_ROLE_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: vaultKMSCredentialsName},
+						Key:                  "VAULT_ROLE_ID",
+					},
+				},
+			},
+			{
+				Name: "VAULT_SECRET_ID",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: vaultKMSCredentialsName},
+						Key:                  "VAULT_SECRET_ID",
+					},
+				},
+			},
+			{
+				Name: "VAULT_ADDR",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: vaultKMSCredentialsName},
+						Key:                  "VAULT_ADDR",
+					},
+				},
+			},
+			{
+				Name: "VAULT_NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: vaultKMSCredentialsName},
+						Key:                  "VAULT_NAMESPACE",
+					},
+				},
+			},
+			{
+				Name: "VAULT_KEY_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: vaultKMSCredentialsName},
+						Key:                  "VAULT_KEY_NAME",
+					},
+				},
+			},
+		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      kmsPluginSocketVolume,
+				Name:      "kms-plugin-socket",
 				MountPath: kmsPluginSocketPath,
 			},
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("50Mi"),
-				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			ReadOnlyRootFilesystem: ptrBool(true),
+			Privileged: ptrBool(true),
 		},
 	})
 
