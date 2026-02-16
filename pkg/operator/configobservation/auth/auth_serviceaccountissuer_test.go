@@ -31,6 +31,7 @@ func TestObservedConfig(t *testing.T) {
 		issuer                 string
 		trustedIssuers         []string
 		existingIssuer         string
+		existingJWKSURI        string
 		authError              error
 		infraError             error
 		expectedIssuer         string
@@ -41,6 +42,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "no issuer, no previous issuer means we default",
 			existingIssuer:  "",
+			existingJWKSURI: "",
 			issuer:          defaultServiceAccountIssuerValue,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
 			expectedJWKSURI: testLBURI,
@@ -48,6 +50,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "no issuer, previous issuer",
 			existingIssuer:  "https://example.com",
+			existingJWKSURI: "",
 			issuer:          defaultServiceAccountIssuerValue,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
 			expectedJWKSURI: testLBURI,
@@ -56,6 +59,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "issuer set, no previous issuer",
 			existingIssuer:  "",
+			existingJWKSURI: "",
 			issuer:          "https://example.com",
 			expectedIssuer:  "https://example.com",
 			expectedJWKSURI: "https://example.com/openid/v1/jwks",
@@ -64,6 +68,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:                   "previous issuer was default, new is custom value",
 			existingIssuer:         defaultServiceAccountIssuerValue,
+			existingJWKSURI:        testLBURI,
 			issuer:                 "https://example.com",
 			expectedIssuer:         "https://example.com",
 			trustedIssuers:         []string{defaultServiceAccountIssuerValue},
@@ -74,6 +79,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "issuer set, previous issuer same",
 			existingIssuer:  "https://example.com",
+			existingJWKSURI: "https://example.com/openid/v1/jwks",
 			issuer:          "https://example.com",
 			expectedIssuer:  "https://example.com",
 			expectedJWKSURI: "https://example.com/openid/v1/jwks",
@@ -81,6 +87,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:                   "issuer set, previous issuer and trusted issuers same",
 			existingIssuer:         "https://example.com",
+			existingJWKSURI:        "https://example.com/openid/v1/jwks",
 			issuer:                 "https://example.com",
 			trustedIssuers:         []string{"https://trusted.example.com"},
 			expectedIssuer:         "https://example.com",
@@ -90,6 +97,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "issuer set, previous issuer different",
 			existingIssuer:  "https://example.com",
+			existingJWKSURI: "https://example.com/openid/v1/jwks",
 			issuer:          "https://example2.com",
 			expectedIssuer:  "https://example2.com",
 			expectedJWKSURI: "https://example2.com/openid/v1/jwks",
@@ -98,6 +106,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "auth getter error",
 			existingIssuer:  "https://example2.com",
+			existingJWKSURI: "https://example2.com/openid/v1/jwks",
 			issuer:          "https://example.com",
 			authError:       expectedErrAuth,
 			expectedIssuer:  "https://example2.com",
@@ -106,6 +115,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "infra getter error",
 			existingIssuer:  defaultServiceAccountIssuerValue,
+			existingJWKSURI: testLBURI,
 			issuer:          defaultServiceAccountIssuerValue,
 			infraError:      expectedErrInfra,
 			expectedIssuer:  defaultServiceAccountIssuerValue,
@@ -114,6 +124,7 @@ func TestObservedConfig(t *testing.T) {
 		{
 			name:            "default issuer, no previous issuer, infra getter error",
 			existingIssuer:  "",
+			existingJWKSURI: "",
 			issuer:          defaultServiceAccountIssuerValue,
 			expectedIssuer:  "",
 			infraError:      expectedErrInfra,
@@ -123,7 +134,7 @@ func TestObservedConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testRecorder := events.NewInMemoryRecorder("SAIssuerTest", clock.RealClock{})
 			newConfig, errs := observedConfig(
-				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers, tc.expectedJWKSURI),
+				unstructuredAPIConfigForIssuer(t, tc.existingIssuer, tc.trustedIssuers, tc.existingJWKSURI),
 				func(_ string) (*operatorv1.KubeAPIServer, error) {
 					return kasStatusForIssuer(tc.issuer, tc.trustedIssuers...), tc.authError
 				},
@@ -164,8 +175,6 @@ func TestObservedConfig(t *testing.T) {
 				},
 			}
 			require.NoError(t, json.Unmarshal(jsonConfig, unmarshalledConfig))
-			// Build the expected configuration using the parameters from the test table.
-			expectedConfig = apiConfigForIssuer(tc.expectedIssuer, tc.expectedTrustedIssuers, tc.expectedJWKSURI)
 			// Deep comparison of the entire configuration handles the JWKS URI check automatically.
 			require.Equal(t, expectedConfig, unmarshalledConfig, cmp.Diff(expectedConfig, unmarshalledConfig))
 			require.True(t, tc.expectedChange == (len(testRecorder.Events()) > 0))
