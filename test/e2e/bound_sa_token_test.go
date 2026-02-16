@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ import (
 
 	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
+	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -37,31 +40,25 @@ func TestBoundTokenSignerController(t *testing.T) {
 	require.NoError(t, err)
 	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
 	require.NoError(t, err)
+	configClient, err := configclient.NewForConfig(kubeConfig)
+	require.NoError(t, err)
 	operatorClient, err := operatorv1client.NewForConfig(kubeConfig)
 	require.NoError(t, err)
 
 	targetNamespace := operatorclient.TargetNamespace
 	operatorNamespace := operatorclient.OperatorNamespace
 
-	// Helper to get current revision from KubeAPIServer status
-	getCurrentRevision := func() (int32, error) {
+	// Helper to log current revision info
+	logRevisionInfo := func(label string) {
 		kas, err := operatorClient.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
 		if err != nil {
-			return 0, err
+			t.Logf("[%s] Error getting KubeAPIServer: %v", label, err)
+			return
 		}
-		var maxRevision int32
 		for _, ns := range kas.Status.NodeStatuses {
-			if ns.CurrentRevision > maxRevision {
-				maxRevision = ns.CurrentRevision
-			}
+			t.Logf("[%s] Node %s: CurrentRevision=%d, TargetRevision=%d", label, ns.NodeName, ns.CurrentRevision, ns.TargetRevision)
 		}
-		return maxRevision, nil
 	}
-
-	// Log initial revision
-	initialRevision, err := getCurrentRevision()
-	require.NoError(t, err)
-	t.Logf("REVISION DEBUG: Initial revision before any tests: %d", initialRevision)
 
 	// Retrieve the operator secret. The values in the secret and config map in the
 	// operand namespace should match the values in the operator secret.
@@ -72,83 +69,80 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		revisionBefore, _ := getCurrentRevision()
-		t.Logf("REVISION DEBUG: [operand-secret-deletion] Revision BEFORE: %d", revisionBefore)
-
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
-
-		revisionAfter, _ := getCurrentRevision()
-		t.Logf("REVISION DEBUG: [operand-secret-deletion] Revision AFTER: %d (delta: %d)", revisionAfter, revisionAfter-revisionBefore)
 	})
 
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		revisionBefore, _ := getCurrentRevision()
-		t.Logf("REVISION DEBUG: [configmap-deletion] Revision BEFORE: %d", revisionBefore)
-
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
 		})
-
-		t.Logf("REVISION DEBUG: [configmap-deletion] Revision after configmap recreated (before wait): %d", func() int32 { r, _ := getCurrentRevision(); return r }())
-		revisionAfter, _ := getCurrentRevision()
-		t.Logf("REVISION DEBUG: [configmap-deletion] Revision AFTER stabilization: %d (delta: %d)", revisionAfter, revisionAfter-revisionBefore)
 	})
 
 	// The secret in the operator namespace should be recreated with a new keypair
 	// after deletion. The configmap in the operand namespace should be updated
 	// immediately, and the secret once the configmap is present on all nodes.
 	//
-	// Note: it will roll out a new version - potentially multiple times
+	// Note: it will roll out a new version
 	t.Run("operator-secret-deletion", func(t *testing.T) {
-		revisionBefore, _ := getCurrentRevision()
-		t.Logf("REVISION DEBUG: [operator-secret-deletion] Revision BEFORE: %d", revisionBefore)
+		logRevisionInfo("BEFORE_SECRET_DELETE")
 
 		// Delete the operator secret
+		t.Log(">>> Deleting operator secret...")
 		err := kubeClient.Secrets(operatorNamespace).Delete(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
+		t.Log(">>> Operator secret deleted")
 
-		t.Logf("REVISION DEBUG: [operator-secret-deletion] After secret delete, revision: %d", func() int32 { r, _ := getCurrentRevision(); return r }())
+		logRevisionInfo("AFTER_SECRET_DELETE")
 
 		// deletion triggers a roll-out - wait until a new version has been rolled out
+		t.Log(">>> Starting WaitForAPIServerToStabilizeOnTheSameRevision (after secret deletion)...")
 		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+		t.Log(">>> WaitForAPIServerToStabilizeOnTheSameRevision completed (after secret deletion)")
 
-		t.Logf("REVISION DEBUG: [operator-secret-deletion] After WaitForAPIServerToStabilizeOnTheSameRevision, revision: %d", func() int32 { r, _ := getCurrentRevision(); return r }())
-
-		// Wait for ALL nodes to reach the same revision
-		t.Log("REVISION DEBUG: [operator-secret-deletion] Waiting for all nodes to reach same revision...")
-		waitForAllNodesToReachSameRevision(t, operatorClient)
-
-		t.Logf("REVISION DEBUG: [operator-secret-deletion] After full first stabilization, revision: %d", func() int32 { r, _ := getCurrentRevision(); return r }())
+		logRevisionInfo("AFTER_FIRST_STABILIZATION")
 
 		// Ensure that the cert configmap is always removed at the end of the test
 		// to ensure it will contain only the current public key. This property is
 		// essential to allowing repeated invocations of the containing test.
 		defer func() {
-			t.Logf("REVISION DEBUG: [operator-secret-deletion] DEFER: Before configmap delete, revision: %d", func() int32 { r, _ := getCurrentRevision(); return r }())
+			logRevisionInfo("DEFER_BEFORE_CONFIGMAP_DELETE")
 
+			t.Log(">>> DEFER: Deleting cert configmap...")
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 			require.NoError(t, err)
+			t.Log(">>> DEFER: Cert configmap deleted")
 
-			t.Logf("REVISION DEBUG: [operator-secret-deletion] DEFER: After configmap delete, revision: %d", func() int32 { r, _ := getCurrentRevision(); return r }())
+			logRevisionInfo("DEFER_AFTER_CONFIGMAP_DELETE")
 
 			// Cleanup deletion also triggers a rollout - wait for stabilization
+			t.Log(">>> DEFER: Starting first WaitForAPIServerToStabilizeOnTheSameRevision...")
 			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+			t.Log(">>> DEFER: First WaitForAPIServerToStabilizeOnTheSameRevision completed")
 
-			revisionAfterDefer, _ := getCurrentRevision()
-			t.Logf("REVISION DEBUG: [operator-secret-deletion] DEFER: After WaitForAPIServerToStabilizeOnTheSameRevision, revision: %d", revisionAfterDefer)
+			// Cleanup deletion also triggers a rollout - wait for stabilization
+			t.Log(">>> DEFER: Starting first WaitForAPIServerToStabilizeOnTheSameRevision...")
+			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+			t.Log(">>> DEFER: First WaitForAPIServerToStabilizeOnTheSameRevision completed")
 
-			// Wait for ALL nodes to reach the same revision (cluster operator to stop progressing)
-			t.Log("REVISION DEBUG: [operator-secret-deletion] DEFER: Waiting for cluster operator to stop progressing...")
-			waitForAllNodesToReachSameRevision(t, operatorClient)
+			// Cleanup deletion also triggers a rollout - wait for stabilization
+			t.Log(">>> DEFER: Starting first WaitForAPIServerToStabilizeOnTheSameRevision...")
+			testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+			t.Log(">>> DEFER: First WaitForAPIServerToStabilizeOnTheSameRevision completed")
 
-			finalRevision, _ := getCurrentRevision()
-			t.Logf("REVISION DEBUG: [operator-secret-deletion] DEFER: After full stabilization, revision: %d (total delta from start: %d)", finalRevision, finalRevision-revisionBefore)
+			logRevisionInfo("DEFER_AFTER_FIRST_POD_STABILIZATION")
+
+			// Wait for cluster operator to fully settle
+			t.Log(">>> DEFER: Starting waitForClusterOperatorStable...")
+			waitForClusterOperatorStable(t, configClient, operatorClient)
+			t.Log(">>> DEFER: waitForClusterOperatorStable completed")
+
+			logRevisionInfo("DEFER_FINAL_STATE")
 		}()
 
 		// Wait for secret to be recreated with a new keypair
@@ -226,47 +220,6 @@ func checkCertConfigMap(t *testing.T, kubeClient *clientcorev1.CoreV1Client, exp
 	require.NoError(t, err)
 }
 
-// waitForAllNodesToReachSameRevision waits until all nodes have the same current revision.
-// This ensures the rollout is complete across all control plane nodes.
-func waitForAllNodesToReachSameRevision(t *testing.T, operatorClient *operatorv1client.OperatorV1Client) {
-	err := wait.PollImmediate(5*time.Second, 20*time.Minute, func() (done bool, err error) {
-		kas, err := operatorClient.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
-		if err != nil {
-			t.Logf("error getting KubeAPIServer: %v", err)
-			return false, nil
-		}
-
-		if len(kas.Status.NodeStatuses) == 0 {
-			t.Log("no node statuses found")
-			return false, nil
-		}
-
-		// Check if all nodes have the same current revision
-		firstRevision := kas.Status.NodeStatuses[0].CurrentRevision
-		allSame := true
-		for _, ns := range kas.Status.NodeStatuses {
-			if ns.CurrentRevision != firstRevision {
-				allSame = false
-				t.Logf("nodes not yet on same revision: node %s at revision %d (expected %d)", ns.NodeName, ns.CurrentRevision, firstRevision)
-				break
-			}
-			// Also check target revision matches current (no pending rollout)
-			if ns.TargetRevision != 0 && ns.TargetRevision != ns.CurrentRevision {
-				allSame = false
-				t.Logf("node %s has pending rollout: current=%d, target=%d", ns.NodeName, ns.CurrentRevision, ns.TargetRevision)
-				break
-			}
-		}
-
-		if allSame {
-			t.Logf("all %d nodes are at revision %d", len(kas.Status.NodeStatuses), firstRevision)
-			return true, nil
-		}
-		return false, nil
-	})
-	require.NoError(t, err, "timed out waiting for all nodes to reach the same revision")
-}
-
 // TestTokenRequestAndReview checks that bound sa tokens are correctly
 // configured. A token is requested via the TokenRequest API and
 // validated via the TokenReview API.
@@ -278,4 +231,99 @@ func waitForAllNodesToReachSameRevision(t *testing.T, operatorClient *operatorv1
 // Eventually all tests will be run only as part of the OTE framework.
 func TestTokenRequestAndReview(t *testing.T) {
 	testTokenRequestAndReview(t)
+}
+
+// waitForClusterOperatorStable waits until the kube-apiserver cluster operator
+// is Available=True, Progressing=False, and Degraded=False.
+// This ensures the operator has fully settled after any rollouts.
+func waitForClusterOperatorStable(t *testing.T, configClient *configclient.ConfigV1Client, operatorClient *operatorv1client.OperatorV1Client) {
+	t.Log("Waiting for kube-apiserver cluster operator to be stable...")
+
+	pollCount := 0
+	err := wait.PollImmediate(5*time.Second, 15*time.Minute, func() (done bool, err error) {
+		pollCount++
+
+		co, err := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
+		if err != nil {
+			t.Logf("[Poll #%d] Error getting ClusterOperator: %v", pollCount, err)
+			return false, nil
+		}
+
+		available := false
+		progressing := true
+		degraded := true
+		var progressingMsg, degradedMsg string
+
+		for _, cond := range co.Status.Conditions {
+			switch cond.Type {
+			case configv1.OperatorAvailable:
+				available = cond.Status == configv1.ConditionTrue
+			case configv1.OperatorProgressing:
+				progressing = cond.Status == configv1.ConditionTrue
+				progressingMsg = cond.Message
+			case configv1.OperatorDegraded:
+				degraded = cond.Status == configv1.ConditionTrue
+				degradedMsg = cond.Message
+			}
+		}
+
+		// Log every poll with detailed info
+		t.Logf("[Poll #%d] ClusterOperator: Available=%v, Progressing=%v, Degraded=%v", pollCount, available, progressing, degraded)
+
+		if progressing && progressingMsg != "" {
+			// Truncate long messages
+			msg := progressingMsg
+			if len(msg) > 300 {
+				msg = msg[:300] + "..."
+			}
+			t.Logf("[Poll #%d] Progressing reason: %s", pollCount, msg)
+		}
+
+		if degraded && degradedMsg != "" {
+			msg := degradedMsg
+			if len(msg) > 300 {
+				msg = msg[:300] + "..."
+			}
+			t.Logf("[Poll #%d] Degraded reason: %s", pollCount, msg)
+		}
+
+		// Also log current revision info when progressing
+		if progressing {
+			kas, err := operatorClient.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
+			if err == nil {
+				for _, ns := range kas.Status.NodeStatuses {
+					t.Logf("[Poll #%d] Node %s: CurrentRevision=%d, TargetRevision=%d", pollCount, ns.NodeName, ns.CurrentRevision, ns.TargetRevision)
+				}
+			}
+		}
+
+		if available && !progressing && !degraded {
+			t.Logf("[Poll #%d] Cluster operator is stable: Available=True, Progressing=False, Degraded=False", pollCount)
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	if err != nil {
+		// On timeout, dump final state for debugging
+		t.Log("=== TIMEOUT DEBUG INFO ===")
+		co, coErr := configClient.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
+		if coErr == nil {
+			for _, cond := range co.Status.Conditions {
+				t.Logf("ClusterOperator condition: Type=%s, Status=%s, Reason=%s, Message=%s",
+					cond.Type, cond.Status, cond.Reason, cond.Message)
+			}
+		}
+		kas, kasErr := operatorClient.KubeAPIServers().Get(context.TODO(), "cluster", metav1.GetOptions{})
+		if kasErr == nil {
+			for _, ns := range kas.Status.NodeStatuses {
+				t.Logf("KubeAPIServer NodeStatus: Node=%s, CurrentRevision=%d, TargetRevision=%d, LastFailedRevision=%d, LastFailedReason=%s",
+					ns.NodeName, ns.CurrentRevision, ns.TargetRevision, ns.LastFailedRevision, ns.LastFailedReason)
+			}
+		}
+		t.Log("=== END TIMEOUT DEBUG INFO ===")
+	}
+
+	require.NoError(t, err, fmt.Sprintf("timed out after %d polls waiting for cluster operator to be stable", pollCount))
 }
