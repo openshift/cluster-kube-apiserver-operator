@@ -1,0 +1,3 @@
+testing: invalid regexp for alternation 1 of element 0 of -test.bench ("Server\\)\\E$"): error parsing regexp: invalid escape sequence: `\E`
+exit status 1
+FAIL	github.com/openshift/library-go/pkg/crypto	0.259s
