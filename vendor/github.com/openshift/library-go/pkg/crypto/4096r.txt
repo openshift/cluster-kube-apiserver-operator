@@ -1,0 +1,16 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/openshift/library-go/pkg/crypto
+cpu: Apple M4 Pro
+BenchmarkBuildCA-14    	       5	 450941467 ns/op
+BenchmarkBuildCA-14    	       5	 231918942 ns/op
+BenchmarkBuildCA-14    	       4	 351779885 ns/op
+BenchmarkBuildCA-14    	       1	1395413083 ns/op
+BenchmarkBuildCA-14    	       2	 745211500 ns/op
+BenchmarkBuildCA-14    	       3	 541999722 ns/op
+BenchmarkBuildCA-14    	       3	 769572181 ns/op
+BenchmarkBuildCA-14    	       3	 464260056 ns/op
+BenchmarkBuildCA-14    	       3	 512623361 ns/op
+BenchmarkBuildCA-14    	       2	 511022542 ns/op
+PASS
+ok  	github.com/openshift/library-go/pkg/crypto	15.852s
