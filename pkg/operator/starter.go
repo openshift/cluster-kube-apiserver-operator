@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -373,7 +374,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		versionRecorder,
 		controllerContext.EventRecorder,
 		controllerContext.Clock,
-	)
+	).WithDegradedInertia(status.MustNewInertia(
+		2*time.Minute, // 2m is the default on the StatusController as well
+		status.InertiaCondition{
+			// to avoid degrading the operator on static pod rollouts, we give the NodeController more time
+			ConditionTypeMatcher: regexp.MustCompile("^NodeControllerDegraded$"),
+			Duration:             3 * time.Minute,
+		},
+	).Inertia)
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
