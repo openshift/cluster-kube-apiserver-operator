@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -373,7 +374,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		versionRecorder,
 		controllerContext.EventRecorder,
 		controllerContext.Clock,
-	)
+	).WithDegradedInertia(status.MustNewInertia(
+		2*time.Minute,
+		status.InertiaCondition{
+			// we give the node controller a 10m grace period before reporting degraded (e.g. to account for reboots)
+			ConditionTypeMatcher: regexp.MustCompile("NodeControllerDegraded"),
+			Duration:             10 * time.Minute,
+		},
+	).Inertia)
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
