@@ -17,6 +17,7 @@ import (
 
 	tokenctl "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/boundsatokensignercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/test/library"
 	testlibrary "github.com/openshift/library-go/test/library"
 	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
@@ -50,7 +51,6 @@ func TestBoundTokenSignerController(t *testing.T) {
 
 	// The operand secret should be recreated after deletion.
 	t.Run("operand-secret-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.Secrets(targetNamespace).Delete(context.TODO(), tokenctl.SigningKeySecretName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkBoundTokenOperandSecret(t, kubeClient, regularTimeout, operatorSecret.Data)
@@ -59,15 +59,11 @@ func TestBoundTokenSignerController(t *testing.T) {
 	// The operand config map should be recreated after deletion.
 	// Note: it will roll out a new version
 	t.Run("configmap-deletion", func(t *testing.T) {
-		t.Skip()
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
 		require.NoError(t, err)
 		checkCertConfigMap(t, kubeClient, map[string]string{
 			"service-account-001.pub": string(operatorPublicKey),
 		})
-
-		// deletion triggers a roll-out - wait until a new version has been rolled out
-		testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
 	})
 
 	// The secret in the operator namespace should be recreated with a new keypair
@@ -89,6 +85,17 @@ func TestBoundTokenSignerController(t *testing.T) {
 		// essential to allowing repeated invocations of the containing test.
 		defer func() {
 			err := kubeClient.ConfigMaps(targetNamespace).Delete(context.TODO(), tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
+			require.NoError(t, err)
+
+			// Use a higher success threshold (8 instead of 6) to ensure pods stay stable
+			// for 8 minutes, which accounts for delayed rollouts that may be triggered.
+			const (
+				extendedSuccessThreshold = 8
+				successInterval          = 1 * time.Minute
+				pollInterval             = 30 * time.Second
+				timeout                  = 22 * time.Minute
+			)
+			err = library.WaitForPodsToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace), "apiserver=true", extendedSuccessThreshold, successInterval, pollInterval, timeout)
 			require.NoError(t, err)
 		}()
 
