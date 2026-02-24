@@ -2,12 +2,10 @@ package certsyncpod
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 
-	"github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -19,11 +17,9 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer"
-	"github.com/openshift/library-go/pkg/operator/staticpod/internal/atomicdir"
 )
-
-const stagingDirUID = "cert-sync"
 
 type CertSyncController struct {
 	destinationDir string
@@ -31,7 +27,7 @@ type CertSyncController struct {
 	configMaps     []installer.UnrevisionedResource
 	secrets        []installer.UnrevisionedResource
 
-	configMapGetter corev1interface.ConfigMapInterface
+	configmapGetter corev1interface.ConfigMapInterface
 	configMapLister v1.ConfigMapLister
 	secretGetter    corev1interface.SecretInterface
 	secretLister    v1.SecretLister
@@ -46,10 +42,10 @@ func NewCertSyncController(targetDir, targetNamespace string, configmaps, secret
 		secrets:        secrets,
 		eventRecorder:  eventRecorder.WithComponentSuffix("cert-sync-controller"),
 
-		configMapGetter: kubeClient.CoreV1().ConfigMaps(targetNamespace),
+		configmapGetter: kubeClient.CoreV1().ConfigMaps(targetNamespace),
 		configMapLister: informers.Core().V1().ConfigMaps().Lister(),
-		secretGetter:    kubeClient.CoreV1().Secrets(targetNamespace),
 		secretLister:    informers.Core().V1().Secrets().Lister(),
+		secretGetter:    kubeClient.CoreV1().Secrets(targetNamespace),
 	}
 
 	return factory.New().
@@ -64,12 +60,15 @@ func NewCertSyncController(targetDir, targetNamespace string, configmaps, secret
 		)
 }
 
-func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
-	if err := os.RemoveAll(getStagingDir(c.destinationDir)); err != nil {
-		c.eventRecorder.Warningf("CertificateUpdateFailed", fmt.Sprintf("Failed to prune staging directory: %v", err))
-		return err
-	}
+func getConfigMapDir(targetDir, configMapName string) string {
+	return filepath.Join(targetDir, "configmaps", configMapName)
+}
 
+func getSecretDir(targetDir, secretName string) string {
+	return filepath.Join(targetDir, "secrets", secretName)
+}
+
+func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	errors := []error{}
 
 	klog.Infof("Syncing configmaps: %v", c.configMaps)
@@ -81,7 +80,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 
 		case apierrors.IsNotFound(err) && cm.Optional:
-			configMapFile := getConfigMapTargetDir(c.destinationDir, cm.Name)
+			configMapFile := getConfigMapDir(c.destinationDir, cm.Name)
 			if _, err := os.Stat(configMapFile); os.IsNotExist(err) {
 				// if the configmap file does not exist, there is no work to do, so skip making any live check and just return.
 				// if the configmap actually exists in the API, we'll eventually see it on the watch.
@@ -89,7 +88,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			}
 
 			// Check with the live call it is really missing
-			configMap, err = c.configMapGetter.Get(ctx, cm.Name, metav1.GetOptions{})
+			configMap, err = c.configmapGetter.Get(ctx, cm.Name, metav1.GetOptions{})
 			if err == nil {
 				klog.Infof("Caches are stale. They don't see configmap '%s/%s', yet it is present", configMap.Namespace, configMap.Name)
 				// We will get re-queued when we observe the change
@@ -114,10 +113,9 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		contentDir := getConfigMapTargetDir(c.destinationDir, cm.Name)
-		stagingDir := getConfigMapStagingDir(c.destinationDir, cm.Name)
+		contentDir := getConfigMapDir(c.destinationDir, cm.Name)
 
-		data := make(map[string]string, len(configMap.Data))
+		data := map[string]string{}
 		for filename := range configMap.Data {
 			fullFilename := filepath.Join(contentDir, filename)
 
@@ -140,7 +138,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 		klog.V(2).Infof("Syncing updated configmap '%s/%s'.", configMap.Namespace, configMap.Name)
 
 		// We need to do a live get here so we don't overwrite a newer file with one from a stale cache
-		configMap, err = c.configMapGetter.Get(ctx, configMap.Name, metav1.GetOptions{})
+		configMap, err = c.configmapGetter.Get(ctx, configMap.Name, metav1.GetOptions{})
 		if err != nil {
 			// Even if the error is not exists we will act on it when caches catch up
 			c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed getting configmap: %s/%s: %v", c.namespace, cm.Name, err)
@@ -154,11 +152,27 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		files := make(map[string][]byte, len(configMap.Data))
-		for k, v := range configMap.Data {
-			files[k] = []byte(v)
+		klog.Infof("Creating directory %q ...", contentDir)
+		if err := os.MkdirAll(contentDir, 0755); err != nil && !os.IsExist(err) {
+			c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed creating directory for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
+			errors = append(errors, err)
+			continue
 		}
-		errors = append(errors, syncDirectory(c.eventRecorder, "configmap", configMap.ObjectMeta, contentDir, 0755, stagingDir, files, 0644))
+		for filename, content := range configMap.Data {
+			fullFilename := filepath.Join(contentDir, filename)
+			// if the existing is the same, do nothing
+			if reflect.DeepEqual(data[fullFilename], content) {
+				continue
+			}
+
+			klog.Infof("Writing configmap manifest %q ...", fullFilename)
+			if err := staticpod.WriteFileAtomic([]byte(content), 0644, fullFilename); err != nil {
+				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for configmap: %s/%s: %v", configMap.Namespace, configMap.Name, err)
+				errors = append(errors, err)
+				continue
+			}
+		}
+		c.eventRecorder.Eventf("CertificateUpdated", "Wrote updated configmap: %s/%s", configMap.Namespace, configMap.Name)
 	}
 
 	klog.Infof("Syncing secrets: %v", c.secrets)
@@ -170,7 +184,7 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 
 		case apierrors.IsNotFound(err) && s.Optional:
-			secretFile := getSecretTargetDir(c.destinationDir, s.Name)
+			secretFile := getSecretDir(c.destinationDir, s.Name)
 			if _, err := os.Stat(secretFile); os.IsNotExist(err) {
 				// if the secret file does not exist, there is no work to do, so skip making any live check and just return.
 				// if the secret actually exists in the API, we'll eventually see it on the watch.
@@ -204,10 +218,9 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		contentDir := getSecretTargetDir(c.destinationDir, s.Name)
-		stagingDir := getSecretStagingDir(c.destinationDir, s.Name)
+		contentDir := getSecretDir(c.destinationDir, s.Name)
 
-		data := make(map[string][]byte, len(secret.Data))
+		data := map[string][]byte{}
 		for filename := range secret.Data {
 			fullFilename := filepath.Join(contentDir, filename)
 
@@ -244,50 +257,29 @@ func (c *CertSyncController) sync(ctx context.Context, syncCtx factory.SyncConte
 			continue
 		}
 
-		errors = append(errors, syncDirectory(c.eventRecorder, "secret", secret.ObjectMeta, contentDir, 0755, stagingDir, secret.Data, 0600))
-	}
-	return utilerrors.NewAggregate(errors)
-}
-
-func syncDirectory(
-	eventRecorder events.Recorder,
-	typeName string, o metav1.ObjectMeta,
-	targetDir string, targetDirPerm os.FileMode, stagingDir string,
-	fileContents map[string][]byte, filePerm os.FileMode,
-) error {
-	files := make(map[string]types.File, len(fileContents))
-	for filename, content := range fileContents {
-		files[filename] = types.File{
-			Content: content,
-			Perm:    filePerm,
+		klog.Infof("Creating directory %q ...", contentDir)
+		if err := os.MkdirAll(contentDir, 0755); err != nil && !os.IsExist(err) {
+			c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed creating directory for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
+			errors = append(errors, err)
+			continue
 		}
+		for filename, content := range secret.Data {
+			// TODO fix permissions
+			fullFilename := filepath.Join(contentDir, filename)
+			// if the existing is the same, do nothing
+			if reflect.DeepEqual(data[fullFilename], content) {
+				continue
+			}
+
+			klog.Infof("Writing secret manifest %q ...", fullFilename)
+			if err := staticpod.WriteFileAtomic(content, 0600, fullFilename); err != nil {
+				c.eventRecorder.Warningf("CertificateUpdateFailed", "Failed writing file for secret: %s/%s: %v", secret.Namespace, secret.Name, err)
+				errors = append(errors, err)
+				continue
+			}
+		}
+		c.eventRecorder.Eventf("CertificateUpdated", "Wrote updated secret: %s/%s", secret.Namespace, secret.Name)
 	}
 
-	if err := atomicdir.Sync(targetDir, targetDirPerm, stagingDir, files); err != nil {
-		err = fmt.Errorf("failed to sync %s %s/%s (directory %q): %w", typeName, o.Name, o.Namespace, targetDir, err)
-		eventRecorder.Warning("CertificateUpdateFailed", err.Error())
-		return err
-	}
-	eventRecorder.Eventf("CertificateUpdated", "Wrote updated %s: %s/%s", typeName, o.Namespace, o.Name)
-	return nil
-}
-
-func getStagingDir(targetDir string) string {
-	return filepath.Join(targetDir, "staging", stagingDirUID)
-}
-
-func getConfigMapTargetDir(targetDir, configMapName string) string {
-	return filepath.Join(targetDir, "configmaps", configMapName)
-}
-
-func getConfigMapStagingDir(targetDir, configMapName string) string {
-	return filepath.Join(getStagingDir(targetDir), "configmaps", configMapName)
-}
-
-func getSecretTargetDir(targetDir, secretName string) string {
-	return filepath.Join(targetDir, "secrets", secretName)
-}
-
-func getSecretStagingDir(targetDir, secretName string) string {
-	return filepath.Join(getStagingDir(targetDir), "secrets", secretName)
+	return utilerrors.NewAggregate(errors)
 }
