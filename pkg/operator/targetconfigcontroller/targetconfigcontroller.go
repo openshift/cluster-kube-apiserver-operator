@@ -22,7 +22,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -331,13 +330,13 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec, "kube-apiserver", featureGateAccessor); err != nil {
+	if err := addKMSPluginVolumeAndMountToPodSpec(&required.Spec, "kube-apiserver"); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
 	}
 
-	// TODO: placeholder
-	kmsPluginImage := "quay.io/rhn_support_rgangwar/vault-kube-kms:latest"
-	if err := addKMSPluginSidecar(&required.Spec, kmsPluginImage, featureGateAccessor, secretLister, operatorclient.TargetNamespace); err != nil {
+	// TODO: this will only be accessible to those who have read permissions! Feel free to ask me if you need access
+	kmsPluginImage := "quay.io/bertinatto/vault:latest"
+	if err := addKMSPluginSidecar(&required.Spec, kmsPluginImage, secretLister, operatorclient.TargetNamespace); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
 	}
 
