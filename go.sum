@@ -156,8 +156,8 @@ github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52 h1:bq
 github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52/go.mod h1:b1BuldmJlbA/xYtdZvKi+7j5YGB44qJUJDZ9zwiNCfE=
 github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87 h1:JtLhaGpSEconE+1IKmIgCOof/Len5ceG6H1pk43yv5U=
 github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87/go.mod h1:3IPD4U0qyovZS4EFady2kqY32m8lGcbs/Wx+yprg9z8=
-github.com/openshift/library-go v0.0.0-20241023075405-e3586cc1ab21 h1:8R9BVxpEwnLMI+ZxQ36njUueuNrd/Rmov8sk+O9Ze00=
-github.com/openshift/library-go v0.0.0-20241023075405-e3586cc1ab21/go.mod h1:PdASVamWinll2BPxiUpXajTwZxV8A1pQbWEsCN1od7I=
+github.com/openshift/library-go v0.0.0-20260202164332-cedbe1daf8d0 h1:YDFPzffZFm+vPvI9OLcPgnVx65Ww0HXSXWys4nso4PU=
+github.com/openshift/library-go v0.0.0-20260202164332-cedbe1daf8d0/go.mod h1:X2pFQNHih3jDEu48cg7zvcoElCBsvaCU4l+TXlUGqnc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/profile v1.5.0 h1:042Buzk+NhDI+DeSAA62RwJL8VAuZUMQZUjCsRz1Mug=
@@ -177,8 +177,8 @@ github.com/robfig/cron v1.2.0/go.mod h1:JGuDeoQd7Z6yL4zQhZ3OPEVHB7fL6Ka6skscFHfm
 github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
 github.com/rogpeppe/go-internal v1.10.0/go.mod h1:UQnix2H7Ngw/k4C5ijL5+65zddjncjaFoBhdsK/akog=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
-github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
+github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
+github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/soheilhy/cmux v0.1.5 h1:jjzc5WVemNEDTLwv9tlmemhC73tI08BNOIGwBOo10Js=
 github.com/soheilhy/cmux v0.1.5/go.mod h1:T7TcVDs9LWfQgPlPsdngu6I6QIoyIFZDDC6sNE1GqG0=
 github.com/spf13/cobra v1.7.0 h1:hyqWnYt1ZQShIddO5kBpj3vu05/++x6tJ6dg8EC572I=
