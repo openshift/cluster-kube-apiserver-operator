@@ -3,7 +3,6 @@ package targetconfigcontroller
 import (
 	"fmt"
 
-	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -18,19 +17,19 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return fmt.Errorf("pod spec cannot be nil")
 	}
 
-	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
-		return nil
-	}
-
-	featureGates, err := featureGateAccessor.CurrentFeatureGates()
-	if err != nil {
-		return fmt.Errorf("failed to get feature gates: %w", err)
-	}
-
-	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
-		klog.Infof("kms is disabled: feature gate %s is disabled", features.FeatureGateKMSEncryption)
-		return nil
-	}
+	// if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+	// 	return nil
+	// }
+	//
+	// featureGates, err := featureGateAccessor.CurrentFeatureGates()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get feature gates: %w", err)
+	// }
+	//
+	// if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
+	// 	klog.Infof("kms is disabled: feature gate %s is disabled", features.FeatureGateKMSEncryption)
+	// 	return nil
+	// }
 
 	creds, err := secretLister.Secrets(targetNamespace).Get("vault-kms-credentials")
 	if err != nil {
