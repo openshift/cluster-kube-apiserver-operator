@@ -11,8 +11,7 @@ var (
 		state.AESCBC:    NewAES256Key,
 		state.AESGCM:    NewAES256Key,
 		state.SecretBox: NewAES256Key, // secretbox requires a 32 byte key so we can reuse the same function here
-		state.Identity:  NewEmptyKey,
-		state.KMS:       NewEmptyKey,
+		state.Identity:  NewIdentityKey,
 	}
 )
 
@@ -24,6 +23,6 @@ func NewAES256Key() []byte {
 	return b
 }
 
-func NewEmptyKey() []byte {
+func NewIdentityKey() []byte {
 	return make([]byte, 16) // the key is not used to perform encryption but must be a valid AES key
 }

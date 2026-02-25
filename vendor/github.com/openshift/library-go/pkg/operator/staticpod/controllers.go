@@ -244,6 +244,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 	pdbClient := b.kubeClient.PolicyV1()
 	saClient := b.kubeClient.CoreV1()
 	operandInformers := b.kubeNamespaceInformers.InformersFor(b.operandNamespace)
+	saLister := operandInformers.Core().V1().ServiceAccounts().Lister()
 	clusterInformers := b.kubeClusterInformers
 	infraInformers := b.configInformers.Config().V1().Infrastructures()
 
@@ -400,6 +401,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			podClient,
 			pdbClient,
 			saClient,
+			saLister,
 			eventRecorder,
 			b.guardCreateConditionalFunc,
 			b.extraNodeSelector,

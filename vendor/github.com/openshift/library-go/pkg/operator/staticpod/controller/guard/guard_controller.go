@@ -73,6 +73,7 @@ func NewGuardController(
 	podGetter corev1client.PodsGetter,
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	saGetter corev1client.ServiceAccountsGetter,
+	saLister corelisterv1.ServiceAccountLister,
 	eventRecorder events.Recorder,
 	createConditionalFunc func() (bool, bool, error),
 	extraNodeSelector labels.Selector,
@@ -106,7 +107,7 @@ func NewGuardController(
 		pdbGetter:                     pdbGetter,
 		pdbLister:                     kubeInformersForTargetNamespace.Policy().V1().PodDisruptionBudgets().Lister(),
 		saGetter:                      saGetter,
-		saLister:                      kubeInformersForTargetNamespace.Core().V1().ServiceAccounts().Lister(),
+		saLister:                      saLister,
 		installerPodImageFn:           getInstallerPodImageFromEnv,
 		createConditionalFunc:         createConditionalFunc,
 		extraNodeSelector:             extraNodeSelector,
@@ -183,6 +184,9 @@ var pdbTemplate []byte
 //go:embed manifests/guard-pod.yaml
 var podTemplate []byte
 
+//go:embed manifests/guard-pod-sa.yaml
+var serviceAccountTemplate []byte
+
 func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing guards")
 
@@ -198,29 +202,6 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	if !precheckSucceeded {
 		klog.V(4).Infof("create conditional precheck did not succeed, skipping")
 		return nil
-	}
-
-	// Do a check for zombie service accounts if a guard pod gets manually
-	// deleted by the user.
-	pods, _ := c.podLister.Pods(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
-
-	podMap := map[string]bool{}
-
-	for _, pod := range pods {
-		podMap[pod.Spec.ServiceAccountName] = true
-	}
-
-	serviceAccounts, _ := c.saLister.ServiceAccounts(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
-
-	for _, sa := range serviceAccounts {
-		// If service account exists but pod map does not have a key for it,
-		// it is a zombie service account, and must be deleted.
-		if !podMap[sa.Name] {
-			err = c.saGetter.ServiceAccounts(c.targetNamespace).Delete(ctx, sa.Name, metav1.DeleteOptions{})
-			if err != nil {
-				klog.Errorf("Error while deleting service account %s : %v", sa.Name, err)
-			}
-		}
 	}
 
 	errs := []error{}
@@ -261,18 +242,21 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			}
 		}
 
-		// delete service accounts associated with guard pod(s)
-		serviceAccounts, err := c.saLister.ServiceAccounts(c.targetNamespace).List(labels.SelectorFromSet(labels.Set{"app": "guard"}))
-		if err != nil {
-			errs = append(errs, err)
-		} else {
-			for _, sa := range serviceAccounts {
-				_, _, err = resourceapply.DeleteServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), sa)
-				if err != nil {
-					klog.Errorf("Unable to delete Service Account: %v", err)
-					errs = append(errs, err)
-				}
+		// delete the guard service account
+		serviceAccount := resourceread.ReadServiceAccountV1OrDie(serviceAccountTemplate)
+		serviceAccount.Namespace = c.targetNamespace
+
+		// Check if the service account exists using the lister to avoid unnecessary API calls
+		_, err = c.saLister.ServiceAccounts(serviceAccount.Namespace).Get(serviceAccount.Name)
+		if err == nil {
+			_, _, err = resourceapply.DeleteServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
+			if err != nil {
+				klog.Errorf("Unable to delete Service Account: %v", err)
+				errs = append(errs, err)
 			}
+		} else if !apierrors.IsNotFound(err) {
+			klog.Errorf("Unable to get service account %v from lister: %v", serviceAccount.Name, err)
+			errs = append(errs, err)
 		}
 	} else {
 		nodes, err := c.nodeLister.List(c.masterNodesSelector)
@@ -333,6 +317,23 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			operands[pod.Spec.NodeName] = pod
 		}
 
+		// Create the guard service account once for all guard pods
+		serviceAccount := resourceread.ReadServiceAccountV1OrDie(serviceAccountTemplate)
+		serviceAccount.Namespace = c.targetNamespace
+
+		// Check if the service account exists using the lister to avoid unnecessary API calls
+		_, err = c.saLister.ServiceAccounts(serviceAccount.Namespace).Get(serviceAccount.Name)
+		if errors.IsNotFound(err) {
+			_, _, err = resourceapply.ApplyServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
+			if err != nil {
+				klog.Errorf("Unable to create service account %v for Guard Pods: %v", serviceAccount.Name, err)
+				return fmt.Errorf("Unable to create service account %v for Guard Pods: %v", serviceAccount.Name, err)
+			}
+		} else if err != nil {
+			klog.Errorf("Unable to get service account %v from lister: %v", serviceAccount.Name, err)
+			return err
+		}
+
 		for _, node := range nodes {
 			// Check whether the node is schedulable
 			if nodeHasUnschedulableTaint(node) {
@@ -361,24 +362,6 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 			}
 
 			klog.V(5).Infof("Rendering guard pod for operand %v on node %v", operands[node.Name].Name, node.Name)
-
-			// Create Service Account
-			serviceAccount := &corev1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      getGuardPodName(c.podResourcePrefix, node.Name),
-					Namespace: c.targetNamespace,
-				},
-			}
-			// attach label so we can recognise for deletion later
-			serviceAccount.Labels = map[string]string{
-				"app": "guard",
-			}
-			_, _, err = resourceapply.ApplyServiceAccount(ctx, c.saGetter, syncCtx.Recorder(), serviceAccount)
-
-			if err != nil {
-				klog.Errorf("Unable to create service account %v for Guard Pod: %v", serviceAccount.Name, err)
-				errs = append(errs, fmt.Errorf("Unable to create service account %v for Guard Pod: %v", serviceAccount.Name, err))
-			}
 
 			pod := resourceread.ReadPodV1OrDie(podTemplate)
 
