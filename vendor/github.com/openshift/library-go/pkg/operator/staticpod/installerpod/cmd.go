@@ -91,6 +91,7 @@ func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *Insta
 }
 
 func (o *InstallOptions) WithPodMutationFactory(factory PodMutationFuncFactory) *InstallOptions {
+	klog.Infof("fjb: in WithPodMutationFactory adding to o.PodMutationsFns")
 	o.PodMutationFns = append(o.PodMutationFns, factory(o))
 	return o
 }
@@ -620,6 +621,7 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 		pod.UID = ""
 	}
 
+	klog.Infof("fjb: number of o.PodMutationsFns: %d", len(o.PodMutationFns))
 	for _, fn := range o.PodMutationFns {
 		klog.V(2).Infof("Customizing static pod ...")
 		pod = pod.DeepCopy()
