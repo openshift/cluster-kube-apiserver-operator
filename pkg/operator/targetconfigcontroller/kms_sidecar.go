@@ -142,7 +142,10 @@ func ptrBool(b bool) *bool {
 }
 
 func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMutationFunc {
+	klog.Infof("fjb: in AddKMSPluginToPodSpecFn")
+	kmsPluginImage := "quay.io/bertinatto/vault:v1"
 	return func(pod *corev1.Pod) error {
+		klog.Infof("fjb: running func in AddKMSPluginToPodSpecFn")
 		creds, err := o.KubeClient.CoreV1().Secrets("openshift-kube-apiserver").Get(context.TODO(), "vault-kms-credentials", v1.GetOptions{})
 		if err != nil {
 			klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
@@ -150,32 +153,17 @@ func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMut
 		}
 		klog.Infof("kms is ENABLED")
 
-		pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
-			Name:            "kms-plugin",
-			Image:           "quay.io/bertinatto/vault:v1",
-			ImagePullPolicy: corev1.PullAlways,
-			Command:         []string{"/bin/sh", "-c"},
-			Args: []string{fmt.Sprintf(`
-	echo "%s" > /tmp/secret-id
-	exec /vault-kube-kms \
-	-listen-address=unix:///var/run/kmsplugin/kms.sock \
-	-vault-address=%s \
-	-vault-namespace=%s \
-	-transit-mount=transit \
-	-transit-key=%s \
-	-log-level=debug-extended \
-	-approle-role-id=%s \
-	-approle-secret-id-path=/tmp/secret-id`,
-				string(creds.Data["VAULT_SECRET_ID"]),
-				string(creds.Data["VAULT_ADDR"]),
-				string(creds.Data["VAULT_NAMESPACE"]),
-				string(creds.Data["VAULT_KEY_NAME"]),
-				string(creds.Data["VAULT_ROLE_ID"])),
-			},
-			SecurityContext: &corev1.SecurityContext{
-				Privileged: ptrBool(true),
-			},
-		})
+		if err := addKMSPluginSidecarToPodSpec(&pod.Spec, "kms-plugin", kmsPluginImage, creds); err != nil {
+			return err
+		}
+
+		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kms-plugin"); err != nil {
+			return err
+		}
+
+		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kube-apiserver"); err != nil {
+			return err
+		}
 
 		return nil
 	}
