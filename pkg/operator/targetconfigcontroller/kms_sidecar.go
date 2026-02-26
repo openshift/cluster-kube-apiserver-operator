@@ -1,10 +1,13 @@
 package targetconfigcontroller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -136,4 +139,42 @@ func addKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 
 func ptrBool(b bool) *bool {
 	return &b
+}
+
+func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMutationFunc {
+	return func(pod *corev1.Pod) error {
+		creds, err := o.KubeClient.CoreV1().Secrets("openshift-kube-apiserver").Get(context.TODO(), "vault-kms-credentials", v1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+			Name:            "kms-plugin",
+			Image:           "quay.io/bertinatto/vault:v1",
+			ImagePullPolicy: corev1.PullAlways,
+			Command:         []string{"/bin/sh", "-c"},
+			Args: []string{fmt.Sprintf(`
+	echo "%s" > /tmp/secret-id
+	exec /vault-kube-kms \
+	-listen-address=unix:///var/run/kmsplugin/kms.sock \
+	-vault-address=%s \
+	-vault-namespace=%s \
+	-transit-mount=transit \
+	-transit-key=%s \
+	-log-level=debug-extended \
+	-approle-role-id=%s \
+	-approle-secret-id-path=/tmp/secret-id`,
+				string(creds.Data["VAULT_SECRET_ID"]),
+				string(creds.Data["VAULT_ADDR"]),
+				string(creds.Data["VAULT_NAMESPACE"]),
+				string(creds.Data["VAULT_KEY_NAME"]),
+				string(creds.Data["VAULT_ROLE_ID"])),
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: ptrBool(true),
+			},
+		})
+
+		return nil
+	}
 }

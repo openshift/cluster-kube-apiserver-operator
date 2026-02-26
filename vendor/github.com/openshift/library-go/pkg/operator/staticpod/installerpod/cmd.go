@@ -77,6 +77,8 @@ type InstallOptions struct {
 // PodMutationFunc is a function that has a chance at changing the pod before it is created
 type PodMutationFunc func(pod *corev1.Pod) error
 
+type PodMutationFuncFactory func(o *InstallOptions) PodMutationFunc
+
 func NewInstallOptions() *InstallOptions {
 	return &InstallOptions{
 		Clock: clock.RealClock{},
@@ -88,9 +90,12 @@ func (o *InstallOptions) WithPodMutationFn(podMutationFn PodMutationFunc) *Insta
 	return o
 }
 
-func NewInstaller(ctx context.Context) *cobra.Command {
-	o := NewInstallOptions()
+func (o *InstallOptions) WithPodMutationFactory(factory PodMutationFuncFactory) *InstallOptions {
+	o.PodMutationFns = append(o.PodMutationFns, factory(o))
+	return o
+}
 
+func NewInstallerWithInstallOptions(ctx context.Context, o *InstallOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "installer",
 		Short: "Install static pod and related resources",
@@ -117,6 +122,11 @@ func NewInstaller(ctx context.Context) *cobra.Command {
 	o.AddFlags(cmd.Flags())
 
 	return cmd
+}
+
+func NewInstaller(ctx context.Context) *cobra.Command {
+	o := NewInstallOptions()
+	return NewInstallerWithInstallOptions(ctx, o)
 }
 
 // setupSignalContext registers for SIGTERM and SIGINT and returns a context
