@@ -145,8 +145,10 @@ func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMut
 	return func(pod *corev1.Pod) error {
 		creds, err := o.KubeClient.CoreV1().Secrets("openshift-kube-apiserver").Get(context.TODO(), "vault-kms-credentials", v1.GetOptions{})
 		if err != nil {
-			return err
+			klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
+			return nil
 		}
+		klog.Infof("kms is ENABLED")
 
 		pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
 			Name:            "kms-plugin",
