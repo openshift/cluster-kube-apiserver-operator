@@ -242,6 +242,46 @@ func TestManageTemplate(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "default check endpoints bind IP when no config",
+			template: "{{.CheckEndpointsBindIP}}",
+			golden:   "0.0.0.0",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(`{}`)},
+				},
+			},
+		},
+		{
+			name:     "check endpoints bind IP for tcp6",
+			template: "{{.CheckEndpointsBindIP}}",
+			golden:   "[::]",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(`{"servingInfo":{"bindNetwork":"tcp6"}}`)},
+				},
+			},
+		},
+		{
+			name:     "check endpoints bind IP for tcp4",
+			template: "{{.CheckEndpointsBindIP}}",
+			golden:   "0.0.0.0",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(`{"servingInfo":{"bindNetwork":"tcp4"}}`)},
+				},
+			},
+		},
+		{
+			name:     "check endpoints bind IP for tcp",
+			template: "{{.CheckEndpointsBindIP}}",
+			golden:   "0.0.0.0",
+			operatorSpec: &operatorv1.StaticPodOperatorSpec{
+				OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(`{"servingInfo":{"bindNetwork":"tcp"}}`)},
+				},
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -1216,4 +1256,118 @@ func generateTemporaryCertificate() (certPEM []byte, err error) {
 	})
 
 	return certPEM, nil
+}
+
+func TestCheckEndpointsBindIPFromConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		config         map[string]any
+		expectedIP     string
+		errorSubstring string
+	}{
+		{
+			name: "bindNetwork is tcp6",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp6",
+				},
+			},
+			expectedIP: "[::]",
+		},
+		{
+			name: "bindNetwork is tcp4",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp4",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name: "bindNetwork is tcp",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name: "bindNetwork is empty string",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name: "servingInfo exists but bindNetwork is missing",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"otherField": "value",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name:       "servingInfo is missing",
+			config:     map[string]any{},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name:       "config is nil",
+			config:     nil,
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name: "bindNetwork is not a string",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": 123,
+				},
+			},
+			errorSubstring: "unable to extract bindNetwork from the observed config",
+		},
+		{
+			name: "servingInfo is not a map",
+			config: map[string]any{
+				"servingInfo": "invalid",
+			},
+			errorSubstring: "unable to extract bindNetwork from the observed config",
+		},
+		{
+			name: "bindNetwork is TCP6 (uppercase)",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "TCP6",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+		{
+			name: "bindNetwork is random string",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "random-value",
+				},
+			},
+			expectedIP: "0.0.0.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ip, err := checkEndpointsBindIPFromConfig(test.config)
+
+			if test.errorSubstring != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), test.errorSubstring)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, test.expectedIP, ip)
+		})
+	}
 }
