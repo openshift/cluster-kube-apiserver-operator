@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][EventTTL][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", g.Ordered, func() {
+var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTTL][EventTTL][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", g.Ordered, func() {
 	var (
 		kubeClient     *kubernetes.Clientset
 		configClient   *configclient.Clientset
@@ -82,52 +82,10 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][EventTTL][Skipped:H
 
 		g.GinkgoWriter.Printf("EventTTL feature gate: found=%v, enabled=%v\n", eventTTLFound, eventTTLEnabled)
 
-		// Enable feature gate if not already enabled
+		// Skip if EventTTL feature gate is not enabled
+		// This test is designed for TechPreview clusters where EventTTL is already enabled
 		if !eventTTLEnabled {
-			g.By("Enabling EventTTL feature gate")
-			patchData := map[string]interface{}{
-				"spec": map[string]interface{}{
-					"featureSet": "CustomNoUpgrade",
-					"customNoUpgrade": map[string]interface{}{
-						"enabled": []string{"EventTTL"},
-					},
-				},
-			}
-			patchBytes, err := json.Marshal(patchData)
-			o.Expect(err).NotTo(o.HaveOccurred())
-
-			_, err = configClient.ConfigV1().FeatureGates().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
-			o.Expect(err).NotTo(o.HaveOccurred())
-			g.GinkgoWriter.Printf("Feature gate patch applied successfully\n")
-
-			// Wait for feature gate to be enabled
-			g.By("Waiting for EventTTL feature gate to be enabled")
-			o.Eventually(func() bool {
-				fg, err := configClient.ConfigV1().FeatureGates().Get(ctx, "cluster", metav1.GetOptions{})
-				if err != nil {
-					return false
-				}
-				for _, fgDetails := range fg.Status.FeatureGates {
-					for _, enabled := range fgDetails.Enabled {
-						if string(enabled.Name) == "EventTTL" {
-							return true
-						}
-					}
-				}
-				return false
-			}, 10*time.Minute, 10*time.Second).Should(o.BeTrue(), "EventTTL feature gate should be enabled")
-			g.GinkgoWriter.Printf("EventTTL feature gate is now enabled\n")
-
-			// Wait for API server to stabilize after feature gate change
-			g.By("Waiting for API server to stabilize after feature gate change")
-			err = libgotest.WaitForPodsToStabilizeOnTheSameRevision(
-				&ginkgoLogger{},
-				kubeClient.CoreV1().Pods(operatorclient.TargetNamespace),
-				"apiserver=true",
-				successThreshold, successInterval, pollInterval, timeout,
-			)
-			o.Expect(err).NotTo(o.HaveOccurred(), "API server did not stabilize after feature gate change")
-			g.GinkgoWriter.Printf("API server stabilized after feature gate change\n")
+			g.Skip("EventTTL feature gate is not enabled - this test requires a TechPreview cluster")
 		}
 	})
 
