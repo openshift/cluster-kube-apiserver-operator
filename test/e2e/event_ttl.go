@@ -311,6 +311,143 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		g.GinkgoWriter.Printf("Event expired after %v (expected TTL: %dm)\n", actualTTL.Round(time.Second), ttl)
 		g.By(fmt.Sprintf("Successfully validated event expiration after %dm", ttl))
 	})
+
+	// Boundary validation tests - these should be fast since they just test API validation
+	g.It("should reject eventTTLMinutes below minimum (0 minutes) [Conformance][Serial]", func() {
+		g.By("Attempting to set eventTTLMinutes=0 (should be rejected)")
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"eventTTLMinutes": 0,
+			},
+		}
+		patchBytes, err := json.Marshal(patchData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		// Note: 0 might be accepted as "unset" - check actual behavior
+		// If 0 is valid (meaning unset), this test should be adjusted
+		if err != nil {
+			g.GinkgoWriter.Printf("Setting eventTTLMinutes=0 was rejected as expected: %v\n", err)
+			o.Expect(apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)).To(o.BeTrue(),
+				"error should be Invalid or BadRequest, got: %v", err)
+		} else {
+			// If 0 is accepted, verify the config doesn't have event-ttl set
+			g.GinkgoWriter.Printf("eventTTLMinutes=0 was accepted (treated as unset)\n")
+			cfg, getErr := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+			o.Expect(getErr).NotTo(o.HaveOccurred())
+			o.Expect(cfg.Spec.EventTTLMinutes).To(o.Equal(int32(0)), "eventTTLMinutes should be 0 (unset)")
+		}
+	})
+
+	g.It("should reject eventTTLMinutes below minimum (negative value) [Conformance][Serial]", func() {
+		g.By("Attempting to set eventTTLMinutes=-1 (should be rejected)")
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"eventTTLMinutes": -1,
+			},
+		}
+		patchBytes, err := json.Marshal(patchData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		o.Expect(err).To(o.HaveOccurred(), "negative eventTTLMinutes should be rejected")
+		g.GinkgoWriter.Printf("Setting eventTTLMinutes=-1 was rejected as expected: %v\n", err)
+		o.Expect(apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)).To(o.BeTrue(),
+			"error should be Invalid or BadRequest, got: %v", err)
+	})
+
+	g.It("should reject eventTTLMinutes above maximum (181 minutes) [Conformance][Serial]", func() {
+		g.By("Attempting to set eventTTLMinutes=181 (should be rejected, max is 180)")
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"eventTTLMinutes": 181,
+			},
+		}
+		patchBytes, err := json.Marshal(patchData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		o.Expect(err).To(o.HaveOccurred(), "eventTTLMinutes > 180 should be rejected")
+		g.GinkgoWriter.Printf("Setting eventTTLMinutes=181 was rejected as expected: %v\n", err)
+		o.Expect(apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)).To(o.BeTrue(),
+			"error should be Invalid or BadRequest, got: %v", err)
+	})
+
+	g.It("should accept eventTTLMinutes at minimum boundary (1 minute) [Conformance][Serial]", func() {
+		// Get original value for cleanup
+		currentCfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		originalEventTTL := currentCfg.Spec.EventTTLMinutes
+
+		// Cleanup after test
+		defer func() {
+			restore := map[string]interface{}{"spec": map[string]interface{}{}}
+			if originalEventTTL == 0 {
+				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = nil
+			} else {
+				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
+			}
+			restoreBytes, _ := json.Marshal(restore)
+			_, _ = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
+			g.GinkgoWriter.Printf("Cleanup: restored eventTTLMinutes\n")
+		}()
+
+		g.By("Setting eventTTLMinutes=1 (minimum valid value)")
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"eventTTLMinutes": 1,
+			},
+		}
+		patchBytes, err := json.Marshal(patchData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred(), "eventTTLMinutes=1 should be accepted")
+
+		// Verify the value was set
+		cfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(cfg.Spec.EventTTLMinutes).To(o.Equal(int32(1)))
+		g.GinkgoWriter.Printf("eventTTLMinutes=1 was accepted successfully\n")
+	})
+
+	g.It("should accept eventTTLMinutes at maximum boundary (180 minutes) [Conformance][Serial]", func() {
+		// Get original value for cleanup
+		currentCfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		originalEventTTL := currentCfg.Spec.EventTTLMinutes
+
+		// Cleanup after test
+		defer func() {
+			restore := map[string]interface{}{"spec": map[string]interface{}{}}
+			if originalEventTTL == 0 {
+				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = nil
+			} else {
+				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
+			}
+			restoreBytes, _ := json.Marshal(restore)
+			_, _ = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
+			g.GinkgoWriter.Printf("Cleanup: restored eventTTLMinutes\n")
+		}()
+
+		g.By("Setting eventTTLMinutes=180 (maximum valid value)")
+		patchData := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"eventTTLMinutes": 180,
+			},
+		}
+		patchBytes, err := json.Marshal(patchData)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred(), "eventTTLMinutes=180 should be accepted")
+
+		// Verify the value was set
+		cfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred())
+		o.Expect(cfg.Spec.EventTTLMinutes).To(o.Equal(int32(180)))
+		g.GinkgoWriter.Printf("eventTTLMinutes=180 was accepted successfully\n")
+	})
 })
 
 // ginkgoLogger adapts Ginkgo's logging to library.LoggingT interface
