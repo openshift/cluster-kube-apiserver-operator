@@ -15,14 +15,20 @@ import (
 )
 
 func Test_kubeletVersionSkewController_Sync(t *testing.T) {
+	minorZeroOCPVersion := "5.0.0"
+	minorZeroKubeApiVersion := "1.36.0"
 
-	evenOpenShiftVersion := "4.8.0"
-	oddOpenShiftVersion := "4.9.0"
-	apiServerVersion := "1.21.1"
-	skewedKubeletVersions := func(s ...int) []string {
+	minorOneOCPVersion := "5.1.0"
+	minorOneKubeApiVersion := "1.37.0"
+
+	minorTwoOCPVersion := "5.2.0"
+	minorTwoKubeApiVersion := "1.38.0"
+
+	skewedKubeletVersions := func(base string, s ...int) []string {
+		bb := semver.MustParse(base)
 		var v []string
-		for i, skew := range s {
-			v = append(v, fmt.Sprintf("1.%d.%d", 21+skew, i))
+		for _, skew := range s {
+			v = append(v, semver.Version{Major: bb.Major, Minor: bb.Minor + uint64(skew)}.FinalizeVersion())
 		}
 		return v
 	}
@@ -30,106 +36,110 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 	testCases := []struct {
 		name             string
 		ocpVersion       string
+		apiServerVersion string
 		kubeletVersions  []string
 		expectedStatus   operatorv1.ConditionStatus
 		expectedReason   string
 		expectedMsgLines string
 	}{
 		{
-			name:             "Synced/Even",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, 0, 0),
+			name:             "Synced/Zero",
+			ocpVersion:       minorZeroOCPVersion,
+			apiServerVersion: minorZeroKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorZeroKubeApiVersion, 0, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSyncedReason,
 			expectedMsgLines: "Kubelet and API server versions are synced.",
 		},
 		{
-			name:             "Synced/Odd",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, 0, 0),
+			name:             "Synced/One",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, 0, 0, 0),
+			expectedStatus:   operatorv1.ConditionTrue,
+			expectedReason:   KubeletMinorVersionSyncedReason,
+			expectedMsgLines: "Kubelet and API server versions are synced.",
+		},
+		{
+			name:             "Synced/Two",
+			ocpVersion:       minorTwoOCPVersion,
+			apiServerVersion: minorTwoKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorTwoKubeApiVersion, 0, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSyncedReason,
 			expectedMsgLines: "Kubelet and API server versions are synced.",
 		},
 		{
 			name:             "ErrorParsingKubeletVersion",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  []string{"Invalid", "1.21.2", "1.20.3"},
+			ocpVersion:       minorZeroOCPVersion,
+			apiServerVersion: minorZeroKubeApiVersion,
+			kubeletVersions:  []string{"Invalid", minorZeroKubeApiVersion, minorZeroKubeApiVersion},
 			expectedStatus:   operatorv1.ConditionUnknown,
 			expectedReason:   KubeletVersionUnknownReason,
 			expectedMsgLines: "Unable to determine the kubelet version on node test000: No Major.Minor.Patch elements found",
 		},
 		{
-			name:             "UnsupportedNextUpgrade/Even",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -1, 0),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet version (1.20.1) on node test001 will not be supported in the next OpenShift version upgrade.",
-		},
-		{
-			name:             "UnsupportedNextUpgrade/Odd",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -2, 0),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported Kubelet version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
-		},
-		{
-			name:             "TwoNodesNotSynced",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -1, -1),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet versions on nodes test001 and test002 will not be supported in the next OpenShift version upgrade.",
-		},
-		{
-			name:             "ThreeNodesNotSynced",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet versions on nodes test001, test002, and test003 will not be supported in the next OpenShift version upgrade.",
-		},
-		{
-			name:             "ManyNodesNotSynced",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -1, -1, -1, -1, -1, 0, 0),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet versions on 5 nodes will not be supported in the next OpenShift version upgrade.",
-		},
-		{
-			name:             "SkewedUnsupported/Even",
-			ocpVersion:       evenOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -3, 0),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported Kubelet version (1.18.1) on node test001 is too far behind the target API server version (1.21.1).",
-		},
-		{
-			name:             "SkewedUnsupported/Odd",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -2, 0),
-			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   KubeletMinorVersionUnsupportedReason,
-			expectedMsgLines: "Unsupported Kubelet version (1.19.1) on node test001 is too far behind the target API server version (1.21.1).",
-		},
-		{
-			name:             "SkewedButOK/Odd",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(-1, 0, 0),
+			name:             "SkewedButOK",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, -1, 0, 0),
 			expectedStatus:   operatorv1.ConditionTrue,
 			expectedReason:   KubeletMinorVersionSupportedNextUpgradeReason,
-			expectedMsgLines: "Kubelet version (1.20.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift version upgrade.",
+			expectedMsgLines: "Kubelet version (1.36.0) on node test000 is behind the expected API server version; nevertheless, it will continue to be supported in the next OpenShift version upgrade.",
 		},
 		{
-			name:             "Unsupported",
-			ocpVersion:       oddOpenShiftVersion,
-			kubeletVersions:  skewedKubeletVersions(0, -1, 1),
+			name:             "UnsupportedThisUpgrade",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, 0, -3, 0),
+			expectedStatus:   operatorv1.ConditionFalse,
+			expectedReason:   KubeletMinorVersionUnsupportedReason,
+			expectedMsgLines: "Unsupported Kubelet version (1.34.0) on node test001 is too far behind the target API server version (1.37.0).",
+		},
+		{
+			name:             "UnsupportedTwoNodes",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, -3, 0, -3),
+			expectedStatus:   operatorv1.ConditionFalse,
+			expectedReason:   KubeletMinorVersionUnsupportedReason,
+			expectedMsgLines: "Unsupported Kubelet versions on nodes test000 and test002 are too far behind the target API server version (1.37.0).",
+		},
+		{
+			name:             "UnsupportedAllNodes",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, -3, -3, -3),
+			expectedStatus:   operatorv1.ConditionFalse,
+			expectedReason:   KubeletMinorVersionUnsupportedReason,
+			expectedMsgLines: "Unsupported Kubelet versions on nodes test000, test001, and test002 are too far behind the target API server version (1.37.0).",
+		},
+		{
+			name:             "UnsupportedNextUpgrade",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, 0, -2, 0),
+			expectedStatus:   operatorv1.ConditionFalse,
+			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
+			expectedMsgLines: "Kubelet version (1.35.0) on node test001 will not be supported in the next OpenShift version upgrade.",
+		},
+		{
+			name:             "UnsupportedNextUpgradeEUS",
+			ocpVersion:       minorTwoOCPVersion,
+			apiServerVersion: minorTwoKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorTwoKubeApiVersion, 0, -2, 0),
+			expectedStatus:   operatorv1.ConditionFalse,
+			expectedReason:   KubeletMinorVersionUnsupportedNextUpgradeReason,
+			expectedMsgLines: "Kubelet version (1.36.0) on node test001 will not be supported in the next OpenShift version upgrade.",
+		},
+		{
+			name:             "UnsupportedAhead",
+			ocpVersion:       minorOneOCPVersion,
+			apiServerVersion: minorOneKubeApiVersion,
+			kubeletVersions:  skewedKubeletVersions(minorOneKubeApiVersion, 0, -1, 1),
 			expectedStatus:   operatorv1.ConditionUnknown,
 			expectedReason:   KubeletMinorVersionAheadReason,
-			expectedMsgLines: "Unsupported Kubelet version (1.22.2) on node test002 is ahead of the target API server version (1.21.1).",
+			expectedMsgLines: "Unsupported Kubelet version (1.38.0) on node test002 is ahead of the target API server version (1.37.0).",
 		},
 	}
 	for _, tc := range testCases {
@@ -143,6 +153,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 			}
 			status := &operatorv1.StaticPodOperatorStatus{}
 			ocpVersion := semver.MustParse(tc.ocpVersion)
+			apiServerVersion := semver.MustParse(tc.apiServerVersion)
 			nextOpenShiftVersion := semver.Version{Major: ocpVersion.Major, Minor: ocpVersion.Minor + 1}
 			c := &kubeletVersionSkewController{
 				operatorClient: v1helpers.NewFakeStaticPodOperatorClient(
@@ -150,7 +161,7 @@ func Test_kubeletVersionSkewController_Sync(t *testing.T) {
 					status, nil, nil,
 				),
 				nodeLister:                  corev1listers.NewNodeLister(indexer),
-				apiServerVersion:            semver.MustParse(apiServerVersion),
+				apiServerVersion:            apiServerVersion,
 				minSupportedSkew:            minSupportedKubeletSkewForOpenShiftVersion(ocpVersion),
 				minSupportedSkewNextVersion: minSupportedKubeletSkewForOpenShiftVersion(nextOpenShiftVersion),
 			}
