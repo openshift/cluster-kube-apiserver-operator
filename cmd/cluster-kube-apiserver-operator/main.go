@@ -23,7 +23,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
@@ -49,10 +48,10 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		cmd.Version = v
 	}
 
-	opts := installerpod.NewInstallOptions().WithPodMutationFactory(targetconfigcontroller.AddKMSPluginToPodSpecFn)
-	cmd.AddCommand(installerpod.NewInstallerWithInstallOptions(ctx, opts))
+	// opts := installerpod.NewInstallOptions().WithPodMutationFactory(targetconfigcontroller.AddKMSPluginToPodSpecFn)
 	cmd.AddCommand(operatorcmd.NewOperator())
 	cmd.AddCommand(render.NewRenderCommand())
+	cmd.AddCommand(installerpod.NewInstaller(ctx))
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
