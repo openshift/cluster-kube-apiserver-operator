@@ -239,8 +239,10 @@ spec:
     args:
       - --kubeconfig
       - /etc/kubernetes/static-pod-certs/configmaps/check-endpoints-kubeconfig/kubeconfig
+      - --config
+      - /etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
       - --listen
-      - 0.0.0.0:17697
+      - '[::]:17697'
       - --namespace
       - $(POD_NAMESPACE)
       - --v
