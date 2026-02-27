@@ -32,7 +32,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		successThreshold = 6
 		successInterval  = 1 * time.Minute
 		pollInterval     = 30 * time.Second
-		timeout          = 20 * time.Minute // Increased for feature gate changes which trigger full cluster rollouts
+		timeout          = 20 * time.Minute
 	)
 
 	g.BeforeAll(func() {
@@ -117,7 +117,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 
 			g.By("Waiting for API server to stabilize after cleanup")
 			stabilizeErr := libgotest.WaitForPodsToStabilizeOnTheSameRevision(
-				&ginkgoLogger{},
+				g.GinkgoT(),
 				kubeClient.CoreV1().Pods(operatorclient.TargetNamespace),
 				"apiserver=true",
 				successThreshold, successInterval, pollInterval, timeout,
@@ -149,7 +149,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 
 		g.By("Waiting for API server to stabilize with new eventTTLMinutes")
 		err = libgotest.WaitForPodsToStabilizeOnTheSameRevision(
-			&ginkgoLogger{},
+			g.GinkgoT(),
 			kubeClient.CoreV1().Pods(operatorclient.TargetNamespace),
 			"apiserver=true",
 			successThreshold, successInterval, pollInterval, timeout,
@@ -176,56 +176,20 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			return strings.Contains(configData, "event-ttl") && strings.Contains(configData, expectedTTL)
 		}, 2*time.Minute, 5*time.Second).Should(o.BeTrue(), fmt.Sprintf("event-ttl=%s should be in config", expectedTTL))
 
-		// Debug: print relevant part of config
-		for _, line := range strings.Split(configData, "\n") {
-			if strings.Contains(line, "event-ttl") || strings.Contains(line, "eventTTL") {
-				g.GinkgoWriter.Printf("  Config line: %s\n", strings.TrimSpace(line))
-			}
-		}
-
-		// Debug: Check kube-apiserver pod args to verify --event-ttl is set
-		g.GinkgoWriter.Printf("Checking kube-apiserver pods for --event-ttl flag...\n")
-		pods, err := kubeClient.CoreV1().Pods(operatorclient.TargetNamespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "apiserver=true",
-		})
-		o.Expect(err).NotTo(o.HaveOccurred())
-		for _, pod := range pods.Items {
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "kube-apiserver" {
-					for _, arg := range container.Args {
-						if strings.Contains(arg, "event-ttl") {
-							g.GinkgoWriter.Printf("  Pod %s: %s\n", pod.Name, arg)
-						}
-					}
-				}
-			}
-		}
-
 		g.By(fmt.Sprintf("Successfully verified eventTTLMinutes=%d configuration", ttl))
 
 		g.By(fmt.Sprintf("Validating that events actually expire after %d minutes", ttl))
-		testNamespace := fmt.Sprintf("event-ttl-test-%d", time.Now().Unix())
-		_, err = kubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{Name: testNamespace},
-		}, metav1.CreateOptions{})
-		o.Expect(err).NotTo(o.HaveOccurred())
-		g.GinkgoWriter.Printf("Created test namespace: %s\n", testNamespace)
 
-		defer func() {
-			_ = kubeClient.CoreV1().Namespaces().Delete(ctx, testNamespace, metav1.DeleteOptions{})
-			g.GinkgoWriter.Printf("Deleted test namespace: %s\n", testNamespace)
-		}()
-
-		// Create a test event
+		// Create a test event in the operator's target namespace
 		eventName := fmt.Sprintf("ttl-test-event-%d", time.Now().Unix())
 		testEvent := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      eventName,
-				Namespace: testNamespace,
+				Namespace: operatorclient.TargetNamespace,
 			},
 			InvolvedObject: corev1.ObjectReference{
 				Kind:      "Pod",
-				Namespace: testNamespace,
+				Namespace: operatorclient.TargetNamespace,
 				Name:      "test-pod",
 				UID:       types.UID(fmt.Sprintf("uid-%d", time.Now().Unix())),
 			},
@@ -238,7 +202,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			Count:          1,
 		}
 
-		createdEvent, err := kubeClient.CoreV1().Events(testNamespace).Create(ctx, testEvent, metav1.CreateOptions{})
+		createdEvent, err := kubeClient.CoreV1().Events(operatorclient.TargetNamespace).Create(ctx, testEvent, metav1.CreateOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred())
 		creationTime := createdEvent.CreationTimestamp.Time
 		g.GinkgoWriter.Printf("Created test event: %s at %s\n", eventName, creationTime.Format(time.RFC3339))
@@ -262,47 +226,19 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		pollCount := 0
 		o.Eventually(func() bool {
 			pollCount++
-			event, err := kubeClient.CoreV1().Events(testNamespace).Get(ctx, eventName, metav1.GetOptions{})
+			_, err := kubeClient.CoreV1().Events(operatorclient.TargetNamespace).Get(ctx, eventName, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					g.GinkgoWriter.Printf("  Event deleted! (poll #%d)\n", pollCount)
 					return true
 				}
-				// Print unexpected errors
 				g.GinkgoWriter.Printf("  Unexpected error getting event: %v\n", err)
 				return false
 			}
-			// Log progress every 2 minutes (4 polls at 30s interval) with event details
+			// Log progress every 2 minutes (4 polls at 30s interval)
 			if pollCount%4 == 0 {
 				elapsed := time.Since(creationTime).Round(time.Second)
 				g.GinkgoWriter.Printf("  Still waiting... elapsed: %v, poll #%d\n", elapsed, pollCount)
-				g.GinkgoWriter.Printf("    Event details: FirstTimestamp=%v, LastTimestamp=%v, Count=%d\n",
-					event.FirstTimestamp.Time.Format(time.RFC3339),
-					event.LastTimestamp.Time.Format(time.RFC3339),
-					event.Count)
-				g.GinkgoWriter.Printf("    Event age: %v\n", time.Since(event.LastTimestamp.Time).Round(time.Second))
-
-				// List all events in namespace to see if GC is working at all
-				events, listErr := kubeClient.CoreV1().Events(testNamespace).List(ctx, metav1.ListOptions{})
-				if listErr == nil {
-					g.GinkgoWriter.Printf("    Total events in namespace: %d\n", len(events.Items))
-				}
-
-				// Check kube-controller-manager status for event GC
-				kcmPods, kcmErr := kubeClient.CoreV1().Pods("openshift-kube-controller-manager").List(ctx, metav1.ListOptions{
-					LabelSelector: "app=kube-controller-manager",
-				})
-				if kcmErr == nil {
-					for _, kcmPod := range kcmPods.Items {
-						ready := "NotReady"
-						for _, cond := range kcmPod.Status.Conditions {
-							if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
-								ready = "Ready"
-							}
-						}
-						g.GinkgoWriter.Printf("    KCM pod %s: Phase=%s, %s\n", kcmPod.Name, kcmPod.Status.Phase, ready)
-					}
-				}
 			}
 			return false
 		}, waitTimeout, 30*time.Second).Should(o.BeTrue(), fmt.Sprintf("event should be deleted after %dm TTL (waited %v)", ttl, waitTimeout))
@@ -373,42 +309,21 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			"error should be Invalid or BadRequest, got: %v", err)
 	})
 
-	g.It("should accept eventTTLMinutes at minimum boundary (1 minute) [Conformance][Serial]", func() {
-		// Get original value for cleanup
-		currentCfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
-		o.Expect(err).NotTo(o.HaveOccurred())
-		originalEventTTL := currentCfg.Spec.EventTTLMinutes
-
-		// Cleanup after test
-		defer func() {
-			restore := map[string]interface{}{"spec": map[string]interface{}{}}
-			if originalEventTTL == 0 {
-				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = nil
-			} else {
-				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
-			}
-			restoreBytes, _ := json.Marshal(restore)
-			_, _ = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
-			g.GinkgoWriter.Printf("Cleanup: restored eventTTLMinutes\n")
-		}()
-
-		g.By("Setting eventTTLMinutes=1 (minimum valid value)")
+	g.It("should reject eventTTLMinutes below minimum (4 minutes) [Conformance][Serial]", func() {
+		g.By("Attempting to set eventTTLMinutes=4 (should be rejected, min is 5)")
 		patchData := map[string]interface{}{
 			"spec": map[string]interface{}{
-				"eventTTLMinutes": 1,
+				"eventTTLMinutes": 4,
 			},
 		}
 		patchBytes, err := json.Marshal(patchData)
 		o.Expect(err).NotTo(o.HaveOccurred())
 
 		_, err = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, patchBytes, metav1.PatchOptions{})
-		o.Expect(err).NotTo(o.HaveOccurred(), "eventTTLMinutes=1 should be accepted")
-
-		// Verify the value was set
-		cfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
-		o.Expect(err).NotTo(o.HaveOccurred())
-		o.Expect(cfg.Spec.EventTTLMinutes).To(o.Equal(int32(1)))
-		g.GinkgoWriter.Printf("eventTTLMinutes=1 was accepted successfully\n")
+		o.Expect(err).To(o.HaveOccurred(), "eventTTLMinutes < 5 should be rejected")
+		g.GinkgoWriter.Printf("Setting eventTTLMinutes=4 was rejected as expected: %v\n", err)
+		o.Expect(apierrors.IsInvalid(err) || apierrors.IsBadRequest(err)).To(o.BeTrue(),
+			"error should be Invalid or BadRequest, got: %v", err)
 	})
 
 	g.It("should accept eventTTLMinutes at maximum boundary (180 minutes) [Conformance][Serial]", func() {
@@ -449,10 +364,3 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		g.GinkgoWriter.Printf("eventTTLMinutes=180 was accepted successfully\n")
 	})
 })
-
-// ginkgoLogger adapts Ginkgo's logging to library.LoggingT interface
-type ginkgoLogger struct{}
-
-func (l *ginkgoLogger) Logf(format string, args ...interface{}) {
-	g.GinkgoWriter.Printf(format+"\n", args...)
-}
