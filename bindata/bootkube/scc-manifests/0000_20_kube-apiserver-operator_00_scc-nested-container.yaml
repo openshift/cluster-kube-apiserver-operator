@@ -34,9 +34,8 @@ readOnlyRootFilesystem: false
 requiredDropCapabilities:
 runAsUser:
   type: MustRunAsRange
-  ranges:
-  - min: 0
-    max: 65534
+  uidRangeMin: 0
+  uidRangeMax: 65534
 seLinuxContext:
   type: MustRunAs
   seLinuxOptions:
