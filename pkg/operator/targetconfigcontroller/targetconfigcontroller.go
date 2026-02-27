@@ -330,11 +330,11 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	// // TODO: placeholder. I (fbertina) need to grant you read permissions. Please ask
-	// kmsPluginImage := "quay.io/bertinatto/vault:v1"
-	// if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister, operatorclient.TargetNamespace, kmsPluginImage); err != nil {
-	// 	return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
-	// }
+	// TODO: placeholder. I (fbertina) need to grant you read permissions. Please ask
+	kmsPluginImage := "quay.io/bertinatto/vault:v1"
+	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister, operatorclient.TargetNamespace, kmsPluginImage); err != nil {
+		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
+	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	corev1 "k8s.io/api/core/v1"
@@ -20,20 +21,21 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return fmt.Errorf("pod spec cannot be nil")
 	}
 
-	// if !featureGateAccessor.AreInitialFeatureGatesObserved() {
-	// 	return nil
-	// }
-	//
-	// featureGates, err := featureGateAccessor.CurrentFeatureGates()
-	// if err != nil {
-	// 	return fmt.Errorf("failed to get feature gates: %w", err)
-	// }
-	//
-	// if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
-	// 	klog.Infof("kms is disabled: feature gate %s is disabled", features.FeatureGateKMSEncryption)
-	// 	return nil
-	// }
+	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+		return nil
+	}
 
+	featureGates, err := featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		return fmt.Errorf("failed to get feature gates: %w", err)
+	}
+
+	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
+		klog.Infof("kms is disabled: feature gate %s is disabled", features.FeatureGateKMSEncryption)
+		return nil
+	}
+
+	// FIXME: this is a temporary solution until we figure out how to handle credentials
 	creds, err := secretLister.Secrets(targetNamespace).Get("vault-kms-credentials")
 	if err != nil {
 		klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
@@ -82,6 +84,13 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string,
 			string(creds.Data["VAULT_NAMESPACE"]),
 			string(creds.Data["VAULT_KEY_NAME"]),
 			string(creds.Data["VAULT_ROLE_ID"])),
+		},
+		// TODO: this volumeMount is used by kube-apiserver as well, so it's be present in the pod.Spec
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "resource-dir",
+				MountPath: "/etc/kubernetes/static-pod-resources",
+			},
 		},
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: ptrBool(true),
