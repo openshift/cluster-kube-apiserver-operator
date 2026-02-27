@@ -10,6 +10,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,6 +20,7 @@ import (
 
 	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
 	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
+	oteextensiontests "github.com/openshift-eng/openshift-tests-extension/pkg/extension/extensiontests"
 	oteginkgo "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
@@ -77,12 +80,67 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	// Tests tagged with [Operator], [Serial], and [Conformance] are included.
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
+		Parents:     []string{"openshift/conformance/serial"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Serial]") && name.contains("[Conformance]")`,
+		},
+	})
+
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
 	}
 
+	// Apply environment filtering based on skip tags in test names
+	// This is a generic approach - any test can use these tags to skip on specific platforms
+	applyEnvironmentFilters(specs)
+
 	extension.AddSpecs(specs)
 	registry.Register(extension)
 	return registry, nil
+}
+
+// applyEnvironmentFilters applies environment-based filtering to test specs based on tags.
+// This provides a generic mechanism for any test to specify platform requirements by adding
+// appropriate tags to the test name.
+//
+// Supported tags:
+//   - [Skipped:HyperShift] - excludes test on External topology (HyperShift clusters)
+//   - [Skipped:MicroShift] - excludes test on SingleReplica topology (MicroShift clusters)
+//   - [FeatureGate:X]      - includes test only when feature gate X is enabled
+func applyEnvironmentFilters(specs oteextensiontests.ExtensionTestSpecs) {
+	// Map of skip tags to their corresponding topology exclusion CEL expressions
+	skipTagToTopology := map[string]string{
+		"[Skipped:HyperShift]": "External",
+		"[Skipped:MicroShift]": "SingleReplica",
+	}
+
+	// Regex to extract feature gate names from [FeatureGate:X] tags
+	featureGateRegex := regexp.MustCompile(`\[FeatureGate:([^\]]+)\]`)
+
+	for _, spec := range specs {
+		// Apply topology exclusions
+		var exclusions []string
+		for tag, topology := range skipTagToTopology {
+			if strings.Contains(spec.Name, tag) {
+				exclusions = append(exclusions, oteextensiontests.TopologyEquals(topology))
+			}
+		}
+		if len(exclusions) > 0 {
+			spec.Exclude(oteextensiontests.Or(exclusions...))
+		}
+
+		// Apply feature gate requirements - test only runs if feature gate is enabled
+		matches := featureGateRegex.FindAllStringSubmatch(spec.Name, -1)
+		for _, match := range matches {
+			if len(match) > 1 {
+				featureGateName := match[1]
+				spec.Include(oteextensiontests.FeatureGateEnabled(featureGateName))
+			}
+		}
+	}
 }
