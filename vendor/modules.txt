@@ -258,7 +258,7 @@ github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo
 github.com/openshift-eng/openshift-tests-extension/pkg/junit
 github.com/openshift-eng/openshift-tests-extension/pkg/util/sets
 github.com/openshift-eng/openshift-tests-extension/pkg/version
-# github.com/openshift/api v0.0.0-20260212193555-c06ab675261f
+# github.com/openshift/api v0.0.0-20260226052804-beff70de904a => github.com/sanchezl/api v0.0.0-20260227042930-479ebcf1e0d0
 ## explicit; go 1.24.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -348,7 +348,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13
+# github.com/openshift/client-go v0.0.0-20260108185524-48f4ccfc4e13 => github.com/sanchezl/client-go v0.0.0-20260227150717-552d1b9f2dfe
 ## explicit; go 1.24.0
 github.com/openshift/client-go/config/applyconfigurations/config/v1
 github.com/openshift/client-go/config/applyconfigurations/config/v1alpha1
@@ -406,7 +406,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20260223145824-7b234b47a906
+# github.com/openshift/library-go v0.0.0-20260223145824-7b234b47a906 => github.com/sanchezl/library-go v0.0.0-20260227150748-9aba30857e8f
 ## explicit; go 1.24.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -1689,3 +1689,6 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+# github.com/openshift/api => github.com/sanchezl/api v0.0.0-20260227042930-479ebcf1e0d0
+# github.com/openshift/client-go => github.com/sanchezl/client-go v0.0.0-20260227150717-552d1b9f2dfe
+# github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20260227150748-9aba30857e8f
