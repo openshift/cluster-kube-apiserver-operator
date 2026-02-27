@@ -48,6 +48,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		cmd.Version = v
 	}
 
+	// opts := installerpod.NewInstallOptions().WithPodMutationFactory(targetconfigcontroller.AddKMSPluginToPodSpecFn)
 	cmd.AddCommand(operatorcmd.NewOperator())
 	cmd.AddCommand(render.NewRenderCommand())
 	cmd.AddCommand(installerpod.NewInstaller(ctx))
@@ -66,4 +67,8 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	}))
 
 	return cmd
+}
+
+func ptrBool(b bool) *bool {
+	return &b
 }
