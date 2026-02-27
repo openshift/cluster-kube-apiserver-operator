@@ -50,6 +50,7 @@ spec:
         command: ["cluster-kube-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
+        - "--terminate-on-files=/var/run/configmaps/config/config.yaml"
         resources:
           requests:
             memory: 50Mi
