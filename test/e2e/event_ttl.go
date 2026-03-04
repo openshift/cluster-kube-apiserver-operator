@@ -97,7 +97,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		originalEventTTL := currentCfg.Spec.EventTTLMinutes
 		g.GinkgoWriter.Printf("Original eventTTLMinutes: %d (0 means unset)\n", originalEventTTL)
 
-		// Cleanup after test
+		// Cleanup after test - restore original eventTTLMinutes and wait for stabilization
 		defer func() {
 			g.By("Cleaning up eventTTLMinutes configuration")
 			restore := map[string]interface{}{"spec": map[string]interface{}{}}
@@ -106,12 +106,11 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			} else {
 				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
 			}
-			restoreBytes, _ := json.Marshal(restore)
+			restoreBytes, marshalErr := json.Marshal(restore)
+			o.Expect(marshalErr).NotTo(o.HaveOccurred(), "failed to marshal restore patch")
+
 			_, restoreErr := operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
-			if restoreErr != nil {
-				g.GinkgoWriter.Printf("Cleanup: failed to restore eventTTLMinutes: %v\n", restoreErr)
-				return
-			}
+			o.Expect(restoreErr).NotTo(o.HaveOccurred(), "failed to restore eventTTLMinutes")
 			g.GinkgoWriter.Printf("Cleanup: restored eventTTLMinutes to original value\n")
 
 			g.By("Waiting for API server to stabilize after cleanup")
@@ -121,11 +120,8 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 				"apiserver=true",
 				successThreshold, successInterval, pollInterval, timeout,
 			)
-			if stabilizeErr != nil {
-				g.GinkgoWriter.Printf("Cleanup: API server did not stabilize after restore: %v\n", stabilizeErr)
-			} else {
-				g.GinkgoWriter.Printf("Cleanup: API server stabilized after restore\n")
-			}
+			o.Expect(stabilizeErr).NotTo(o.HaveOccurred(), "API server did not stabilize after cleanup")
+			g.GinkgoWriter.Printf("Cleanup: API server stabilized after restore\n")
 		}()
 
 		g.By(fmt.Sprintf("Configuring eventTTLMinutes=%d", ttl))
@@ -156,38 +152,41 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 		o.Expect(err).NotTo(o.HaveOccurred(), "API server did not stabilize after eventTTLMinutes change")
 		g.GinkgoWriter.Printf("API server stabilized with new configuration\n")
 
-		// Verify the running pods have the --event-ttl argument
-		// After WaitForPodsToStabilizeOnTheSameRevision, all pods should be on the new revision
-		expectedArg := fmt.Sprintf("--event-ttl=%dm", ttl)
-		g.By(fmt.Sprintf("Verifying %s in kube-apiserver pod args", expectedArg))
+		// Verify the event-ttl is in the kube-apiserver config
+		// The event-ttl is configured via apiServerArguments in the config file, not as a direct pod arg
+		// After WaitForPodsToStabilizeOnTheSameRevision, all pods should be on the same revision
+		expectedTTL := fmt.Sprintf(`"event-ttl":["%dm"]`, ttl)
+		g.By(fmt.Sprintf("Verifying event-ttl=%dm in kube-apiserver versioned config", ttl))
 
+		// Get a running pod to find the current revision
 		pods, err := kubeClient.CoreV1().Pods(operatorclient.TargetNamespace).List(ctx, metav1.ListOptions{
 			LabelSelector: "apiserver=true",
 		})
 		o.Expect(err).NotTo(o.HaveOccurred())
 		o.Expect(len(pods.Items)).To(o.BeNumerically(">", 0), "should have at least one kube-apiserver pod")
 
+		// Find a running pod and get its revision
+		var revision string
 		for _, pod := range pods.Items {
-			if pod.Status.Phase != corev1.PodRunning {
-				continue
+			if pod.Status.Phase == corev1.PodRunning {
+				revision = pod.Labels["revision"]
+				g.GinkgoWriter.Printf("Found running pod %s at revision %s\n", pod.Name, revision)
+				break
 			}
-			found := false
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "kube-apiserver" {
-					for _, arg := range container.Args {
-						if arg == expectedArg {
-							found = true
-							break
-						}
-					}
-					break
-				}
-			}
-			o.Expect(found).To(o.BeTrue(), fmt.Sprintf("pod %s should have %s argument", pod.Name, expectedArg))
-			g.GinkgoWriter.Printf("Pod %s has %s\n", pod.Name, expectedArg)
 		}
+		o.Expect(revision).NotTo(o.BeEmpty(), "should find a running kube-apiserver pod with revision label")
 
-		g.By(fmt.Sprintf("Successfully verified eventTTLMinutes=%d in running pods", ttl))
+		// Get the versioned ConfigMap for this revision
+		configMapName := fmt.Sprintf("config-%s", revision)
+		configMap, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).Get(ctx, configMapName, metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred(), fmt.Sprintf("should get versioned ConfigMap %s", configMapName))
+
+		configData, found := configMap.Data["config.yaml"]
+		o.Expect(found).To(o.BeTrue(), "config.yaml should exist in ConfigMap")
+		o.Expect(configData).To(o.ContainSubstring(expectedTTL), fmt.Sprintf("config should contain %s", expectedTTL))
+
+		g.GinkgoWriter.Printf("Verified %s in ConfigMap %s\n", expectedTTL, configMapName)
+		g.By(fmt.Sprintf("Successfully verified eventTTLMinutes=%d in versioned config", ttl))
 
 		g.By(fmt.Sprintf("Validating that events actually expire after %d minutes", ttl))
 
@@ -346,8 +345,11 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][FeatureGate:EventTT
 			} else {
 				restore["spec"].(map[string]interface{})["eventTTLMinutes"] = originalEventTTL
 			}
-			restoreBytes, _ := json.Marshal(restore)
-			_, _ = operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
+			restoreBytes, marshalErr := json.Marshal(restore)
+			o.Expect(marshalErr).NotTo(o.HaveOccurred(), "failed to marshal restore patch")
+
+			_, restoreErr := operatorClient.OperatorV1().KubeAPIServers().Patch(ctx, "cluster", types.MergePatchType, restoreBytes, metav1.PatchOptions{})
+			o.Expect(restoreErr).NotTo(o.HaveOccurred(), "failed to restore eventTTLMinutes")
 			g.GinkgoWriter.Printf("Cleanup: restored eventTTLMinutes\n")
 		}()
 
