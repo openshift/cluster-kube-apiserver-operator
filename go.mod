@@ -13,10 +13,10 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/miekg/dns v1.1.61
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-	github.com/openshift/api v0.0.0-20251111013132-5c461e21bdb7
+	github.com/openshift/api v0.0.0-20260304172252-b0658d22beea
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
-	github.com/openshift/client-go v0.0.0-20251015124057-db0dee36e235
-	github.com/openshift/library-go v0.0.0-20260303081410-9c30edf843c6
+	github.com/openshift/client-go v0.0.0-20251205093018-96a6cbc1420c
+	github.com/openshift/library-go v0.0.0-20260304201346-4aa68c020bf7
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/prometheus/client_golang v1.22.0
 	github.com/spf13/cobra v1.9.1
