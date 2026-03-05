@@ -1,22 +1,26 @@
 package targetconfigcontroller
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apiserver/pkg/apis/apiserver"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
+var configScheme = runtime.NewScheme()
+var codecs = serializer.NewCodecFactory(configScheme, serializer.EnableStrict)
+
 // AddKMSPluginToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
 // It assumes the pod spec does not already contain the KMS volume or mount; no deduplication is performed.
 // Deprecated: this is a temporary solution to get KMS TP v1 out. We should come up with a different approach afterwards.
-func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, targetNamespace string, kmsPluginImage string) error {
+func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featuregates.FeatureGateAccess, revision int32, secretLister corev1listers.SecretLister, kmsPluginImage string) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -35,15 +39,64 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return nil
 	}
 
-	// FIXME: this is a temporary solution until we figure out how to handle credentials
-	creds, err := secretLister.Secrets(targetNamespace).Get("vault-kms-credentials")
+	encryptionConfig, err := secretLister.Secrets("openshift-config-managed").Get("encryption-config-openshift-kube-apiserver")
+	if apierrors.IsNotFound(err) {
+		klog.Infof("kms is disabled: secret openshift-config/encryption-config not found: %v", err)
+		return nil
+	}
 	if err != nil {
-		klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
+		klog.Infof("kms is disabled: failed to get encryption-config-openshift-kube-apiserver secret: %v", err)
 		return nil
 	}
 
-	// At this point we know we should deploy the KMS plugin
-	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, creds); err != nil {
+	encryptionConfigBytes := encryptionConfig.Data["encryption-config"]
+	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	config := obj.(*apiserver.EncryptionConfiguration)
+
+	kmsProviders := []apiserver.ProviderConfiguration{}
+	for _, resources := range config.Resources {
+		for _, provider := range resources.Providers {
+			if provider.KMS != nil {
+				kmsProviders = append(kmsProviders, provider)
+			}
+		}
+	}
+
+	// FIXME: set to true by default
+	shouldSetupVault := true
+	for _, provider := range kmsProviders {
+		if provider.KMS == nil {
+			continue
+		}
+		if provider.KMS.Name == "vault" {
+			shouldSetupVault = true
+		}
+	}
+
+	if !shouldSetupVault {
+		klog.Infof("kms is disabled: vault should not be setup")
+		return nil
+	}
+
+	// is kms specified?
+	// return if not
+	// get passwrod: vault-kms-credentials
+
+	creds, err := secretLister.Secrets("openshift-config").Get("vault-kms-credentials")
+	if apierrors.IsNotFound(err) {
+		klog.Infof("kms is disabled: secret openshift-config/vault-kms-credentials not found: %v", err)
+		return nil
+	}
+	if err != nil {
+		klog.Infof("kms is disabled: failed to get vault-kms-credentials secret: %v", err)
+		return nil
+	}
+
+	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, creds, revision); err != nil {
 		return err
 	}
 
@@ -58,7 +111,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	return nil
 }
 
-func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, image string, creds *corev1.Secret) error {
+func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, image string, creds *corev1.Secret, revision int32) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -150,30 +203,30 @@ func ptrBool(b bool) *bool {
 	return &b
 }
 
-func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMutationFunc {
-	klog.Infof("fjb: in AddKMSPluginToPodSpecFn")
-	kmsPluginImage := "quay.io/bertinatto/vault:v1"
-	return func(pod *corev1.Pod) error {
-		klog.Infof("fjb: running func in AddKMSPluginToPodSpecFn")
-		creds, err := o.KubeClient.CoreV1().Secrets("openshift-kube-apiserver").Get(context.TODO(), "vault-kms-credentials", v1.GetOptions{})
-		if err != nil {
-			klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
-			return nil
-		}
-		klog.Infof("kms is ENABLED")
-
-		if err := addKMSPluginSidecarToPodSpec(&pod.Spec, "kms-plugin", kmsPluginImage, creds); err != nil {
-			return err
-		}
-
-		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kms-plugin"); err != nil {
-			return err
-		}
-
-		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kube-apiserver"); err != nil {
-			return err
-		}
-
-		return nil
-	}
-}
+// func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMutationFunc {
+// 	klog.Infof("fjb: in AddKMSPluginToPodSpecFn")
+// 	kmsPluginImage := "quay.io/bertinatto/vault:v1"
+// 	return func(pod *corev1.Pod) error {
+// 		klog.Infof("fjb: running func in AddKMSPluginToPodSpecFn")
+// 		creds, err := o.KubeClient.CoreV1().Secrets("openshift-kube-apiserver").Get(context.TODO(), "vault-kms-credentials", v1.GetOptions{})
+// 		if err != nil {
+// 			klog.Infof("kms is disabled: could not get vault-kms-credentials secret: %v", err)
+// 			return nil
+// 		}
+// 		klog.Infof("kms is ENABLED")
+//
+// 		if err := addKMSPluginSidecarToPodSpec(&pod.Spec, "kms-plugin", kmsPluginImage, creds, 0 /* FIXME: dummy condition*/); err != nil {
+// 			return err
+// 		}
+//
+// 		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kms-plugin"); err != nil {
+// 			return err
+// 		}
+//
+// 		if err := addKMSPluginVolumeAndMountToPodSpec(&pod.Spec, "kube-apiserver"); err != nil {
+// 			return err
+// 		}
+//
+// 		return nil
+// 	}
+// }
