@@ -37,7 +37,7 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96
 )
 
-require github.com/onsi/gomega v1.38.2 // indirect
+require github.com/onsi/gomega v1.38.2
 
 require (
 	cel.dev/expr v0.24.0 // indirect
