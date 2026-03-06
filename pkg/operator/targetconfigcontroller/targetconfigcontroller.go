@@ -332,11 +332,10 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 
 	// TODO: placeholder. I (fbertina) need to grant you read permissions. Please ask
 	kmsPluginImage := "quay.io/bertinatto/vault:v1"
-	revision := operatorStatus.LatestAvailableRevision
 
 	// encryptionConfig, err := secretLister.Secrets(namespace string)
 
-	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, revision, secretLister, kmsPluginImage); err != nil {
+	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister, kmsPluginImage); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
 	}
 
