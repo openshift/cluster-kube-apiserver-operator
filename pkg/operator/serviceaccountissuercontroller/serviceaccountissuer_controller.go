@@ -64,7 +64,7 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	if err != nil {
 		return err
 	}
-	authConfigIssuer := authConfig.Spec.ServiceAccountIssuer
+	desiredIssuer := authConfig.Spec.ServiceAccountIssuer
 
 	operator, err := c.kubeAPIserverOperatorLister.Get("cluster")
 	if err != nil {
@@ -72,21 +72,21 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	}
 
 	// this is a case when issuer is not set in auth config and the operator status already has the default issuer set.
-	if isDefaultServiceAccountIssuer(authConfigIssuer, operator.Status.ServiceAccountIssuers) {
+	if isDefaultServiceAccountIssuer(desiredIssuer, operator.Status.ServiceAccountIssuers) {
 		return nil
 	}
 
-	if len(authConfigIssuer) == 0 {
-		authConfigIssuer = defaultServiceAccountIssuerValue[0].Name
+	if len(desiredIssuer) == 0 {
+		desiredIssuer = defaultServiceAccountIssuerValue[0].Name
 	}
 
 	activeIssuer := getActiveServiceAccountIssuer(operator.Status.ServiceAccountIssuers)
 
 	// We must have the active issuer (the one without expiration time), even if the following
 	// error/edge case happens. If somebody cleared the status deliberately, we should detect
-	// it with issuerChanged, because activeIssuer will be empty and authConfigIssuer will be
+	// it with issuerChanged, because activeIssuer will be empty and desiredIssuer will be
 	// always set/defaulted.
-	issuerChanged := authConfigIssuer != activeIssuer
+	issuerChanged := desiredIssuer != activeIssuer
 
 	// the issuer configured in auth config and the active issuer we have in operator status matches.
 	// this is no-op configuration wise, but we prune the list from expired issuers.
@@ -106,10 +106,10 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	// that means user changed the value in auth config and we need to make the active issuer "trusted".
 	// trusted issuers have expiration time set and they are going to be pruned by this controller when the expiration
 	// timeout.
-	if err := c.makeActiveIssuerTrusted(ctx, activeIssuer, authConfigIssuer, operator); err != nil {
+	if err := c.makeActiveIssuerTrusted(ctx, activeIssuer, desiredIssuer, operator); err != nil {
 		// Successful issuer change is event worthy.
 		if err == factory.SyntheticRequeueError {
-			eventMsg := fmt.Sprintf("Desired ServiceAccountIssuer %q is now active issuer.", authConfigIssuer)
+			eventMsg := fmt.Sprintf("Desired ServiceAccountIssuer %q is now active issuer.", desiredIssuer)
 			if len(activeIssuer) > 0 {
 				eventMsg = fmt.Sprintf("%s Previous issuer %q is trusted until %s.", eventMsg, activeIssuer,
 					c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration))
