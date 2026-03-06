@@ -3,9 +3,10 @@ package serviceaccountissuercontroller
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
@@ -75,27 +76,16 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 		return nil
 	}
 
-	// there is no service account issuer set and there are no service account issuers in status, no-op.
-	if len(authConfigIssuer) == 0 || len(operator.Status.ServiceAccountIssuers) == 0 {
-		operatorCopy := operator.DeepCopy()
-		operatorCopy.Status.ServiceAccountIssuers = defaultServiceAccountIssuerValue
-		_, statusUpdateErr := c.kubeAPIServerOperatorClient.UpdateStatus(ctx, operatorCopy, metav1.UpdateOptions{})
-		if statusUpdateErr == nil {
-			controllerContext.Recorder().Eventf("ServiceAccountIssuer", "Issuer set to default value %q", defaultServiceAccountIssuerValue[0].Name)
-			statusUpdateErr = factory.SyntheticRequeueError
-		}
-		return statusUpdateErr
+	if len(authConfigIssuer) == 0 {
+		authConfigIssuer = defaultServiceAccountIssuerValue[0].Name
 	}
 
 	activeIssuer := getActiveServiceAccountIssuer(operator.Status.ServiceAccountIssuers)
-	if len(activeIssuer) == 0 {
-		// at this point, we must have the active issuer (the one without expiration time).
-		// if we don't it means somebody changed the status deliberately.
-		// in this case, we correct it by setting the configured value as active.
-		// NOTE: this is an error/edge case
-		return c.makeActiveIssuerTrusted(ctx, authConfigIssuer, authConfigIssuer, operator)
-	}
 
+	// We must have the active issuer (the one without expiration time), even if the following
+	// error/edge case happens. If somebody cleared the status deliberately, we should detect
+	// it with issuerChanged, because activeIssuer will be empty and authConfigIssuer will be
+	// always set/defaulted.
 	issuerChanged := authConfigIssuer != activeIssuer
 
 	// the issuer configured in auth config and the active issuer we have in operator status matches.
@@ -119,10 +109,13 @@ func (c *ServiceAccountIssuerController) sync(ctx context.Context, controllerCon
 	if err := c.makeActiveIssuerTrusted(ctx, activeIssuer, authConfigIssuer, operator); err != nil {
 		// Successful issuer change is event worthy.
 		if err == factory.SyntheticRequeueError {
-			controllerContext.Recorder().Eventf("ServiceAccountIssuer",
-				"Desired ServiceAccountIssuer %q is now active issuer. Previous issuer %q is trusted until %s",
-				authConfigIssuer, activeIssuer, c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration),
-			)
+			eventMsg := fmt.Sprintf("Desired ServiceAccountIssuer %q is now active issuer.", authConfigIssuer)
+			if len(activeIssuer) > 0 {
+				eventMsg = fmt.Sprintf("%s Previous issuer %q is trusted until %s.", eventMsg, activeIssuer,
+					c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration))
+			}
+			controllerContext.Recorder().Event("ServiceAccountIssuer", eventMsg)
+
 		}
 		return err
 	}
@@ -158,17 +151,17 @@ func (c *ServiceAccountIssuerController) makeActiveIssuerTrusted(ctx context.Con
 		},
 	}
 	for i := range server.Status.ServiceAccountIssuers {
-		if server.Status.ServiceAccountIssuers[i].ExpirationTime == nil && server.Status.ServiceAccountIssuers[i].Name == oldIssuer {
+		// handle the case when new issuer is already in the trusted list
+		// this will remove it from the list
+		if server.Status.ServiceAccountIssuers[i].Name == newIssuer {
+			continue
+		}
+		if len(oldIssuer) > 0 && server.Status.ServiceAccountIssuers[i].ExpirationTime == nil && server.Status.ServiceAccountIssuers[i].Name == oldIssuer {
 			expiration := metav1.Time{Time: c.nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)}
 			updated = append(updated, operatorv1.ServiceAccountIssuerStatus{
 				Name:           oldIssuer,
 				ExpirationTime: &expiration,
 			})
-			continue
-		}
-		// handle the case when new issuer is already in the trusted list
-		// this will remove it from the list
-		if server.Status.ServiceAccountIssuers[i].Name == newIssuer {
 			continue
 		}
 		updated = append(updated, server.Status.ServiceAccountIssuers[i])

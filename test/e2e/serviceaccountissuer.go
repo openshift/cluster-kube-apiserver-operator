@@ -86,7 +86,7 @@ func testServiceAccountIssuerDefaultIssuer(t testing.TB) {
 	require.NoError(t, err)
 
 	setServiceAccountIssuer(t, authConfigClient, "")
-	err = pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"})
+	err = pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc", "https://second.foo.bar", "https://first.foo.bar"})
 	require.NoError(t, err, "pollForOperandIssuer failed")
 }
 
