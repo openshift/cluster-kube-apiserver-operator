@@ -44,7 +44,7 @@ func TestServiceAccountIssuer(t *testing.T) {
 
 	t.Run("no serviceaccountissuer set in authentication config results in apiserver config with default issuer set", func(t *testing.T) {
 		setServiceAccountIssuer(t, authConfigClient, "")
-		if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc"}); err != nil {
+		if err := pollForOperandIssuer(t, kubeClient, []string{"https://kubernetes.default.svc", "https://second.foo.bar", "https://first.foo.bar"}); err != nil {
 			t.Errorf("pollForOperandIssuer failed: %v", err)
 		}
 	})
