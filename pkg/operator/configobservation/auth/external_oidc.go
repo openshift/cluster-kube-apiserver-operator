@@ -63,6 +63,14 @@ func (o *externalOIDC) ObserveExternalOIDC(genericListers configobserver.Listers
 		return existingConfig, nil
 	}
 
+	// When the ExternalOIDCExternalClaimsSourcing feature gate is enabled, the kube-apiserver
+	// should not have the built-in Structured Authentication Configuration feature configured,
+	// which this controller handles.
+	// When this feature goes GA, this controller should be removed.
+	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		return existingConfig, nil
+	}
+
 	listers := genericListers.(configobservation.Listers)
 	auth, err := listers.AuthConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {

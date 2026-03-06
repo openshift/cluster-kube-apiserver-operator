@@ -16,6 +16,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"k8s.io/utils/clock"
@@ -174,7 +175,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 
 			eventRecorder := events.NewInMemoryRecorder("webhookauthenticatortest", clock.RealClock{})
 
-			gotConfig, errs := ObserveWebhookTokenAuthenticator(listers, eventRecorder, tt.existingConfig)
+			gotConfig, errs := NewObserveWebhookTokenAuthenticator(featuregates.NewHardcodedFeatureGateAccess(nil, nil))(listers, eventRecorder, tt.existingConfig)
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, gotConfig) {
 				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, gotConfig))
 			}
