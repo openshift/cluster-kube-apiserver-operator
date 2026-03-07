@@ -50,8 +50,14 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return nil
 	}
 
-	encryptionConfigBytes := encryptionConfig.Data["encryption-config"]
-	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, nil, nil)
+	encryptionConfigBytes, ok := encryptionConfig.Data["encryption-config"]
+	if !ok {
+		klog.Infof("kms is disabled: failed to get encryption-config key in secret")
+		return nil
+	}
+
+	gvk := apiserver.SchemeGroupVersion.WithKind("EncryptionConfiguration")
+	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, &gvk, nil)
 	if err != nil {
 		return err
 	}
