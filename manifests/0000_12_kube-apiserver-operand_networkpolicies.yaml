@@ -59,9 +59,7 @@ spec:
     matchLabels:
       app: guard
   egress:
-  - ports:
-    - protocol: TCP
-      port: 6443
+  - {}
   policyTypes:
   - Egress
 ---
