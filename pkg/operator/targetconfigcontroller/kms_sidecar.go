@@ -11,12 +11,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/apis/apiserver"
+	"k8s.io/apiserver/pkg/apis/apiserver/install"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
-var configScheme = runtime.NewScheme()
-var codecs = serializer.NewCodecFactory(configScheme, serializer.EnableStrict)
+var (
+	cfgScheme = runtime.NewScheme()
+	codecs    = serializer.NewCodecFactory(cfgScheme, serializer.EnableStrict)
+)
+
+func init() {
+	install.Install(cfgScheme)
+}
 
 // AddKMSPluginToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
 // It assumes the pod spec does not already contain the KMS volume or mount; no deduplication is performed.
@@ -59,7 +66,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	gvk := apiserver.SchemeGroupVersion.WithKind("EncryptionConfiguration")
 	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, &gvk, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("kms is disabled: failed to decode: %w", err)
 	}
 
 	// FIXME: only Vault KMS plugin is supported for now, so any KMS configuration implies Vault
