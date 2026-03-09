@@ -72,6 +72,7 @@ func NewCertRotationController(
 	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
+	additionalInformers ...factory.Informer,
 ) factory.Controller {
 	c := &CertRotationController{
 		Name:                           name,
@@ -103,6 +104,7 @@ func NewCertRotationController(
 			caBundleConfigMap.Informer.Informer(),
 			rotatedSelfSignedCertKeySecret.Informer.Informer(),
 		).
+		WithInformers(additionalInformers...).
 		WithPostStartHooks(
 			c.targetCertRecheckerPostRunHook,
 		).

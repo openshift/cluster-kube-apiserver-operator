@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
+	"github.com/openshift/library-go/pkg/pki"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +48,13 @@ type RotatedSigningCASecret struct {
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
+
+	// CertificateName is the logical name of this certificate for PKI profile resolution.
+	CertificateName string
+
+	// PKIProfileProvider resolves the PKI profile for key configuration.
+	// When nil, the legacy hardcoded RSA-2048 behavior is used.
+	PKIProfileProvider pki.PKIProfileProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -92,7 +100,11 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
+		keyConfig, err := c.resolveKeyConfig()
+		if err != nil {
+			return nil, false, err
+		}
+		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, keyConfig, c.AdditionalAnnotations); err != nil {
 			return nil, false, err
 		}
 
@@ -199,10 +211,26 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	return notBefore, notAfter, ""
 }
 
+// resolveKeyConfig resolves the key configuration from the PKI profile provider.
+// Returns nil when no provider is set or the profile indicates unmanaged mode.
+func (c RotatedSigningCASecret) resolveKeyConfig() (*crypto.KeyConfig, error) {
+	if c.PKIProfileProvider == nil {
+		return nil, nil
+	}
+	cfg, err := pki.ResolveCertificateConfig(c.PKIProfileProvider, pki.CertificateTypeSigner, c.CertificateName)
+	if err != nil {
+		return nil, err
+	}
+	if cfg == nil {
+		return nil, nil
+	}
+	return &cfg.Key, nil
+}
+
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations AdditionalAnnotations) error {
-	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity)
+func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, keyConfig *crypto.KeyConfig, tlsAnnotations AdditionalAnnotations) error {
+	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity, keyConfig)
 	if err != nil {
 		return err
 	}
@@ -211,10 +239,19 @@ func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *core
 	return nil
 }
 
-// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
-func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret.
+// When keyConfig is non-nil, the new configurable key generation is used.
+// When keyConfig is nil, the legacy hardcoded RSA-2048 behavior is preserved.
+func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration, keyConfig *crypto.KeyConfig) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
-	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
+
+	var ca *crypto.TLSCertificateConfig
+	var err error
+	if keyConfig != nil {
+		ca, err = crypto.NewSigningCertificate(signerName, *keyConfig, crypto.WithLifetime(validity))
+	} else {
+		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
+	}
 	if err != nil {
 		return nil, err
 	}
