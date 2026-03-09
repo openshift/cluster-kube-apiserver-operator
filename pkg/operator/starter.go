@@ -611,13 +611,7 @@ func nestedFloat64OrInt(obj map[string]interface{}, fields ...string) (float64, 
 // RevisionConfigMaps is a list of configmaps that are directly copied for the current values.  A different actor/controller modifies these.
 // the first element should be the configmap that contains the static pod manifest
 var RevisionConfigMaps = []revision.RevisionResource{
-	{Name: "kube-apiserver-pod", PreconditionFunc: func() bool {
-		// get kube-apiserver-pod config map
-		// get encryption-config secret if it exists
-		// check if compatible with
-		// before creation a new revision of the configmap, check if the configmap is compatible with
-		return true
-	}},
+	{Name: "kube-apiserver-pod"},
 
 	{Name: "config"},
 	{Name: "kube-apiserver-cert-syncer-kubeconfig"},
