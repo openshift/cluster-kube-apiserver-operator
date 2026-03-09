@@ -73,8 +73,9 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Name:        "openshift/cluster-kube-apiserver-operator/operator/serial",
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Operator]") && name.contains("[Serial]")`,
+			`name.contains("[Operator]") && name.contains("[Serial]") || name.contains("[Disruptive]")`,
 		},
+		ClusterStability: oteextension.ClusterStabilityDisruptive,
 	})
 
 	// Tests tagged with [Serial], and [Conformance] are included.
