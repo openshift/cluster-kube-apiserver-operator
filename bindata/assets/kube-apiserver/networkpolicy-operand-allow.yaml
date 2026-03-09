@@ -1,0 +1,27 @@
+# Allow all egress for guard, installer, and pruner pods in the openshift-kube-apiserver namespace.
+#
+# These pods run on the pod network (unlike kube-apiserver which uses hostNetwork and
+# bypasses NetworkPolicy entirely). They need egress for:
+# - installer/pruner: API server access to manage static pod manifests
+# - guard: kube-apiserver health checks on port 6443
+# - all: DNS resolution via openshift-dns
+#
+# All egress is permitted because the API server address can vary by cluster configuration.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all-egress
+  namespace: openshift-kube-apiserver
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - guard
+      - installer
+      - pruner
+  egress:
+  - {}
+  policyTypes:
+  - Egress
