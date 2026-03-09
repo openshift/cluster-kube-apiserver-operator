@@ -295,9 +295,15 @@ func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.
 
 type ClientRotation struct {
 	UserInfo user.Info
+	// KeyConfig optionally specifies the key algorithm and size.
+	// When nil, the existing hardcoded RSA-2048 behavior is used.
+	KeyConfig *crypto.KeyConfig
 }
 
 func (r *ClientRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+	if r.KeyConfig != nil {
+		return signer.NewClientCertificate(r.UserInfo, *r.KeyConfig, crypto.WithLifetime(validity))
+	}
 	return signer.MakeClientCertificateForDuration(r.UserInfo, validity)
 }
 
@@ -313,11 +319,21 @@ type ServingRotation struct {
 	Hostnames              ServingHostnameFunc
 	CertificateExtensionFn []crypto.CertificateExtensionFunc
 	HostnamesChanged       <-chan struct{}
+	// KeyConfig optionally specifies the key algorithm and size.
+	// When nil, the existing hardcoded RSA-2048 behavior is used.
+	KeyConfig *crypto.KeyConfig
 }
 
 func (r *ServingRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	if len(r.Hostnames()) == 0 {
 		return nil, fmt.Errorf("no hostnames set")
+	}
+	if r.KeyConfig != nil {
+		return signer.NewServerCertificate(
+			sets.New(r.Hostnames()...), *r.KeyConfig,
+			crypto.WithLifetime(validity),
+			crypto.WithExtensions(r.CertificateExtensionFn...),
+		)
 	}
 	return signer.MakeServerCertForDuration(sets.New(r.Hostnames()...), validity, r.CertificateExtensionFn...)
 }
@@ -365,10 +381,19 @@ type ServingHostnameFunc func() []string
 
 type SignerRotation struct {
 	SignerName string
+	// KeyConfig optionally specifies the key algorithm and size.
+	// When nil, the existing hardcoded RSA-2048 behavior is used.
+	KeyConfig *crypto.KeyConfig
 }
 
 func (r *SignerRotation) NewCertificate(signer *crypto.CA, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_@%d", r.SignerName, time.Now().Unix())
+	if r.KeyConfig != nil {
+		return crypto.NewSigningCertificate(signerName, *r.KeyConfig,
+			crypto.WithSigner(signer),
+			crypto.WithLifetime(validity),
+		)
+	}
 	return crypto.MakeCAConfigForDuration(signerName, validity, signer)
 }
 
