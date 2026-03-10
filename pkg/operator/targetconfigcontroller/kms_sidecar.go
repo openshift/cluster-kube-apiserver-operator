@@ -1,6 +1,8 @@
 package targetconfigcontroller
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -8,12 +10,16 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/apis/apiserver/install"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 )
 
 var (
@@ -237,3 +243,82 @@ func ptrBool(b bool) *bool {
 // 		return nil
 // 	}
 // }
+
+func KMSRevisionPrecondition(kubeClient kubernetes.Interface, featureGateAccessor featuregates.FeatureGateAccess) func(ctx context.Context) (bool, error) {
+	return func(ctx context.Context) (bool, error) {
+		// Skip the check entirely when the KMS feature gate is disabled.
+		if !featureGateAccessor.AreInitialFeatureGatesObserved() {
+			return true, nil
+		}
+		featureGates, err := featureGateAccessor.CurrentFeatureGates()
+		if err != nil {
+			return true, nil
+		}
+		if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
+			return true, nil
+		}
+
+		encryptionConfig, err := kubeClient.CoreV1().Secrets("openshift-config-managed").Get(ctx, "encryption-config-openshift-kube-apiserver", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return true, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("kms precondition: failed to get encryption-config secret: %w", err)
+		}
+
+		kmsConfigured := hasKMSEncryptionProvider(encryptionConfig)
+
+		podCM, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).Get(ctx, "kube-apiserver-pod", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			// Pod configmap not created yet — let the revision controller proceed.
+			return true, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("kms precondition: failed to get kube-apiserver-pod configmap: %w", err)
+		}
+
+		kmsInPod := podHasKMSSidecar(podCM)
+
+		if kmsConfigured != kmsInPod {
+			klog.Infof("kms revision precondition not met: kmsConfigured=%v kmsInPod=%v, waiting for reconciliation", kmsConfigured, kmsInPod)
+			return false, nil
+		}
+		return true, nil
+	}
+}
+
+func podHasKMSSidecar(podCM *corev1.ConfigMap) bool {
+	podYAML, ok := podCM.Data["pod.yaml"]
+	if !ok {
+		return false
+	}
+
+	var pod corev1.Pod
+	if err := json.Unmarshal([]byte(podYAML), &pod); err != nil {
+		return false
+	}
+
+	return slices.ContainsFunc(pod.Spec.Containers, func(c corev1.Container) bool {
+		return c.Name == "kms-plugin"
+	})
+}
+
+func hasKMSEncryptionProvider(encryptionConfig *corev1.Secret) bool {
+	encryptionConfigBytes, ok := encryptionConfig.Data["encryption-config"]
+	if !ok {
+		return false
+	}
+
+	gvk := apiserverv1.SchemeGroupVersion.WithKind("EncryptionConfiguration")
+	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, &gvk, nil)
+	if err != nil {
+		return false
+	}
+
+	config := obj.(*apiserverv1.EncryptionConfiguration)
+	return slices.ContainsFunc(config.Resources, func(resource apiserverv1.ResourceConfiguration) bool {
+		return slices.ContainsFunc(resource.Providers, func(provider apiserverv1.ProviderConfiguration) bool {
+			return provider.KMS != nil
+		})
+	})
+}
