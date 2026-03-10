@@ -137,4 +137,4 @@ require (
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
 
-replace github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20260316031911-77a86494b72b
+replace github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20260316193921-a6c2e663bb00

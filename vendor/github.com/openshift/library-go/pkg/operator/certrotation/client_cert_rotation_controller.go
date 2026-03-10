@@ -6,13 +6,14 @@ import (
 	"time"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
+	configv1alpha1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1alpha1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/pki"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -72,8 +73,17 @@ func NewCertRotationController(
 	rotatedSelfSignedCertKeySecret RotatedSelfSignedCertKeySecret,
 	recorder events.Recorder,
 	reporter StatusReporter,
-	additionalInformers ...factory.Informer,
+	pkis configv1alpha1informers.PKIInformer,
 ) factory.Controller {
+	// When a PKI informer factory is provided, create a shared provider for both
+	// the signer and target cert rotation structs.
+	var additionalInformers []factory.Informer
+	if pkis != nil {
+		additionalInformers = append(additionalInformers, pkis.Informer())
+		provider := pki.NewListerPKIProfileProvider(pkis.Lister(), "cluster")
+		rotatedSigningCASecret.pkiProfileProvider = provider
+		rotatedSelfSignedCertKeySecret.pkiProfileProvider = provider
+	}
 	c := &CertRotationController{
 		Name:                           name,
 		RotatedSigningCASecret:         rotatedSigningCASecret,

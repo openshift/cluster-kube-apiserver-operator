@@ -190,8 +190,8 @@ github.com/robfig/cron v1.2.0/go.mod h1:JGuDeoQd7Z6yL4zQhZ3OPEVHB7fL6Ka6skscFHfm
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/sanchezl/library-go v0.0.0-20260316031911-77a86494b72b h1:wR+WGD75Gh4GoFmRLhV6jkxnlgB9wVwlSociBXP0vmM=
-github.com/sanchezl/library-go v0.0.0-20260316031911-77a86494b72b/go.mod h1:pd5guiCr6W4jyhwXj5SEbSnbLskMCXV40RMVoFP6OSI=
+github.com/sanchezl/library-go v0.0.0-20260316193921-a6c2e663bb00 h1:1hFEjZRCZvnKQJmwKstgtoKYXdmEUBNCQTjwFNlc3zk=
+github.com/sanchezl/library-go v0.0.0-20260316193921-a6c2e663bb00/go.mod h1:pd5guiCr6W4jyhwXj5SEbSnbLskMCXV40RMVoFP6OSI=
 github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/soheilhy/cmux v0.1.5 h1:jjzc5WVemNEDTLwv9tlmemhC73tI08BNOIGwBOo10Js=

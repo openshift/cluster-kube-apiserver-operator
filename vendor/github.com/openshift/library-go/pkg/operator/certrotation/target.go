@@ -71,9 +71,9 @@ type RotatedSelfSignedCertKeySecret struct {
 	// CertificateType identifies the category of this certificate (serving, client, peer, signer).
 	CertificateType pki.CertificateType
 
-	// PKIProfileProvider resolves the PKI profile for key configuration.
+	// pkiProfileProvider resolves the PKI profile for key configuration.
 	// When nil, the legacy hardcoded RSA-2048 behavior is used.
-	PKIProfileProvider pki.PKIProfileProvider
+	pkiProfileProvider pki.PKIProfileProvider
 
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
@@ -313,12 +313,20 @@ func setTLSAnnotationsOnTargetCertKeyPairSecret(targetCertKeyPairSecret *corev1.
 // resolveKeyConfig resolves the key configuration from the PKI profile provider.
 // Returns nil when no provider is set or the profile indicates unmanaged mode.
 func (c RotatedSelfSignedCertKeySecret) resolveKeyConfig() (*crypto.KeyConfig, error) {
-	if c.PKIProfileProvider == nil {
+	if c.pkiProfileProvider == nil {
 		return nil, nil
 	}
-	cfg, err := pki.ResolveCertificateConfig(c.PKIProfileProvider, c.CertificateType, c.CertificateName)
+	cfg, err := pki.ResolveCertificateConfig(c.pkiProfileProvider, c.CertificateType, c.CertificateName)
 	if err != nil {
-		return nil, err
+		// TODO(sanchezl): Remove this fallback once installer support for the PKI
+		// resource is in place. Until then, the PKI resource may not exist in
+		// TechPreview clusters, so we fall back to the default profile.
+		klog.Warningf("Failed to resolve PKI config for %s %q, falling back to default profile: %v", c.CertificateType, c.CertificateName, err)
+		defaultProfile := pki.DefaultPKIProfile()
+		cfg, err = pki.ResolveCertificateConfig(pki.NewStaticPKIProfileProvider(&defaultProfile), c.CertificateType, c.CertificateName)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if cfg == nil {
 		return nil, nil
