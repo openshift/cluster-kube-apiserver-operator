@@ -48,6 +48,10 @@ type RotatedSigningCASecret struct {
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
 
+	// KeyConfig optionally specifies the key algorithm and size for the signing CA.
+	// When nil, the existing hardcoded RSA-2048 behavior is used.
+	KeyConfig *crypto.KeyConfig
+
 	// Plumbing:
 	Informer      corev1informers.SecretInformer
 	Lister        corev1listers.SecretLister
@@ -92,7 +96,7 @@ func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*
 			reason = "secret doesn't exist"
 		}
 		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
+		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.KeyConfig, c.AdditionalAnnotations); err != nil {
 			return nil, false, err
 		}
 
@@ -201,8 +205,8 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 
 // setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
 // stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations AdditionalAnnotations) error {
-	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity)
+func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, keyConfig *crypto.KeyConfig, tlsAnnotations AdditionalAnnotations) error {
+	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity, keyConfig)
 	if err != nil {
 		return err
 	}
@@ -211,10 +215,19 @@ func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *core
 	return nil
 }
 
-// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret
-func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration) (*crypto.TLSCertificateConfig, error) {
+// setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret.
+// When keyConfig is non-nil, the new configurable key generation is used.
+// When keyConfig is nil, the legacy hardcoded RSA-2048 behavior is preserved.
+func setSigningCertKeyPairSecret(signingCertKeyPairSecret *corev1.Secret, validity time.Duration, keyConfig *crypto.KeyConfig) (*crypto.TLSCertificateConfig, error) {
 	signerName := fmt.Sprintf("%s_%s@%d", signingCertKeyPairSecret.Namespace, signingCertKeyPairSecret.Name, time.Now().Unix())
-	ca, err := crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
+
+	var ca *crypto.TLSCertificateConfig
+	var err error
+	if keyConfig != nil {
+		ca, err = crypto.NewSigningCertificate(signerName, *keyConfig, crypto.WithLifetime(validity))
+	} else {
+		ca, err = crypto.MakeSelfSignedCAConfigForDuration(signerName, validity)
+	}
 	if err != nil {
 		return nil, err
 	}
