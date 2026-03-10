@@ -10,8 +10,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apiserver/pkg/apis/apiserver"
 	"k8s.io/apiserver/pkg/apis/apiserver/install"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -63,16 +63,16 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return nil
 	}
 
-	gvk := apiserver.SchemeGroupVersion.WithKind("EncryptionConfiguration")
+	gvk := apiserverv1.SchemeGroupVersion.WithKind("EncryptionConfiguration")
 	obj, _, err := codecs.UniversalDeserializer().Decode(encryptionConfigBytes, &gvk, nil)
 	if err != nil {
 		return fmt.Errorf("kms is disabled: failed to decode: %w", err)
 	}
 
 	// FIXME: only Vault KMS plugin is supported for now, so any KMS configuration implies Vault
-	config := obj.(*apiserver.EncryptionConfiguration)
-	shouldSetupVault := slices.ContainsFunc(config.Resources, func(resource apiserver.ResourceConfiguration) bool {
-		return slices.ContainsFunc(resource.Providers, func(provider apiserver.ProviderConfiguration) bool {
+	config := obj.(*apiserverv1.EncryptionConfiguration)
+	shouldSetupVault := slices.ContainsFunc(config.Resources, func(resource apiserverv1.ResourceConfiguration) bool {
+		return slices.ContainsFunc(resource.Providers, func(provider apiserverv1.ProviderConfiguration) bool {
 			if provider.KMS != nil {
 				return true
 			}
