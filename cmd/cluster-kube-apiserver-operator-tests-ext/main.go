@@ -76,6 +76,16 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	// Tests tagged with [Serial], and [Conformance] are included.
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
+		Parents:     []string{"openshift/conformance/serial"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Serial]") && name.contains("[Conformance]")`,
+		},
+	})
+
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
