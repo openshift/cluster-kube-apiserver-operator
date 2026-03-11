@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -373,7 +374,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		versionRecorder,
 		controllerContext.EventRecorder,
 		controllerContext.Clock,
-	)
+	).WithDegradedInertia(status.MustNewInertia(
+		2*time.Minute,
+		status.InertiaCondition{
+			ConditionTypeMatcher: regexp.MustCompile(".*Degraded$"),
+			Duration:             2 * time.Minute,
+		},
+	).Inertia)
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
