@@ -6,7 +6,6 @@ import (
 	"time"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
@@ -43,7 +42,8 @@ type CertRotationController struct {
 
 	recorder events.Recorder
 
-	cachesToSync []cache.InformerSynced
+	cachesToSync     []cache.InformerSynced
+	cacheSyncTimeout time.Duration
 }
 
 func NewCertRotationController(
@@ -920,25 +920,40 @@ func newCertRotationController(
 	return ret, nil
 }
 
-func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
-	klog.Infof("Waiting for CertRotation")
-	defer klog.Infof("Finished waiting for CertRotation")
+// SetCacheSyncTimeout sets the timeout to be used when waiting for caches to sync.
+// Using value <= 0 disables the timeout.
+//
+// Must be called before Run.
+func (c *CertRotationController) SetCacheSyncTimeout(timeout time.Duration) {
+	c.cacheSyncTimeout = timeout
+}
 
-	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
-		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
-		return
+func (c *CertRotationController) WaitForReady(ctx context.Context) error {
+	klog.InfoS("Waiting for CertRotationController to sync caches", "timeout", c.cacheSyncTimeout)
+
+	if c.cacheSyncTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.cacheSyncTimeout)
+		defer cancel()
 	}
 
-	// need to sync at least once before beginning.  if we fail, we cannot start rotating certificates
+	if !cache.WaitForNamedCacheSync("CertRotationController", ctx.Done(), c.cachesToSync...) {
+		return fmt.Errorf("waiting for cache sync interrupted: %w", ctx.Err())
+	}
+
+	// Need to sync at least once before beginning. If we fail, we cannot start rotating certificates.
 	if err := c.syncServiceHostnames(); err != nil {
-		panic(err)
+		return err
 	}
 	if err := c.syncExternalLoadBalancerHostnames(); err != nil {
-		panic(err)
+		return err
 	}
 	if err := c.syncInternalLoadBalancerHostnames(); err != nil {
-		panic(err)
+		return err
 	}
+
+	klog.Info("CertRotationController cache sync complete")
+	return nil
 }
 
 // RunOnce will run the cert rotation logic, but will not try to update the static pod status.
@@ -958,7 +973,14 @@ func (c *CertRotationController) RunOnce() error {
 func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	klog.Infof("Starting CertRotation")
 	defer klog.Infof("Shutting down CertRotation")
-	c.WaitForReady(ctx.Done())
+
+	if err := c.WaitForReady(ctx); err != nil {
+		klog.Errorf("Failed to wait for CertRotationController to become ready: %v", err)
+		if ctx.Err() == nil {
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
+		return
+	}
 
 	go wait.Until(c.runServiceHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, ctx.Done())
