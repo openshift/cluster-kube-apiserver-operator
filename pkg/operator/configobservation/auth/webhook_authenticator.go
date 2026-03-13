@@ -107,29 +107,31 @@ func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(gen
 	// will always be the webhook authenticator called by the kube-apiserver.
 	// This means this should _always_ sync the webhook authenticator secret.
 	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
-		// retrieve the secret from config and validate it, don't proceed on failure
-		kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
-		if err != nil {
-			return existingConfig, append(errs, fmt.Errorf("failed to get secret openshift-config/%s: %w", webhookSecretName, err))
-		}
+		if observedWebhookConfigured {
+			// retrieve the secret from config and validate it, don't proceed on failure
+			kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
+			if err != nil {
+				return existingConfig, append(errs, fmt.Errorf("failed to get secret openshift-config/%s: %w", webhookSecretName, err))
+			}
 
-		if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
-			return existingConfig, append(errs,
-				fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
-		}
+			if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
+				return existingConfig, append(errs,
+					fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
+			}
 
-		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
-			return existingConfig, append(errs, err)
-		}
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
+				return existingConfig, append(errs, err)
+			}
 
-		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
-			return existingConfig, append(errs, err)
-		}
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
+				return existingConfig, append(errs, err)
+			}
 
-		resourceSyncer.SyncSecret(
-			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
-			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
-		)
+			resourceSyncer.SyncSecret(
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
+			)
+		}
 	} else {
 		if observedWebhookConfigured && auth.Spec.Type != configv1.AuthenticationTypeOIDC {
 			// retrieve the secret from config and validate it, don't proceed on failure
