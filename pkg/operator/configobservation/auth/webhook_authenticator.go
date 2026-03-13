@@ -90,7 +90,9 @@ func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(gen
 	// to tell the CKASO which secret to use in the default case. In the short-term for PoC
 	// purposes just use the hardcoded namespace/names.
 	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
-		webhookSecretName = defaultWebhookSecretName
+		if auth.Spec.Type != configv1.AuthenticationTypeNone {
+			webhookSecretName = defaultWebhookSecretName
+		}
 	}
 
 	// NOTE: In the case where the ExternalOIDCExternalClaimsSourcing feature gate is enabled,
