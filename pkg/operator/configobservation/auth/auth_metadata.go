@@ -7,9 +7,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
@@ -21,16 +23,34 @@ const (
 	managedNamespace      = "openshift-config-managed"
 )
 
-var (
-	topLevelMetadataFilePath = []string{"authConfig", "oauthMetadataFile"}
-)
+var topLevelMetadataFilePath = []string{"authConfig", "oauthMetadataFile"}
+
+func NewOAuthMetadataObserver(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+	return (&oauthMetadataObserver{
+		featureGateAccessor: featureGateAccessor,
+	}).ObserveAuthMetadata
+}
+
+type oauthMetadataObserver struct {
+	featureGateAccessor featuregates.FeatureGateAccess
+}
 
 // ObserveAuthMetadata fills in authConfig.OauthMetadataFile with the path for a configMap referenced by the authentication
 // config.
-func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+func (o *oauthMetadataObserver) ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, topLevelMetadataFilePath)
 	}()
+
+	if !o.featureGateAccessor.AreInitialFeatureGatesObserved() {
+		// if we haven't observed featuregates yet, return the existing
+		return existingConfig, nil
+	}
+
+	featureGates, err := o.featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		return existingConfig, []error{err}
+	}
 
 	listers := genericListers.(configobservation.Listers)
 	errs := []error{}
@@ -88,11 +108,19 @@ func ObserveAuthMetadata(genericListers configobserver.Listers, recorder events.
 		// in order to delete the configmap and unset oauthMetadataFile
 
 	case configv1.AuthenticationTypeOIDC:
-		if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
-			// auth-config does not exist in target namespace yet; do not remove oauth metadata until it's there
-			return prevObservedConfig, errs
-		} else if err != nil {
-			return prevObservedConfig, append(errs, err)
+		// When the ExternalOIDCExternalClaimsSourcing feature gate is not enabled the
+		// existing KAS configuration logic for External OIDC should take place, including
+		// waiting to remove the oauth metadata.
+		// We still shouldn't serve oauth metadata when this feature gate is enabled because
+		// the oauth-apiserver will just become a webhook authenticator and the oauth-server 
+		// will still be removed.
+		if !featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+			if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
+				// auth-config does not exist in target namespace yet; do not remove oauth metadata until it's there
+				return prevObservedConfig, errs
+			} else if err != nil {
+				return prevObservedConfig, append(errs, err)
+			}
 		}
 
 		// no oauth metadata is served; do not set anything as source
