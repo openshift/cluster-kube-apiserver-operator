@@ -29,6 +29,10 @@ var (
 	webhookTokenAuthenticatorVersion     = []interface{}{"v1"}
 )
 
+const (
+	defaultWebhookSecretName = "webhook-authentication-integrated-oauth"
+)
+
 func NewObserveWebhookTokenAuthenticator(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
 	return (&webhookTokenAuthenticatorObserver{
 		featureGateAccessor: featureGateAccessor,
@@ -81,6 +85,18 @@ func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(gen
 	}
 
 	var webhookSecretName string
+
+	// TODO: (everettraven) Come up with a more concrete communication method for the CAO
+	// to tell the CKASO which secret to use in the default case. In the short-term for PoC
+	// purposes just use the hardcoded namespace/names.
+	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		webhookSecretName = defaultWebhookSecretName
+	}
+
+	// NOTE: In the case where the ExternalOIDCExternalClaimsSourcing feature gate is enabled,
+	// this should only be set if an end user is intentionally setting this value to override
+	// the oauth-apiserver being used as the webhook authenticator that the kube-apiserver
+	// is configured to communicate with for authentication decisions.
 	if auth.Spec.WebhookTokenAuthenticator != nil {
 		webhookSecretName = auth.Spec.WebhookTokenAuthenticator.KubeConfig.Name
 	}
