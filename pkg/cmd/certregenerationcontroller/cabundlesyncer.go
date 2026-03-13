@@ -3,6 +3,7 @@ package certregenerationcontroller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,7 +37,7 @@ type CABundleController struct {
 	cachesToSync []cache.InformerSynced
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 }
 
 func NewCABundleController(
@@ -48,7 +49,12 @@ func NewCABundleController(
 		configMapGetter: configMapGetter,
 		configMapLister: kubeInformersForNamespaces.ConfigMapLister(),
 		eventRecorder:   eventRecorder.WithComponentSuffix("manage-client-ca-bundle-recovery-controller"),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "CABundleRecoveryController"),
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{
+				Name: "CABundleRecoveryController",
+			},
+		),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
@@ -74,15 +80,14 @@ func NewCABundleController(
 }
 
 func (c *CABundleController) Run(ctx context.Context) {
-	defer utilruntime.HandleCrash()
-
-	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
-	// (@deads2k wants time to think it through)
+	defer utilruntime.HandleCrashWithContext(ctx)
 
 	klog.Info("Starting CA bundle controller")
+	var wg sync.WaitGroup
 	defer func() {
 		klog.Info("Shutting down CA bundle controller")
 		c.queue.ShutDown()
+		wg.Wait()
 		klog.Info("CA bundle controller shut down")
 	}()
 
@@ -90,7 +95,9 @@ func (c *CABundleController) Run(ctx context.Context) {
 		return
 	}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		wait.UntilWithContext(ctx, c.runWorker, time.Second)
 	}()
 
