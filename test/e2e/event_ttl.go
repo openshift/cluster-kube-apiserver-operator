@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][OCPFeatureGate:EventTTL][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", func() {
+var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][Suite:event-ttl][OCPFeatureGate:EventTTL][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", func() {
 	var (
 		kubeClient     *kubernetes.Clientset
 		operatorClient *operatorclientset.Clientset
@@ -36,7 +36,7 @@ var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][OCPFeatureGate:Even
 		o.Expect(err).NotTo(o.HaveOccurred())
 	})
 
-	g.It("should configure eventTTLMinutes and verify events expire [Conformance][Serial][Timeout:60m][Late]", func() {
+	g.It("should configure eventTTLMinutes and verify events expire [Timeout:60m][Late]", func() {
 		cfg, err := operatorClient.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 		o.Expect(err).NotTo(o.HaveOccurred())
 		originalEventTTL := cfg.Spec.EventTTLMinutes
