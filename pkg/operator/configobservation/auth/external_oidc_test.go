@@ -26,6 +26,13 @@ import (
 var (
 	featureGatesWithOIDC = featuregates.NewHardcodedFeatureGateAccessForTesting(
 		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC},
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+		makeClosedChannel(),
+		nil,
+	)
+
+	featureGatesWithExternalClaimsSourcing = featuregates.NewHardcodedFeatureGateAccessForTesting(
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC, features.FeatureGateExternalOIDCExternalClaimsSourcing},
 		[]configv1.FeatureGateName{},
 		makeClosedChannel(),
 		nil,
@@ -305,6 +312,51 @@ func TestObserveExternalOIDC(t *testing.T) {
 			},
 			expectEvents: false,
 			expectErrors: false,
+		},
+		{
+			name:                    "ExternalOIDCExternalClaimsSourcing enabled with no target configmap",
+			featureGates:            featureGatesWithExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: nil,
+			expectedConfig:          nil,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+			expectEvents: false,
+			expectErrors: false,
+		},
+		{
+			name:                    "ExternalOIDCExternalClaimsSourcing enabled with existing target configmap",
+			featureGates:            featureGatesWithExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			expectedConfig:          nil,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+			expectEvents: true,
+			expectErrors: false,
+		},
+		{
+			name:             "ExternalOIDCExternalClaimsSourcing enabled with target configmap lister error",
+			featureGates:     featureGatesWithExternalClaimsSourcing,
+			existingConfig:   baseConfig,
+			listerErrorForNS: sets.New("openshift-kube-apiserver"),
+			expectedConfig:   baseConfig,
+			expectedSynced:   nil,
+			expectEvents:     false,
+			expectErrors:     true,
+		},
+		{
+			name:                    "ExternalOIDCExternalClaimsSourcing enabled with syncer error",
+			featureGates:            featureGatesWithExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			syncerError:             fmt.Errorf("syncer error"),
+			expectedConfig:          baseConfig,
+			expectedSynced:          nil,
+			expectEvents:            false,
+			expectErrors:            true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -128,7 +128,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			apiserver.ObserveAdmissionPlugins,
 			apiserver.NewObserveEventTTL(featureGateAccessor),
 			libgoapiserver.ObserveTLSSecurityProfile,
-			auth.ObserveAuthMetadata,
+			auth.NewObserveAuthMetadata(featureGateAccessor),
 			auth.ObserveServiceAccountIssuer,
 			auth.NewObserveWebhookTokenAuthenticator(featureGateAccessor),
 			auth.NewObserveExternalOIDC(featureGateAccessor),
