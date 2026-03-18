@@ -7,6 +7,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -313,7 +314,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				ResourceSync:     &mockResourceSyncer{t: t, synced: synced, error: tt.syncerError},
 			}
 
-			actualConfig, errs := ObserveAuthMetadata(listers, eventRecorder, tt.existingConfig)
+			actualConfig, errs := NewOAuthMetadataObserver(featuregates.NewHardcodedFeatureGateAccess(nil, nil))(listers, eventRecorder, tt.existingConfig)
 
 			if tt.expectErrors != (len(errs) > 0) {
 				t.Errorf("expected errors: %v; got %v", tt.expectErrors, errs)
