@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
-	"time"
 
 	configv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	testlibrary "github.com/openshift/library-go/test/library"
@@ -18,11 +17,6 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-)
-
-const (
-	saInterval       = 1 * time.Second
-	saRegularTimeout = 30 * time.Second
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
@@ -91,7 +85,7 @@ func testServiceAccountIssuerDefaultIssuer(t testing.TB) {
 }
 
 func pollForOperandIssuer(t testing.TB, client clientcorev1.CoreV1Interface, expectedIssuers []string) error {
-	return wait.PollImmediate(saInterval, saRegularTimeout, func() (done bool, err error) {
+	return wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
 		configMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(context.TODO(), "config", metav1.GetOptions{})
 		if err != nil {
 			t.Errorf("failed to retrieve apiserver config configmap: %v", err)
