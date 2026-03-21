@@ -14,8 +14,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"k8s.io/utils/clock"
@@ -65,34 +67,58 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 	tests := []struct {
 		name              string
 		existingConfig    map[string]interface{}
-		config            *configv1.WebhookTokenAuthenticator
+		config            *configv1.Authentication
 		configSecret      map[string][]byte
+		configSecretName  string
 		webhookConfigured bool
 		expectErrs        bool
 		expectEvents      bool
 		expectedSynced    map[string]string
 		expectedConfig    map[string]interface{}
+		gates             featuregates.FeatureGateAccess
 	}{
 		{
 			name:         "empty config",
 			expectEvents: true,
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
 		},
 		{
 			name: "referenced secret missing",
-			config: &configv1.WebhookTokenAuthenticator{
-				KubeConfig: configv1.SecretNameReference{
-					Name: "config-secret",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "config-secret",
+						},
+					},
 				},
 			},
 			expectedConfig: nil,
 			expectErrs:     true,
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
 		},
 		{
 			name:           "config removal",
 			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
-			config: &configv1.WebhookTokenAuthenticator{
-				KubeConfig: configv1.SecretNameReference{
-					Name: "",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "",
+						},
+					},
 				},
 			},
 			expectedConfig: nil,
@@ -100,62 +126,106 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
 			},
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
 		},
 		{
 			name: "correct config",
-			config: &configv1.WebhookTokenAuthenticator{
-				KubeConfig: configv1.SecretNameReference{
-					Name: "config-secret",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "config-secret",
+						},
+					},
 				},
 			},
 			configSecret: map[string][]byte{
 				"kubeConfig": correctKubeConfigString,
 			},
+			configSecretName:  "config-secret",
 			webhookConfigured: true,
 			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
 			expectEvents: true,
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
 		},
 		{
 			name:           "same existing and observed config",
 			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
-			config: &configv1.WebhookTokenAuthenticator{
-				KubeConfig: configv1.SecretNameReference{
-					Name: "config-secret",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "config-secret",
+						},
+					},
 				},
 			},
 			configSecret: map[string][]byte{
 				"kubeConfig": correctKubeConfigString,
 			},
+			configSecretName:  "config-secret",
 			webhookConfigured: true,
 			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
+		},
+		{
+			name: "no webhook token authenticator config with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			configSecretName:  defaultWebhookSecretName,
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+				[]configv1.FeatureGateName{},
+			),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+
 			if tt.config != nil {
-				config := &configv1.Authentication{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "cluster",
-					},
-					Spec: configv1.AuthenticationSpec{
-						WebhookTokenAuthenticator: tt.config,
-					},
-				}
-				if err := indexer.Add(config); err != nil {
+				if err := indexer.Add(tt.config); err != nil {
 					t.Fatal(err)
 				}
 			}
+
 			if tt.configSecret != nil {
 				secret := &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "config-secret",
+						Name:      tt.configSecretName,
 						Namespace: "openshift-config",
 					},
 					Data: tt.configSecret,
@@ -174,7 +244,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 
 			eventRecorder := events.NewInMemoryRecorder("webhookauthenticatortest", clock.RealClock{})
 
-			gotConfig, errs := ObserveWebhookTokenAuthenticator(listers, eventRecorder, tt.existingConfig)
+			gotConfig, errs := NewObserveWebhookTokenAuthenticator(tt.gates)(listers, eventRecorder, tt.existingConfig)
 			if !equality.Semantic.DeepEqual(tt.expectedConfig, gotConfig) {
 				t.Errorf("unexpected config diff: %s", diff.Diff(tt.expectedConfig, gotConfig))
 			}

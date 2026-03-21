@@ -12,7 +12,9 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
@@ -27,15 +29,39 @@ var (
 	webhookTokenAuthenticatorVersion     = []interface{}{"v1"}
 )
 
+const (
+	defaultWebhookSecretName = "webhook-authentication-integrated-oauth"
+)
+
+func NewObserveWebhookTokenAuthenticator(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
+	return (&webhookTokenAuthenticatorObserver{
+		featureGateAccessor: featureGateAccessor,
+	}).ObserveWebhookTokenAuthenticator
+}
+
+type webhookTokenAuthenticatorObserver struct {
+	featureGateAccessor featuregates.FeatureGateAccess
+}
+
 // ObserveWebhookTokenAuthenticator observes the webhookTokenAuthenticator field of
 // the authentication.config/cluster resource and if kubeConfig secret reference is
 // set it uses the contents of this secret as a webhhook token authenticator
 // for the API server. It also takes care of synchronizing this secret to the
 // openshift-kube-apiserver NS.
-func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, webhookTokenAuthenticatorPath, webhookTokenAuthenticatorVersionPath)
 	}()
+
+	if !o.featureGateAccessor.AreInitialFeatureGatesObserved() {
+		// if we haven't observed featuregates yet, return the existing
+		return existingConfig, nil
+	}
+
+	featureGates, err := o.featureGateAccessor.CurrentFeatureGates()
+	if err != nil {
+		return existingConfig, []error{fmt.Errorf("getting current feature gates: %w", err)}
+	}
 
 	listers := genericListers.(configobservation.Listers)
 	resourceSyncer := genericListers.ResourceSyncer()
@@ -59,50 +85,117 @@ func ObserveWebhookTokenAuthenticator(genericListers configobserver.Listers, rec
 	}
 
 	var webhookSecretName string
+	// As part of the new approach for configuring the OIDC authentication method, we no longer want to
+	// explicitly set the `authentications.config.openshift.io/cluster.spec.webhookTokenAuthenticator`
+	// field as part of cluster-authentication-operator behavior.
+	// This allows us to disallow setting `.spec.webhookTokenAuthenticator` when `.spec.type`
+	// is set to one that consumes the single KAS webhook token authenticator slot with the
+	// oauth-apiserver.
+	// Defaulting the secret that we attempt to read from the openshift-config namespace
+	// when `.spec.webhookTokenAuthenticator` is not set allows us to still successfully configure
+	// the kube-apiserver in our default mode of operation without relying on the cluster-authentication-operator
+	// to have explicitly set the `.spec.webhookTokenAuthenticator` field.
+	// Defaulting this value should be backwards compatible, because if an older cluster already
+	// has `.spec.webhookTokenAuthenticator` set we will always attempt override the hardcoded
+	// default with that value.
+	// Backwards compatibility example:
+	// - `.spec.webhookTokenAuthenticator` was previously set by cluster-authenticator-operator
+	// - CAO + CKASO have been updated to use a shared constant for default behavior
+	// - CAO returns early and does not attempt to set the field (field is still set)
+	// - CKASO sees the field is set - it reads from the set field instead of using its hardcoded default
+	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		if auth.Spec.Type != configv1.AuthenticationTypeNone {
+			webhookSecretName = defaultWebhookSecretName
+		}
+	}
+
+	// NOTE: In the case where the ExternalOIDCExternalClaimsSourcing feature gate is enabled,
+	// this should only be set if an end user is intentionally setting this value to override
+	// the oauth-apiserver being used as the webhook authenticator that the kube-apiserver
+	// is configured to communicate with for authentication decisions **OR** they are upgrading
+	// from an older cluster where the cluster-authentication-operator would explicitly set the field.
 	if auth.Spec.WebhookTokenAuthenticator != nil {
 		webhookSecretName = auth.Spec.WebhookTokenAuthenticator.KubeConfig.Name
 	}
 
 	observedWebhookConfigured := len(webhookSecretName) > 0
-	if observedWebhookConfigured && auth.Spec.Type != configv1.AuthenticationTypeOIDC {
-		// retrieve the secret from config and validate it, don't proceed on failure
-		kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
-		if err != nil {
-			return existingConfig, append(errs, fmt.Errorf("failed to get secret openshift-config/%s: %w", webhookSecretName, err))
-		}
 
-		if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
-			return existingConfig, append(errs,
-				fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
-		}
+	// When the ExternalOIDCExternalClaimsSourcing feature gate is enabled, the oauth-apiserver
+	// will always be the webhook authenticator called by the kube-apiserver.
+	// This means this should _always_ sync the webhook authenticator secret.
+	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		if observedWebhookConfigured {
+			// retrieve the secret from config and validate it, don't proceed on failure
+			kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
+			if err != nil {
+				return existingConfig, append(errs, fmt.Errorf("failed to get secret openshift-config/%s: %w", webhookSecretName, err))
+			}
 
-		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
-			return existingConfig, append(errs, err)
-		}
+			if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
+				return existingConfig, append(errs,
+					fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
+			}
 
-		if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
-			return existingConfig, append(errs, err)
-		}
-
-		resourceSyncer.SyncSecret(
-			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
-			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
-		)
-	} else {
-		if auth.Spec.Type == configv1.AuthenticationTypeOIDC {
-			if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
-				// auth-config does not exist in target namespace yet; do not remove webhook until it's there
-				return existingConfig, errs
-			} else if err != nil {
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
 				return existingConfig, append(errs, err)
 			}
-		}
 
-		// don't sync anything and remove whatever we synced
-		resourceSyncer.SyncSecret(
-			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
-			resourcesynccontroller.ResourceLocation{Namespace: "", Name: ""},
-		)
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
+				return existingConfig, append(errs, err)
+			}
+
+			err = resourceSyncer.SyncSecret(
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
+			)
+			if err != nil {
+				return existingConfig, append(errs, fmt.Errorf("syncing webhook-authenticator secret: %w", err))
+			}
+		}
+	} else {
+		if observedWebhookConfigured && auth.Spec.Type != configv1.AuthenticationTypeOIDC {
+			// retrieve the secret from config and validate it, don't proceed on failure
+			kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)
+			if err != nil {
+				return existingConfig, append(errs, fmt.Errorf("failed to get secret openshift-config/%s: %w", webhookSecretName, err))
+			}
+
+			if secretErrors := validateKubeconfigSecret(kubeconfigSecret); len(secretErrors) > 0 {
+				return existingConfig, append(errs,
+					fmt.Errorf("secret openshift-config/%s is invalid: %w", webhookSecretName, utilerrors.NewAggregate(secretErrors)))
+			}
+
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorVersion, webhookTokenAuthenticatorVersionPath...); err != nil {
+				return existingConfig, append(errs, err)
+			}
+
+			if err := unstructured.SetNestedField(observedConfig, webhookTokenAuthenticatorFile, webhookTokenAuthenticatorPath...); err != nil {
+				return existingConfig, append(errs, err)
+			}
+
+			err = resourceSyncer.SyncSecret(
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace, Name: webhookSecretName},
+			)
+			if err != nil {
+				return existingConfig, append(errs, fmt.Errorf("syncing webhook-authenticator secret: %w", err))
+			}
+		} else {
+			if auth.Spec.Type == configv1.AuthenticationTypeOIDC {
+				if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
+					// auth-config does not exist in target namespace yet; do not remove webhook until it's there
+					return existingConfig, errs
+				} else if err != nil {
+					return existingConfig, append(errs, err)
+				}
+			}
+
+			// don't sync anything and remove whatever we synced
+			resourceSyncer.SyncSecret(
+				resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "webhook-authenticator"},
+				resourcesynccontroller.ResourceLocation{Namespace: "", Name: ""},
+			)
+		}
 	}
 
 	if observedWebhookConfigured != existingWebhookConfigured {
