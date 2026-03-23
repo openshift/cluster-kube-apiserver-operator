@@ -120,9 +120,10 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	go configInformers.Start(ctx.Done())
 	go featureGateAccessor.Run(ctx)
 
+	var featureGates featuregates.FeatureGate
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
 		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 	case <-time.After(1 * time.Minute):
 		klog.Errorf("timed out waiting for FeatureGate detection")
@@ -135,7 +136,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		configInformers,
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
-		featureGateAccessor,
+		featureGates,
 	)
 	if err != nil {
 		return err
