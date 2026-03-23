@@ -10,8 +10,8 @@ import (
 	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,8 +151,8 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 						Namespace: "openshift-kube-apiserver-operator",
 						Name:      "node-system-admin-client",
 						Annotations: map[string]string{
-							certrotation.CertificateNotBeforeAnnotation: certNotBefore,
-							certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+							tlsartifact.CertificateNotBeforeAnnotation: certNotBefore,
+							tlsartifact.CertificateNotAfterAnnotation:  certNotAfter,
 						},
 					},
 					Data: map[string][]byte{
@@ -188,9 +188,9 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 							Namespace: "openshift-kube-apiserver",
 							Name:      "node-kubeconfigs",
 							Annotations: map[string]string{
-								annotations.OpenShiftComponent:              "kube-apiserver",
-								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
-								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+								annotations.OpenShiftComponent:             "kube-apiserver",
+								tlsartifact.CertificateNotBeforeAnnotation: certNotBefore,
+								tlsartifact.CertificateNotAfterAnnotation:  certNotAfter,
 							},
 						},
 						Data: map[string][]byte{
@@ -281,8 +281,8 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 						Namespace: "openshift-kube-apiserver-operator",
 						Name:      "node-system-admin-client",
 						Annotations: map[string]string{
-							certrotation.CertificateNotBeforeAnnotation: certNotBefore,
-							certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+							tlsartifact.CertificateNotBeforeAnnotation: certNotBefore,
+							tlsartifact.CertificateNotAfterAnnotation:  certNotAfter,
 						},
 					},
 					Data: map[string][]byte{
@@ -299,9 +299,9 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 						Namespace: "openshift-kube-apiserver",
 						Name:      "node-kubeconfigs",
 						Annotations: map[string]string{
-							annotations.OpenShiftComponent:              "kube-apiserver",
-							certrotation.CertificateNotBeforeAnnotation: "some-old-not-before",
-							certrotation.CertificateNotAfterAnnotation:  "some-old-not-after",
+							annotations.OpenShiftComponent:             "kube-apiserver",
+							tlsartifact.CertificateNotBeforeAnnotation: "some-old-not-before",
+							tlsartifact.CertificateNotAfterAnnotation:  "some-old-not-after",
 						},
 					},
 					Data: map[string][]byte{
@@ -349,9 +349,9 @@ func TestEnsureNodeKubeconfigs(t *testing.T) {
 							Labels:          map[string]string{},
 							OwnerReferences: []metav1.OwnerReference{},
 							Annotations: map[string]string{
-								annotations.OpenShiftComponent:              "kube-apiserver",
-								certrotation.CertificateNotBeforeAnnotation: certNotBefore,
-								certrotation.CertificateNotAfterAnnotation:  certNotAfter,
+								annotations.OpenShiftComponent:             "kube-apiserver",
+								tlsartifact.CertificateNotBeforeAnnotation: certNotBefore,
+								tlsartifact.CertificateNotAfterAnnotation:  certNotAfter,
 							},
 						},
 						Data: map[string][]byte{

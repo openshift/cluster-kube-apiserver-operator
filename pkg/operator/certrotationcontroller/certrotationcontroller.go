@@ -23,6 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -155,7 +156,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "aggregator-client-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the kube-apiserver to create client certificates for aggregated apiservers to recognize as a front-proxy",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
@@ -172,7 +173,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-apiserver-aggregator-client-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for aggregated apiservers to recognize kube-apiserver as front-proxy.",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
@@ -187,7 +188,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "aggregator-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-apiserver to communicate to aggregated apiservers.",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
@@ -214,7 +215,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-apiserver-to-kubelet-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the kube-apiserver-to-kubelet-client so kubelets can recognize the kube-apiserver.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -233,7 +234,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-apiserver-to-kubelet-client-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for the kubelet to recognize the kube-apiserver client certificate.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -248,7 +249,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "kubelet-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-apiserver to authenticate to the kubelet for requests like exec and logs.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -275,7 +276,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "localhost-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via localhost.",
 				// LocalhostServing is not being tested directly, but this CA will be rotated when
@@ -298,7 +299,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "localhost-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via localhost.",
 				// LocalhostServing is not being tested directly, but this CA will be rotated when
@@ -315,7 +316,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-serving-cert-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via localhost.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
@@ -342,7 +343,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "service-network-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via the service network.",
 				// ServiceNetworkServing is not being tested directly, but this CA will be rotated when
@@ -365,7 +366,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "service-network-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the service network (kubernetes.default.svc).",
 				// ServiceNetworkServing is not being tested directly, but this CA will be rotated when
@@ -382,7 +383,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "service-network-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the service network.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]",
@@ -410,7 +411,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "loadbalancer-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver operator to create serving certificates for the kube-apiserver via internal and external load balancers.",
 				// ExternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -433,7 +434,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "loadbalancer-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
 				// ExternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -450,7 +451,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "external-loadbalancer-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -478,7 +479,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "loadbalancer-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver operator to create serving certificates for the kube-apiserver via internal and external load balancers.",
 				// InternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -501,7 +502,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "loadbalancer-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
 				// InternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -518,7 +519,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "internal-loadbalancer-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the internal load balancer.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
@@ -546,7 +547,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "localhost-recovery-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via the service network.",
 				// LocalhostRecoveryServing is not being tested directly, but this CA will be rotated when
@@ -569,7 +570,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "localhost-recovery-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the localhost recovery SNI ServerName.",
 				// LocalhostRecoveryServing is not being tested directly, but this CA will be rotated when
@@ -586,7 +587,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "localhost-recovery-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Serving certificate used by the kube-apiserver to terminate requests via the localhost recovery SNI ServerName.",
 				// This test checks that kube-apiserver can be contacted via localhost-recovery kubeconfig
@@ -618,7 +619,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -635,7 +636,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -650,7 +651,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-controller-manager-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-controller-manager to authenticate to the kube-apiserver.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -677,7 +678,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -694,7 +695,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -709,7 +710,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Name:      "kube-scheduler-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-scheduler to authenticate to the kube-apiserver.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -736,7 +737,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -753,7 +754,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -768,7 +769,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "control-plane-node-admin-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate and key for the control plane node kubeconfig",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"control-plane-node.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]",
@@ -795,7 +796,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -812,7 +813,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
@@ -827,7 +828,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      "check-endpoints-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the network connectivity checker of the kube-apiserver.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"check-endpoints.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]",
@@ -854,7 +855,7 @@ func newCertRotationController(
 		certrotation.RotatedSigningCASecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the per-master-debugging-client.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
@@ -873,7 +874,7 @@ func newCertRotationController(
 		certrotation.CABundleConfigMap{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize local system:masters rendered to each master.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
@@ -888,7 +889,7 @@ func newCertRotationController(
 		certrotation.RotatedSelfSignedCertKeySecret{
 			Namespace: operatorclient.OperatorNamespace,
 			Name:      "node-system-admin-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			AdditionalAnnotations: tlsartifact.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate (system:masters) placed on each master to allow communication to kube-apiserver for debugging.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
