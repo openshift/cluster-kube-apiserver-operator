@@ -98,7 +98,11 @@ func ObserveServicesSubnet(genericListers configobserver.Listers, recorder event
 	}
 	bindAddress := "0.0.0.0:6443"
 	bindNetwork := "tcp4"
-	if len(serviceCIDRs) == 1 && utilnet.IsIPv6CIDRString(serviceCIDRs[0]) {
+	if len(serviceCIDRs) > 1 {
+		// dual-stack: bind to [::] which accepts both IPv4 and IPv6
+		bindAddress = "[::]:6443"
+		bindNetwork = "tcp"
+	} else if len(serviceCIDRs) == 1 && utilnet.IsIPv6CIDRString(serviceCIDRs[0]) {
 		bindAddress = "[::]:6443"
 		bindNetwork = "tcp6"
 	}
