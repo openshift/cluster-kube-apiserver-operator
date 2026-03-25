@@ -342,10 +342,10 @@ func TestRenderCommand(t *testing.T) {
 				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
-				if cfg.ServingInfo.BindAddress != "0.0.0.0:6443" {
+				if cfg.ServingInfo.BindAddress != "[::]:6443" {
 					return fmt.Errorf("incorrect dual-stack BindAddress: %s", cfg.ServingInfo.BindAddress)
 				}
-				if cfg.ServingInfo.BindNetwork != "tcp4" {
+				if cfg.ServingInfo.BindNetwork != "tcp" {
 					return fmt.Errorf("incorrect dual-stack BindNetwork: %s", cfg.ServingInfo.BindNetwork)
 				}
 				if cfg.ServicesSubnet != "fd02::/112,172.30.0.0/16" {

@@ -272,19 +272,16 @@ func (r *renderOpts) Run() error {
 		}
 	}
 
-	if len(renderConfig.ClusterCIDR) > 0 {
-		anyIPv4 := false
-		for _, cidr := range renderConfig.ClusterCIDR {
-			cidrBaseIP, _, err := net.ParseCIDR(cidr)
-			if err != nil {
-				return fmt.Errorf("invalid cluster CIDR %q: %v", cidr, err)
-			}
-			if cidrBaseIP.To4() != nil {
-				anyIPv4 = true
-				break
-			}
+	if len(renderConfig.ClusterCIDR) > 1 {
+		// dual-stack: bind to [::] which accepts both IPv4 and IPv6
+		renderConfig.BindAddress = "[::]:6443"
+		renderConfig.BindNetwork = "tcp"
+	} else if len(renderConfig.ClusterCIDR) == 1 {
+		cidrBaseIP, _, err := net.ParseCIDR(renderConfig.ClusterCIDR[0])
+		if err != nil {
+			return fmt.Errorf("invalid cluster CIDR %q: %v", renderConfig.ClusterCIDR[0], err)
 		}
-		if !anyIPv4 {
+		if cidrBaseIP.To4() == nil {
 			// Single-stack IPv6 cluster, so listen on IPv6 not IPv4.
 			renderConfig.BindAddress = "[::]:6443"
 			renderConfig.BindNetwork = "tcp6"
