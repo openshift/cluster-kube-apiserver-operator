@@ -214,6 +214,80 @@ func TestObserveServicesSubnet(t *testing.T) {
 	if conf != "tcp6" {
 		t.Errorf("Unexpected value: %v", conf)
 	}
+
+	// Test dual-stack with IPv4 primary
+	if err := indexer.Update(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Status: configv1.NetworkStatus{
+			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "10.128.0.0/14"}, {CIDR: "fd01::/48"}},
+			ServiceNetwork: []string{"172.30.0.0/16", "fd02::/112"},
+		},
+	}); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "172.30.0.0/16,fd02::/112" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "[::]:6443" {
+		t.Errorf("Unexpected value for dual-stack IPv4 primary bindAddress: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "tcp" {
+		t.Errorf("Unexpected value for dual-stack IPv4 primary bindNetwork: %v", conf)
+	}
+
+	// Test dual-stack with IPv6 primary
+	if err := indexer.Update(&configv1.Network{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Status: configv1.NetworkStatus{
+			ClusterNetwork: []configv1.ClusterNetworkEntry{{CIDR: "fd01::/48"}, {CIDR: "10.128.0.0/14"}},
+			ServiceNetwork: []string{"fd02::/112", "172.30.0.0/16"},
+		},
+	}); err != nil {
+		t.Fatal(err.Error())
+	}
+
+	result, errors = ObserveServicesSubnet(listers, events.NewInMemoryRecorder("network", clock.RealClock{}), result)
+	if len(errors) > 0 {
+		t.Errorf("expected len(errors) == 0: %v", errors)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servicesSubnet")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "fd02::/112,172.30.0.0/16" {
+		t.Errorf("Unexpected value: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindAddress")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "[::]:6443" {
+		t.Errorf("Unexpected value for dual-stack IPv6 primary bindAddress: %v", conf)
+	}
+	conf, ok, err = unstructured.NestedString(result, "servingInfo", "bindNetwork")
+	if err != nil || !ok {
+		t.Errorf("Unexpected configuration returned: %v", result)
+	}
+	if conf != "tcp" {
+		t.Errorf("Unexpected value for dual-stack IPv6 primary bindNetwork: %v", conf)
+	}
 }
 
 func TestObserveExternalIPPolicy(t *testing.T) {
