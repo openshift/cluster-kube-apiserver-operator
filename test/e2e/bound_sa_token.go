@@ -26,12 +26,12 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	testlibrary "github.com/openshift/cluster-kube-apiserver-operator/test/library"
 	libgotest "github.com/openshift/library-go/test/library"
-	testlibraryapi "github.com/openshift/library-go/test/library/apiserver"
 )
 
 const (
-	interval       = 1 * time.Second
-	regularTimeout = 30 * time.Second
+	interval                = 1 * time.Second
+	regularTimeout          = 30 * time.Second
+	clusterStabilityTimeout = 60 * time.Minute
 )
 
 // newTestCoreV1Client creates a CoreV1 client for use in e2e tests.
@@ -48,15 +48,15 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 		testTokenRequestAndReview(g.GinkgoTB())
 	})
 
-	g.It("[Operator][Serial] TestBoundTokenOperandSecretDeletion[Late]", func() {
+	g.It("[Operator][Serial] TestBoundTokenOperandSecretDeletion", func() {
 		testBoundTokenOperandSecretDeletion(g.GinkgoTB())
 	})
 
-	g.It("[Operator][Serial] TestBoundTokenConfigMapDeletion[Late]", func() {
+	g.It("[Operator][Serial] TestBoundTokenConfigMapDeletion", func() {
 		testBoundTokenConfigMapDeletion(g.GinkgoTB())
 	})
 
-	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:90m][Late][Disruptive]", func() {
+	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:150m][Late][Disruptive]", func() {
 		testBoundTokenOperatorSecretDeletion(g.GinkgoTB())
 	})
 })
@@ -169,6 +169,13 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 	targetNamespace := operatorclient.TargetNamespace
 	operatorNamespace := operatorclient.OperatorNamespace
 
+	// Pre-condition: cluster must be stable before we introduce disruption.
+	// Prior tests (e.g. cert rotation) may have left kube-apiserver mid-rollout
+	// which would compound with our key rotation rollout.
+	t.Log("pre-condition: waiting for all ClusterOperators to be stable")
+	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
+	require.NoError(t, err)
+
 	// Retrieve the operator secret.
 	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(context.TODO(), tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
 	require.NoError(t, err)
@@ -180,7 +187,8 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 	require.NoError(t, err)
 
 	// deletion triggers a roll-out - wait until a new version has been rolled out
-	testlibraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace))
+	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
+	require.NoError(t, err)
 
 	// Ensure that the cert configmap is always removed at the end of the test
 	// to ensure it will contain only the current public key. This property is
@@ -194,17 +202,8 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 		// delayed rollouts triggered by configmap deletion, where the operator's
 		// propagation delay can cause the stability check to falsely pass on the
 		// old revision. KAS rollouts can take 15-20 minutes each.
-		const (
-			extendedSuccessThreshold = 15
-			successInterval          = 3 * time.Minute
-			pollInterval             = 30 * time.Second
-			timeout                  = 45 * time.Minute
-		)
-		err = libgotest.WaitForPodsToStabilizeOnTheSameRevision(t, kubeClient.Pods(operatorclient.TargetNamespace), "apiserver=true", extendedSuccessThreshold, successInterval, pollInterval, timeout)
-		require.NoError(t, err)
-
 		t.Log("waiting for all ClusterOperators to stabilize")
-		err = waitForAllClusterOperatorsStable(t, configClient, timeout)
+		err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
 		require.NoError(t, err)
 	}()
 
