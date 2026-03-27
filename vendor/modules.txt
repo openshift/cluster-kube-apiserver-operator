@@ -443,7 +443,6 @@ github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
 github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/deployer
 github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig
-github.com/openshift/library-go/pkg/operator/encryption/kms
 github.com/openshift/library-go/pkg/operator/encryption/observer
 github.com/openshift/library-go/pkg/operator/encryption/secrets
 github.com/openshift/library-go/pkg/operator/encryption/state
