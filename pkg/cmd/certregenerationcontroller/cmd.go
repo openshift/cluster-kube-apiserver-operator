@@ -26,6 +26,9 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
+// CacheSyncTimeout is used when waiting for caches to sync initially.
+const CacheSyncTimeout = 2 * time.Minute
+
 type Options struct {
 	controllerContext *controllercmd.ControllerContext
 }
@@ -140,6 +143,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	if err != nil {
 		return err
 	}
+	kubeAPIServerCertRotationController.SetCacheSyncTimeout(CacheSyncTimeout)
 
 	caBundleController, err := NewCABundleController(
 		kubeClient.CoreV1(),
@@ -149,6 +153,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	if err != nil {
 		return err
 	}
+	caBundleController.SetCacheSyncTimeout(CacheSyncTimeout)
 
 	// We can't start informers until after the resources have been requested. Now is the time.
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
