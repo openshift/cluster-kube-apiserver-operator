@@ -20,7 +20,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -30,6 +29,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
+	"github.com/openshift/library-go/pkg/operator/tlsartifact"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	corev1 "k8s.io/api/core/v1"
@@ -365,7 +365,7 @@ func generateOptionalStartupMonitorPod(isStartupMonitorEnabledFn func() (bool, e
 
 func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 
-	additionalAnnotations := certrotation.AdditionalAnnotations{
+	additionalAnnotations := tlsartifact.AdditionalAnnotations{
 		JiraComponent: "kube-apiserver",
 	}
 	caBundleConfigMapName := "client-ca"
@@ -434,7 +434,7 @@ func ManageClientCABundle(ctx context.Context, lister corev1listers.ConfigMapLis
 
 func manageKubeAPIServerCABundle(ctx context.Context, lister corev1listers.ConfigMapLister, client coreclientv1.ConfigMapsGetter, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 
-	additionalAnnotations := certrotation.AdditionalAnnotations{
+	additionalAnnotations := tlsartifact.AdditionalAnnotations{
 		JiraComponent: "kube-apiserver",
 	}
 	caBundleConfigMapName := "kube-apiserver-server-ca"
