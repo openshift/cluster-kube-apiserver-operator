@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][Suite:event-ttl][OCPFeatureGate:EventTTL][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", func() {
+var _ = g.Describe("[Jira:kube-apiserver][sig-api-machinery][Suite:event-ttl][Skipped:HyperShift][Skipped:MicroShift] Event TTL Configuration", func() {
 	var (
 		kubeClient     *kubernetes.Clientset
 		operatorClient *operatorclientset.Clientset
