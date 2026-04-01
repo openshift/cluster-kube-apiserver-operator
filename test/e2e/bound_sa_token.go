@@ -216,13 +216,17 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 		rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
 	require.NoError(t, err)
 
+	t.Log("bouncing crash-looping pods to refresh SA tokens after key rotation")
+	bounceCrashLoopingPods(ctx, t, kubeClient)
+	waitForBouncedPodsHealthy(ctx, t, kubeClient)
+
 	t.Log("waiting for all ClusterOperators to recover after key rotation rollouts")
-	err = waitForAllClusterOperatorsStableWithBounce(t, configClient, kubeClient, clusterStabilityTimeout)
+	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
 	require.NoError(t, err)
 
-	// Ensure the cert configmap is always removed at the end of the test so
-	// it will contain only the current public key. This is essential to
-	// allowing repeated invocations of the containing test.
+	// Ensure the configmap is always cleaned up even if assertions below
+	// fail. This prevents leaving two public keys that would break
+	// subsequent invocations of this test.
 	defer func() {
 		t.Log("cleaning up: deleting public key configmap (triggers third rollout)")
 		err := kubeClient.ConfigMaps(targetNamespace).Delete(ctx, tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
@@ -233,8 +237,12 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 			rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
 		require.NoError(t, err)
 
+		t.Log("bouncing crash-looping pods to refresh SA tokens after cleanup")
+		bounceCrashLoopingPods(ctx, t, kubeClient)
+		waitForBouncedPodsHealthy(ctx, t, kubeClient)
+
 		t.Log("waiting for all ClusterOperators to stabilize after cleanup rollout")
-		err = waitForAllClusterOperatorsStableWithBounce(t, configClient, kubeClient, clusterStabilityTimeout)
+		err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
 		require.NoError(t, err)
 	}()
 
@@ -343,10 +351,44 @@ func bounceCrashLoopingPods(ctx context.Context, t testing.TB, kubeClient *clien
 	t.Logf("bounced %d crash-looping pods across openshift-* namespaces", bounced)
 }
 
-// isPodCrashLooping returns true if any container is in CrashLoopBackOff or
-// has terminated with an error after at least one restart. The second check
-// catches pods between CrashLoopBackOff cycles when the container state is
-// Terminated/Error rather than Waiting/CrashLoopBackOff.
+// waitForBouncedPodsHealthy waits up to 2 minutes for all pods in
+// openshift-* namespaces to exit CrashLoopBackOff. This gives bounced
+// pods time to start with fresh SA tokens before checking CO stability.
+func waitForBouncedPodsHealthy(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client) {
+	t.Log("waiting for bounced pods to become healthy")
+	err := wait.PollImmediate(15*time.Second, 2*time.Minute, func() (bool, error) {
+		namespaces, err := kubeClient.Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+		for _, ns := range namespaces.Items {
+			if !strings.HasPrefix(ns.Name, "openshift-") {
+				continue
+			}
+			pods, err := kubeClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				continue
+			}
+			for _, pod := range pods.Items {
+				if isPodCrashLooping(pod) {
+					t.Logf("pod %s/%s still crash-looping", ns.Name, pod.Name)
+					return false, nil
+				}
+			}
+		}
+		t.Log("all bounced pods are healthy")
+		return true, nil
+	})
+	if err != nil {
+		t.Log("timed out waiting for bounced pods to become healthy, proceeding anyway")
+	}
+}
+
+// isPodCrashLooping returns true if any container is in CrashLoopBackOff
+// or has terminated with a non-zero exit code after at least one restart.
+// The second check catches pods between CrashLoopBackOff cycles when the
+// container state is Terminated/Error rather than Waiting/CrashLoopBackOff.
+// Neither condition matches healthy Running pods.
 func isPodCrashLooping(pod corev1.Pod) bool {
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
@@ -363,19 +405,8 @@ func isPodCrashLooping(pod corev1.Pod) bool {
 // report Available=True, Progressing=False, Degraded=False. This ensures the
 // entire cluster is stable after disruptive operations like signing key rotation.
 func waitForAllClusterOperatorsStable(t testing.TB, client configclient.ConfigV1Interface, timeout time.Duration) error {
-	return waitForAllClusterOperatorsStableWithBounce(t, client, nil, timeout)
-}
-
-// waitForAllClusterOperatorsStableWithBounce waits until all ClusterOperators
-// are stable. When kubeClient is non-nil, it also bounces crash-looping pods
-// on each poll iteration to accelerate recovery from SA token invalidation.
-func waitForAllClusterOperatorsStableWithBounce(t testing.TB, client configclient.ConfigV1Interface, kubeClient *clientcorev1.CoreV1Client, timeout time.Duration) error {
-	ctx := context.TODO()
-	return wait.PollImmediate(30*time.Second, timeout, func() (bool, error) {
-		if kubeClient != nil {
-			bounceCrashLoopingPods(ctx, t, kubeClient)
-		}
-		coList, err := client.ClusterOperators().List(ctx, metav1.ListOptions{})
+	return wait.PollImmediate(60*time.Second, timeout, func() (bool, error) {
+		coList, err := client.ClusterOperators().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			t.Logf("unable to list ClusterOperators: %v", err)
 			return false, nil
