@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/pki"
 )
 
 type CertRotationController struct {
@@ -145,6 +146,12 @@ func newCertRotationController(
 	}
 	klog.Infof("Setting monthPeriod to %v, yearPeriod to %v, tenMonthPeriod to %v", monthPeriod, yearPeriod, tenMonthPeriod)
 
+	var pkiProvider pki.PKIProfileProvider
+	if featureGates != nil && featureGates.Enabled(features.FeatureGateConfigurablePKI) {
+		ret.cachesToSync = append(ret.cachesToSync, configInformer.Config().V1alpha1().PKIs().Informer().HasSynced)
+		pkiProvider = pki.NewClusterPKIProfileProvider(configInformer.Config().V1alpha1().PKIs().Lister())
+	}
+
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
 		certrotation.SigningCAConfig{
@@ -159,6 +166,7 @@ func newCertRotationController(
 			Validity:               monthPeriod,
 			Refresh:                monthPeriod / 2,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.aggregator-front-proxy-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -186,11 +194,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
+			CertificateName: "kube-apiserver.aggregator-front-proxy-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -210,6 +220,7 @@ func newCertRotationController(
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.kubelet-client-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -237,11 +248,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}},
 			},
+			CertificateName: "kube-apiserver.kubelet-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -265,6 +278,7 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-serving-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -294,11 +308,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ServingCertConfig{
 				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
 			},
+			CertificateName: "kube-apiserver.localhost-serving",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -322,6 +338,7 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.service-network-serving-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -352,11 +369,13 @@ func newCertRotationController(
 				Hostnames:        ret.serviceNetwork.GetHostnames,
 				HostnamesChanged: ret.serviceNetwork.hostnamesChanged,
 			},
+			CertificateName: "kube-apiserver.service-network-serving",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -380,6 +399,7 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -410,11 +430,13 @@ func newCertRotationController(
 				Hostnames:        ret.externalLoadBalancer.GetHostnames,
 				HostnamesChanged: ret.externalLoadBalancer.hostnamesChanged,
 			},
+			CertificateName: "kube-apiserver.external-loadbalancer-serving",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -438,6 +460,7 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -468,11 +491,13 @@ func newCertRotationController(
 				Hostnames:        ret.internalLoadBalancer.GetHostnames,
 				HostnamesChanged: ret.internalLoadBalancer.hostnamesChanged,
 			},
+			CertificateName: "kube-apiserver.internal-loadbalancer-serving",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -490,6 +515,7 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-recovery-serving-signer",
 			Validity:               foreverPeriod, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
@@ -530,11 +556,13 @@ func newCertRotationController(
 				Hostnames: func() []string { return []string{"localhost-recovery"} },
 			},
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-recovery-serving",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -552,6 +580,7 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -579,11 +608,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
 			},
+			CertificateName: "kube-apiserver.kube-controller-manager-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -601,6 +632,7 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -628,11 +660,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
 			},
+			CertificateName: "kube-apiserver.kube-scheduler-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -650,6 +684,7 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -677,11 +712,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:control-plane-node-admin", Groups: []string{"system:masters"}},
 			},
+			CertificateName: "kube-apiserver.control-plane-node-admin-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -699,6 +736,7 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -726,11 +764,13 @@ func newCertRotationController(
 			CertConfig: certrotation.ClientCertConfig{
 				UserInfo: &user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"},
 			},
+			CertificateName: "kube-apiserver.check-endpoints-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
@@ -750,6 +790,7 @@ func newCertRotationController(
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                3 * devRotationExceptionTenMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.node-system-admin-signer",
 		},
 		certrotation.CABundleConfig{
 			Namespace: operatorclient.OperatorNamespace,
@@ -784,11 +825,13 @@ func newCertRotationController(
 					Groups: []string{"system:masters"},
 				},
 			},
+			CertificateName: "kube-apiserver.node-system-admin-client",
 		},
 		kubeClient,
 		kubeInformersForNamespaces,
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
+		pkiProvider,
 	)
 	ret.certRotators = append(ret.certRotators, certRotator)
 
