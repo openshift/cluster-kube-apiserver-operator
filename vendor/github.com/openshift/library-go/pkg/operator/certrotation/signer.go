@@ -2,27 +2,19 @@ package certrotation
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"time"
 
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/klog/v2"
 )
 
-// RotatedSigningCASecret rotates a self-signed signing CA stored in a secret. It creates a new one when
+// SigningCAConfig holds the configuration for a self-signed signing CA stored in a secret. It creates a new one when
 // - refresh duration is over
 // - or 80% of validity is over (if RefreshOnlyWhenExpired is false)
 // - or the CA is expired.
-type RotatedSigningCASecret struct {
+type SigningCAConfig struct {
 	// Namespace is the namespace of the Secret.
 	Namespace string
 	// Name is the name of the Secret.
@@ -47,90 +39,6 @@ type RotatedSigningCASecret struct {
 
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
-
-	// Plumbing:
-	Informer      corev1informers.SecretInformer
-	Lister        corev1listers.SecretLister
-	Client        corev1client.SecretsGetter
-	EventRecorder events.Recorder
-}
-
-// EnsureSigningCertKeyPair manages the entire lifecycle of a signer cert as a secret, from creation to continued rotation.
-// It always returns the currently used CA pair, a bool indicating whether it was created/updated within this function call and an error.
-func (c RotatedSigningCASecret) EnsureSigningCertKeyPair(ctx context.Context) (*crypto.CA, bool, error) {
-	creationRequired := false
-	updateRequired := false
-	originalSigningCertKeyPairSecret, err := c.Lister.Secrets(c.Namespace).Get(c.Name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, false, err
-	}
-	signingCertKeyPairSecret := originalSigningCertKeyPairSecret.DeepCopy()
-	if apierrors.IsNotFound(err) {
-		// create an empty one
-		signingCertKeyPairSecret = &corev1.Secret{
-			ObjectMeta: NewTLSArtifactObjectMeta(
-				c.Name,
-				c.Namespace,
-				c.AdditionalAnnotations,
-			),
-			Type: corev1.SecretTypeTLS,
-		}
-		creationRequired = true
-	}
-
-	// run Update if metadata needs changing unless we're in RefreshOnlyWhenExpired mode
-	if !c.RefreshOnlyWhenExpired {
-		needsMetadataUpdate := ensureOwnerRefAndTLSAnnotations(signingCertKeyPairSecret, c.Owner, c.AdditionalAnnotations)
-		needsTypeChange := ensureSecretTLSTypeSet(signingCertKeyPairSecret)
-		updateRequired = needsMetadataUpdate || needsTypeChange
-	}
-
-	// run Update if signer content needs changing
-	signerUpdated := false
-	if needed, reason := needNewSigningCertKeyPair(signingCertKeyPairSecret, c.Refresh, c.RefreshOnlyWhenExpired); needed || creationRequired {
-		if creationRequired {
-			reason = "secret doesn't exist"
-		}
-		c.EventRecorder.Eventf("SignerUpdateRequired", "%q in %q requires a new signing cert/key pair: %v", c.Name, c.Namespace, reason)
-		if err = setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret, c.Validity, c.Refresh, c.AdditionalAnnotations); err != nil {
-			return nil, false, err
-		}
-
-		LabelAsManagedSecret(signingCertKeyPairSecret, CertificateTypeSigner)
-
-		updateRequired = true
-		signerUpdated = true
-	}
-
-	if creationRequired {
-		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Create(ctx, signingCertKeyPairSecret, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
-		if err != nil {
-			return nil, false, err
-		}
-		klog.V(2).Infof("Created secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
-		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
-	} else if updateRequired {
-		actualSigningCertKeyPairSecret, err := c.Client.Secrets(c.Namespace).Update(ctx, signingCertKeyPairSecret, metav1.UpdateOptions{})
-		if apierrors.IsConflict(err) {
-			// ignore error if its attempting to update outdated version of the secret
-			return nil, false, nil
-		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualSigningCertKeyPairSecret, err)
-		if err != nil {
-			return nil, false, err
-		}
-		klog.V(2).Infof("Updated secret %s/%s", actualSigningCertKeyPairSecret.Namespace, actualSigningCertKeyPairSecret.Name)
-		signingCertKeyPairSecret = actualSigningCertKeyPairSecret
-	}
-
-	// at this point, the secret has the correct signer, so we should read that signer to be able to sign
-	signingCertKeyPair, err := crypto.GetCAFromBytes(signingCertKeyPairSecret.Data["tls.crt"], signingCertKeyPairSecret.Data["tls.key"])
-	if err != nil {
-		return nil, signerUpdated, err
-	}
-
-	return signingCertKeyPair, signerUpdated, nil
 }
 
 // ensureOwnerReference adds the owner to the list of owner references in meta, if necessary
@@ -197,18 +105,6 @@ func getValidityFromAnnotations(annotations map[string]string) (notBefore time.T
 	}
 
 	return notBefore, notAfter, ""
-}
-
-// setSigningCertKeyPairSecretAndTLSAnnotations generates a new signing certificate and key pair,
-// stores them in the specified secret, and adds predefined TLS annotations to that secret.
-func setSigningCertKeyPairSecretAndTLSAnnotations(signingCertKeyPairSecret *corev1.Secret, validity, refresh time.Duration, tlsAnnotations AdditionalAnnotations) error {
-	ca, err := setSigningCertKeyPairSecret(signingCertKeyPairSecret, validity)
-	if err != nil {
-		return err
-	}
-
-	setTLSAnnotationsOnSigningCertKeyPairSecret(signingCertKeyPairSecret, ca, refresh, tlsAnnotations)
-	return nil
 }
 
 // setSigningCertKeyPairSecret creates a new signing cert/key pair and sets them in the secret

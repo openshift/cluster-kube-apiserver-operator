@@ -2,30 +2,19 @@ package certrotation
 
 import (
 	"bytes"
-	"context"
 	"crypto/x509"
-	"fmt"
 	"reflect"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/klog/v2"
 
-	"github.com/openshift/library-go/pkg/certs"
 	"github.com/openshift/library-go/pkg/crypto"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 )
 
-// CABundleConfigMap maintains a CA bundle config map, by adding new CA certs coming from RotatedSigningCASecret, and by removing expired old ones.
-type CABundleConfigMap struct {
+// CABundleConfig holds the configuration for a CA bundle config map, by adding new CA certs coming from SigningCAConfig, and by removing expired old ones.
+type CABundleConfig struct {
 	// Namespace is the namespace of the ConfigMap to maintain.
 	Namespace string
 	// Name is the name of the ConfigMap to maintain.
@@ -38,95 +27,6 @@ type CABundleConfigMap struct {
 	Owner *metav1.OwnerReference
 	// AdditionalAnnotations is a collection of annotations set for the secret
 	AdditionalAnnotations AdditionalAnnotations
-	// Plumbing:
-	Informer      corev1informers.ConfigMapInformer
-	Lister        corev1listers.ConfigMapLister
-	Client        corev1client.ConfigMapsGetter
-	EventRecorder events.Recorder
-}
-
-func (c CABundleConfigMap) EnsureConfigMapCABundle(ctx context.Context, signingCertKeyPair *crypto.CA, signingCertKeyPairLocation string) ([]*x509.Certificate, error) {
-	// by this point we have current signing cert/key pair.  We now need to make sure that the ca-bundle configmap has this cert and
-	// doesn't have any expired certs
-	updateRequired := false
-	creationRequired := false
-
-	originalCABundleConfigMap, err := c.Lister.ConfigMaps(c.Namespace).Get(c.Name)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, err
-	}
-	caBundleConfigMap := originalCABundleConfigMap.DeepCopy()
-	if apierrors.IsNotFound(err) {
-		// create an empty one
-		caBundleConfigMap = &corev1.ConfigMap{ObjectMeta: NewTLSArtifactObjectMeta(
-			c.Name,
-			c.Namespace,
-			c.AdditionalAnnotations,
-		)}
-		creationRequired = true
-	}
-
-	// run Update if metadata needs changing unless running in RefreshOnlyWhenExpired mode
-	if !c.RefreshOnlyWhenExpired {
-		needsOwnerUpdate := false
-		if c.Owner != nil {
-			needsOwnerUpdate = ensureOwnerReference(&caBundleConfigMap.ObjectMeta, c.Owner)
-		}
-		needsMetadataUpdate := c.AdditionalAnnotations.EnsureTLSMetadataUpdate(&caBundleConfigMap.ObjectMeta)
-		updateRequired = needsOwnerUpdate || needsMetadataUpdate
-	}
-
-	updatedCerts, err := manageCABundleConfigMap(caBundleConfigMap, signingCertKeyPair.Config.Certs[0])
-	if err != nil {
-		return nil, err
-	}
-	if originalCABundleConfigMap == nil || originalCABundleConfigMap.Data == nil || !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
-		reason := ""
-		if creationRequired {
-			reason = "configmap doesn't exist"
-		} else if originalCABundleConfigMap.Data == nil {
-			reason = "configmap is empty"
-		} else if !equality.Semantic.DeepEqual(originalCABundleConfigMap.Data, caBundleConfigMap.Data) {
-			reason = fmt.Sprintf("signer update %s", signingCertKeyPairLocation)
-		}
-		c.EventRecorder.Eventf("CABundleUpdateRequired", "%q in %q requires a new cert: %s", c.Name, c.Namespace, reason)
-		LabelAsManagedConfigMap(caBundleConfigMap, CertificateTypeCABundle)
-
-		updateRequired = true
-	}
-
-	if creationRequired {
-		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Create(ctx, caBundleConfigMap, metav1.CreateOptions{})
-		resourcehelper.ReportCreateEvent(c.EventRecorder, actualCABundleConfigMap, err)
-		if err != nil {
-			return nil, err
-		}
-		klog.V(2).Infof("Created ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
-		caBundleConfigMap = actualCABundleConfigMap
-	} else if updateRequired {
-		actualCABundleConfigMap, err := c.Client.ConfigMaps(c.Namespace).Update(ctx, caBundleConfigMap, metav1.UpdateOptions{})
-		if apierrors.IsConflict(err) {
-			// ignore error if its attempting to update outdated version of the configmap
-			return nil, nil
-		}
-		resourcehelper.ReportUpdateEvent(c.EventRecorder, actualCABundleConfigMap, err)
-		if err != nil {
-			return nil, err
-		}
-		klog.V(2).Infof("Updated ca-bundle.crt configmap %s/%s with:\n%s", certs.CertificateBundleToString(updatedCerts), caBundleConfigMap.Namespace, caBundleConfigMap.Name)
-		caBundleConfigMap = actualCABundleConfigMap
-	}
-
-	caBundle := caBundleConfigMap.Data["ca-bundle.crt"]
-	if len(caBundle) == 0 {
-		return nil, fmt.Errorf("configmap/%s -n%s missing ca-bundle.crt", caBundleConfigMap.Name, caBundleConfigMap.Namespace)
-	}
-	certificates, err := cert.ParseCertsPEM([]byte(caBundle))
-	if err != nil {
-		return nil, err
-	}
-
-	return certificates, nil
 }
 
 // manageCABundleConfigMap adds the new certificate to the list of cabundles, eliminates duplicates, and prunes the list of expired
