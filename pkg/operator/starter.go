@@ -158,9 +158,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go featureGateAccessor.Run(ctx)
 	go configInformers.Start(ctx.Done())
 
+	var featureGates featuregates.FeatureGate
 	select {
 	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
 		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
 	case <-time.After(1 * time.Minute):
 		klog.Errorf("timed out waiting for FeatureGate detection")
@@ -381,7 +382,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		configInformers,
 		kubeInformersForNamespaces,
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
-		featureGateAccessor,
+		featureGates,
 	)
 	if err != nil {
 		return err
