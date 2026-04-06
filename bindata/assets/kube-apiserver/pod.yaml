@@ -241,8 +241,6 @@ spec:
       - /etc/kubernetes/static-pod-certs/configmaps/check-endpoints-kubeconfig/kubeconfig
       - --config
       - /etc/kubernetes/static-pod-resources/configmaps/config/config.yaml
-      - --listen
-      - '{{.CheckEndpointsBindIP}}:17697'
       - --namespace
       - $(POD_NAMESPACE)
       - --v
@@ -263,25 +261,6 @@ spec:
         name: cert-dir
       - mountPath: /tmp
         name: tmp-dir
-    ports:
-      - name: check-endpoints
-        hostPort: 17697
-        containerPort: 17697
-        protocol: TCP
-    livenessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 17697
-        path: healthz
-      initialDelaySeconds: 10
-      timeoutSeconds: 10
-    readinessProbe:
-      httpGet:
-        scheme: HTTPS
-        port: 17697
-        path: healthz
-      initialDelaySeconds: 10
-      timeoutSeconds: 10
     resources:
       requests:
         memory: 50Mi

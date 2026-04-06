@@ -102,6 +102,15 @@ func NewCheckEndpointsCommand() *cobra.Command {
 		<-ctx.Done()
 		return nil
 	}, clock.RealClock{})
+
+	// Disable serving as it introduces a dependency on kube-system::extension-apiserver-authentication
+	// configmap which prevents startup when kube-apiserver is not yet serving (startup race condition).
+	// For static pod sidecars, liveness probes cause restarts (the problem we're fixing),
+	// and readiness probes are meaningless. Metrics loss acceptable as feature is rarely enabled.
+	// TODO: Remove when the internal logic can start serving without extension-apiserver-authentication
+	//       and live reload extension-apiserver-authentication after it is available
+	config.DisableServing = true
+
 	config.DisableLeaderElection = true
 	cmd := config.NewCommandWithContext(context.Background())
 	cmd.Use = "check-endpoints"
