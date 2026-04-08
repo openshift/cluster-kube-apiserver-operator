@@ -6,7 +6,6 @@ import (
 	"time"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes"
@@ -920,13 +919,16 @@ func newCertRotationController(
 	return ret, nil
 }
 
-func (c *CertRotationController) WaitForReady(stopCh <-chan struct{}) {
+func (c *CertRotationController) mustWaitForReady(ctx context.Context) {
 	klog.Infof("Waiting for CertRotation")
 	defer klog.Infof("Finished waiting for CertRotation")
 
-	if !cache.WaitForCacheSync(stopCh, c.cachesToSync...) {
-		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
-		return
+	syncCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	if !cache.WaitForNamedCacheSync("CertRotationController", syncCtx.Done(), c.cachesToSync...) {
+		if ctx.Err() == nil {
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
 	}
 
 	// need to sync at least once before beginning.  if we fail, we cannot start rotating certificates
@@ -958,7 +960,8 @@ func (c *CertRotationController) RunOnce() error {
 func (c *CertRotationController) Run(ctx context.Context, workers int) {
 	klog.Infof("Starting CertRotation")
 	defer klog.Infof("Shutting down CertRotation")
-	c.WaitForReady(ctx.Done())
+
+	c.mustWaitForReady(ctx)
 
 	go wait.Until(c.runServiceHostnames, time.Second, ctx.Done())
 	go wait.Until(c.runExternalLoadBalancerHostnames, time.Second, ctx.Done())

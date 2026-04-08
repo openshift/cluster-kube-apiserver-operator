@@ -86,7 +86,12 @@ func (c *CABundleController) Run(ctx context.Context) {
 		klog.Info("CA bundle controller shut down")
 	}()
 
-	if !cache.WaitForNamedCacheSync("CABundleController", ctx.Done(), c.cachesToSync...) {
+	syncCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	if !cache.WaitForNamedCacheSync("CABundleController", syncCtx.Done(), c.cachesToSync...) {
+		if ctx.Err() == nil {
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
 		return
 	}
 
