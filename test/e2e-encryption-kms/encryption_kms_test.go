@@ -50,6 +50,7 @@ func TestKMSEncryptionOnOff(t *testing.T) {
 }
 
 // TestKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
+// test comment to trigger
 // This test:
 // 1. Deploys the mock KMS plugin
 // 2. Creates a test secret (SecretOfLife)

@@ -13,6 +13,7 @@ import (
 
 var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
+// test comment to trigger
 func TestEncryptionTypeIdentity(t *testing.T) {
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
