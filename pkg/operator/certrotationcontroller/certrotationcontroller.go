@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/pki"
 )
 
 type CertRotationController struct {
@@ -52,7 +53,7 @@ func NewCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	featureGates featuregates.FeatureGate,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -60,7 +61,7 @@ func NewCertRotationController(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		featureGateAccessor,
+		featureGates,
 		false,
 	)
 }
@@ -71,7 +72,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	featureGates featuregates.FeatureGate,
 ) (*CertRotationController, error) {
 	return newCertRotationController(
 		kubeClient,
@@ -79,7 +80,7 @@ func NewCertRotationControllerOnlyWhenExpired(
 		configInformer,
 		kubeInformersForNamespaces,
 		eventRecorder,
-		featureGateAccessor,
+		featureGates,
 		true,
 	)
 }
@@ -90,7 +91,7 @@ func newCertRotationController(
 	configInformer configinformers.SharedInformerFactory,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-	featureGateAccessor featuregates.FeatureGateAccess,
+	featureGates featuregates.FeatureGate,
 	refreshOnlyWhenExpired bool,
 ) (*CertRotationController, error) {
 	ret := &CertRotationController{
@@ -135,11 +136,6 @@ func newCertRotationController(
 	devRotationExceptionTenMonth := 292 * devRotationExceptionDay
 
 	// Set custom rotation duration when FeatureShortCertRotation is enabled
-	featureGates, err := featureGateAccessor.CurrentFeatureGates()
-	if err != nil {
-		return nil, fmt.Errorf("unable to get FeatureGates: %w", err)
-	}
-
 	if featureGates.Enabled(features.FeatureShortCertRotation) {
 		monthPeriod = 2 * time.Hour
 		devRotationExceptionMonth = monthPeriod
@@ -149,6 +145,12 @@ func newCertRotationController(
 		devRotationExceptionTenMonth = tenMonthPeriod
 	}
 	klog.Infof("Setting monthPeriod to %v, yearPeriod to %v, tenMonthPeriod to %v", monthPeriod, yearPeriod, tenMonthPeriod)
+
+	var pkiProvider pki.PKIProfileProvider
+	if featureGates != nil && featureGates.Enabled(features.FeatureGateConfigurablePKI) {
+		ret.cachesToSync = append(ret.cachesToSync, configInformer.Config().V1alpha1().PKIs().Informer().HasSynced)
+		pkiProvider = pki.NewClusterPKIProfileProvider(configInformer.Config().V1alpha1().PKIs().Lister())
+	}
 
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
@@ -164,6 +166,8 @@ func newCertRotationController(
 			Validity:               monthPeriod,
 			Refresh:                monthPeriod / 2,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.aggregator-front-proxy-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -199,10 +203,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.aggregator-front-proxy-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -225,6 +231,8 @@ func newCertRotationController(
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.kubelet-client-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -260,10 +268,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.kubelet-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -290,6 +300,8 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-serving-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -327,10 +339,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ServingRotation{
 				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.localhost-serving",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -357,6 +371,8 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.service-network-serving-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -395,10 +411,12 @@ func newCertRotationController(
 				Hostnames:        ret.serviceNetwork.GetHostnames,
 				HostnamesChanged: ret.serviceNetwork.hostnamesChanged,
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.service-network-serving",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -425,6 +443,8 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -463,10 +483,12 @@ func newCertRotationController(
 				Hostnames:        ret.externalLoadBalancer.GetHostnames,
 				HostnamesChanged: ret.externalLoadBalancer.hostnamesChanged,
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.external-loadbalancer-serving",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -493,6 +515,8 @@ func newCertRotationController(
 			// it means we effectively do not rotate.
 			Refresh:                foreverRefreshPeriod,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -531,10 +555,12 @@ func newCertRotationController(
 				Hostnames:        ret.internalLoadBalancer.GetHostnames,
 				HostnamesChanged: ret.internalLoadBalancer.hostnamesChanged,
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.internal-loadbalancer-serving",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -555,6 +581,8 @@ func newCertRotationController(
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-recovery-serving-signer",
+			PKIProfileProvider:     pkiProvider,
 			Validity:               foreverPeriod, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
@@ -603,6 +631,8 @@ func newCertRotationController(
 				Hostnames: func() []string { return []string{"localhost-recovery"} },
 			},
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.localhost-recovery-serving",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -627,6 +657,8 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -662,10 +694,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.kube-controller-manager-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -686,6 +720,8 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -721,10 +757,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.kube-scheduler-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -745,6 +783,8 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -780,10 +820,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:control-plane-node-admin", Groups: []string{"system:masters"}},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.control-plane-node-admin-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -804,6 +846,8 @@ func newCertRotationController(
 			Validity:               2 * devRotationExceptionMonth,
 			Refresh:                devRotationExceptionMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.control-plane-client-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -839,10 +883,12 @@ func newCertRotationController(
 			CertCreator: &certrotation.ClientRotation{
 				UserInfo: &user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.check-endpoints-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
@@ -865,6 +911,8 @@ func newCertRotationController(
 			// This range is consistent with most other signers defined in this pkg.
 			Refresh:                3 * devRotationExceptionTenMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
+			CertificateName:        "kube-apiserver.node-system-admin-signer",
+			PKIProfileProvider:     pkiProvider,
 			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
 			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
 			Client:                 kubeClient.CoreV1(),
@@ -907,10 +955,12 @@ func newCertRotationController(
 					Groups: []string{"system:masters"},
 				},
 			},
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
+			CertificateName:    "kube-apiserver.node-system-admin-client",
+			PKIProfileProvider: pkiProvider,
+			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
+			Client:             kubeClient.CoreV1(),
+			EventRecorder:      eventRecorder,
 		},
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
