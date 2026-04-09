@@ -88,6 +88,9 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	// We're keeping the event-ttl in a separated suite to:
+	// avoid data loss - as many invariants and disruption checkers rely on events
+	// exceed runtime - the test takes about half an hour to execute, too long for the conformance serials
 	extension.AddSuite(oteextension.Suite{
 		Name:        "openshift/cluster-kube-apiserver-operator/event-ttl",
 		Parallelism: 1,

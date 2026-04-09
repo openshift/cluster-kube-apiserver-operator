@@ -14,9 +14,9 @@ require (
 	github.com/miekg/dns v1.1.61
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-	github.com/openshift/api v0.0.0-20260306002634-d3bbdada155c
+	github.com/openshift/api v0.0.0-20260402091533-d0af9d722390
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
-	github.com/openshift/client-go v0.0.0-20260302182750-20813ce71ca6
+	github.com/openshift/client-go v0.0.0-20260330134249-7e1499aaacd7
 	github.com/openshift/library-go v0.0.0-20260304110309-c56f4c30de58
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/prometheus/client_golang v1.23.2

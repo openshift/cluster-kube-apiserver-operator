@@ -126,7 +126,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			apiserver.ObserveSendRetryAfterWhileNotReadyOnce,
 			apiserver.ObserveGoawayChance,
 			apiserver.ObserveAdmissionPlugins,
-			apiserver.NewObserveEventTTL(featureGateAccessor),
+			apiserver.ObserveEventTTL,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			auth.ObserveAuthMetadata,
 			auth.ObserveServiceAccountIssuer,
