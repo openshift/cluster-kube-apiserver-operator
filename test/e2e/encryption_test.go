@@ -1,22 +1,14 @@
 package e2e
 
 import (
-	"fmt"
 	"testing"
-
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
-	library "github.com/openshift/library-go/test/library/encryption"
 )
 
+// This test calls the shared test function which
+// can be called from both standard Go tests and Ginkgo tests.
+//
+// This situation is temporary until we test the new e2e-gcp-operator-serial-ote job.
+// Eventually all tests will be run only as part of the OTE framework.
 func TestEncryptionTypeAESCBC(t *testing.T) {
-	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
-		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
-		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
-	})
+	testEncryptionTypeAESCBC(t)
 }
