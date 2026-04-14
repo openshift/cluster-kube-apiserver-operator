@@ -32,7 +32,7 @@ func AddKMSPluginToPodSpecFn(o *installerpod.InstallOptions) installerpod.PodMut
 		secretName := fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, o.Revision)
 		secret, err := o.KubeClient.CoreV1().Secrets(o.Namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if err != nil {
-			klog.V(4).Infof("No encryption config secret %s/%s: %v", o.Namespace, secretName, err)
+			klog.Infof("No encryption config secret %s/%s: %v", o.Namespace, secretName, err)
 			return nil
 		}
 
