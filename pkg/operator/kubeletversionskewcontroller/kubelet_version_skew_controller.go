@@ -3,7 +3,6 @@ package kubeletversionskewcontroller
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -35,11 +34,27 @@ const (
 // KubeletVersionSkewController sets Upgradeable=False if the kubelet
 // version on a node prevents upgrading to a supported OpenShift version.
 //
-// For odd OpenShift versions, kubelet versions 0 or 1 minor
-// versions behind the API server version are supported.
+// For OpenShift 4.y, odd minors allow kubelet skew of one minor behind the
+// API server; even minors allow two minors behind (see minSupportedKubeletSkewForOpenShiftVersion).
 //
-// For even OpenShift versions, kubelet versions 0, 1, or 2
-// minor versions behind the API server version are supported.
+// The supported kubelet version skew is determined by how many
+// releases have elapsed since the last EUS cycle boundary. It
+// increases by one per release, reaching its maximum at the next
+// EUS boundary.
+//
+// OpenShift 4.x has a 2-release EUS cycle (4.20, 4.22, ...):
+//
+//	4.21: up to 1 version behind
+//	4.22: up to 2 versions behind
+//
+// OpenShift 5.x has a 3-release EUS cycle (5.2, 5.5, 5.8, ...):
+//
+//	5.0, 5.3: up to 1 version behind
+//	5.1, 5.4: up to 2 versions behind
+//	5.2, 5.5: up to 3 versions behind
+//
+// Note: 4.23 is the last 4.x release and is designated EUS, but
+// its supported skew is still -1 (one release from 4.22).
 type KubeletVersionSkewController interface {
 	factory.Controller
 }
@@ -68,11 +83,26 @@ func NewKubeletVersionSkewController(
 }
 
 func minSupportedKubeletSkewForOpenShiftVersion(v semver.Version) int {
-	switch v.Minor % 2 {
-	case 0: // even OpenShift versions
-		return -2
-	case 1: // odd OpenShift versions
-		return -1
+	if v.Major == 4 {
+		// 4.y uses alternating odd/even skew limits. This must stay distinct from the 5.y
+		// mod-3 rule so a branch fast-forwarded between 4.23 and 5.0/main stays correct on both.
+		switch v.Minor % 2 {
+		case 0: // 4.22, 4.24, …
+			return -2
+		case 1: // 4.23, 4.25, …
+			return -1
+		default:
+			panic("should not happen")
+		}
+	}
+	// OpenShift 5.y+: first EUS is 5.2, then 5.5, 5.8, …
+	switch v.Minor % 3 {
+	case 0: // 5.0, 5.3, etc.
+		return -1 // allow kubelets to lag by one, e.g. 5.2 kubelets vs. 5.3 control plane, but not 5.1 kubelets
+	case 1: // 5.1, 5.4, etc.
+		return -2 // allow kubelets to lag by two, e.g. 5.2 kubelets vs. 5.4 control plane, but not 5.1 kubelets
+	case 2: // 5.2, 5.5, etc.
+		return -3 // allow kubelets to lag by three, e.g. 5.2 kubelets vs. 5.5 control plane, but not 5.1 kubelets
 	default:
 		panic("should not happen")
 	}
@@ -248,8 +278,6 @@ func (n nodeKubeletInfos) version() *semver.Version {
 func nodeKubeletVersion(node *corev1.Node) (semver.Version, error) {
 	return semver.Parse(strings.TrimPrefix(node.Status.NodeInfo.KubeletVersion, "v"))
 }
-
-var byNodeRegexp = regexp.MustCompile(`node [^ ]*`)
 
 type byName []*corev1.Node
 
