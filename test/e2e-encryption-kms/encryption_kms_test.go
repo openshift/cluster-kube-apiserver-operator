@@ -1,7 +1,6 @@
 package e2e_encryption_kms
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
-	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
 
 // TestKMSEncryptionOnOff tests KMS encryption on/off cycle.
@@ -28,7 +26,7 @@ func TestKMSEncryptionOnOff(t *testing.T) {
 	// Deploy the mock KMS plugin for testing.
 	// NOTE: This manual deployment is only required for KMS v1. In the future,
 	// the platform will manage the KMS plugins, and this code will no longer be needed.
-	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage)
+	// librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage)
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,

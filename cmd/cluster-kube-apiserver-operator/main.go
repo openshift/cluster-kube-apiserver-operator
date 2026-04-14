@@ -16,6 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
 	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
@@ -50,7 +51,8 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 
 	cmd.AddCommand(operatorcmd.NewOperator())
 	cmd.AddCommand(render.NewRenderCommand())
-	cmd.AddCommand(installerpod.NewInstaller(ctx))
+	opts := installerpod.NewInstallOptions().WithPodMutationFactory(targetconfigcontroller.AddKMSPluginToPodSpecFn)
+	cmd.AddCommand(installerpod.NewInstallerWithInstallOptions(ctx, opts))
 	cmd.AddCommand(prune.NewPrune())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
 	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
