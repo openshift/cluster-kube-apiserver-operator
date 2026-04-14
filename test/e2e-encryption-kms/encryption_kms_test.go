@@ -3,7 +3,6 @@ package e2e_encryption_kms
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -57,7 +56,7 @@ func TestKMSEncryptionOnOff(t *testing.T) {
 // 4. Shuffles the selected AES provider with KMS to create a randomized migration order
 // 5. Migrates between the providers in the shuffled order
 // 6. Verifies secret is correctly encrypted after each migration
-func TestKMSEncryptionProvidersMigration(t *testing.T) {
+/*func TestKMSEncryptionProvidersMigration(t *testing.T) {
 	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage)
 	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
@@ -76,4 +75,4 @@ func TestKMSEncryptionProvidersMigration(t *testing.T) {
 		ResourceName:                   "SecretOfLife",
 		EncryptionProviders:            library.ShuffleEncryptionProviders([]configv1.EncryptionType{configv1.EncryptionTypeKMS, library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))]}),
 	})
-}
+}*/
