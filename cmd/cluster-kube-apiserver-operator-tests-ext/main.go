@@ -1,51 +1,45 @@
-/*
-This command is used to run the Cluster Kube API Server Operator tests extension for OpenShift.
-It registers the Cluster Kube API Server Operator tests with the OpenShift Tests Extension framework
-and provides a command-line interface to execute them.
-For further information, please refer to the documentation at:
-https://github.com/openshift-eng/openshift-tests-extension/blob/main/cmd/example-tests/main.go
-*/
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/component-base/cli"
-	"k8s.io/klog/v2"
 
-	otecmd "github.com/openshift-eng/openshift-tests-extension/pkg/cmd"
-	oteextension "github.com/openshift-eng/openshift-tests-extension/pkg/extension"
-	oteginkgo "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
+	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
+	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
+	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
+
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/insecurereadyz"
+	operatorcmd "github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/operator"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/render"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/resourcegraph"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 )
 
 func main() {
-	cmd, err := newOperatorTestCommand()
-	if err != nil {
-		klog.Fatal(err)
-	}
-
-	code := cli.Run(cmd)
+	command := NewOperatorCommand(context.Background())
+	code := cli.Run(command)
 	os.Exit(code)
 }
 
-func newOperatorTestCommand() (*cobra.Command, error) {
-	registry, err := prepareOperatorTestsRegistry()
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare test registry: %w", err)
-	}
-
+func NewOperatorCommand(ctx context.Context) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cluster-kube-apiserver-operator-tests",
-		Short: "A binary used to run cluster-kube-apiserver-operator tests as part of OTE.",
+		Use:   "cluster-kube-apiserver-operator",
+		Short: "OpenShift cluster kube-apiserver operator",
 		Run: func(cmd *cobra.Command, args []string) {
-			// no-op, logic is provided by the OTE framework
-			if err := cmd.Help(); err != nil {
-				klog.Fatal(err)
-			}
+			cmd.Help()
+			os.Exit(1)
 		},
 	}
 
@@ -55,53 +49,23 @@ func newOperatorTestCommand() (*cobra.Command, error) {
 		cmd.Version = v
 	}
 
-	cmd.AddCommand(otecmd.DefaultExtensionCommands(registry)...)
+	opts := installerpod.NewInstallOptions().WithPodMutationFactory(targetconfigcontroller.AddKMSPluginToPodSpecFn)
+	cmd.AddCommand(installerpod.NewInstallerWithInstallOptions(ctx, opts))
+	cmd.AddCommand(operatorcmd.NewOperator())
+	cmd.AddCommand(render.NewRenderCommand())
+	cmd.AddCommand(prune.NewPrune())
+	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
+	cmd.AddCommand(certsyncpod.NewCertSyncControllerCommand(operator.CertConfigMaps, operator.CertSecrets))
+	cmd.AddCommand(certregenerationcontroller.NewCertRegenerationControllerCommand(ctx))
+	cmd.AddCommand(insecurereadyz.NewInsecureReadyzCommand())
+	cmd.AddCommand(checkendpoints.NewCheckEndpointsCommand())
+	cmd.AddCommand(startupmonitor.NewCommand(startupmonitorreadiness.New(), func(config *rest.Config) (operatorclientv1.KubeAPIServerInterface, error) {
+		client, err := operatorclientv1.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
+		return client.KubeAPIServers(), nil
+	}))
 
-	return cmd, nil
-}
-
-// prepareOperatorTestsRegistry creates the OTE registry for this operator.
-// This method must be called before adding the registry to the OTE framework.
-func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
-	registry := oteextension.NewRegistry()
-	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
-
-	// The following suite runs tests that verify the operator’s behaviour.
-	// This suite is executed only on pull requests targeting this repository.
-	// Tests tagged with both [Operator] and [Serial] are included in this suite.
-	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/operator/serial",
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Operator]") && name.contains("[Serial]") || name.contains("[Disruptive]")`,
-		},
-		ClusterStability: oteextension.ClusterStabilityDisruptive,
-	})
-
-	// Tests tagged with [Serial], and [Conformance] are included.
-	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
-		Parents:     []string{"openshift/conformance/serial"},
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Serial]") && name.contains("[Conformance]")`,
-		},
-	})
-
-	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/event-ttl",
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Suite:event-ttl]")`,
-		},
-	})
-
-	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
-	if err != nil {
-		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
-	}
-
-	extension.AddSpecs(specs)
-	registry.Register(extension)
-	return registry, nil
+	return cmd
 }

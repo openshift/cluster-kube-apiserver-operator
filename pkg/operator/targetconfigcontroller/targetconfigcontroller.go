@@ -22,7 +22,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -58,6 +57,7 @@ type TargetConfigController struct {
 
 	kubeClient          kubernetes.Interface
 	configMapLister     corev1listers.ConfigMapLister
+	secretLister        corev1listers.SecretLister
 	featureGateAccessor featuregates.FeatureGateAccess
 
 	isStartupMonitorEnabledFn      func() (bool, error)
@@ -82,6 +82,7 @@ func NewTargetConfigController(
 		operatorClient:                 operatorClient,
 		kubeClient:                     kubeClient,
 		configMapLister:                kubeInformersForNamespaces.ConfigMapLister(),
+		secretLister:                   kubeInformersForNamespaces.SecretLister(),
 		featureGateAccessor:            featureGateAccessor,
 		isStartupMonitorEnabledFn:      isStartupMonitorEnabledFn,
 		requireMultipleEtcdEndpointsFn: requireMultipleEtcdEndpointsFn,
@@ -224,7 +225,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion, c.secretLister)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -308,7 +309,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
+func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string, secretLister corev1listers.SecretLister) (*corev1.ConfigMap, bool, error) {
 	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
 	if err != nil {
 		return nil, false, err
@@ -327,10 +328,6 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 	proxyEnvVars := proxyMapToEnvVars(proxyConfig)
 	for i, container := range required.Spec.Containers {
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
-	}
-
-	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec, "kube-apiserver", featureGateAccessor); err != nil {
-		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
 	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
@@ -580,21 +577,6 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	return envVars
 }
 
-// checkEndpointsBindIPFromConfig returns the bind ip address to be used by the
-// check-endpoints container inside the apiserver pod. The bind IP is derived
-// from the bindNetwork property of the config.
-func checkEndpointsBindIPFromConfig(config map[string]any) (string, error) {
-	var bindNetworkPath = []string{"servingInfo", "bindNetwork"}
-	observedBindNetwork, _, err := unstructured.NestedString(config, bindNetworkPath...)
-	if err != nil {
-		return "", fmt.Errorf("unable to extract bindNetwork from the observed config: %v, path = %v", err, bindNetworkPath)
-	}
-	if observedBindNetwork == "tcp6" {
-		return "[::]", nil
-	}
-	return "0.0.0.0", nil
-}
-
 func gracefulTerminationDurationFromConfig(config map[string]interface{}) (int, error) {
 	// 135s is our default value
 	//   the initial 70s is reserved fo the minimal termination period
@@ -656,7 +638,6 @@ type kasTemplate struct {
 	GracefulTerminationDuration   int
 	SetupContainerTimeoutDuration int
 	GOGC                          int
-	CheckEndpointsBindIP          string
 }
 
 func effectiveConfiguration(spec *operatorv1.StaticPodOperatorSpec) (map[string]interface{}, error) {
@@ -703,11 +684,6 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		return "", err
 	}
 
-	checkEndpointBindIP, err := checkEndpointsBindIPFromConfig(config)
-	if err != nil {
-		return "", err
-	}
-
 	tmplVal := kasTemplate{
 		Image:                       imagePullSpec,
 		OperatorImage:               operatorImagePullSpec,
@@ -717,7 +693,6 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
 		SetupContainerTimeoutDuration: gracefulTerminationDuration + 80 + 5,
 		GOGC:                          gogc,
-		CheckEndpointsBindIP:          checkEndpointBindIP,
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {
