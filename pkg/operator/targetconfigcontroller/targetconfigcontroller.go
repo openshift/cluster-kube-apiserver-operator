@@ -577,6 +577,21 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	return envVars
 }
 
+// checkEndpointsBindIPFromConfig returns the bind ip address to be used by the
+// check-endpoints container inside the apiserver pod. The bind IP is derived
+// from the bindNetwork property of the config.
+func checkEndpointsBindIPFromConfig(config map[string]any) (string, error) {
+	var bindNetworkPath = []string{"servingInfo", "bindNetwork"}
+	observedBindNetwork, _, err := unstructured.NestedString(config, bindNetworkPath...)
+	if err != nil {
+		return "", fmt.Errorf("unable to extract bindNetwork from the observed config: %v, path = %v", err, bindNetworkPath)
+	}
+	if observedBindNetwork == "tcp6" {
+		return "[::]", nil
+	}
+	return "0.0.0.0", nil
+}
+
 func gracefulTerminationDurationFromConfig(config map[string]interface{}) (int, error) {
 	// 135s is our default value
 	//   the initial 70s is reserved fo the minimal termination period
@@ -638,6 +653,7 @@ type kasTemplate struct {
 	GracefulTerminationDuration   int
 	SetupContainerTimeoutDuration int
 	GOGC                          int
+	CheckEndpointsBindIP          string
 }
 
 func effectiveConfiguration(spec *operatorv1.StaticPodOperatorSpec) (map[string]interface{}, error) {
@@ -684,6 +700,11 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		return "", err
 	}
 
+	checkEndpointBindIP, err := checkEndpointsBindIPFromConfig(config)
+	if err != nil {
+		return "", err
+	}
+
 	tmplVal := kasTemplate{
 		Image:                       imagePullSpec,
 		OperatorImage:               operatorImagePullSpec,
@@ -693,6 +714,7 @@ func manageTemplate(rawTemplate string, imagePullSpec string, operatorImagePullS
 		// 80s for minimum-termination-duration (10s port wait, 65s to let pending requests finish after port has been freed) + 5s extra cri-o's graceful termination period
 		SetupContainerTimeoutDuration: gracefulTerminationDuration + 80 + 5,
 		GOGC:                          gogc,
+		CheckEndpointsBindIP:          checkEndpointBindIP,
 	}
 	tmpl, err := template.New("kas").Parse(rawTemplate)
 	if err != nil {
