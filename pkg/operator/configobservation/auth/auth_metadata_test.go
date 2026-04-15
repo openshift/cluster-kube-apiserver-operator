@@ -18,18 +18,18 @@ import (
 )
 
 var (
-	unprunedBaseAuthMetadataConfig = map[string]interface{}{
-		"apiServerArguments": map[string]interface{}{
+	unprunedBaseAuthMetadataConfig = map[string]any{
+		"apiServerArguments": map[string]any{
 			"authentication-token-webhook-config-file": webhookTokenAuthenticatorFile,
 			"authentication-token-webhook-version":     webhookTokenAuthenticatorVersion,
 		},
-		"authConfig": map[string]interface{}{
+		"authConfig": map[string]any{
 			"oauthMetadataFile": "/etc/kubernetes/static-pod-resources/configmaps/oauth-metadata/oauthMetadata",
 		},
 	}
 
-	prunedBaseAuthMetadataConfig = map[string]interface{}{
-		"authConfig": map[string]interface{}{
+	prunedBaseAuthMetadataConfig = map[string]any{
+		"authConfig": map[string]any{
 			"oauthMetadataFile": "/etc/kubernetes/static-pod-resources/configmaps/oauth-metadata/oauthMetadata",
 		},
 	}
@@ -43,20 +43,20 @@ func TestObserveAuthMetadata(t *testing.T) {
 		authIndexer cache.Indexer
 		cmIndexer   cache.Indexer
 
-		existingConfig     map[string]interface{}
+		existingConfig     map[string]any
 		authConfigMap      *corev1.ConfigMap
 		authSpec           *configv1.AuthenticationSpec
 		statusMetadataName string
 		syncerError        error
 
-		expectedConfig map[string]interface{}
+		expectedConfig map[string]any
 		expectedSynced map[string]string
 		expectErrors   bool
 	}{
 		{
 			name:           "auth resource not found",
 			authSpec:       nil,
-			expectedConfig: map[string]interface{}{},
+			expectedConfig: map[string]any{},
 			expectedSynced: nil,
 			expectErrors:   false,
 		},
@@ -152,6 +152,25 @@ func TestObserveAuthMetadata(t *testing.T) {
 				Type: configv1.AuthenticationTypeNone,
 				OAuthMetadata: configv1.ConfigMapNameReference{
 					Name: "metadata-from-spec",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     prunedBaseAuthMetadataConfig,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
+			},
+			expectErrors: false,
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
+		},
+		{
+			name: "empty auth metadata with auth type None",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeNone,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
 				},
 			},
 			statusMetadataName: "metadata-from-status",
@@ -280,7 +299,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			eventRecorder := events.NewInMemoryRecorder("authmetadatatest", clock.RealClock{})
 
 			if tt.authIndexer == nil {
-				tt.authIndexer = cache.NewIndexer(func(obj interface{}) (string, error) {
+				tt.authIndexer = cache.NewIndexer(func(obj any) (string, error) {
 					return "cluster", nil
 				}, cache.Indexers{})
 			}
