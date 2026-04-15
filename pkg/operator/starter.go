@@ -350,6 +350,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 				return !isSNO, precheckSucceeded, err
 			},
 		).
+		WithRevisionControllerPrecondition(targetconfigcontroller.KMSRevisionPrecondition(kubeClient, featureGateAccessor)).
 		WithOperandPodLabelSelector(labels.Set{"apiserver": "true"}.AsSelector()).
 		ToControllers()
 	if err != nil {
