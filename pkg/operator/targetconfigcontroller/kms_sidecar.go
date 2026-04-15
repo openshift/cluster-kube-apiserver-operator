@@ -85,10 +85,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 
 	klog.Infof("kms is enabled: injecting %d KMS plugin sidecar(s) into kube-apiserver pod", len(kmsEndpoints))
 
-	// Add shared volumes and init container once (not per-key).
 	addKMSSocketVolume(podSpec)
-	addSoftHSMTokensVolume(podSpec)
-	addSoftHSMInitContainer(podSpec, kmsPluginImage)
 
 	// Add socket volume mount to kube-apiserver.
 	if err := addVolumeMountToContainer(podSpec, "kube-apiserver", "kms-plugin-socket", "/var/run/kmsplugin"); err != nil {
@@ -140,23 +137,6 @@ func extractKeyIDFromProviderName(name string) string {
 	return name
 }
 
-// Pre-generated SoftHSM token with AES-256 key (base64-encoded tar.gz).
-// This is the same data from the k8s-mock-kms-plugin ConfigMap.
-// Run k8s-mock-plugin-key-gen/generate.sh to regenerate.
-const softhsmTokensB64 = `H4sIAAAAAAAAA9PTZ6A5MDAwMDQ3NwfRIIBOg9mGpoYmQFVmpsZmQHFzcyMzBgVT2juNgaG0uCSx
-SEGBoSg/vwSfOkLyQxTo6SclWSalGaYk6SanJVvqmhmaGemaGxumAlkG5gbmJmZmhpaplCUSUASb
-Y8Y77vg3NDExH41/ugAi4z89NS+1KLEkMz+PDDtAEWyGL/4N0ePfzNTElEHBgOq+xQJGePxDAdNA
-O2AUDAwgMv8D62+jNEsjS91EQ8tkXVOTlFRdy9REE13TxCQjU2PjRBMjixS9nPzkbGx2EMz/6OW/
-kZGhseFo/qcHoGb85ydlpSZjCSQC8W9oZGqGHv8mZqPlPz2BMhofVh+wQGlGGP0fTQFMgoEZjebI
-zi3WLUkthgWaIJq8wtmYw16NO3743+n8IbrBQ654o8P1RS3cTE2rvqxes3f2681QdW3oFk1At9A9
-/CyaEpjj5KHiTGhaYEbC+HDfwb0L9SYjK7oAG7oAO7oAB7oAF7oAD7q1Ajjchx5mMPFEKAPmLwWo
-eBK6wcnoVqegC6Sia0lDNVugASpegK6zEF2gCE2ACeYtiNkODEww/8CCGSYuhF0cFtYMrAyjgEaA
-yPK/JD87NQ9nBU8AkFz/G5qZmBmMlv/0ASTFP64KngAgFP+mGPFvbmBgPBr/dATgOqqBIdgTyofX
-0rBaXAEHgOrzQtMnAEpCyCkIqs4bKg+tXVh0oeI+aPo9hLuLzFeazTs0z0uff0K8jyJbufak7QIT
-v1jacNd/lLvW0Bink9F64W7jVjf1Y/o3JrhXvTgRdIo7qjH6Q94aa7Wis/x+aYIib+56Qc33RTd/
-mrLoLKtVa1bK/Mt6/MqI48T9mDkzbzYfleKNm8ytfO3yvnVnmdZzNTxQ5330z2/9zpt+B+dP+bn+
-UWq1aNfvZvMIhu2djYvqNbukYbXlKBgFo2AUDDkAAM1LQHIAGgAA`
-
 // addKMSSocketVolume adds the shared emptyDir volume for KMS plugin sockets.
 func addKMSSocketVolume(podSpec *corev1.PodSpec) {
 	for _, v := range podSpec.Volumes {
@@ -168,58 +148,6 @@ func addKMSSocketVolume(podSpec *corev1.PodSpec) {
 		Name: "kms-plugin-socket",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
-}
-
-// addSoftHSMTokensVolume adds the hostPath volume for SoftHSM tokens (persistence across restarts).
-func addSoftHSMTokensVolume(podSpec *corev1.PodSpec) {
-	for _, v := range podSpec.Volumes {
-		if v.Name == "softhsm-tokens" {
-			return
-		}
-	}
-	softhsmTokensHostPathType := corev1.HostPathDirectoryOrCreate
-	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-		Name: "softhsm-tokens",
-		VolumeSource: corev1.VolumeSource{
-			HostPath: &corev1.HostPathVolumeSource{
-				Path: "/var/lib/softhsm/tokens",
-				Type: &softhsmTokensHostPathType,
-			},
-		},
-	})
-}
-
-// addSoftHSMInitContainer adds a single init container that bootstraps SoftHSM tokens
-// from embedded data to a hostPath. If tokens already exist on disk, initialization is skipped.
-func addSoftHSMInitContainer(podSpec *corev1.PodSpec, image string) {
-	podSpec.InitContainers = append(podSpec.InitContainers, corev1.Container{
-		Name:            "init-softhsm",
-		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"/bin/sh", "-c"},
-		Args: []string{fmt.Sprintf(`
-set -e
-set -x
-if [ $(ls -1 /var/lib/softhsm/tokens 2>/dev/null | wc -l) -ge 1 ]; then
-  echo "Skipping initialization of softhsm"
-  exit 0
-fi
-mkdir -p /var/lib/softhsm/tokens
-cd /var/lib/softhsm/tokens
-cat <<'TOKENEOF' | base64 -d | tar xzf -
-%s
-TOKENEOF`, softhsmTokensB64),
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "softhsm-tokens",
-				MountPath: "/var/lib/softhsm/tokens",
-			},
-		},
-		SecurityContext: &corev1.SecurityContext{
-			Privileged: ptr.To(true),
 		},
 	})
 }
@@ -245,16 +173,9 @@ func addKMSPluginSidecarContainer(podSpec *corev1.PodSpec, containerName, image,
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:            containerName,
 		Image:           image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"/bin/sh", "-c"},
-		Args: []string{fmt.Sprintf(`
-cat > /tmp/softhsm-config.json <<'EOF'
-{"Path":"/usr/lib/softhsm/libsofthsm2.so","TokenLabel":"kms-test","Pin":"1234"}
-EOF
-rm -f %[1]s
-exec /usr/local/bin/mock-kms-plugin -listen-addr=%[1]s -config-file-path=/tmp/softhsm-config.json`,
-			listenAddress),
-		},
+		ImagePullPolicy: corev1.PullAlways,
+		Command:         []string{"/mock-vault-kms"},
+		Args:            []string{fmt.Sprintf("--listen-address=%s", listenAddress)},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "resource-dir",
@@ -263,10 +184,6 @@ exec /usr/local/bin/mock-kms-plugin -listen-addr=%[1]s -config-file-path=/tmp/so
 			{
 				Name:      "kms-plugin-socket",
 				MountPath: "/var/run/kmsplugin",
-			},
-			{
-				Name:      "softhsm-tokens",
-				MountPath: "/var/lib/softhsm/tokens",
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{

@@ -330,7 +330,7 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	kmsPluginImage := "quay.io/openshifttest/mock-kms-plugin@sha256:998e1d48eba257f589ab86c30abd5043f662213e9aeff253e1c308301879d48a"
+	kmsPluginImage := "quay.io/rhn_support_rgangwar/mock-kms-plugin-vault:latest"
 	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister, kmsPluginImage); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
 	}
