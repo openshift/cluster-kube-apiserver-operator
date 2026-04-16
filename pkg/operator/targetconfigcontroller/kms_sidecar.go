@@ -3,12 +3,13 @@ package targetconfigcontroller
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"slices"
-	"strconv"
+	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +23,6 @@ import (
 var (
 	apiserverScheme = runtime.NewScheme()
 	apiserverCodecs = serializer.NewCodecFactory(apiserverScheme)
-	kmsNameRegex    = regexp.MustCompile(`-(\d+)_`)
 )
 
 func init() {
@@ -90,21 +90,6 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return nil
 	}
 
-	// is kms specified?
-	klog.Infof("kms is enabled: trying to find credentials")
-
-	// FIXME: credentials will be available in the encryptionConfiguration, but they are not there yet.
-	// Get them from a custom secret for now
-	// creds, err := secretLister.Secrets("openshift-config").Get("vault-kms-credentials")
-	// if apierrors.IsNotFound(err) {
-	// 	klog.Infof("kms is disabled: secret openshift-config/vault-kms-credentials not found: %v", err)
-	// 	return nil
-	// }
-	// if err != nil {
-	// 	klog.Infof("kms is disabled: failed to get vault-kms-credentials secret: %v", err)
-	// 	return nil
-	// }
-
 	// TODO: only the first KMS provider is used for now
 	var kmsConfig *apiserverv1.KMSConfiguration
 	for _, resource := range config.Resources {
@@ -123,28 +108,43 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return fmt.Errorf("no KMS provider found in EncryptionConfiguration")
 	}
 
-	// name format: kms-<ID>_<resource>, e.g. "kms-2_secrets"
-	kmsName := kmsConfig.Name
-	m := kmsNameRegex.FindStringSubmatch(kmsName)
-	if m == nil {
-		return fmt.Errorf("unexpected KMS provider name format: %s", kmsName)
+	// KMS provider name format is "{keyID}_{resource}", e.g. "1_secrets"
+	parts := strings.SplitN(kmsConfig.Name, "_", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("unexpected KMS provider name format: %s", kmsConfig.Name)
 	}
-	keyID, err := strconv.Atoi(m[1])
-	if err != nil {
-		return fmt.Errorf("failed to parse key ID from KMS provider name %q: %w", kmsName, err)
+	keyID := parts[0]
+
+	// Read the provider config (configv1.KMSConfig) from the encryption-config secret
+	providerConfigKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, keyID)
+	providerConfigData, ok := encryptionConfig.Data[providerConfigKey]
+	if !ok {
+		return fmt.Errorf("missing provider config key %s in encryption-config secret", providerConfigKey)
 	}
 
-	keyKMSProviderConfig := fmt.Sprintf("kms-provider-config-%d", keyID)
-	keySecretID := fmt.Sprintf("kms-secret-id-%d", keyID)
-	endpoint := kmsConfig.Endpoint
+	var kmsProviderConfig configv1.KMSConfig
+	if err := json.Unmarshal(providerConfigData, &kmsProviderConfig); err != nil {
+		return fmt.Errorf("failed to unmarshal KMS provider config: %w", err)
+	}
 
-	vaultConfig := &vaultConfiguration{}
-	if err := json.Unmarshal(encryptionConfig.Data[keyKMSProviderConfig], vaultConfig); err != nil {
-		return err
+	if kmsProviderConfig.Type != configv1.VaultKMSProvider || kmsProviderConfig.Vault == nil {
+		return fmt.Errorf("only Vault KMS provider is supported, got type %q", kmsProviderConfig.Type)
+	}
+
+	// Read the credentials (map[string][]byte with "roleID" and "secretID" keys)
+	credentialsKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, keyID)
+	credentialsData, ok := encryptionConfig.Data[credentialsKey]
+	if !ok {
+		return fmt.Errorf("missing credentials key %s in encryption-config secret", credentialsKey)
+	}
+
+	var credentials map[string][]byte
+	if err := json.Unmarshal(credentialsData, &credentials); err != nil {
+		return fmt.Errorf("failed to unmarshal KMS credentials: %w", err)
 	}
 
 	klog.Infof("kms is enabled: found config, now patching kube-apiserver pod")
-	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, vaultConfig, endpoint, keySecretID); err != nil {
+	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, kmsProviderConfig.Vault, kmsConfig.Endpoint, credentials, credentialsKey); err != nil {
 		return err
 	}
 
@@ -159,15 +159,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	return nil
 }
 
-type vaultConfiguration struct {
-	RoleID       string
-	Addr         string
-	Namespace    string
-	KeyName      string
-	TransitMount string
-}
-
-func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, image string, config *vaultConfiguration, endpoint, keySecretID string) error {
+func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image string, vaultConfig *configv1.VaultKMSConfig, endpoint string, credentials map[string][]byte, credentialsKey string) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -178,14 +170,13 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string,
 		Args: []string{
 			"--log-level=debug-extended",
 			fmt.Sprintf("--listen-address=%s", endpoint),
-			fmt.Sprintf("--vault-address=%s", config.Addr),
-			fmt.Sprintf("--vault-namespace=%s", config.Namespace),
-			fmt.Sprintf("--transit-key=%s", config.KeyName),
-			fmt.Sprintf("--transit-mount=%s", config.TransitMount),
-			fmt.Sprintf("--approle-role-id=%s", config.RoleID),
-			fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", keySecretID),
+			fmt.Sprintf("--vault-address=%s", vaultConfig.VaultAddress),
+			fmt.Sprintf("--vault-namespace=%s", vaultConfig.VaultNamespace),
+			fmt.Sprintf("--transit-key=%s", vaultConfig.TransitKey),
+			fmt.Sprintf("--transit-mount=%s", vaultConfig.TransitMount),
+			fmt.Sprintf("--approle-role-id=%s", string(credentials["roleID"])),
+			fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", credentialsKey),
 		},
-		// TODO: this volumeMount is used by kube-apiserver as well, so it's be present in the pod.Spec
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "resource-dir",
