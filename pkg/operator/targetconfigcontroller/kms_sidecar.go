@@ -3,6 +3,7 @@ package targetconfigcontroller
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"slices"
 	"strings"
 
@@ -108,12 +109,16 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return fmt.Errorf("no KMS provider found in EncryptionConfiguration")
 	}
 
-	// KMS provider name format is "{keyID}_{resource}", e.g. "1_secrets"
-	parts := strings.SplitN(kmsConfig.Name, "_", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("unexpected KMS provider name format: %s", kmsConfig.Name)
+	// Parse keyID from the UDS endpoint, e.g. "unix:///var/run/kmsplugin/kms-555.sock" → "555"
+	socketPath := strings.TrimPrefix(kmsConfig.Endpoint, "unix://")
+	baseName := path.Base(socketPath)
+	if !strings.HasPrefix(baseName, "kms-") || !strings.HasSuffix(baseName, ".sock") {
+		return fmt.Errorf("unexpected KMS endpoint format: %s", kmsConfig.Endpoint)
 	}
-	keyID := parts[0]
+	keyID := strings.TrimSuffix(strings.TrimPrefix(baseName, "kms-"), ".sock")
+	if keyID == "" {
+		return fmt.Errorf("unexpected KMS endpoint format: %s", kmsConfig.Endpoint)
+	}
 
 	// Read the provider config (configv1.KMSConfig) from the encryption-config secret
 	providerConfigKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, keyID)

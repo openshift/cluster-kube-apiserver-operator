@@ -185,7 +185,7 @@ resources:
 			},
 		},
 		{
-			name: "malformed KMS provider name: error",
+			name: "malformed KMS endpoint: error",
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: "kube-apiserver"},
@@ -218,7 +218,7 @@ resources:
 					},
 				},
 			},
-			wantErr: "unexpected KMS provider name format",
+			wantErr: "unexpected KMS endpoint format",
 		},
 	}
 
