@@ -160,10 +160,11 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 }
 
 type vaultConfiguration struct {
-	RoleID    string
-	Addr      string
-	Namespace string
-	KeyName   string
+	RoleID       string
+	Addr         string
+	Namespace    string
+	KeyName      string
+	TransitMount string
 }
 
 func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, image string, config *vaultConfiguration, endpoint, keySecretID string) error {
@@ -175,23 +176,15 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string,
 		Name:            containerName,
 		Image:           image,
 		ImagePullPolicy: corev1.PullAlways,
-		Command:         []string{"/bin/sh", "-c"},
-		Args: []string{fmt.Sprintf(`
-	exec /vault-kube-kms \
-	-listen-address=%s \
-	-vault-address=%s \
-	-vault-namespace=%s \
-	-transit-mount=transit \
-	-transit-key=%s \
-	-log-level=debug-extended \
-	-approle-role-id=%s \
-	-approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s`,
-			endpoint,
-			config.Addr,
-			config.Namespace,
-			config.KeyName,
-			config.RoleID,
-			keySecretID),
+		Args: []string{
+			"--log-level=debug-extended",
+			fmt.Sprintf("--listen-address=%s", endpoint),
+			fmt.Sprintf("--vault-address=%s", config.Addr),
+			fmt.Sprintf("--vault-namespace=%s", config.Namespace),
+			fmt.Sprintf("--transit-key=%s", config.KeyName),
+			fmt.Sprintf("--transit-mount=%s", config.TransitMount),
+			fmt.Sprintf("--approle-role-id=%s", config.RoleID),
+			fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", keySecretID),
 		},
 		// TODO: this volumeMount is used by kube-apiserver as well, so it's be present in the pod.Spec
 		VolumeMounts: []corev1.VolumeMount{
