@@ -17,6 +17,7 @@ import (
 	"github.com/openshift/api/features"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -76,6 +77,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 		expectedSynced    map[string]string
 		expectedConfig    map[string]interface{}
 		gates             featuregates.FeatureGateAccess
+		authConfigPresent bool
 	}{
 		{
 			name:         "empty config",
@@ -224,9 +226,6 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			existingConfig:   unprunedBaseWebhookAuthenticatorConfig,
 			configSecretName: "",
 			expectEvents:     true,
-			expectedSynced: map[string]string{
-				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
-			},
 			gates: featuregates.NewHardcodedFeatureGateAccess(
 				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
 				[]configv1.FeatureGateName{},
@@ -273,6 +272,54 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			existingConfig:    unprunedBaseWebhookAuthenticatorConfig,
 			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
 		},
+		{
+			name:           "config removed when authentication type is OIDC and auth config present",
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					Type: configv1.AuthenticationTypeOIDC,
+				},
+			},
+			expectedConfig: nil,
+			expectEvents:   true,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
+			},
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{},
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+			),
+			authConfigPresent: true,
+		},
+		{
+			name:           "config not removed when authentication type is OIDC and ExternalOIDCExternalClaimsSourcing gate is enabled",
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					Type: configv1.AuthenticationTypeOIDC,
+				},
+			},
+			expectedConfig:   prunedBaseWebhookAuthenticatorConfig,
+			configSecretName: defaultWebhookSecretName,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			expectEvents: false,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
+			gates: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
+				[]configv1.FeatureGateName{},
+			),
+			webhookConfigured: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -297,10 +344,27 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 				}
 			}
 
+			if tt.authConfigPresent {
+				cm := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      AuthConfigCMName,
+						Namespace: operatorclient.TargetNamespace,
+					},
+					Data: map[string]string{
+						"something": "something",
+					},
+				}
+
+				if err := indexer.Add(cm); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			synced := map[string]string{}
 			listers := configobservation.Listers{
 				AuthConfigLister:    configlistersv1.NewAuthenticationLister(indexer),
 				ConfigSecretLister_: corelistersv1.NewSecretLister(indexer),
+				ConfigmapLister_:    corelistersv1.NewConfigMapLister(indexer),
 				ResourceSync:        &mockResourceSyncer{t: t, synced: synced},
 			}
 

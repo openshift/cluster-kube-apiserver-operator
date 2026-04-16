@@ -25,9 +25,7 @@ const (
 	authConfigKeyName           = "auth-config.json"
 )
 
-var (
-	authConfigPath = []string{"apiServerArguments", "authentication-config"}
-)
+var authConfigPath = []string{"apiServerArguments", "authentication-config"}
 
 func NewObserveExternalOIDC(featureGateAccessor featuregates.FeatureGateAccess) configobserver.ObserveConfigFunc {
 	return (&externalOIDC{
@@ -61,6 +59,36 @@ func (o *externalOIDC) ObserveExternalOIDC(genericListers configobserver.Listers
 
 	if !featureGates.Enabled(features.FeatureGateExternalOIDC) {
 		return existingConfig, nil
+	}
+
+	// When the ExternalOIDCExternalClaimsSourcing feature gate is enabled, the kube-apiserver
+	// should not have the built-in Structured Authentication Configuration feature configured,
+	// which this configobserver handles.
+	// Once this feature has gone GA and sufficient time has passed for migrations to have occurred,
+	// this configobserver should be removed as it will no longer be necessary.
+	// This cleanup work is tracked by https://redhat.atlassian.net/browse/CNTRLPLANE-3208
+	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		// In the event the older approach of the external OIDC configuration has been used,
+		// lets clean it up so that we don't end up with competing behaviors.
+		listers := genericListers.(configobservation.Listers)
+		targetAuthConfig, err := listers.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName)
+		if err != nil && !errors.IsNotFound(err) {
+			return existingConfig, []error{err}
+		}
+
+		// empty source name/namespace effectively deletes target configmap
+		if err := genericListers.ResourceSyncer().SyncConfigMap(
+			resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: AuthConfigCMName},
+			resourcesynccontroller.ResourceLocation{Namespace: "", Name: ""},
+		); err != nil {
+			return existingConfig, []error{err}
+		}
+
+		if targetAuthConfig != nil {
+			recorder.Eventf("ObserveExternalOIDC", "OIDC auth configmap %s/%s exists; requested deletion", operatorclient.TargetNamespace, AuthConfigCMName)
+		}
+
+		return nil, nil
 	}
 
 	listers := genericListers.(configobservation.Listers)
@@ -99,7 +127,6 @@ func (o *externalOIDC) ObserveExternalOIDC(genericListers configobserver.Listers
 	sourceAuthConfig, err := validateSourceConfigMap(listers)
 	if err != nil {
 		return existingConfig, []error{err}
-
 	} else if sourceAuthConfig == nil {
 		klog.Warningf("configmap %s/%s not found; skipping configuration of OIDC", SourceAuthConfigCMNamespace, AuthConfigCMName)
 		return existingConfig, nil
@@ -134,7 +161,6 @@ func validateSourceConfigMap(listers configobservation.Listers) (*corev1.ConfigM
 
 	if data, found := sourceAuthConfig.Data[authConfigKeyName]; !found {
 		return nil, fmt.Errorf("configmap %s/%s is invalid: key '%s' missing", SourceAuthConfigCMNamespace, AuthConfigCMName, authConfigKeyName)
-
 	} else if len(data) == 0 {
 		return nil, fmt.Errorf("configmap %s/%s is invalid: key '%s' has empty value", SourceAuthConfigCMNamespace, AuthConfigCMName, authConfigKeyName)
 	}
