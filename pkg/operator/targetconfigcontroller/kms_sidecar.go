@@ -29,8 +29,8 @@ func init() {
 	utilruntime.Must(apiserverv1.AddToScheme(apiserverScheme))
 }
 
-// AddKMSPluginToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
-// It assumes the pod spec does not already contain the KMS volume or mount; no deduplication is performed.
+// AddKMSPluginToPodSpec conditionally adds the KMS plugin sidecar, volume, and volume mounts to the specified pod spec.
+// Volume mounts are always appended; volumes are deduplicated by name.
 // Deprecated: this is a temporary solution to get KMS TP v1 out. We should come up with a different approach afterwards.
 func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, kmsPluginImage string) error {
 	if podSpec == nil {
@@ -164,11 +164,12 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image 
 		return fmt.Errorf("pod spec cannot be nil")
 	}
 
+	// TODO: set resource requests/limits for the KMS plugin sidecar
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:  containerName,
 		Image: image,
 		Args: []string{
-			"--log-level=debug-extended",
+			"--log-level=debug-extended", // TODO: make log level configurable
 			fmt.Sprintf("--listen-address=%s", endpoint),
 			fmt.Sprintf("--vault-address=%s", vaultConfig.VaultAddress),
 			fmt.Sprintf("--vault-namespace=%s", vaultConfig.VaultNamespace),
@@ -212,14 +213,15 @@ func addKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 		},
 	)
 
-	foundVolumeMount := false
-	for _, volumeMount := range podSpec.Volumes {
-		if volumeMount.Name == "kms-plugin-socket" {
-			foundVolumeMount = true
+	foundVolume := false
+	for _, volume := range podSpec.Volumes {
+		if volume.Name == "kms-plugin-socket" {
+			foundVolume = true
+			break
 		}
 	}
 
-	if !foundVolumeMount {
+	if !foundVolume {
 		directoryOrCreate := corev1.HostPathDirectoryOrCreate
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
