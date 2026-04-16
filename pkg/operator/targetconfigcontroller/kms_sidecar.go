@@ -173,9 +173,8 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string,
 	}
 
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
-		Name:            containerName,
-		Image:           image,
-		ImagePullPolicy: corev1.PullAlways,
+		Name:  containerName,
+		Image: image,
 		Args: []string{
 			"--log-level=debug-extended",
 			fmt.Sprintf("--listen-address=%s", endpoint),
