@@ -27,7 +27,6 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 		expectedPodSpec     *corev1.PodSpec
 		featureGateAccessor featuregates.FeatureGateAccess
 		secrets             []*corev1.Secret
-		kmsPluginImage      string
 		wantErr             string
 	}{
 		{
@@ -38,15 +37,15 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 				},
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
-				"quay.io/example/vault-kms:v1",
 				&state.VaultProviderConfig{
+					Image:          "quay.io/bertinatto/vault:v2",
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
 					TransitMount:   "transit",
 				},
 				"unix:///var/run/kmsplugin/kms-555.sock",
-				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id", "my-key", "https://vault.example.com:8200", "my-namespace"),
 			),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
 				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
@@ -58,17 +57,17 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 					"unix:///var/run/kmsplugin/kms-555.sock",
 					&state.KMSProviderConfig{
 						Vault: &state.VaultProviderConfig{
-							VaultAddress:   "https://vault.example.com:8200",
-							VaultNamespace: "my-namespace",
-							TransitKey:     "my-key",
-							TransitMount:   "transit",
+							Image:          "will-be-overridden",
+							VaultAddress:   "will-be-overridden",
+							VaultNamespace: "will-be-overridden",
+							TransitKey:     "will-be-overridden",
+							TransitMount:   "will-be-overridden",
 						},
 					},
 					"555",
 				),
-				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id", "my-key", "https://vault.example.com:8200", "my-namespace"),
 			},
-			kmsPluginImage: "quay.io/example/vault-kms:v1",
 		},
 		{
 			name: "different key ID: KMS sidecar injected correctly",
@@ -78,15 +77,15 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 				},
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
-				"quay.io/example/vault-kms:v1",
 				&state.VaultProviderConfig{
+					Image:          "quay.io/bertinatto/vault:v2",
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
 					TransitMount:   "transit",
 				},
 				"unix:///var/run/kmsplugin/kms-3.sock",
-				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id", "my-key", "https://vault.example.com:8200", "my-namespace"),
 			),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
 				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
@@ -98,17 +97,17 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 					"unix:///var/run/kmsplugin/kms-3.sock",
 					&state.KMSProviderConfig{
 						Vault: &state.VaultProviderConfig{
-							VaultAddress:   "https://vault.example.com:8200",
-							VaultNamespace: "my-namespace",
-							TransitKey:     "my-key",
-							TransitMount:   "transit",
+							Image:          "will-be-overridden",
+							VaultAddress:   "will-be-overridden",
+							VaultNamespace: "will-be-overridden",
+							TransitKey:     "will-be-overridden",
+							TransitMount:   "will-be-overridden",
 						},
 					},
 					"3",
 				),
-				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id", "my-key", "https://vault.example.com:8200", "my-namespace"),
 			},
-			kmsPluginImage: "quay.io/example/vault-kms:v1",
 		},
 		{
 			name: "feature gate disabled: pod spec unchanged",
@@ -211,9 +210,7 @@ resources:
 					},
 					"1",
 				),
-				// no vault-kms-credentials secret
 			},
-			kmsPluginImage: "quay.io/example/vault-kms:v1",
 		},
 		{
 			name: "malformed KMS endpoint: error",
@@ -262,7 +259,7 @@ resources:
 			}
 			secretLister := &secretLister{client: kubeClient, namespace: ""}
 
-			err := AddKMSPluginToPodSpec(tt.podSpec, tt.featureGateAccessor, secretLister, tt.kmsPluginImage)
+			err := AddKMSPluginToPodSpec(tt.podSpec, tt.featureGateAccessor, secretLister)
 
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
@@ -274,7 +271,7 @@ resources:
 	}
 }
 
-func expectedPodSpecWithKMSSidecar(image string, vaultConfig *state.VaultProviderConfig, endpoint string, credentials *corev1.Secret) *corev1.PodSpec {
+func expectedPodSpecWithKMSSidecar(vaultConfig *state.VaultProviderConfig, endpoint string, credentials *corev1.Secret) *corev1.PodSpec {
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
 
 	args := fmt.Sprintf(`
@@ -310,14 +307,10 @@ func expectedPodSpecWithKMSSidecar(image string, vaultConfig *state.VaultProvide
 			},
 			{
 				Name:    "kms-plugin",
-				Image:   image,
+				Image:   vaultConfig.Image,
 				Command: []string{"/bin/sh", "-c"},
 				Args:    []string{args},
 				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "resource-dir",
-						MountPath: "/etc/kubernetes/static-pod-resources",
-					},
 					{
 						Name:      "kms-plugin-socket",
 						MountPath: "/var/run/kmsplugin",
@@ -342,7 +335,7 @@ func expectedPodSpecWithKMSSidecar(image string, vaultConfig *state.VaultProvide
 	}
 }
 
-func newVaultCredentialsSecret(roleID, secretID string) *corev1.Secret {
+func newVaultCredentialsSecret(roleID, secretID, keyName, vaultAddr, vaultNamespace string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "vault-kms-credentials",
@@ -351,6 +344,9 @@ func newVaultCredentialsSecret(roleID, secretID string) *corev1.Secret {
 		Data: map[string][]byte{
 			"VAULT_ROLE_ID":   []byte(roleID),
 			"VAULT_SECRET_ID": []byte(secretID),
+			"VAULT_KEY_NAME":  []byte(keyName),
+			"VAULT_ADDR":      []byte(vaultAddr),
+			"VAULT_NAMESPACE": []byte(vaultNamespace),
 		},
 	}
 }

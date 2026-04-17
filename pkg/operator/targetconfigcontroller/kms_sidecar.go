@@ -12,7 +12,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -34,7 +33,7 @@ func init() {
 // AddKMSPluginToPodSpec conditionally adds the KMS plugin sidecar, volume, and volume mounts to the specified pod spec.
 // Volume mounts are always appended; volumes are deduplicated by name.
 // Deprecated: this is a temporary solution to get KMS TP v1 out. We should come up with a different approach afterwards.
-func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, kmsPluginImage string) error {
+func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -149,8 +148,15 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return nil
 	}
 
+	// FIXME: I want to use the real Vault KMS plugin instead of the mock one that is temporarily hardcoded in library-go
+	kmsProviderConfig.Vault.Image = "quay.io/bertinatto/vault:v2"
+	kmsProviderConfig.Vault.TransitMount = "transit"
+	kmsProviderConfig.Vault.TransitKey = string(credentials.Data["VAULT_KEY_NAME"])
+	kmsProviderConfig.Vault.VaultAddress = string(credentials.Data["VAULT_ADDR"])
+	kmsProviderConfig.Vault.VaultNamespace = string(credentials.Data["VAULT_NAMESPACE"])
+
 	klog.Infof("kms is enabled: found config, now patching kube-apiserver pod")
-	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, kmsProviderConfig.Vault, kmsConfig.Endpoint, credentials); err != nil {
+	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsProviderConfig.Vault, kmsConfig, credentials); err != nil {
 		return err
 	}
 
@@ -165,7 +171,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	return nil
 }
 
-func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image string, vaultConfig *state.VaultProviderConfig, endpoint string, credentials *v1.Secret) error {
+func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string, vaultConfig *state.VaultProviderConfig, kmsConfig *apiserverv1.KMSConfiguration, credentials *corev1.Secret) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -183,7 +189,7 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image 
 	-approle-role-id=%s \
 	-approle-secret-id-path=/tmp/secret-id`,
 		credentials.Data["VAULT_SECRET_ID"],
-		endpoint,
+		kmsConfig.Endpoint,
 		vaultConfig.VaultAddress,
 		vaultConfig.VaultNamespace,
 		vaultConfig.TransitMount,
@@ -194,7 +200,7 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image 
 	// TODO: set resource requests/limits for the KMS plugin sidecar
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:  containerName,
-		Image: image,
+		Image: vaultConfig.Image,
 		// FIXME: This is temporary until the secret is stored in a encryption-config key. After that, we'll use the default entrypoint
 		Command: []string{"/bin/sh", "-c"},
 		Args:    []string{args},
@@ -209,12 +215,13 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image 
 		// 	fmt.Sprintf("--approle-role-id=%s", string(credentials.Data["VAULT_ROLE_ID"])),
 		// 	fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", credentialsKey),
 		// },
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "resource-dir",
-				MountPath: "/etc/kubernetes/static-pod-resources",
-			},
-		},
+		// TODO: uncomment once the secret is stored in a encryption-config key
+		// VolumeMounts: []corev1.VolumeMount{
+		// 	{
+		// 		Name:      "resource-dir",
+		// 		MountPath: "/etc/kubernetes/static-pod-resources",
+		// 	},
+		// },
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: new(bool),
 		},
