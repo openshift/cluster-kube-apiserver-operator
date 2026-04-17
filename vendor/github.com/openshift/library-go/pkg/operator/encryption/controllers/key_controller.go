@@ -39,7 +39,7 @@ import (
 // greater than the last key's ID (the first key has a key ID of 1).
 const (
 	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
-	defaultKMSEndpoint                = "unix:///var/run/kmsplugin/kms.sock"
+	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
 )
 
@@ -271,11 +271,21 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		ks.KMSConfiguration = &apiserverv1.KMSConfiguration{
+		ks.KMSEncryptionConfig = &apiserverv1.KMSConfiguration{
 			APIVersion: "v2",
 			Name:       fmt.Sprintf("%d", keyID),
-			Endpoint:   defaultKMSEndpoint,
+			Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 			Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
+		}
+		ks.KMSProviderConfig = &state.KMSProviderConfig{
+			// TODO: these hardcoded data will be replaced by API when it is ready
+			Vault: &state.VaultProviderConfig{
+				Image:          "quay.io/rhn_support_rgangwar/mock-kms-plugin-vault:latest",
+				VaultAddress:   "vault-address",
+				VaultNamespace: "vault-namespace",
+				TransitKey:     "transit-key",
+				TransitMount:   "transit-mount",
+			},
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
