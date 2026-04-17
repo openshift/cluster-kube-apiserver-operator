@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
@@ -38,15 +39,14 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
 				"quay.io/example/vault-kms:v1",
-				&configv1.VaultKMSConfig{
+				&state.VaultProviderConfig{
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
 					TransitMount:   "transit",
 				},
 				"unix:///var/run/kmsplugin/kms-555.sock",
-				map[string][]byte{"roleID": []byte("test-role-id"), "secretID": []byte("some-secret-id")},
-				fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, "555"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
 			),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
 				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
@@ -56,18 +56,17 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 				newEncryptionConfigSecret(t,
 					"555_secrets",
 					"unix:///var/run/kmsplugin/kms-555.sock",
-					&configv1.KMSConfig{
-						Type: configv1.VaultKMSProvider,
-						Vault: &configv1.VaultKMSConfig{
+					&state.KMSProviderConfig{
+						Vault: &state.VaultProviderConfig{
 							VaultAddress:   "https://vault.example.com:8200",
 							VaultNamespace: "my-namespace",
 							TransitKey:     "my-key",
 							TransitMount:   "transit",
 						},
 					},
-					map[string][]byte{"roleID": []byte("test-role-id"), "secretID": []byte("some-secret-id")},
 					"555",
 				),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
 			},
 			kmsPluginImage: "quay.io/example/vault-kms:v1",
 		},
@@ -80,15 +79,14 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
 				"quay.io/example/vault-kms:v1",
-				&configv1.VaultKMSConfig{
+				&state.VaultProviderConfig{
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
 					TransitMount:   "transit",
 				},
 				"unix:///var/run/kmsplugin/kms-3.sock",
-				map[string][]byte{"roleID": []byte("test-role-id"), "secretID": []byte("some-secret-id")},
-				fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, "3"),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
 			),
 			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
 				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
@@ -98,18 +96,17 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 				newEncryptionConfigSecret(t,
 					"3_secrets",
 					"unix:///var/run/kmsplugin/kms-3.sock",
-					&configv1.KMSConfig{
-						Type: configv1.VaultKMSProvider,
-						Vault: &configv1.VaultKMSConfig{
+					&state.KMSProviderConfig{
+						Vault: &state.VaultProviderConfig{
 							VaultAddress:   "https://vault.example.com:8200",
 							VaultNamespace: "my-namespace",
 							TransitKey:     "my-key",
 							TransitMount:   "transit",
 						},
 					},
-					map[string][]byte{"roleID": []byte("test-role-id"), "secretID": []byte("some-secret-id")},
 					"3",
 				),
+				newVaultCredentialsSecret("test-role-id", "test-secret-id"),
 			},
 			kmsPluginImage: "quay.io/example/vault-kms:v1",
 		},
@@ -185,6 +182,40 @@ resources:
 			},
 		},
 		{
+			name: "vault credentials secret not found: pod spec unchanged",
+			podSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "kube-apiserver"},
+				},
+			},
+			featureGateAccessor: featuregates.NewHardcodedFeatureGateAccess(
+				[]configv1.FeatureGateName{features.FeatureGateKMSEncryption},
+				nil,
+			),
+			secrets: []*corev1.Secret{
+				newEncryptionConfigSecret(t,
+					"1_secrets",
+					"unix:///var/run/kmsplugin/kms-1.sock",
+					&state.KMSProviderConfig{
+						Vault: &state.VaultProviderConfig{
+							VaultAddress:   "https://vault.example.com:8200",
+							VaultNamespace: "my-namespace",
+							TransitKey:     "my-key",
+							TransitMount:   "transit",
+						},
+					},
+					"1",
+				),
+				// no vault-kms-credentials secret
+			},
+			kmsPluginImage: "quay.io/example/vault-kms:v1",
+		},
+		{
 			name: "malformed KMS endpoint: error",
 			podSpec: &corev1.PodSpec{
 				Containers: []corev1.Container{
@@ -243,8 +274,29 @@ resources:
 	}
 }
 
-func expectedPodSpecWithKMSSidecar(image string, vaultConfig *configv1.VaultKMSConfig, endpoint string, credentials map[string][]byte, credentialsKey string) *corev1.PodSpec {
+func expectedPodSpecWithKMSSidecar(image string, vaultConfig *state.VaultProviderConfig, endpoint string, credentials *corev1.Secret) *corev1.PodSpec {
 	directoryOrCreate := corev1.HostPathDirectoryOrCreate
+
+	args := fmt.Sprintf(`
+	echo "%s" > /tmp/secret-id
+	exec /vault-kube-kms \
+	-listen-address=%s \
+	-vault-address=%s \
+	-vault-namespace=%s \
+	-transit-mount=%s \
+	-transit-key=%s \
+	-log-level=debug-extended \
+	-approle-role-id=%s \
+	-approle-secret-id-path=/tmp/secret-id`,
+		credentials.Data["VAULT_SECRET_ID"],
+		endpoint,
+		vaultConfig.VaultAddress,
+		vaultConfig.VaultNamespace,
+		vaultConfig.TransitMount,
+		vaultConfig.TransitKey,
+		credentials.Data["VAULT_ROLE_ID"],
+	)
+
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
@@ -257,18 +309,10 @@ func expectedPodSpecWithKMSSidecar(image string, vaultConfig *configv1.VaultKMSC
 				},
 			},
 			{
-				Name:  "kms-plugin",
-				Image: image,
-				Args: []string{
-					"--log-level=debug-extended",
-					fmt.Sprintf("--listen-address=%s", endpoint),
-					fmt.Sprintf("--vault-address=%s", vaultConfig.VaultAddress),
-					fmt.Sprintf("--vault-namespace=%s", vaultConfig.VaultNamespace),
-					fmt.Sprintf("--transit-key=%s", vaultConfig.TransitKey),
-					fmt.Sprintf("--transit-mount=%s", vaultConfig.TransitMount),
-					fmt.Sprintf("--approle-role-id=%s", string(credentials["roleID"])),
-					fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", credentialsKey),
-				},
+				Name:    "kms-plugin",
+				Image:   image,
+				Command: []string{"/bin/sh", "-c"},
+				Args:    []string{args},
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						Name:      "resource-dir",
@@ -298,10 +342,23 @@ func expectedPodSpecWithKMSSidecar(image string, vaultConfig *configv1.VaultKMSC
 	}
 }
 
+func newVaultCredentialsSecret(roleID, secretID string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vault-kms-credentials",
+			Namespace: "openshift-config",
+		},
+		Data: map[string][]byte{
+			"VAULT_ROLE_ID":   []byte(roleID),
+			"VAULT_SECRET_ID": []byte(secretID),
+		},
+	}
+}
+
 // newEncryptionConfigSecret builds the "encryption-config-openshift-kube-apiserver" secret
 // in "openshift-config-managed" with a valid EncryptionConfiguration containing a KMS provider
-// and the corresponding provider config and credentials entries.
-func newEncryptionConfigSecret(t *testing.T, kmsName, endpoint string, providerConfig *configv1.KMSConfig, credentials map[string][]byte, keyID string) *corev1.Secret {
+// and the corresponding provider config entry.
+func newEncryptionConfigSecret(t *testing.T, kmsName, endpoint string, providerConfig *state.KMSProviderConfig, keyID string) *corev1.Secret {
 	t.Helper()
 
 	encryptionConfig := fmt.Sprintf(`
@@ -322,11 +379,7 @@ resources:
 	providerConfigBytes, err := json.Marshal(providerConfig)
 	require.NoError(t, err)
 
-	credentialsBytes, err := json.Marshal(credentials)
-	require.NoError(t, err)
-
 	providerConfigKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, keyID)
-	credentialsDataKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, keyID)
 
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -336,7 +389,6 @@ resources:
 		Data: map[string][]byte{
 			"encryption-config": []byte(encryptionConfig),
 			providerConfigKey:   providerConfigBytes,
-			credentialsDataKey:  credentialsBytes,
 		},
 	}
 }

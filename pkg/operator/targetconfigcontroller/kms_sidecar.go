@@ -7,11 +7,12 @@ import (
 	"slices"
 	"strings"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -120,36 +121,36 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 		return fmt.Errorf("unexpected KMS endpoint format: %s", kmsConfig.Endpoint)
 	}
 
-	// Read the provider config (configv1.KMSConfig) from the encryption-config secret
+	// Read the provider config from the encryption-config secret
 	providerConfigKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSProviderConfig, keyID)
 	providerConfigData, ok := encryptionConfig.Data[providerConfigKey]
 	if !ok {
 		return fmt.Errorf("missing provider config key %s in encryption-config secret", providerConfigKey)
 	}
 
-	var kmsProviderConfig configv1.KMSConfig
+	var kmsProviderConfig state.KMSProviderConfig
 	if err := json.Unmarshal(providerConfigData, &kmsProviderConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal KMS provider config: %w", err)
 	}
 
-	if kmsProviderConfig.Type != configv1.VaultKMSProvider || kmsProviderConfig.Vault == nil {
-		return fmt.Errorf("only Vault KMS provider is supported, got type %q", kmsProviderConfig.Type)
+	if kmsProviderConfig.Vault == nil {
+		return fmt.Errorf("only Vault KMS provider is supported")
 	}
 
-	// Read the credentials (map[string][]byte with "roleID" and "secretID" keys)
-	credentialsKey := fmt.Sprintf("%s-%s", secrets.EncryptionSecretKMSSecretData, keyID)
-	credentialsData, ok := encryptionConfig.Data[credentialsKey]
-	if !ok {
-		return fmt.Errorf("missing credentials key %s in encryption-config secret", credentialsKey)
+	// FIXME: credentials will be available in the encryptionConfiguration, but they are not there yet.
+	// Get them from a custom secret for now
+	credentials, err := secretLister.Secrets("openshift-config").Get("vault-kms-credentials")
+	if apierrors.IsNotFound(err) {
+		klog.Infof("kms is disabled: secret openshift-config/vault-kms-credentials not found: %v", err)
+		return nil
 	}
-
-	var credentials map[string][]byte
-	if err := json.Unmarshal(credentialsData, &credentials); err != nil {
-		return fmt.Errorf("failed to unmarshal KMS credentials: %w", err)
+	if err != nil {
+		klog.Infof("kms is disabled: failed to get vault-kms-credentials secret: %v", err)
+		return nil
 	}
 
 	klog.Infof("kms is enabled: found config, now patching kube-apiserver pod")
-	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, kmsProviderConfig.Vault, kmsConfig.Endpoint, credentials, credentialsKey); err != nil {
+	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsPluginImage, kmsProviderConfig.Vault, kmsConfig.Endpoint, credentials); err != nil {
 		return err
 	}
 
@@ -164,25 +165,50 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	return nil
 }
 
-func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image string, vaultConfig *configv1.VaultKMSConfig, endpoint string, credentials map[string][]byte, credentialsKey string) error {
+func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName, image string, vaultConfig *state.VaultProviderConfig, endpoint string, credentials *v1.Secret) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
+
+	// FIXME: note that the secret is exposed here. This is temporary until the secret is stored in a encryption-config key
+	args := fmt.Sprintf(`
+	echo "%s" > /tmp/secret-id
+	exec /vault-kube-kms \
+	-listen-address=%s \
+	-vault-address=%s \
+	-vault-namespace=%s \
+	-transit-mount=%s \
+	-transit-key=%s \
+	-log-level=debug-extended \
+	-approle-role-id=%s \
+	-approle-secret-id-path=/tmp/secret-id`,
+		credentials.Data["VAULT_SECRET_ID"],
+		endpoint,
+		vaultConfig.VaultAddress,
+		vaultConfig.VaultNamespace,
+		vaultConfig.TransitMount,
+		vaultConfig.TransitKey,
+		credentials.Data["VAULT_ROLE_ID"],
+	)
 
 	// TODO: set resource requests/limits for the KMS plugin sidecar
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:  containerName,
 		Image: image,
-		Args: []string{
-			"--log-level=debug-extended", // TODO: make log level configurable
-			fmt.Sprintf("--listen-address=%s", endpoint),
-			fmt.Sprintf("--vault-address=%s", vaultConfig.VaultAddress),
-			fmt.Sprintf("--vault-namespace=%s", vaultConfig.VaultNamespace),
-			fmt.Sprintf("--transit-key=%s", vaultConfig.TransitKey),
-			fmt.Sprintf("--transit-mount=%s", vaultConfig.TransitMount),
-			fmt.Sprintf("--approle-role-id=%s", string(credentials["roleID"])),
-			fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", credentialsKey),
-		},
+		// FIXME: This is temporary until the secret is stored in a encryption-config key. After that, we'll use the default entrypoint
+		Command: []string{"/bin/sh", "-c"},
+		Args:    []string{args},
+		// TODO: uncomment once the secret is stored in a encryption-config key
+		// Args: []string{
+		// 	"--log-level=debug-extended", // TODO: make log level configurable
+		// 	fmt.Sprintf("--listen-address=%s", endpoint),
+		// 	fmt.Sprintf("--vault-address=%s", vaultConfig.VaultAddress),
+		// 	fmt.Sprintf("--vault-namespace=%s", vaultConfig.VaultNamespace),
+		// 	fmt.Sprintf("--transit-key=%s", vaultConfig.TransitKey),
+		// 	fmt.Sprintf("--transit-mount=%s", vaultConfig.TransitMount),
+		// 	fmt.Sprintf("--approle-role-id=%s", string(credentials.Data["VAULT_ROLE_ID"])),
+		// 	fmt.Sprintf("--approle-secret-id-path=/etc/kubernetes/static-pod-resources/%s", credentialsKey),
+		// },
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "resource-dir",
