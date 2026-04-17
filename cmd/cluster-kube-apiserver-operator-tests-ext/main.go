@@ -96,6 +96,16 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms/disruptive",
+		Parents:     []string{"openshift/encryption-kms/operator/disruptive"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[KMS]") && name.contains("[Disruptive]")`,
+		},
+		ClusterStability: oteextension.ClusterStabilityDisruptive,
+	})
+
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
