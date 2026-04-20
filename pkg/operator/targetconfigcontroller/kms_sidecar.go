@@ -147,7 +147,7 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	}
 
 	// FIXME: I want to use the real Vault KMS plugin instead of the mock one that is temporarily hardcoded in library-go
-	kmsProviderConfig.Vault.Image = "quay.io/bertinatto/vault:v2"
+	kmsProviderConfig.Vault.KMSPluginImage = "quay.io/bertinatto/vault:v2"
 	kmsProviderConfig.Vault.TransitMount = "transit"
 	kmsProviderConfig.Vault.TransitKey = string(credentials.Data["VAULT_KEY_NAME"])
 	kmsProviderConfig.Vault.VaultAddress = string(credentials.Data["VAULT_ADDR"])
@@ -198,7 +198,7 @@ func addKMSPluginSidecarToPodSpec(podSpec *corev1.PodSpec, containerName string,
 	// TODO: set resource requests/limits for the KMS plugin sidecar
 	podSpec.Containers = append(podSpec.Containers, corev1.Container{
 		Name:  containerName,
-		Image: vaultConfig.Image,
+		Image: vaultConfig.KMSPluginImage,
 		// FIXME: This is temporary until the secret is stored in a encryption-config key. After that, we'll use the default entrypoint
 		Command: []string{"/bin/sh", "-c"},
 		Args:    []string{args},
