@@ -69,9 +69,10 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
 			key.KMSEncryptionConfig = kmsConfiguration
-		}
-		if key.KMSEncryptionConfig == nil {
-			return state.KeyState{}, fmt.Errorf("KMSEncryptionConfig can not be nil, when mode is KMS")
+		} else {
+			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
+			// encryption mode.
+			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
 		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
 			providerConfig := &state.KMSProviderConfig{}
