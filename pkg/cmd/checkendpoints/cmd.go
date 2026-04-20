@@ -103,6 +103,7 @@ func NewCheckEndpointsCommand() *cobra.Command {
 		return nil
 	}, clock.RealClock{})
 	config.DisableLeaderElection = true
+	config.SkipInClusterAuthenticationLookup = true
 	cmd := config.NewCommandWithContext(context.Background())
 	cmd.Use = "check-endpoints"
 	cmd.Short = "Checks that a tcp connection can be opened to one or more endpoints."
