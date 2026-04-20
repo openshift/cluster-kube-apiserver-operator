@@ -104,8 +104,13 @@ func (o *oauthMetadataObserver) ObserveAuthMetadata(genericListers configobserve
 		}
 
 	case configv1.AuthenticationTypeNone:
-		// no oauth metadata is served; do not set anything as source
-		// in order to delete the configmap and unset oauthMetadataFile
+		// spec.oauthMetadata is allowed when type is None; use it as the
+		// source if set, otherwise leave source empty to delete the configmap
+		// and unset oauthMetadataFile
+		if len(authConfig.Spec.OAuthMetadata.Name) > 0 {
+			sourceConfigMap = authConfig.Spec.OAuthMetadata.Name
+			sourceNamespace = configNamespace
+		}
 
 	case configv1.AuthenticationTypeOIDC:
 		// When the ExternalOIDCExternalClaimsSourcing feature gate is not enabled the
