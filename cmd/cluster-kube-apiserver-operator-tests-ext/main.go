@@ -66,7 +66,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	registry := oteextension.NewRegistry()
 	extension := oteextension.NewExtension("openshift", "payload", "cluster-kube-apiserver-operator")
 
-	// The following suite runs tests that verify the operator’s behaviour.
+	// The following suite runs tests that verify the operator's behaviour.
 	// This suite is executed only on pull requests targeting this repository.
 	// Tests tagged with both [Operator] and [Serial] are included in this suite.
 	extension.AddSuite(oteextension.Suite{
@@ -94,6 +94,27 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Qualifiers: []string{
 			`name.contains("[Suite:event-ttl]")`,
 		},
+	})
+
+	// The following suite runs tests that verify the operator's behaviour.
+	// This suite is executed only on pull requests targeting this repository.
+	// Tests tagged with [Parallel] and [Operator] are included in this suite.
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/operator/parallel",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`!name.contains("[Serial]") && name.contains("[Operator]")`,
+		},
+	})
+
+	// The following suite runs tests that are disruptive to the cluster.
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/operator/disruptive",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Disruptive]")`,
+		},
+		ClusterStability: oteextension.ClusterStabilityDisruptive,
 	})
 
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
