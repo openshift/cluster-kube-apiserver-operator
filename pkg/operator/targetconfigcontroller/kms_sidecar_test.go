@@ -38,7 +38,7 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
 				&state.VaultProviderConfig{
-					Image:          "quay.io/bertinatto/vault:v2",
+					KMSPluginImage: "quay.io/bertinatto/vault:v2",
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
@@ -57,11 +57,11 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 					"unix:///var/run/kmsplugin/kms-555.sock",
 					&state.KMSProviderConfig{
 						Vault: &state.VaultProviderConfig{
-							Image:          "will-be-overridden",
-							VaultAddress:   "will-be-overridden",
-							VaultNamespace: "will-be-overridden",
-							TransitKey:     "will-be-overridden",
-							TransitMount:   "will-be-overridden",
+							KMSPluginImage: "quay.io/bertinatto/vault:v2",
+							VaultAddress:   "https://vault.example.com:8200",
+							VaultNamespace: "my-namespace",
+							TransitKey:     "my-key",
+							TransitMount:   "transit",
 						},
 					},
 					"555",
@@ -78,7 +78,7 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 			},
 			expectedPodSpec: expectedPodSpecWithKMSSidecar(
 				&state.VaultProviderConfig{
-					Image:          "quay.io/bertinatto/vault:v2",
+					KMSPluginImage: "quay.io/bertinatto/vault:v2",
 					VaultAddress:   "https://vault.example.com:8200",
 					VaultNamespace: "my-namespace",
 					TransitKey:     "my-key",
@@ -97,11 +97,11 @@ func TestAddKMSPluginToPodSpec(t *testing.T) {
 					"unix:///var/run/kmsplugin/kms-3.sock",
 					&state.KMSProviderConfig{
 						Vault: &state.VaultProviderConfig{
-							Image:          "will-be-overridden",
-							VaultAddress:   "will-be-overridden",
-							VaultNamespace: "will-be-overridden",
-							TransitKey:     "will-be-overridden",
-							TransitMount:   "will-be-overridden",
+							KMSPluginImage: "quay.io/bertinatto/vault:v2",
+							VaultAddress:   "https://vault.example.com:8200",
+							VaultNamespace: "my-namespace",
+							TransitKey:     "my-key",
+							TransitMount:   "transit",
 						},
 					},
 					"3",
@@ -307,7 +307,7 @@ func expectedPodSpecWithKMSSidecar(vaultConfig *state.VaultProviderConfig, endpo
 			},
 			{
 				Name:    "kms-plugin",
-				Image:   vaultConfig.Image,
+				Image:   vaultConfig.KMSPluginImage,
 				Command: []string{"/bin/sh", "-c"},
 				Args:    []string{args},
 				VolumeMounts: []corev1.VolumeMount{
@@ -317,7 +317,7 @@ func expectedPodSpecWithKMSSidecar(vaultConfig *state.VaultProviderConfig, endpo
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: new(bool),
+					Privileged: ptrBool(true),
 				},
 			},
 		},
