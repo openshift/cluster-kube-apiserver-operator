@@ -147,11 +147,11 @@ func AddKMSPluginToPodSpec(podSpec *corev1.PodSpec, featureGateAccessor featureg
 	}
 
 	// FIXME: I want to use the real Vault KMS plugin instead of the mock one that is temporarily hardcoded in library-go
-	kmsProviderConfig.Vault.KMSPluginImage = "quay.io/bertinatto/vault:v2"
-	kmsProviderConfig.Vault.TransitMount = "transit"
-	kmsProviderConfig.Vault.TransitKey = string(credentials.Data["VAULT_KEY_NAME"])
-	kmsProviderConfig.Vault.VaultAddress = string(credentials.Data["VAULT_ADDR"])
-	kmsProviderConfig.Vault.VaultNamespace = string(credentials.Data["VAULT_NAMESPACE"])
+	// kmsProviderConfig.Vault.KMSPluginImage = "quay.io/bertinatto/vault:v2"
+	// kmsProviderConfig.Vault.TransitMount = "transit"
+	// kmsProviderConfig.Vault.TransitKey = string(credentials.Data["VAULT_KEY_NAME"])
+	// kmsProviderConfig.Vault.VaultAddress = string(credentials.Data["VAULT_ADDR"])
+	// kmsProviderConfig.Vault.VaultNamespace = string(credentials.Data["VAULT_NAMESPACE"])
 
 	klog.Infof("KMS is enabled: found config, now patching kube-apiserver pod")
 	if err := addKMSPluginSidecarToPodSpec(podSpec, "kms-plugin", kmsProviderConfig.Vault, kmsConfig, credentials); err != nil {
