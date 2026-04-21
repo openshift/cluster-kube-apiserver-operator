@@ -42,6 +42,7 @@ func (v *VaultSidecarProvider) BuildSidecarContainer(containerName string, kmsCo
 		v.Credentials.Data["VAULT_ROLE_ID"],
 	)
 
+	// FIXME: remove privileged once volumes are emptyDir
 	privileged := true
 	return corev1.Container{
 		Name:    containerName,

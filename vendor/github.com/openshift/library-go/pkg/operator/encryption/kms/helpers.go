@@ -3,11 +3,8 @@ package kms
 import (
 	"encoding/json"
 	"fmt"
-	"path"
-	"strings"
+	"regexp"
 
-	"github.com/openshift/api/features"
-	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
@@ -26,27 +23,10 @@ func init() {
 	utilruntime.Must(apiserverv1.AddToScheme(apiserverScheme))
 }
 
-// AddKMSPluginVolumeAndMountToPodSpec conditionally adds the KMS plugin volume mount to the specified container.
-// It assumes the pod spec does not already contain the KMS volume or mount; no deduplication is performed.
-// Deprecated: this is a temporary solution to get KMS TP v1 out. We should come up with a different approach afterwards.
-func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName string, featureGateAccessor featuregates.FeatureGateAccess) error {
-	if podSpec == nil {
-		return fmt.Errorf("pod spec cannot be nil")
-	}
+var kmsEndpointRegexp = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
-	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
-		return nil
-	}
-
-	featureGates, err := featureGateAccessor.CurrentFeatureGates()
-	if err != nil {
-		return fmt.Errorf("failed to get feature gates: %w", err)
-	}
-
-	if !featureGates.Enabled(features.FeatureGateKMSEncryption) {
-		return nil
-	}
-
+// AddKMSPluginVolumeAndMountToPodSpec adds an emptyDir volume for the KMS plugin socket and mounts it into the specified container.
+func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName string) error {
 	containerIndex := -1
 	for i, container := range podSpec.Containers {
 		if container.Name == containerName {
@@ -60,40 +40,50 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	}
 
 	container := &podSpec.Containers[containerIndex]
-	container.VolumeMounts = append(container.VolumeMounts,
-		corev1.VolumeMount{
-			Name:      "kms-plugin-socket",
-			MountPath: "/var/run/kmsplugin",
-		},
-	)
+	foundMount := false
+	for _, m := range container.VolumeMounts {
+		if m.Name == "kms-plugin-socket" {
+			foundMount = true
+			break
+		}
+	}
+	if !foundMount {
+		container.VolumeMounts = append(container.VolumeMounts,
+			corev1.VolumeMount{
+				Name:      "kms-plugin-socket",
+				MountPath: "/var/run/kmsplugin",
+			},
+		)
+	}
 
-	directoryOrCreate := corev1.HostPathDirectoryOrCreate
-	podSpec.Volumes = append(podSpec.Volumes,
-		corev1.Volume{
-			Name: "kms-plugin-socket",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/var/run/kmsplugin",
-					Type: &directoryOrCreate,
+	foundVolumeInContainer := false
+	for _, volume := range podSpec.Volumes {
+		if volume.Name == "kms-plugin-socket" {
+			foundVolumeInContainer = true
+			break
+		}
+	}
+
+	if !foundVolumeInContainer {
+		podSpec.Volumes = append(podSpec.Volumes,
+			corev1.Volume{
+				Name: "kms-plugin-socket",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
 				},
 			},
-		},
-	)
+		)
+	}
 
 	return nil
 }
 
 func ParseKeyIDFromEndpoint(endpoint string) (string, error) {
-	socketPath := strings.TrimPrefix(endpoint, "unix://")
-	baseName := path.Base(socketPath)
-	if !strings.HasPrefix(baseName, "kms-") || !strings.HasSuffix(baseName, ".sock") {
+	matches := kmsEndpointRegexp.FindStringSubmatch(endpoint)
+	if matches == nil {
 		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
 	}
-	keyID := strings.TrimSuffix(strings.TrimPrefix(baseName, "kms-"), ".sock")
-	if keyID == "" {
-		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
-	}
-	return keyID, nil
+	return matches[1], nil
 }
 
 func DecodeEncryptionConfiguration(data []byte) (*apiserverv1.EncryptionConfiguration, error) {
