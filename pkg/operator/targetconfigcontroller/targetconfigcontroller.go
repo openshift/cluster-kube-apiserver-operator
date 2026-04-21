@@ -22,6 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -332,7 +333,15 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister); err != nil {
+	config := encryptionkms.OperatorConfig{
+		EncryptionConfigNamespace:  "openshift-config-managed",
+		EncryptionConfigSecretName: "encryption-config-openshift-kube-apiserver",
+		CredentialsNamespace:       "openshift-config",
+		CredentialsSecretName:      "vault-kms-credentials",
+		APIServerContainerName:     "kube-apiserver",
+	}
+	err = encryptionkms.InjectIntoPodSpec(&required.Spec, featureGateAccessor, secretLister, config)
+	if err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin to pod spec: %w", err)
 	}
 
