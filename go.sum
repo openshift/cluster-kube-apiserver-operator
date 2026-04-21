@@ -8,8 +8,8 @@ github.com/apparentlymart/go-cidr v1.0.1 h1:NmIwLZ/KdsjIUlhf+/Np40atNXm/+lZ5txfT
 github.com/apparentlymart/go-cidr v1.0.1/go.mod h1:EBcsNrHc3zQeuaeCeCtQruQm+n9/YjEn/vI25Lg7Gwc=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
-github.com/bertinatto/library-go v0.0.0-20260421204656-81a4794cb85f h1:QJmbisFNqWQX5RedX9ysJ0UY7Nr3x1dKeiVlNJf+hYc=
-github.com/bertinatto/library-go v0.0.0-20260421204656-81a4794cb85f/go.mod h1:pQx73OLgJJtHR2WJVdkH0Zng/yywdL5hmPGw1QbGV/w=
+github.com/bertinatto/library-go v0.0.0-20260421214537-f940b1416573 h1:T8ZSr+fnFZ0iDLHcJojIIsOi+z5qy+WMKzqwuyUssso=
+github.com/bertinatto/library-go v0.0.0-20260421214537-f940b1416573/go.mod h1:pQx73OLgJJtHR2WJVdkH0Zng/yywdL5hmPGw1QbGV/w=
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
