@@ -154,14 +154,11 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
-	caBundleController, err := NewCABundleController(
+	caBundleController := NewCABundleController(
 		kubeClient.CoreV1(),
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
 	)
-	if err != nil {
-		return err
-	}
 
 	// We can't start informers until after the resources have been requested. Now is the time.
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
@@ -172,7 +169,7 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		kubeAPIServerCertRotationController.Run(ctx, 1)
 	})
 	wg.Go(func() {
-		caBundleController.Run(ctx)
+		caBundleController.Run(ctx, 1)
 	})
 
 	<-ctx.Done()
