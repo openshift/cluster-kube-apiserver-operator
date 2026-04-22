@@ -11,24 +11,57 @@ import (
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// TestKMSEncryptionOnOff tests KMS encryption on/off cycle.
-// This test:
-// 1. Deploys the mock KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Enables KMS encryption
-// 4. Verifies secret is encrypted
-// 5. Disables encryption (Identity)
-// 6. Verifies secret is NOT encrypted
-// 7. Re-enables KMS encryption
-// 8. Verifies secret is encrypted again
-// 9. Disables encryption (Identity) again
-// 10. Verifies secret is NOT encrypted again
+// assertAllOperatorsEncryptionState checks that all operators (KAS-O, OAS-O, Auth-O)
+// have the expected encryption mode applied.
+func assertAllOperatorsEncryptionState(t testing.TB, clientSet library.ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {
+	t.Helper()
+
+	// KAS-O
+	operatorencryption.AssertSecretsAndConfigMaps(t, clientSet, expectedMode, namespace, labelSelector)
+
+	// OAS-O
+	operatorencryption.AssertOASRoutes(t, clientSet, expectedMode,
+		operatorclient.GlobalMachineSpecifiedConfigNamespace, operatorencryption.OASLabelSelector)
+
+	// Auth-O
+	operatorencryption.AssertOAuthTokens(t, clientSet, expectedMode,
+		operatorclient.GlobalMachineSpecifiedConfigNamespace, operatorencryption.AuthLabelSelector)
+}
+
+// createAllResources creates test resources for all operators and returns the KAS-O secret.
+func createAllResources(t testing.TB, clientSet library.ClientSet, namespace string) runtime.Object {
+	t.Helper()
+
+	// OAS-O
+	operatorencryption.CreateAndStoreOASRouteOfLife(t, clientSet, operatorclient.GlobalMachineSpecifiedConfigNamespace)
+
+	// Auth-O
+	operatorencryption.CreateAndStoreOAuthTokenOfLife(t, clientSet, operatorclient.GlobalMachineSpecifiedConfigNamespace)
+
+	// KAS-O (returned as the primary resource)
+	return operatorencryption.CreateAndStoreSecretOfLife(t, clientSet, namespace)
+}
+
+// assertAllResourcesEncrypted checks that test resources from all operators are encrypted.
+func assertAllResourcesEncrypted(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+	t.Helper()
+	operatorencryption.AssertSecretOfLifeEncrypted(t, clientSet, resource)
+	operatorencryption.AssertOASRouteOfLifeEncrypted(t, clientSet, nil)
+	operatorencryption.AssertOAuthTokenOfLifeEncrypted(t, clientSet, nil)
+}
+
+// assertAllResourcesNotEncrypted checks that test resources from all operators are NOT encrypted.
+func assertAllResourcesNotEncrypted(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+	t.Helper()
+	operatorencryption.AssertSecretOfLifeNotEncrypted(t, clientSet, resource)
+	operatorencryption.AssertOASRouteOfLifeNotEncrypted(t, clientSet, nil)
+	operatorencryption.AssertOAuthTokenOfLifeNotEncrypted(t, clientSet, nil)
+}
+
 func TestKMSEncryptionOnOff(t *testing.T) {
-	// Deploy the mock KMS plugin for testing.
-	// NOTE: This manual deployment is only required for KMS v1. In the future,
-	// the platform will manage the KMS plugins, and this code will no longer be needed.
 	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
@@ -38,25 +71,17 @@ func TestKMSEncryptionOnOff(t *testing.T) {
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+			AssertFunc:                      assertAllOperatorsEncryptionState,
 		},
-		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
-		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
+		CreateResourceFunc:             createAllResources,
+		AssertResourceEncryptedFunc:    assertAllResourcesEncrypted,
+		AssertResourceNotEncryptedFunc: assertAllResourcesNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProvider:             configv1.EncryptionTypeKMS,
 	})
 }
 
-// TestKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
-// This test:
-// 1. Deploys the mock KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Randomly picks one AES encryption provider (AESGCM or AESCBC)
-// 4. Shuffles the selected AES provider with KMS to create a randomized migration order
-// 5. Migrates between the providers in the shuffled order
-// 6. Verifies secret is correctly encrypted after each migration
 func TestKMSEncryptionProvidersMigration(t *testing.T) {
 	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
@@ -67,11 +92,11 @@ func TestKMSEncryptionProvidersMigration(t *testing.T) {
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+			AssertFunc:                      assertAllOperatorsEncryptionState,
 		},
-		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
-		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
+		CreateResourceFunc:             createAllResources,
+		AssertResourceEncryptedFunc:    assertAllResourcesEncrypted,
+		AssertResourceNotEncryptedFunc: assertAllResourcesNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProviders:            library.ShuffleEncryptionProviders([]configv1.EncryptionType{configv1.EncryptionTypeKMS, library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))]}),
