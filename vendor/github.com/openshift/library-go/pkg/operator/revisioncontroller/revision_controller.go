@@ -40,6 +40,7 @@ type RevisionController struct {
 	secretGetter    corev1client.SecretsGetter
 
 	revisionPrecondition PreconditionFunc
+	revisionPostCheck    RevisionPostCheckFunc
 }
 
 type RevisionResource struct {
@@ -49,6 +50,11 @@ type RevisionResource struct {
 
 // PreconditionFunc checks if revision precondition is met (is true) and then proceeeds with the creation of new revision
 type PreconditionFunc func(ctx context.Context) (bool, error)
+
+// RevisionPostCheckFunc validates the assembled revision data after all resources
+// have been copied but before the revision is marked as ready. If it returns an
+// error, the revision will not be marked ready and the installer will not deploy it.
+type RevisionPostCheckFunc func(ctx context.Context, revision int32) error
 
 // NewRevisionController create a new revision controller.
 func NewRevisionController(
@@ -62,6 +68,7 @@ func NewRevisionController(
 	secretGetter corev1client.SecretsGetter,
 	eventRecorder events.Recorder,
 	revisionPrecondition PreconditionFunc,
+	revisionPostCheck RevisionPostCheckFunc,
 ) factory.Controller {
 	if revisionPrecondition == nil {
 		revisionPrecondition = func(ctx context.Context) (bool, error) {
@@ -79,6 +86,7 @@ func NewRevisionController(
 		configMapGetter:      configMapGetter,
 		secretGetter:         secretGetter,
 		revisionPrecondition: revisionPrecondition,
+		revisionPostCheck:    revisionPostCheck,
 	}
 
 	return factory.New().
@@ -306,6 +314,12 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 		}
 		if obj == nil && !s.Optional {
 			return false, apierrors.NewNotFound(corev1.Resource("secrets"), s.Name)
+		}
+	}
+
+	if c.revisionPostCheck != nil {
+		if err := c.revisionPostCheck(ctx, revision); err != nil {
+			return false, fmt.Errorf("revision post-check failed for revision %d: %w", revision, err)
 		}
 	}
 
