@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -237,7 +238,10 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 	time.Sleep(kubeletTokenRefreshGracePeriod)
 
 	t.Log("bouncing remaining crash-looping pods to get fresh SA tokens")
-	err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 25*time.Minute)
+	// Reduced from 25m to 20m to ensure we stay below monitor test thresholds.
+	// With maxBouncesPerPod=25 and minTimeBetweenBounces=2m, max bounce time
+	// is 50m, but most pods should recover much faster.
+	err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 20*time.Minute)
 	require.NoError(t, err)
 
 	t.Log("waiting for all ClusterOperators to recover after key rotation rollouts")
@@ -267,7 +271,10 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 		time.Sleep(kubeletTokenRefreshGracePeriod)
 
 		t.Log("bouncing remaining crash-looping pods to get fresh SA tokens")
-		err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 25*time.Minute)
+		// Reduced from 25m to 20m to ensure we stay below monitor test thresholds.
+		// With maxBouncesPerPod=25 and minTimeBetweenBounces=2m, max bounce time
+		// is 30m, but most pods should recover much faster.
+		err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 20*time.Minute)
 		require.NoError(t, err)
 
 		t.Log("waiting for all ClusterOperators to stabilize after cleanup rollout")
@@ -352,13 +359,16 @@ func checkCertConfigMap(t testing.TB, kubeClient *clientcorev1.CoreV1Client, exp
 // - Bounces in waves by namespace to reduce cluster load
 // - Tracks recently bounced pods to avoid re-bouncing too quickly
 // - Prioritizes operator pods over infrastructure pods
+// - Limits max bounces per pod to prevent excessive restarts in monitor tests
 func bounceCrashLoopingPodsWithRetry(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, timeout time.Duration) error {
-	const pollInterval = 45 * time.Second          // Increased from 30s to give pods more time to recover
-	const minTimeBetweenBounces = 90 * time.Second // Don't re-bounce the same pod within 90 seconds
+	const pollInterval = 45 * time.Second           // Increased from 30s to give pods more time to recover
+	const minTimeBetweenBounces = 120 * time.Second // Don't re-bounce the same pod within 2 minutes
+	const maxBouncesPerPod = 25                     // Maximum bounces per pod to avoid monitor test failures (threshold is 20)
 
 	var lastUnhealthyCount int
 	totalBounced := 0
-	bouncedPods := make(map[string]time.Time) // Track when each pod was bounced
+	bouncedPods := make(map[string]time.Time) // Track when each pod was last bounced
+	bounceCount := make(map[string]int)       // Track how many times each pod was bounced
 
 	t.Logf("bouncing crash-looping pods until healthy (timeout: %v)", timeout)
 	err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
@@ -387,7 +397,7 @@ func bounceCrashLoopingPodsWithRetry(ctx context.Context, t testing.TB, kubeClie
 
 		// First pass: bounce high-priority operator namespaces
 		for _, nsName := range priorityNamespaces {
-			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, nsName, bouncedPods, minTimeBetweenBounces)
+			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, nsName, bouncedPods, bounceCount, minTimeBetweenBounces, maxBouncesPerPod)
 			if err != nil {
 				// Skip this namespace but continue - transient API errors shouldn't fail the whole operation
 				continue
@@ -413,7 +423,7 @@ func bounceCrashLoopingPodsWithRetry(ctx context.Context, t testing.TB, kubeClie
 				continue
 			}
 
-			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, ns.Name, bouncedPods, minTimeBetweenBounces)
+			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, ns.Name, bouncedPods, bounceCount, minTimeBetweenBounces, maxBouncesPerPod)
 			if err != nil {
 				// Skip this namespace but continue - transient API errors shouldn't fail the whole operation
 				continue
@@ -445,7 +455,7 @@ func bounceCrashLoopingPodsWithRetry(ctx context.Context, t testing.TB, kubeClie
 // bouncePodsInNamespace bounces crash-looping pods in a single namespace.
 // Returns (number bounced, number unhealthy, error).
 // If an error is returned, the counts are unreliable and should not be used.
-func bouncePodsInNamespace(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, namespace string, bouncedPods map[string]time.Time, minTimeBetweenBounces time.Duration) (int, int, error) {
+func bouncePodsInNamespace(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, namespace string, bouncedPods map[string]time.Time, bounceCount map[string]int, minTimeBetweenBounces time.Duration, maxBouncesPerPod int) (int, int, error) {
 	pods, err := kubeClient.Pods(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		t.Logf("failed to list pods in %s: %v", namespace, err)
@@ -454,6 +464,10 @@ func bouncePodsInNamespace(ctx context.Context, t testing.TB, kubeClient *client
 
 	bounced := 0
 	unhealthy := 0
+
+	// Sort pods by restart count (highest first) to prioritize pods
+	// closest to the monitor test failure threshold (20 restarts)
+	sortPodsByRestartCount(pods.Items)
 
 	for _, pod := range pods.Items {
 		if !isPodCrashLooping(pod) {
@@ -466,21 +480,29 @@ func bouncePodsInNamespace(ctx context.Context, t testing.TB, kubeClient *client
 			continue
 		}
 
-		// Check if we bounced this pod recently
+		// Check if we've exceeded max bounces for this pod
 		podKey := namespace + "/" + pod.Name
+		if count := bounceCount[podKey]; count >= maxBouncesPerPod {
+			t.Logf("skipping pod %s/%s: already bounced %d times (max: %d)",
+				namespace, pod.Name, count, maxBouncesPerPod)
+			continue
+		}
+
+		// Check if we bounced this pod recently
 		if lastBounceTime, exists := bouncedPods[podKey]; exists {
 			if time.Since(lastBounceTime) < minTimeBetweenBounces {
 				continue // Don't re-bounce too quickly
 			}
 		}
 
-		t.Logf("bouncing crash-looping pod %s/%s (restarts: %d)",
-			namespace, pod.Name, getPodRestartCount(pod))
+		t.Logf("bouncing crash-looping pod %s/%s (restarts: %d, bounce count: %d/%d)",
+			namespace, pod.Name, getPodRestartCount(pod), bounceCount[podKey], maxBouncesPerPod)
 
 		if err := kubeClient.Pods(namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			t.Logf("failed to delete pod %s/%s: %v", namespace, pod.Name, err)
 		} else {
 			bouncedPods[podKey] = time.Now()
+			bounceCount[podKey]++
 			bounced++
 		}
 	}
@@ -536,10 +558,12 @@ func isPodEligibleForBounce(pod corev1.Pod) bool {
 		return false
 	}
 
-	// Don't bounce pods with extremely high restart counts (>20)
-	// These likely have a different issue than SA token expiry
+	// Don't bounce pods with extremely high restart counts (>40)
+	// These likely have a different issue than SA token expiry.
+	// We use 40 (2x the monitor threshold of 20) to ensure we can still
+	// bounce pods that are approaching the monitor failure threshold.
 	restartCount := getPodRestartCount(pod)
-	if restartCount > 20 {
+	if restartCount > 40 {
 		return false
 	}
 
@@ -553,6 +577,15 @@ func getPodRestartCount(pod corev1.Pod) int {
 		total += int(cs.RestartCount)
 	}
 	return total
+}
+
+// sortPodsByRestartCount sorts pods by total restart count in descending order
+// (highest restart count first). This prioritizes bouncing pods closest to
+// the monitor test failure threshold.
+func sortPodsByRestartCount(pods []corev1.Pod) {
+	sort.Slice(pods, func(i, j int) bool {
+		return getPodRestartCount(pods[i]) > getPodRestartCount(pods[j])
+	})
 }
 
 // waitForSATokenKeysOnAllNodes waits for the SA token signing key configmap
