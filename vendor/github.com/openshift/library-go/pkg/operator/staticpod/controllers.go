@@ -82,6 +82,7 @@ type staticPodOperatorControllerBuilder struct {
 	guardCreateConditionalFunc    func() (bool, bool, error)
 
 	revisionControllerPrecondition revisioncontroller.PreconditionFunc
+	revisionControllerPostCheck    revisioncontroller.RevisionPostCheckFunc
 
 	extraNodeSelector labels.Selector
 }
@@ -131,6 +132,7 @@ type Builder interface {
 	// Use this with caution, as this option can disrupt perspective pods that have not yet had a chance to become healthy.
 	WithPodDisruptionBudgetGuard(operatorNamespace, operatorName, readyzPort, readyzEndpoint string, pdbUnhealthyPodEvictionPolicy *v1.UnhealthyPodEvictionPolicyType, createConditionalFunc func() (bool, bool, error)) Builder
 	WithRevisionControllerPrecondition(revisionControllerPrecondition revisioncontroller.PreconditionFunc) Builder
+	WithRevisionControllerPostCheck(revisionControllerPostCheck revisioncontroller.RevisionPostCheckFunc) Builder
 	ToControllers() (manager.ControllerManager, error)
 }
 
@@ -223,6 +225,11 @@ func (b *staticPodOperatorControllerBuilder) WithRevisionControllerPrecondition(
 	return b
 }
 
+func (b *staticPodOperatorControllerBuilder) WithRevisionControllerPostCheck(revisionControllerPostCheck revisioncontroller.RevisionPostCheckFunc) Builder {
+	b.revisionControllerPostCheck = revisionControllerPostCheck
+	return b
+}
+
 func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.ControllerManager, error) {
 	manager := manager.NewControllerManager()
 
@@ -261,6 +268,7 @@ func (b *staticPodOperatorControllerBuilder) ToControllers() (manager.Controller
 			secretClient,
 			eventRecorder,
 			b.revisionControllerPrecondition,
+			b.revisionControllerPostCheck,
 		), 1)
 	} else {
 		errs = append(errs, fmt.Errorf("missing revisionController; cannot proceed"))
