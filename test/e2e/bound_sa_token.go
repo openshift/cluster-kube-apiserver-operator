@@ -58,6 +58,9 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	})
 
 	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:90m][Late][Disruptive]", func() {
+		// Not yet enabled in OTE due to ongoing instability (disabled for over a year).
+		// Tracking: https://redhat.atlassian.net/browse/CNTRLPLANE-3326
+		g.Skip("Skipping testBoundTokenOperatorSecretDeletion until https://github.com/openshift/cluster-kube-apiserver-operator/pull/2115 is merged")
 		testBoundTokenOperatorSecretDeletion(g.GinkgoTB())
 	})
 })
