@@ -625,6 +625,12 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 	if err := os.WriteFile(path.Join(resourceDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
 		return err
 	}
+	if err := syncPath(path.Join(resourceDir, manifestFileName)); err != nil {
+		return err
+	}
+	if err := syncPath(resourceDir); err != nil {
+		return err
+	}
 
 	// remove the existing file to ensure kubelet gets "create" event from inotify watchers
 	if err := os.Remove(path.Join(o.PodManifestDir, manifestFileName)); err == nil {
@@ -636,7 +642,22 @@ func (o *InstallOptions) writePod(rawPodBytes []byte, manifestFileName, resource
 	if err := os.WriteFile(path.Join(o.PodManifestDir, manifestFileName), []byte(finalPodBytes), 0600); err != nil {
 		return err
 	}
+	if err := syncPath(path.Join(o.PodManifestDir, manifestFileName)); err != nil {
+		return err
+	}
+	if err := syncPath(o.PodManifestDir); err != nil {
+		return err
+	}
 	return nil
+}
+
+func syncPath(name string) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 func getStagingDir(targetDir string) string {
