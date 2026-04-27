@@ -1,9 +1,7 @@
 reviewers:
-  - p0lyn0mial
-  - benluddy
+  - control-plane-approvers
   - sanchezl
 approvers:
-  - p0lyn0mial
-  - benluddy
+  - control-plane-approvers
   - sanchezl
 component: "kube-apiserver"
