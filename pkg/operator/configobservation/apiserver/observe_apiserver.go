@@ -96,7 +96,7 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 	if len(namedCertificates) > maxUserNamedCerts {
 		// TODO: This should be validation error, not operator error/event.
 		err := fmt.Errorf("spec.servingCerts.namedCertificates cannot have more than %d entries", maxUserNamedCerts)
-		recorder.Warningf("ObserveNamedCertificatesFailed", err.Error())
+		recorder.Warningf("ObserveNamedCertificatesFailed", "%v", err)
 		return previouslyObservedConfig, nil, append(errs, err)
 	}
 
@@ -139,7 +139,7 @@ func observeNamedCertificates(apiServer *configv1.APIServer, recorder events.Rec
 		sourceSecretName := namedCertificate.ServingCertificate.Name
 		if len(sourceSecretName) == 0 {
 			err := fmt.Errorf("spec.servingCerts.namedCertificates[%d].servingCertificate.name cannot be empty", index)
-			recorder.Warningf("ObserveNamedCertificatesFailed", err.Error())
+			recorder.Warningf("ObserveNamedCertificatesFailed", "%v", err)
 			return previouslyObservedConfig, nil, append(errs, err)
 		}
 
