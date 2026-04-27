@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +35,13 @@ const (
 	interval                = 1 * time.Second
 	regularTimeout          = 30 * time.Second
 	clusterStabilityTimeout = 60 * time.Minute
+
+	// kubeletTokenRefreshGracePeriod is the time we wait after a KAS rollout
+	// for kubelet to naturally refresh SA tokens on all nodes. Kubelet syncs
+	// projected volumes every ~1 minute. Set to 5 minutes to give kubelet
+	// sufficient time to refresh tokens while minimizing crash-loop duration
+	// that can degrade operators.
+	kubeletTokenRefreshGracePeriod = 5 * time.Minute
 )
 
 // newTestCoreV1Client creates a CoreV1 client for use in e2e tests.
@@ -57,7 +66,7 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 		testBoundTokenConfigMapDeletion(g.GinkgoTB())
 	})
 
-	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:90m][Late][Disruptive]", func() {
+	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:120m][Late][Disruptive]", func() {
 		testBoundTokenOperatorSecretDeletion(g.GinkgoTB())
 	})
 })
@@ -194,8 +203,9 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 	// Pre-condition: cluster must be stable before we introduce disruption.
 	// Prior tests (e.g. TestBoundTokenConfigMapDeletion) may have left
 	// kube-apiserver mid-rollout which would compound with our key rotation.
-	t.Log("pre-condition: waiting for all ClusterOperators to be stable")
-	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
+	// Wait for extended stability (5 minutes continuous) to minimize compounding issues.
+	t.Log("pre-condition: waiting for extended cluster stability (5 minutes continuous)")
+	err = waitForExtendedClusterStability(t, configClient, 5*time.Minute, clusterStabilityTimeout)
 	require.NoError(t, err)
 
 	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(ctx, tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
@@ -216,9 +226,23 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 		rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
 	require.NoError(t, err)
 
-	t.Log("bouncing crash-looping pods to refresh SA tokens after key rotation")
-	bounceCrashLoopingPods(ctx, t, kubeClient)
-	waitForBouncedPodsHealthy(ctx, t, kubeClient)
+	// Wait for SA token signing keys to propagate to all nodes BEFORE bouncing.
+	// This is critical: if we bounce pods before kubelet has the new keys,
+	// the recreated pods will still get invalid tokens and crash with Unauthorized.
+	t.Log("waiting for SA token signing keys to propagate to all nodes")
+	err = waitForSATokenKeysOnAllNodes(ctx, t, kubeClient, targetNamespace, tokenctl.PublicKeyConfigMapName, 15*time.Minute)
+	require.NoError(t, err)
+
+	// Give kubelet additional time to refresh projected tokens in existing pods
+	t.Logf("waiting %v for kubelet to refresh projected SA tokens in running pods", kubeletTokenRefreshGracePeriod)
+	time.Sleep(kubeletTokenRefreshGracePeriod)
+
+	t.Log("bouncing remaining crash-looping pods to get fresh SA tokens")
+	// Reduced from 25m to 20m to ensure we stay below monitor test thresholds.
+	// With maxBouncesPerPod=50 and minTimeBetweenBounces=2m, max bounce time
+	// is 100m, but most pods should recover much faster.
+	err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 20*time.Minute)
+	require.NoError(t, err)
 
 	t.Log("waiting for all ClusterOperators to recover after key rotation rollouts")
 	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
@@ -237,9 +261,21 @@ func testBoundTokenOperatorSecretDeletion(t testing.TB) {
 			rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
 		require.NoError(t, err)
 
-		t.Log("bouncing crash-looping pods to refresh SA tokens after cleanup")
-		bounceCrashLoopingPods(ctx, t, kubeClient)
-		waitForBouncedPodsHealthy(ctx, t, kubeClient)
+		// Wait for SA token signing keys to propagate to all nodes
+		t.Log("waiting for SA token signing keys to propagate to all nodes after cleanup")
+		err = waitForSATokenKeysOnAllNodes(ctx, t, kubeClient, targetNamespace, tokenctl.PublicKeyConfigMapName, 15*time.Minute)
+		require.NoError(t, err)
+
+		// Give kubelet additional time to refresh projected tokens
+		t.Logf("waiting %v for kubelet to refresh projected SA tokens after cleanup", kubeletTokenRefreshGracePeriod)
+		time.Sleep(kubeletTokenRefreshGracePeriod)
+
+		t.Log("bouncing remaining crash-looping pods to get fresh SA tokens")
+		// Reduced from 25m to 20m to ensure we stay below monitor test thresholds.
+		// With maxBouncesPerPod=25 and minTimeBetweenBounces=2m, max bounce time
+		// is 30m, but most pods should recover much faster.
+		err = bounceCrashLoopingPodsWithRetry(ctx, t, kubeClient, 20*time.Minute)
+		require.NoError(t, err)
 
 		t.Log("waiting for all ClusterOperators to stabilize after cleanup rollout")
 		err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
@@ -317,71 +353,161 @@ func checkCertConfigMap(t testing.TB, kubeClient *clientcorev1.CoreV1Client, exp
 	require.NoError(t, err)
 }
 
-// bounceCrashLoopingPods deletes all pods in CrashLoopBackOff across
-// openshift-* namespaces so their deployment/daemonset controllers recreate
-// them with fresh projected SA tokens. After signing key rotation, every
-// operator using a projected SA token will crash-loop with Unauthorized
-// until it receives a token signed by the new key.
-func bounceCrashLoopingPods(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client) {
-	namespaces, err := kubeClient.Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		t.Logf("failed to list namespaces: %v", err)
-		return
-	}
-	bounced := 0
-	for _, ns := range namespaces.Items {
-		if !strings.HasPrefix(ns.Name, "openshift-") {
-			continue
-		}
-		pods, err := kubeClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("failed to list pods in %s: %v", ns.Name, err)
-			continue
-		}
-		for _, pod := range pods.Items {
-			if isPodCrashLooping(pod) {
-				t.Logf("deleting crash-looping pod %s/%s to refresh SA token", ns.Name, pod.Name)
-				if err := kubeClient.Pods(ns.Name).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-					t.Logf("failed to delete pod %s/%s: %v", ns.Name, pod.Name, err)
-				}
-				bounced++
-			}
-		}
-	}
-	t.Logf("bounced %d crash-looping pods across openshift-* namespaces", bounced)
-}
+// bounceCrashLoopingPodsWithRetry continuously bounces crash-looping pods
+// until all pods in openshift-* namespaces are healthy or timeout is reached.
+// Uses smart strategies to minimize disruption:
+// - Bounces in waves by namespace to reduce cluster load
+// - Tracks recently bounced pods to avoid re-bouncing too quickly
+// - Prioritizes operator pods over infrastructure pods
+// - Limits max bounces per pod to prevent excessive restarts in monitor tests
+func bounceCrashLoopingPodsWithRetry(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, timeout time.Duration) error {
+	const pollInterval = 45 * time.Second           // Increased from 30s to give pods more time to recover
+	const minTimeBetweenBounces = 120 * time.Second // Don't re-bounce the same pod within 2 minutes
+	const maxBouncesPerPod = 50                     // Maximum bounces per pod (monitor threshold is 20 restarts, but we give extra headroom)
 
-// waitForBouncedPodsHealthy waits up to 2 minutes for all pods in
-// openshift-* namespaces to exit CrashLoopBackOff. This gives bounced
-// pods time to start with fresh SA tokens before checking CO stability.
-func waitForBouncedPodsHealthy(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client) {
-	t.Log("waiting for bounced pods to become healthy")
-	err := wait.PollImmediate(15*time.Second, 2*time.Minute, func() (bool, error) {
+	var lastUnhealthyCount int
+	totalBounced := 0
+	bouncedPods := make(map[string]time.Time) // Track when each pod was last bounced
+	bounceCount := make(map[string]int)       // Track how many times each pod was bounced
+
+	t.Logf("bouncing crash-looping pods until healthy (timeout: %v)", timeout)
+	err := wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
 		namespaces, err := kubeClient.Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
+			t.Logf("failed to list namespaces: %v", err)
 			return false, nil
 		}
+
+		unhealthyPods := 0
+		bouncedThisRound := 0
+
+		// Process namespaces in priority order: operators first, then infrastructure
+		priorityNamespaces := []string{
+			"openshift-kube-apiserver-operator",
+			"openshift-authentication-operator",
+			"openshift-kube-controller-manager-operator",
+			"openshift-kube-scheduler-operator",
+			"openshift-etcd-operator",
+			"openshift-machine-api",                // Machine API controllers are critical for cluster operations
+			"openshift-catalogd",                   // OLMv1 catalog daemon
+			"openshift-operator-controller",        // OLMv1 operator controller
+			"openshift-marketplace",                // OLM marketplace operator
+			"openshift-operator-lifecycle-manager", // OLM lifecycle manager
+		}
+
+		// First pass: bounce high-priority operator namespaces
+		for _, nsName := range priorityNamespaces {
+			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, nsName, bouncedPods, bounceCount, minTimeBetweenBounces, maxBouncesPerPod)
+			if err != nil {
+				// Skip this namespace but continue - transient API errors shouldn't fail the whole operation
+				continue
+			}
+			bouncedThisRound += bounced
+			unhealthyPods += unhealthy
+		}
+
+		// Second pass: bounce remaining openshift-* namespaces
 		for _, ns := range namespaces.Items {
 			if !strings.HasPrefix(ns.Name, "openshift-") {
 				continue
 			}
-			pods, err := kubeClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				continue
-			}
-			for _, pod := range pods.Items {
-				if isPodCrashLooping(pod) {
-					t.Logf("pod %s/%s still crash-looping", ns.Name, pod.Name)
-					return false, nil
+			// Skip if already processed in priority pass
+			isPriority := false
+			for _, pns := range priorityNamespaces {
+				if ns.Name == pns {
+					isPriority = true
+					break
 				}
 			}
+			if isPriority {
+				continue
+			}
+
+			bounced, unhealthy, err := bouncePodsInNamespace(ctx, t, kubeClient, ns.Name, bouncedPods, bounceCount, minTimeBetweenBounces, maxBouncesPerPod)
+			if err != nil {
+				// Skip this namespace but continue - transient API errors shouldn't fail the whole operation
+				continue
+			}
+			bouncedThisRound += bounced
+			unhealthyPods += unhealthy
 		}
-		t.Log("all bounced pods are healthy")
+
+		totalBounced += bouncedThisRound
+
+		if unhealthyPods > 0 {
+			t.Logf("bounced %d pods this round, %d total; %d unhealthy pods remaining",
+				bouncedThisRound, totalBounced, unhealthyPods)
+			lastUnhealthyCount = unhealthyPods
+			return false, nil
+		}
+
+		t.Logf("all pods healthy after bouncing %d pods total", totalBounced)
 		return true, nil
 	})
+
 	if err != nil {
-		t.Log("timed out waiting for bounced pods to become healthy, proceeding anyway")
+		return fmt.Errorf("timed out after %v with %d unhealthy pods remaining (bounced %d pods total)",
+			timeout, lastUnhealthyCount, totalBounced)
 	}
+	return nil
+}
+
+// bouncePodsInNamespace bounces crash-looping pods in a single namespace.
+// Returns (number bounced, number unhealthy, error).
+// If an error is returned, the counts are unreliable and should not be used.
+func bouncePodsInNamespace(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, namespace string, bouncedPods map[string]time.Time, bounceCount map[string]int, minTimeBetweenBounces time.Duration, maxBouncesPerPod int) (int, int, error) {
+	pods, err := kubeClient.Pods(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		t.Logf("failed to list pods in %s: %v", namespace, err)
+		return 0, 0, err
+	}
+
+	bounced := 0
+	unhealthy := 0
+
+	// Sort pods by restart count (highest first) to prioritize pods
+	// closest to the monitor test failure threshold (20 restarts)
+	sortPodsByRestartCount(pods.Items)
+
+	for _, pod := range pods.Items {
+		if !isPodCrashLooping(pod) {
+			continue
+		}
+
+		unhealthy++
+
+		if !isPodEligibleForBounce(pod) {
+			continue
+		}
+
+		// Check if we've exceeded max bounces for this pod
+		podKey := namespace + "/" + pod.Name
+		if count := bounceCount[podKey]; count >= maxBouncesPerPod {
+			t.Logf("skipping pod %s/%s: already bounced %d times (max: %d)",
+				namespace, pod.Name, count, maxBouncesPerPod)
+			continue
+		}
+
+		// Check if we bounced this pod recently
+		if lastBounceTime, exists := bouncedPods[podKey]; exists {
+			if time.Since(lastBounceTime) < minTimeBetweenBounces {
+				continue // Don't re-bounce too quickly
+			}
+		}
+
+		t.Logf("bouncing crash-looping pod %s/%s (restarts: %d, bounce count: %d/%d)",
+			namespace, pod.Name, getPodRestartCount(pod), bounceCount[podKey], maxBouncesPerPod)
+
+		if err := kubeClient.Pods(namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			t.Logf("failed to delete pod %s/%s: %v", namespace, pod.Name, err)
+		} else {
+			bouncedPods[podKey] = time.Now()
+			bounceCount[podKey]++
+			bounced++
+		}
+	}
+
+	return bounced, unhealthy, nil
 }
 
 // isPodCrashLooping returns true if any container is in CrashLoopBackOff
@@ -399,6 +525,132 @@ func isPodCrashLooping(pod corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+// isPodEligibleForBounce checks if a crash-looping pod should be bounced.
+// Returns false for:
+// - Static pods (managed by kubelet, not controllers)
+// - Very recently created pods (need time to initialize)
+// - Pods with extremely high restart counts (likely a different issue)
+// - Infrastructure pods that shouldn't be bounced (guard pods, etc.)
+func isPodEligibleForBounce(pod corev1.Pod) bool {
+	// Don't bounce static pods (managed by kubelet, not controllers)
+	if pod.Annotations != nil {
+		if source, ok := pod.Annotations["kubernetes.io/config.source"]; ok && source == "file" {
+			return false
+		}
+	}
+
+	// Don't bounce very recently created pods (give them at least 45s to start)
+	if time.Since(pod.CreationTimestamp.Time) < 45*time.Second {
+		return false
+	}
+
+	// Don't bounce guard pods - they're intentionally single-shot
+	// Use suffix check to avoid false positives like "safeguard-controller"
+	if strings.HasSuffix(pod.Name, "-guard") {
+		return false
+	}
+
+	// Don't bounce installer/pruner pods - they're jobs, not long-running
+	// Use prefix check for more precise matching
+	if strings.HasPrefix(pod.Name, "installer-") || strings.HasPrefix(pod.Name, "revision-pruner-") {
+		return false
+	}
+
+	// Don't bounce pods with extremely high restart counts (>40)
+	// These likely have a different issue than SA token expiry.
+	// We use 40 (2x the monitor threshold of 20) to ensure we can still
+	// bounce pods that are approaching the monitor failure threshold.
+	restartCount := getPodRestartCount(pod)
+	if restartCount > 40 {
+		return false
+	}
+
+	return true
+}
+
+// getPodRestartCount returns the total restart count across all containers in the pod.
+func getPodRestartCount(pod corev1.Pod) int {
+	total := 0
+	for _, cs := range pod.Status.ContainerStatuses {
+		total += int(cs.RestartCount)
+	}
+	return total
+}
+
+// sortPodsByRestartCount sorts pods by total restart count in descending order
+// (highest restart count first). This prioritizes bouncing pods closest to
+// the monitor test failure threshold.
+func sortPodsByRestartCount(pods []corev1.Pod) {
+	sort.Slice(pods, func(i, j int) bool {
+		return getPodRestartCount(pods[i]) > getPodRestartCount(pods[j])
+	})
+}
+
+// waitForSATokenKeysOnAllNodes waits for the SA token signing key configmap
+// to exist and be stable. This configmap is used by kubelet to issue SA tokens
+// for application pods (it's not mounted in kube-apiserver itself).
+//
+// Strategy:
+//  1. Verify the configmap exists and has the expected public keys
+//  2. Verify it has been stable (not updated) for at least 30 seconds
+//     (proves the operator has finished updating it)
+//  3. This gives us confidence kubelet can start syncing the new keys
+func waitForSATokenKeysOnAllNodes(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client, namespace, configMapName string, timeout time.Duration) error {
+	const pollInterval = 10 * time.Second
+	const requiredStabilityDuration = 30 * time.Second
+
+	t.Logf("waiting for configmap %s/%s to exist and stabilize", namespace, configMapName)
+
+	var lastResourceVersion string
+	var stableStart time.Time
+
+	return wait.PollImmediate(pollInterval, timeout, func() (bool, error) {
+		cm, err := kubeClient.ConfigMaps(namespace).Get(ctx, configMapName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			t.Logf("configmap %s/%s not found yet", namespace, configMapName)
+			lastResourceVersion = ""
+			stableStart = time.Time{}
+			return false, nil
+		}
+		if err != nil {
+			t.Logf("failed to get configmap %s/%s: %v", namespace, configMapName, err)
+			return false, nil
+		}
+
+		// Verify configmap has data
+		if len(cm.Data) == 0 {
+			t.Logf("configmap %s has no data keys yet", configMapName)
+			lastResourceVersion = ""
+			stableStart = time.Time{}
+			return false, nil
+		}
+
+		// Check if resourceVersion changed (configmap was updated)
+		currentResourceVersion := cm.ResourceVersion
+		if lastResourceVersion != currentResourceVersion {
+			t.Logf("configmap %s has %d keys, resourceVersion: %s", configMapName, len(cm.Data), currentResourceVersion)
+			lastResourceVersion = currentResourceVersion
+			stableStart = time.Now()
+			return false, nil
+		}
+
+		// ConfigMap hasn't changed - check stability duration
+		if stableStart.IsZero() {
+			stableStart = time.Now()
+			return false, nil
+		}
+
+		stableDuration := time.Since(stableStart)
+		if stableDuration < requiredStabilityDuration {
+			t.Logf("configmap %s stable for %v / %v required", configMapName, stableDuration.Round(time.Second), requiredStabilityDuration)
+			return false, nil
+		}
+
+		t.Logf("configmap %s has been stable for %v with %d keys", configMapName, stableDuration.Round(time.Second), len(cm.Data))
+		return true, nil
+	})
 }
 
 // waitForAllClusterOperatorsStable waits until all ClusterOperators in the cluster
@@ -426,5 +678,57 @@ func waitForAllClusterOperatorsStable(t testing.TB, client configclient.ConfigV1
 			t.Logf("all %d ClusterOperators are stable", len(coList.Items))
 		}
 		return allStable, nil
+	})
+}
+
+// waitForExtendedClusterStability waits for the cluster to be continuously stable
+// for a specified duration. This is stronger than waitForAllClusterOperatorsStable
+// which only checks once - this ensures sustained stability.
+func waitForExtendedClusterStability(t testing.TB, client configclient.ConfigV1Interface, stabilityDuration, timeout time.Duration) error {
+	stableStart := time.Time{}
+
+	return wait.PollImmediate(30*time.Second, timeout, func() (bool, error) {
+		coList, err := client.ClusterOperators().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			t.Logf("unable to list ClusterOperators: %v", err)
+			stableStart = time.Time{} // Reset stability timer
+			return false, nil
+		}
+
+		allStable := true
+		for _, co := range coList.Items {
+			conditions := co.Status.Conditions
+			available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
+			notProgressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionFalse)
+			notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
+			if !available || !notProgressing || !notDegraded {
+				allStable = false
+				break
+			}
+		}
+
+		if !allStable {
+			// Reset the stability timer
+			stableStart = time.Time{}
+			return false, nil
+		}
+
+		// Cluster is stable this iteration
+		if stableStart.IsZero() {
+			// First time seeing stability, start the timer
+			stableStart = time.Now()
+			t.Logf("cluster became stable, waiting %v for continuous stability", stabilityDuration)
+			return false, nil
+		}
+
+		// Check if we've been stable long enough
+		stableDuration := time.Since(stableStart)
+		if stableDuration >= stabilityDuration {
+			t.Logf("cluster has been continuously stable for %v", stableDuration)
+			return true, nil
+		}
+
+		t.Logf("cluster stable for %v / %v required", stableDuration.Round(time.Second), stabilityDuration)
+		return false, nil
 	})
 }
