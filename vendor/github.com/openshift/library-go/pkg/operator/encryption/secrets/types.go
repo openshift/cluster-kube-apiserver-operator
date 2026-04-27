@@ -50,9 +50,8 @@ const (
 	// deletion of secrets by enforcing a two phase delete.
 	EncryptionSecretFinalizer = "encryption.apiserver.operator.openshift.io/deletion-protection"
 
-	// EncryptionSecretKMSEncryptionConfig is the data field key that stores the serialized KMS
-	// encryption configuration for KMS mode in the encryption-key secret.
-	EncryptionSecretKMSEncryptionConfig = "encryption.apiserver.operator.openshift.io-kms-encryption-config"
+	// EncryptionSecretKMSConfig is the annotation that stores the encoded KMS configuration.
+	EncryptionSecretKMSConfig = "encryption.apiserver.operator.openshift.io/kms-config"
 )
 
 // MigratedGroupResources is the data structured stored in the
