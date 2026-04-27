@@ -63,7 +63,7 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
 		key.Mode = keyMode
 	case state.KMS:
-		key.KMS = &state.KMSConfig{}
+		key.KMS = new(state.KMSConfig)
 		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
 			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
 			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
