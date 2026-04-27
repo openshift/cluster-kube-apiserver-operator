@@ -589,3 +589,13 @@ func (s *everFailingIndexer) Replace(objects []interface{}, sKey string) error {
 func (s *everFailingIndexer) Resync() error {
 	return fmt.Errorf("Resync method not implemented")
 }
+
+// Bookmark always returns an error
+func (s *everFailingIndexer) Bookmark(string) {
+	// no-op
+}
+
+// LastStoreSyncResourceVersion returns an empty string
+func (s *everFailingIndexer) LastStoreSyncResourceVersion() string {
+	return ""
+}
