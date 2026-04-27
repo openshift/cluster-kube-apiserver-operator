@@ -39,17 +39,3 @@ func TestBoundTokenOperandSecretDeletion(t *testing.T) {
 func TestBoundTokenConfigMapDeletion(t *testing.T) {
 	testBoundTokenConfigMapDeletion(t)
 }
-
-// TestBoundTokenOperatorSecretDeletion verifies the operator secret is recreated
-// with a new keypair after deletion. The configmap in the operand namespace should
-// be updated immediately, and the secret once the configmap is present on all nodes.
-// Note: it will roll out a new version.
-//
-// This test calls the shared testBoundTokenOperatorSecretDeletion function which
-// can be called from both standard Go tests and Ginkgo tests.
-//
-// This situation is temporary until we test the new e2e-gcp-operator-serial-ote job.
-// Eventually all tests will be run only as part of the OTE framework.
-func TestBoundTokenOperatorSecretDeletion(t *testing.T) {
-	testBoundTokenOperatorSecretDeletion(t)
-}

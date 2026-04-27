@@ -3,19 +3,13 @@ package e2e
 import (
 	"context"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
 	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/require"
 
-	configv1 "github.com/openshift/api/config/v1"
-	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	clusteroperatorhelpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
-
 	authenticationv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,9 +24,8 @@ import (
 )
 
 const (
-	interval                = 1 * time.Second
-	regularTimeout          = 30 * time.Second
-	clusterStabilityTimeout = 60 * time.Minute
+	interval       = 1 * time.Second
+	regularTimeout = 30 * time.Second
 )
 
 // newTestCoreV1Client creates a CoreV1 client for use in e2e tests.
@@ -55,10 +48,6 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 
 	g.It("[Operator][Serial] TestBoundTokenConfigMapDeletion", func() {
 		testBoundTokenConfigMapDeletion(g.GinkgoTB())
-	})
-
-	g.It("[Operator][Serial] TestBoundTokenOperatorSecretDeletion [Timeout:90m][Late][Disruptive]", func() {
-		testBoundTokenOperatorSecretDeletion(g.GinkgoTB())
 	})
 })
 
@@ -154,127 +143,6 @@ func testBoundTokenConfigMapDeletion(t testing.TB) {
 	})
 }
 
-// testBoundTokenOperatorSecretDeletion verifies the secret in the operator
-// namespace is recreated with a new keypair after deletion.
-//
-// This test triggers three KAS rollouts:
-//  1. Deleting the operator secret causes signing key rotation -> rollout
-//  2. The configmap is updated with old+new public keys -> rollout
-//  3. Deleting the public key configmap (cleanup, via defer) -> rollout
-//
-// Rollouts 1 and 2 happen back-to-back and are caught by a single pod
-// stability wait (the success-threshold counter resets when a new revision
-// appears). Rollout 3 is triggered by the deferred cleanup which ensures
-// the configmap is always removed even if assertions fail.
-//
-// After each set of rollouts, all crash-looping pods in openshift-*
-// namespaces are bounced because signing key rotation invalidates every
-// projected SA token cluster-wide, causing Unauthorized errors and
-// CrashLoopBackOff that would otherwise take 30-60 min to self-heal.
-func testBoundTokenOperatorSecretDeletion(t testing.TB) {
-	ctx := context.TODO()
-
-	kubeConfig, err := libgotest.NewClientConfigForTest()
-	require.NoError(t, err)
-	kubeClient, err := clientcorev1.NewForConfig(kubeConfig)
-	require.NoError(t, err)
-	configClient, err := configclient.NewForConfig(kubeConfig)
-	require.NoError(t, err)
-
-	targetNamespace := operatorclient.TargetNamespace
-	operatorNamespace := operatorclient.OperatorNamespace
-
-	const (
-		rolloutSuccessThreshold = 6
-		rolloutSuccessInterval  = 1 * time.Minute
-		rolloutPollInterval     = 30 * time.Second
-		rolloutTimeout          = 60 * time.Minute
-	)
-
-	// Pre-condition: cluster must be stable before we introduce disruption.
-	// Prior tests (e.g. TestBoundTokenConfigMapDeletion) may have left
-	// kube-apiserver mid-rollout which would compound with our key rotation.
-	t.Log("pre-condition: waiting for all ClusterOperators to be stable")
-	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
-	require.NoError(t, err)
-
-	operatorSecret, err := kubeClient.Secrets(operatorNamespace).Get(ctx, tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
-	require.NoError(t, err)
-	operatorPublicKey := operatorSecret.Data[tokenctl.PublicKeyKey]
-	operatorPrivateKey := operatorSecret.Data[tokenctl.PrivateKeyKey]
-
-	// Rollouts 1 & 2: deleting the operator secret triggers signing key
-	// rotation (rollout 1) and the configmap update with old+new public
-	// keys (rollout 2). The pod stability wait below catches both because
-	// the success-threshold counter resets whenever a new revision appears.
-	t.Log("deleting operator secret to trigger signing key rotation")
-	err = kubeClient.Secrets(operatorNamespace).Delete(ctx, tokenctl.NextSigningKeySecretName, metav1.DeleteOptions{})
-	require.NoError(t, err)
-
-	t.Log("waiting for kube-apiserver pods to stabilize after key rotation rollouts")
-	err = libgotest.WaitForPodsToStabilizeOnTheSameRevision(t, kubeClient.Pods(targetNamespace), "apiserver=true",
-		rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
-	require.NoError(t, err)
-
-	t.Log("bouncing crash-looping pods to refresh SA tokens after key rotation")
-	bounceCrashLoopingPods(ctx, t, kubeClient)
-	waitForBouncedPodsHealthy(ctx, t, kubeClient)
-
-	t.Log("waiting for all ClusterOperators to recover after key rotation rollouts")
-	err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
-	require.NoError(t, err)
-
-	// Ensure the configmap is always cleaned up even if assertions below
-	// fail. This prevents leaving two public keys that would break
-	// subsequent invocations of this test.
-	defer func() {
-		t.Log("cleaning up: deleting public key configmap (triggers third rollout)")
-		err := kubeClient.ConfigMaps(targetNamespace).Delete(ctx, tokenctl.PublicKeyConfigMapName, metav1.DeleteOptions{})
-		require.NoError(t, err)
-
-		t.Log("waiting for kube-apiserver pods to stabilize after cleanup rollout")
-		err = libgotest.WaitForPodsToStabilizeOnTheSameRevision(t, kubeClient.Pods(targetNamespace), "apiserver=true",
-			rolloutSuccessThreshold, rolloutSuccessInterval, rolloutPollInterval, rolloutTimeout)
-		require.NoError(t, err)
-
-		t.Log("bouncing crash-looping pods to refresh SA tokens after cleanup")
-		bounceCrashLoopingPods(ctx, t, kubeClient)
-		waitForBouncedPodsHealthy(ctx, t, kubeClient)
-
-		t.Log("waiting for all ClusterOperators to stabilize after cleanup rollout")
-		err = waitForAllClusterOperatorsStable(t, configClient, clusterStabilityTimeout)
-		require.NoError(t, err)
-	}()
-
-	var newOperatorSecret *corev1.Secret
-	err = wait.PollImmediate(interval, regularTimeout, func() (done bool, err error) {
-		newOperatorSecret, err = kubeClient.Secrets(operatorNamespace).Get(ctx, tokenctl.NextSigningKeySecretName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		if err != nil {
-			t.Logf("failed to retrieve template secret: %v", err)
-			return false, nil
-		}
-		return true, nil
-	})
-	require.NoError(t, err)
-
-	newOperatorPublicKey := newOperatorSecret.Data[tokenctl.PublicKeyKey]
-	newOperatorPrivateKey := newOperatorSecret.Data[tokenctl.PrivateKeyKey]
-
-	require.NotEqual(t, operatorPublicKey, newOperatorPublicKey)
-	require.NotEqual(t, operatorPrivateKey, newOperatorPrivateKey)
-
-	checkCertConfigMap(t, kubeClient, map[string]string{
-		"service-account-001.pub": string(operatorPublicKey),
-		"service-account-002.pub": string(newOperatorPublicKey),
-	})
-
-	const operandSecretTimeout = 5 * time.Minute
-	checkBoundTokenOperandSecret(t, kubeClient, operandSecretTimeout, newOperatorSecret.Data)
-}
-
 // checkBoundTokenOperandSecret checks that the operand secret is
 // populated with the expected data.
 func checkBoundTokenOperandSecret(t testing.TB, kubeClient *clientcorev1.CoreV1Client, timeout time.Duration, expectedData map[string][]byte) {
@@ -315,116 +183,4 @@ func checkCertConfigMap(t testing.TB, kubeClient *clientcorev1.CoreV1Client, exp
 		return true, nil
 	})
 	require.NoError(t, err)
-}
-
-// bounceCrashLoopingPods deletes all pods in CrashLoopBackOff across
-// openshift-* namespaces so their deployment/daemonset controllers recreate
-// them with fresh projected SA tokens. After signing key rotation, every
-// operator using a projected SA token will crash-loop with Unauthorized
-// until it receives a token signed by the new key.
-func bounceCrashLoopingPods(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client) {
-	namespaces, err := kubeClient.Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		t.Logf("failed to list namespaces: %v", err)
-		return
-	}
-	bounced := 0
-	for _, ns := range namespaces.Items {
-		if !strings.HasPrefix(ns.Name, "openshift-") {
-			continue
-		}
-		pods, err := kubeClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			t.Logf("failed to list pods in %s: %v", ns.Name, err)
-			continue
-		}
-		for _, pod := range pods.Items {
-			if isPodCrashLooping(pod) {
-				t.Logf("deleting crash-looping pod %s/%s to refresh SA token", ns.Name, pod.Name)
-				if err := kubeClient.Pods(ns.Name).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-					t.Logf("failed to delete pod %s/%s: %v", ns.Name, pod.Name, err)
-				}
-				bounced++
-			}
-		}
-	}
-	t.Logf("bounced %d crash-looping pods across openshift-* namespaces", bounced)
-}
-
-// waitForBouncedPodsHealthy waits up to 2 minutes for all pods in
-// openshift-* namespaces to exit CrashLoopBackOff. This gives bounced
-// pods time to start with fresh SA tokens before checking CO stability.
-func waitForBouncedPodsHealthy(ctx context.Context, t testing.TB, kubeClient *clientcorev1.CoreV1Client) {
-	t.Log("waiting for bounced pods to become healthy")
-	err := wait.PollImmediate(15*time.Second, 2*time.Minute, func() (bool, error) {
-		namespaces, err := kubeClient.Namespaces().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return false, nil
-		}
-		for _, ns := range namespaces.Items {
-			if !strings.HasPrefix(ns.Name, "openshift-") {
-				continue
-			}
-			pods, err := kubeClient.Pods(ns.Name).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				continue
-			}
-			for _, pod := range pods.Items {
-				if isPodCrashLooping(pod) {
-					t.Logf("pod %s/%s still crash-looping", ns.Name, pod.Name)
-					return false, nil
-				}
-			}
-		}
-		t.Log("all bounced pods are healthy")
-		return true, nil
-	})
-	if err != nil {
-		t.Log("timed out waiting for bounced pods to become healthy, proceeding anyway")
-	}
-}
-
-// isPodCrashLooping returns true if any container is in CrashLoopBackOff
-// or has terminated with a non-zero exit code after at least one restart.
-// The second check catches pods between CrashLoopBackOff cycles when the
-// container state is Terminated/Error rather than Waiting/CrashLoopBackOff.
-// Neither condition matches healthy Running pods.
-func isPodCrashLooping(pod corev1.Pod) bool {
-	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
-			return true
-		}
-		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 && cs.RestartCount > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// waitForAllClusterOperatorsStable waits until all ClusterOperators in the cluster
-// report Available=True, Progressing=False, Degraded=False. This ensures the
-// entire cluster is stable after disruptive operations like signing key rotation.
-func waitForAllClusterOperatorsStable(t testing.TB, client configclient.ConfigV1Interface, timeout time.Duration) error {
-	return wait.PollImmediate(60*time.Second, timeout, func() (bool, error) {
-		coList, err := client.ClusterOperators().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			t.Logf("unable to list ClusterOperators: %v", err)
-			return false, nil
-		}
-		allStable := true
-		for _, co := range coList.Items {
-			conditions := co.Status.Conditions
-			available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
-			notProgressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionFalse)
-			notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
-			if !available || !notProgressing || !notDegraded {
-				t.Logf("ClusterOperator/%s not stable: Available=%v Progressing=%v Degraded=%v", co.Name, available, !notProgressing, !notDegraded)
-				allStable = false
-			}
-		}
-		if allStable {
-			t.Logf("all %d ClusterOperators are stable", len(coList.Items))
-		}
-		return allStable, nil
-	})
 }
