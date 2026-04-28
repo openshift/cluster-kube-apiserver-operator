@@ -3,6 +3,7 @@ package state
 import (
 	"time"
 
+	v1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
@@ -40,8 +41,25 @@ type KeyState struct {
 	InternalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	ExternalReason string
-	// Encoded KMSEncryptionConfig that stores the KMS related fields
-	KMSEncryptionConfig *apiserverconfigv1.KMSConfiguration
+	// stores all the KMS encryption mode related configurations
+	KMSConfig *KMSConfig
+}
+
+func (k *KeyState) HasKMSEncryption() bool {
+	return k != nil && k.KMSConfig != nil && k.KMSConfig.Encryption != nil
+}
+
+func (k *KeyState) HasKMSProvider() bool {
+	return k != nil && k.KMSConfig != nil && k.KMSConfig.Provider != nil
+}
+
+// KMSConfig stores all KMS encryption mode related configurations
+type KMSConfig struct {
+	// Encoded EncryptionConfig that stores the KMS related fields
+	Encryption *apiserverconfigv1.KMSConfiguration
+
+	// Provider stores KMS provider specific configurations
+	Provider *v1.KMSConfig
 }
 
 type MigrationState struct {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	v1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -68,11 +69,23 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
-			key.KMSEncryptionConfig = kmsConfiguration
+			key.KMSConfig = &state.KMSConfig{Encryption: kmsConfiguration}
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
+		}
+		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
+			providerConfig := &v1.KMSConfig{}
+			if err := json.Unmarshal(v, providerConfig); err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
+			}
+			// KMSConfig is non-nil here; initialized by the encryption config branch above
+			key.KMSConfig.Provider = providerConfig
+		} else {
+			// encryption.apiserver.operator.openshift.io-kms-provider-config data field is required for KMS
+			// encryption mode.
+			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSProviderConfig)
 		}
 		key.Mode = keyMode
 	default:
@@ -126,12 +139,24 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
 
-	if ks.KMSEncryptionConfig != nil {
-		kmsEncCfgJSON, err := json.Marshal(ks.KMSEncryptionConfig)
+	if ks.Mode == state.KMS && (!ks.HasKMSEncryption() || !ks.HasKMSProvider()) {
+		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, EncryptionSecretKMSProviderConfig)
+	}
+
+	if ks.HasKMSEncryption() {
+		kmsEncCfgJSON, err := json.Marshal(ks.KMSConfig.Encryption)
 		if err != nil {
 			return nil, err
 		}
 		s.Data[EncryptionSecretKMSEncryptionConfig] = kmsEncCfgJSON
+	}
+
+	if ks.HasKMSProvider() {
+		providerJSON, err := json.Marshal(ks.KMSConfig.Provider)
+		if err != nil {
+			return nil, err
+		}
+		s.Data[EncryptionSecretKMSProviderConfig] = providerJSON
 	}
 
 	return s, nil
