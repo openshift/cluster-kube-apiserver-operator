@@ -22,7 +22,6 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -58,6 +57,7 @@ type TargetConfigController struct {
 
 	kubeClient          kubernetes.Interface
 	configMapLister     corev1listers.ConfigMapLister
+	secretLister        corev1listers.SecretLister
 	featureGateAccessor featuregates.FeatureGateAccess
 
 	isStartupMonitorEnabledFn      func() (bool, error)
@@ -82,6 +82,7 @@ func NewTargetConfigController(
 		operatorClient:                 operatorClient,
 		kubeClient:                     kubeClient,
 		configMapLister:                kubeInformersForNamespaces.ConfigMapLister(),
+		secretLister:                   kubeInformersForNamespaces.SecretLister(),
 		featureGateAccessor:            featureGateAccessor,
 		isStartupMonitorEnabledFn:      isStartupMonitorEnabledFn,
 		requireMultipleEtcdEndpointsFn: requireMultipleEtcdEndpointsFn,
@@ -100,7 +101,7 @@ func NewTargetConfigController(
 }
 
 func (c TargetConfigController) sync(ctx context.Context, syncContext factory.SyncContext) error {
-	operatorSpec, _, _, err := c.operatorClient.GetStaticPodOperatorState()
+	operatorSpec, operatorStatus, _, err := c.operatorClient.GetStaticPodOperatorState()
 	if err != nil {
 		return err
 	}
@@ -124,7 +125,7 @@ func (c TargetConfigController) sync(ctx context.Context, syncContext factory.Sy
 		return err
 	}
 
-	requeue, err := createTargetConfig(ctx, c, syncContext.Recorder(), operatorSpec)
+	requeue, err := createTargetConfig(ctx, c, syncContext.Recorder(), operatorSpec, operatorStatus)
 	if err != nil {
 		return err
 	}
@@ -217,14 +218,14 @@ func etcdEndpointsPresent(configMapLister corev1listers.ConfigMapLister, config 
 
 // createTargetConfig takes care of creation of valid resources in a fixed name.  These are inputs to other control loops.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
+func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, operatorStatus *operatorv1.StaticPodOperatorStatus) (bool, error) {
 	errors := []error{}
 
 	_, _, err := manageKubeAPIServerConfig(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, operatorStatus, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion, c.secretLister)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -308,7 +309,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
+func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, operatorStatus *operatorv1.StaticPodOperatorStatus, imagePullSpec, operatorImagePullSpec, operatorImageVersion string, secretLister corev1listers.SecretLister) (*corev1.ConfigMap, bool, error) {
 	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
 	if err != nil {
 		return nil, false, err
@@ -329,8 +330,13 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec, "kube-apiserver", featureGateAccessor); err != nil {
-		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
+	// TODO: placeholder. I (fbertina) need to grant you read permissions. Please ask
+	kmsPluginImage := "quay.io/bertinatto/vault:v1"
+
+	// encryptionConfig, err := secretLister.Secrets(namespace string)
+
+	if err := AddKMSPluginToPodSpec(&required.Spec, featureGateAccessor, secretLister, kmsPluginImage); err != nil {
+		return nil, false, fmt.Errorf("failed to add KMS plugin sidecar: %w", err)
 	}
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
