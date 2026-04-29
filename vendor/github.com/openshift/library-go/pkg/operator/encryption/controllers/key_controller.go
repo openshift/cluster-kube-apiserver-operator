@@ -164,7 +164,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, apiServerEncryption, err := c.getCurrentModeAndExternalReason(ctx)
+	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiServerEncryption, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -260,7 +260,7 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption *v1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption v1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -272,9 +272,6 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		if apiServerEncryption == nil || apiServerEncryption.KMS == nil {
-			return nil, fmt.Errorf("APIServerEncryption or its KMS config must not be nil when mode is KMS")
-		}
 		ks.KMSConfig = &state.KMSConfig{
 			Encryption: &apiserverv1.KMSConfiguration{
 				APIVersion: "v2",
@@ -288,31 +285,36 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 	return secrets.FromKeyState(c.instanceName, ks)
 }
 
-func (c *keyController) getCurrentModeAndExternalReason(ctx context.Context) (state.Mode, string, *v1.APIServerEncryption, error) {
+func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, v1.APIServerEncryption, error) {
 	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
-		return "", "", nil, err
+		return "", "", v1.APIServerEncryption{}, err
 	}
 
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		return "", "", nil, err
+		return "", "", v1.APIServerEncryption{}, err
 	}
 
 	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
-		return "", "", nil, err
+		return "", "", v1.APIServerEncryption{}, err
 	}
 
-	encryption := &apiServer.Spec.Encryption
+	encryption := apiServer.Spec.Encryption
 	reason := encryptionConfig.Encryption.Reason
 	switch currentMode := state.Mode(encryption.Type); currentMode {
-	case state.AESCBC, state.AESGCM, state.KMS, state.Identity: // secretbox is disabled for now
+	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
+		return currentMode, reason, encryption, nil
+	case state.KMS:
+		if encryption.KMS == nil {
+			return "", "", v1.APIServerEncryption{}, fmt.Errorf("invalid encryption mode %q: KMS config is required", encryption.Type)
+		}
 		return currentMode, reason, encryption, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, encryption, nil
 	default:
-		return "", "", nil, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
+		return "", "", v1.APIServerEncryption{}, fmt.Errorf("unknown encryption mode configured: %s", currentMode)
 	}
 }
 
