@@ -73,18 +73,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Name:        "openshift/cluster-kube-apiserver-operator/operator/serial",
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Operator]") && name.contains("[Serial]") || name.contains("[Disruptive]")`,
-		},
-		ClusterStability: oteextension.ClusterStabilityDisruptive,
-	})
-
-	// Tests tagged with [Serial], and [Conformance] are included.
-	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/conformance/serial",
-		Parents:     []string{"openshift/conformance/serial"},
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Serial]") && name.contains("[Conformance]")`,
+			`name.contains("[Operator]") && name.contains("[Serial]")`,
 		},
 	})
 
@@ -93,6 +82,14 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Parallelism: 1,
 		Qualifiers: []string{
 			`name.contains("[Suite:event-ttl]")`,
+		},
+	})
+
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("KMSEncryption")`,
 		},
 	})
 
