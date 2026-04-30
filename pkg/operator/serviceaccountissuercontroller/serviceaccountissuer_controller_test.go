@@ -3,6 +3,10 @@ package serviceaccountissuercontroller
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1lister "github.com/openshift/client-go/config/listers/config/v1"
@@ -12,9 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"reflect"
-	"testing"
-	"time"
 )
 
 type fakeAuthLister struct {
@@ -85,6 +86,23 @@ func TestController(t *testing.T) {
 			},
 			expectedResync: true,
 			expectedStatus: defaultServiceAccountIssuerValue,
+		},
+		{
+			name: "serviceaccountissuer is set and no trusted issuers should result in the serviceaccountissuer to be set",
+			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
+				ServiceAccountIssuer: "newIssuer",
+			}},
+			operator: operatorv1.KubeAPIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			expectedResync: true,
+			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
+				{
+					Name: "newIssuer",
+				},
+			},
 		},
 		{
 			name: "serviceaccountissuer is set in auth config and should be copied to status while making default issuer trusted",
@@ -182,7 +200,7 @@ func TestController(t *testing.T) {
 			},
 		},
 		{
-			name: "serviceaccountissuer value was set to empty and we need to prune status to default issuer",
+			name: "serviceaccountissuer value was set to empty and we need to expire the old and switch to a default issuer",
 			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
 				ServiceAccountIssuer: "",
 			}},
@@ -202,7 +220,17 @@ func TestController(t *testing.T) {
 					},
 				},
 			},
-			expectedStatus: defaultServiceAccountIssuerValue,
+			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
+				defaultServiceAccountIssuerValue[0],
+				{
+					Name:           "trustedIssuer1",
+					ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
+				},
+				{
+					Name:           "trustedIssuer2",
+					ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
+				},
+			},
 			expectedResync: true,
 		},
 		{
@@ -258,6 +286,39 @@ func TestController(t *testing.T) {
 			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
 				{
 					Name: "newActiveIssuer",
+				},
+				{
+					Name:           "oldActiveIssuer",
+					ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
+				},
+			},
+			expectedResync: true,
+		},
+
+		{
+			name: "serviceaccountissuer value was set to empty while default is being expired, default should be made active again",
+			authConfig: configv1.Authentication{Spec: configv1.AuthenticationSpec{
+				ServiceAccountIssuer: "",
+			}},
+			operator: operatorv1.KubeAPIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Status: operatorv1.KubeAPIServerStatus{
+					ServiceAccountIssuers: []operatorv1.ServiceAccountIssuerStatus{
+						{
+							Name: "oldActiveIssuer",
+						},
+						{
+							Name:           defaultServiceAccountIssuerValue[0].Name,
+							ExpirationTime: &metav1.Time{Time: nowFn().Add(defaultTrustedServiceAccountIssuerExpirationDuration)},
+						},
+					},
+				},
+			},
+			expectedStatus: []operatorv1.ServiceAccountIssuerStatus{
+				{
+					Name: defaultServiceAccountIssuerValue[0].Name,
 				},
 				{
 					Name:           "oldActiveIssuer",
