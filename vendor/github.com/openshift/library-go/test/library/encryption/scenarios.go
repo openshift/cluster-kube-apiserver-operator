@@ -85,32 +85,32 @@ type OnOffScenario struct {
 
 type testStep struct {
 	name     string
-	testFunc func(*testing.T)
+	testFunc func(testing.TB)
 }
 
-func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
+func TestEncryptionTurnOnAndOff(t testing.TB, scenario OnOffScenario) {
 	scenarios := []testStep{
-		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}},
-		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t *testing.T) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
-		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: fmt.Sprintf("On%s", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t testing.TB) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
+		{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "OffIdentity", testFunc: func(t *testing.T) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
-		{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: "OffIdentity", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
+		{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t *testing.T) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
-		{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: fmt.Sprintf("On%sSecond", strings.ToUpper(string(scenario.EncryptionProvider))), testFunc: func(t testing.TB) { TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider) }},
+		{name: fmt.Sprintf("Assert%sEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
-		{name: "OffIdentitySecond", testFunc: func(t *testing.T) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
-		{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: "OffIdentitySecond", testFunc: func(t testing.TB) { TestEncryptionTypeIdentity(t, scenario.BasicScenario) }},
+		{name: fmt.Sprintf("Assert%sNotEncryptedSecond", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}},
@@ -118,7 +118,8 @@ func TestEncryptionTurnOnAndOff(t *testing.T, scenario OnOffScenario) {
 
 	// run scenarios
 	for _, testScenario := range scenarios {
-		t.Run(testScenario.name, testScenario.testFunc)
+		t.Logf("=== STEP: %s ===", testScenario.name)
+		testScenario.testFunc(t)
 		if t.Failed() {
 			t.Errorf("stopping the test as %q scenario failed", testScenario.name)
 			return
@@ -158,7 +159,7 @@ func ShuffleEncryptionProviders(providers []configv1.EncryptionType) []configv1.
 // It creates a resource, migrates through each provider,
 // verifies the resource is encrypted after each migration, and finally
 // switches to identity (off).
-func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationScenario) {
+func TestEncryptionProvidersMigration(t testing.TB, scenario ProvidersMigrationScenario) {
 	if len(scenario.EncryptionProviders) < 2 {
 		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(scenario.EncryptionProviders))
 	}
@@ -171,7 +172,7 @@ func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationS
 
 	// step 1: create the resource
 	scenarios := []testStep{
-		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t *testing.T) {
+		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}},
@@ -184,10 +185,10 @@ func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationS
 			prefix = "MigrateTo"
 		}
 		scenarios = append(scenarios,
-			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider))), testFunc: func(t *testing.T) {
+			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider))), testFunc: func(t testing.TB) {
 				TestEncryptionType(t, scenario.BasicScenario, provider)
 			}},
-			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 				e := NewE(t)
 				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 			}},
@@ -195,7 +196,7 @@ func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationS
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
-	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t *testing.T) {
+	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 		TestEncryptionTypeIdentity(t, scenario.BasicScenario)
 		e := NewE(t)
 		scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
@@ -203,7 +204,8 @@ func TestEncryptionProvidersMigration(t *testing.T, scenario ProvidersMigrationS
 
 	// run scenarios
 	for _, testScenario := range scenarios {
-		t.Run(testScenario.name, testScenario.testFunc)
+		t.Logf("=== STEP: %s ===", testScenario.name)
+		testScenario.testFunc(t)
 		if t.Failed() {
 			t.Errorf("stopping the test as %q scenario failed", testScenario.name)
 			return
