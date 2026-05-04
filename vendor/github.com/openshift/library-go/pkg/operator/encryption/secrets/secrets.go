@@ -8,28 +8,15 @@ import (
 	"strconv"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
-
-var (
-	scheme = runtime.NewScheme()
-	codecs = serializer.NewCodecFactory(scheme)
-)
-
-func init() {
-	utilruntime.Must(configv1.AddToScheme(scheme))
-	utilruntime.Must(apiserverconfigv1.AddToScheme(scheme))
-}
 
 // ToKeyState converts a key secret to a key state.
 func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
@@ -79,32 +66,22 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	case state.KMS:
 		key.KMSConfig = &state.KMSConfig{}
 		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
-			// KMSConfiguration is not a runtime.Object, so use EncryptionConfiguration as envolope
-			encryptionConfiguration := &apiserverconfigv1.EncryptionConfiguration{}
-			decoder := codecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
-			err := runtime.DecodeInto(decoder, v, encryptionConfiguration)
+			kmsConfiguration, err := encoding.DecodeKMSConfiguration(v)
 			if err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
-			// This should never happen, unless the secret was incorrectly written in FromKeyState()
-			if len(encryptionConfiguration.Resources) != 1 || len(encryptionConfiguration.Resources[0].Providers) != 1 {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig)
-			}
-			key.KMSConfig.Encryption = encryptionConfiguration.Resources[0].Providers[0].KMS
+			key.KMSConfig.Encryption = kmsConfiguration
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
 		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
-			// KMSConfig is not a runtime.Object, so use APIServer as envolope
-			apiServer := &configv1.APIServer{}
-			decoder := codecs.UniversalDecoder(configv1.SchemeGroupVersion)
-			err := runtime.DecodeInto(decoder, v, apiServer)
+			kmsConfig, err := encoding.DecodeKMSConfig(v)
 			if err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
 			}
-			key.KMSConfig.Provider = apiServer.Spec.Encryption.KMS
+			key.KMSConfig.Provider = kmsConfig
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-provider-config data field is required for KMS
 			// encryption mode.
@@ -167,37 +144,17 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 
 	if ks.HasKMSEncryption() {
-		// KMSConfiguration is not a runtime.Object, so use EncryptionConfiguration as envolope
-		encryptionConfiguration := &apiserverconfigv1.EncryptionConfiguration{
-			Resources: []apiserverconfigv1.ResourceConfiguration{
-				{
-					Providers: []apiserverconfigv1.ProviderConfiguration{
-						{KMS: ks.KMSConfig.Encryption},
-					},
-				},
-			},
-		}
-		encoder := codecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-		encryptionConfigurationData, err := runtime.Encode(encoder, encryptionConfiguration)
+		encryptionConfigurationData, err := encoding.EncodeKMSConfiguration(ks.KMSConfig.Encryption)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode KMS encryption config: %w", err)
+			return nil, err
 		}
 		s.Data[EncryptionSecretKMSEncryptionConfig] = encryptionConfigurationData
 	}
 
 	if ks.HasKMSProvider() {
-		// KMSConfig is not a runtime.Object, so use APIServer as envolope
-		apiServerObj := &configv1.APIServer{
-			Spec: configv1.APIServerSpec{
-				Encryption: configv1.APIServerEncryption{
-					KMS: ks.KMSConfig.Provider,
-				},
-			},
-		}
-		encoder := codecs.LegacyCodec(configv1.SchemeGroupVersion)
-		providerData, err := runtime.Encode(encoder, apiServerObj)
+		providerData, err := encoding.EncodeKMSConfig(ks.KMSConfig.Provider)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode KMS provider config: %w", err)
+			return nil, err
 		}
 		s.Data[EncryptionSecretKMSProviderConfig] = providerData
 	}

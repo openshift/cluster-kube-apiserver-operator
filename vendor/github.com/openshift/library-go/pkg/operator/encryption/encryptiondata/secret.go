@@ -5,22 +5,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
-
-var (
-	apiserverScheme = runtime.NewScheme()
-	apiserverCodecs = serializer.NewCodecFactory(apiserverScheme)
-)
-
-func init() {
-	utilruntime.Must(apiserverconfigv1.AddToScheme(apiserverScheme))
-}
 
 // EncryptionConfSecretName is the name of the final encryption config secret that is revisioned per apiserver rollout.
 const EncryptionConfSecretName = "encryption-config"
@@ -33,16 +21,9 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if !ok {
 		return nil, nil
 	}
-
-	decoder := apiserverCodecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
-	encryptionConfigObj, err := runtime.Decode(decoder, data)
+	encryptionConfig, err := encoding.DecodeEncryptionConfiguration(data)
 	if err != nil {
 		return nil, err
-	}
-
-	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
-	if !ok {
-		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
 	}
 	return &Config{Encryption: encryptionConfig}, nil
 }
@@ -52,8 +33,7 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		return nil, fmt.Errorf("secret %s/%s has no encryption config", ns, name)
 	}
 
-	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-	rawEncryptionCfg, err := runtime.Encode(encoder, secretData.Encryption)
+	rawEncryptionCfg, err := encoding.EncodeEncryptionConfiguration(secretData.Encryption)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
