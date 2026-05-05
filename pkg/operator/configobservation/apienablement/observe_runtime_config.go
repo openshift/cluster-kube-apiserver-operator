@@ -15,23 +15,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
-	"MutatingAdmissionPolicy": {
-		// Both v1alpha1 and v1beta1 versions must be served pre-GA because e2e tests exercise both APIs.
-		// A GA OpenShift release could inadvertently serve these versions if MutatingAdmissionPolicy
-		// gets added to the default featureSet in openshift/api as part of transitioning from
-		// (feature off, v1beta1 off) to (feature on, v1 on).
-		// To prevent that, version ranges below include min and max bounds.
-		// TODO: Remove all MutatingAdmissionPolicy references once openshift-apiserver is rebased to k8s 1.36+
-		// and no longer needs v1beta1 informers. MutatingAdmissionPolicy v1 resources are available in 1.36.
-		// The upper bound is temporarily extended to <1.37.0 because openshift-apiserver still vendors
-		// k8s.io/apiserver at 1.34 (via openshift/kubernetes-apiserver) and its MutatingAdmissionPolicy
-		// admission plugin uses v1beta1 informers. The openshift-apiserver can't be rebased until the
-		// o/k 1.36 rebase lands and a 1.36 branch is created on openshift/kubernetes-apiserver.
-		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
-		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
-	},
-}
+var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{}
 
 type groupVersionByOpenshiftVersion struct {
 	schema.GroupVersion
