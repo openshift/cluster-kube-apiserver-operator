@@ -40,8 +40,18 @@ type KeyState struct {
 	InternalReason string
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	ExternalReason string
-	// Encoded KMSEncryptionConfig that stores the KMS related fields
-	KMSEncryptionConfig *apiserverconfigv1.KMSConfiguration
+	// stores all the KMS encryption mode related configurations
+	KMS *KMSConfig
+}
+
+func (k *KeyState) HasKMSEncryptionConfig() bool {
+	return k != nil && k.KMS != nil && k.KMS.EncryptionConfig != nil
+}
+
+// KMSConfig stores all KMS encryption mode related configurations
+type KMSConfig struct {
+	// Encoded EncryptionConfig that stores the KMS related fields
+	EncryptionConfig *apiserverconfigv1.KMSConfiguration
 }
 
 type MigrationState struct {
