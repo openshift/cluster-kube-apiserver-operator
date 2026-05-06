@@ -291,7 +291,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces,
 		kubeClient,
-		featureGateAccessor,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
 		requireMultipleEtcdEndpoints,
 		controllerContext.EventRecorder,
