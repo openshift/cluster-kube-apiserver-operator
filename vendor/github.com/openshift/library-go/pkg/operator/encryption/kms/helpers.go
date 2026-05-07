@@ -2,13 +2,19 @@ package kms
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	corev1 "k8s.io/api/core/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
+
+var kmsEndpointRegexp = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
 const providerConfigDataKeyPrefix = "kms-provider-config-"
 
@@ -88,5 +94,44 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 		},
 	)
 
+	return nil
+}
+
+func parseProviderConfig(secret *corev1.Secret, kmsConfiguration *apiserverv1.KMSConfiguration) (*configv1.KMSConfig, error) {
+	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse key ID from endpoint: %w", err)
+	}
+	providerConfigKey, err := ToProviderConfigSecretDataKeyFor(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider config secret key ID from endpoint: %w", err)
+	}
+	providerConfigData, ok := secret.Data[providerConfigKey]
+	if !ok {
+		return nil, fmt.Errorf("missing provider config key %s in encryption-config secret", providerConfigKey)
+	}
+	kmsConfig, err := encoding.DecodeKMSConfig(providerConfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode provider config: %w", err)
+	}
+	return kmsConfig, nil
+}
+
+func parseKeyIDFromEndpoint(endpoint string) (string, error) {
+	matches := kmsEndpointRegexp.FindStringSubmatch(endpoint)
+	if matches == nil {
+		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
+	}
+	return matches[1], nil
+}
+
+func findFirstKMSConfiguration(config *apiserverv1.EncryptionConfiguration) *apiserverv1.KMSConfiguration {
+	for _, resource := range config.Resources {
+		for _, provider := range resource.Providers {
+			if provider.KMS != nil {
+				return provider.KMS
+			}
+		}
+	}
 	return nil
 }

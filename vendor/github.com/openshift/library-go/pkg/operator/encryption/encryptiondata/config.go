@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
@@ -36,7 +37,7 @@ func (c *Config) HasEncryptionConfiguration() bool {
 }
 
 // FromEncryptionState converts encryption state to Config.
-func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *Config {
+func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 	var kmsProviders map[string]*configv1.KMSConfig
 
@@ -56,7 +57,13 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 				if kmsProviders == nil {
 					kmsProviders = map[string]*configv1.KMSConfig{}
 				}
-				if _, exists := kmsProviders[key.Key.Name]; !exists {
+				if provider, exists := kmsProviders[key.Key.Name]; exists {
+					// Sanity check: the same keyID seen from a different resource must carry
+					// an identical provider config, since they originate from the same Key Secret.
+					if !equality.Semantic.DeepEqual(provider, key.KMSConfig.Provider) {
+						return nil, fmt.Errorf("KMS provider config mismatch for keyID %s: configs from different resources must be identical", key.Key.Name)
+					}
+				} else {
 					kmsProviders[key.Key.Name] = key.KMSConfig.Provider
 				}
 			}
@@ -71,7 +78,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	return &Config{
 		Encryption:   &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
 		KMSProviders: kmsProviders,
-	}
+	}, nil
 }
 
 // ToEncryptionState converts config to state.
