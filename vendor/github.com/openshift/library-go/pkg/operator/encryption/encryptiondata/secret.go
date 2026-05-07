@@ -5,22 +5,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
+
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
-
-var (
-	apiserverScheme = runtime.NewScheme()
-	apiserverCodecs = serializer.NewCodecFactory(apiserverScheme)
-)
-
-func init() {
-	utilruntime.Must(apiserverconfigv1.AddToScheme(apiserverScheme))
-}
 
 // EncryptionConfSecretName is the name of the final encryption config secret that is revisioned per apiserver rollout.
 const EncryptionConfSecretName = "encryption-config"
@@ -33,18 +24,32 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if !ok {
 		return nil, nil
 	}
-
-	decoder := apiserverCodecs.UniversalDecoder(apiserverconfigv1.SchemeGroupVersion)
-	encryptionConfigObj, err := runtime.Decode(decoder, data)
+	encryptionConfig, err := encoding.DecodeEncryptionConfiguration(data)
 	if err != nil {
 		return nil, err
 	}
-
-	encryptionConfig, ok := encryptionConfigObj.(*apiserverconfigv1.EncryptionConfiguration)
-	if !ok {
-		return nil, fmt.Errorf("unexpected wrong type %T", encryptionConfigObj)
+	var kmsProviders map[string]*configv1.KMSConfig
+	for key, value := range encryptionConfigSecret.Data {
+		// Not all data keys are provider configs — the Secret also contains the
+		// encryption-config entry, so skip keys that don't match the pattern.
+		keyID, found, err := kms.KeyIDFromProviderConfigSecretDataKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract keyID from data key %s: %w", key, err)
+		}
+		if !found {
+			continue
+		}
+		providerConfig, err := encoding.DecodeKMSConfig(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
+		}
+		if kmsProviders == nil {
+			kmsProviders = map[string]*configv1.KMSConfig{}
+		}
+		kmsProviders[keyID] = providerConfig
 	}
-	return &Config{Encryption: encryptionConfig}, nil
+
+	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -52,13 +57,12 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		return nil, fmt.Errorf("secret %s/%s has no encryption config", ns, name)
 	}
 
-	encoder := apiserverCodecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
-	rawEncryptionCfg, err := runtime.Encode(encoder, secretData.Encryption)
+	rawEncryptionCfg, err := encoding.EncodeEncryptionConfiguration(secretData.Encryption)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode the encryption config: %v", err)
 	}
 
-	return &corev1.Secret{
+	s := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: corev1.SchemeGroupVersion.String(),
@@ -75,5 +79,19 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 			EncryptionConfSecretName: rawEncryptionCfg,
 		},
 		Type: corev1.SecretTypeOpaque,
-	}, nil
+	}
+
+	for keyID, providerConfig := range secretData.KMSProviders {
+		encodedProvider, err := encoding.EncodeKMSConfig(providerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode KMS provider config for key %s: %w", keyID, err)
+		}
+		dataKey, err := kms.ToProviderConfigSecretDataKeyFor(keyID)
+		if err != nil {
+			return nil, err
+		}
+		s.Data[dataKey] = encodedProvider
+	}
+
+	return s, nil
 }
