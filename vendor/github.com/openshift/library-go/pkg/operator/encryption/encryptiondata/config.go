@@ -3,7 +3,6 @@ package encryptiondata
 import (
 	"encoding/base64"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -31,9 +30,6 @@ type Config struct {
 	// KMSProviders maps keyID to provider-specific configuration,
 	// carried from Key Secrets into the encryption-config Secret.
 	KMSProviders map[string]*configv1.KMSConfig
-	// KMSCredentials maps keyID to credential key-value pairs,
-	// carried from Key Secrets into the encryption-config Secret.
-	KMSCredentials map[string]map[string]string
 }
 
 func (c *Config) HasEncryptionConfiguration() bool {
@@ -44,7 +40,6 @@ func (c *Config) HasEncryptionConfiguration() bool {
 func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
 	var kmsProviders map[string]*configv1.KMSConfig
-	var kmsCredentials map[string]map[string]string
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
@@ -72,18 +67,6 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 					kmsProviders[key.Key.Name] = key.KMSConfig.Provider
 				}
 			}
-			if key.HasKMSCredentials() {
-				if kmsCredentials == nil {
-					kmsCredentials = map[string]map[string]string{}
-				}
-				if existing, exists := kmsCredentials[key.Key.Name]; exists {
-					if !reflect.DeepEqual(existing, key.KMSConfig.Credentials) {
-						return nil, fmt.Errorf("KMS credentials mismatch for keyID %s: credentials from different resources must be identical", key.Key.Name)
-					}
-				} else {
-					kmsCredentials[key.Key.Name] = key.KMSConfig.Credentials
-				}
-			}
 		}
 	}
 
@@ -93,9 +76,8 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	})
 
 	return &Config{
-		Encryption:     &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-		KMSProviders:   kmsProviders,
-		KMSCredentials: kmsCredentials,
+		Encryption:   &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		KMSProviders: kmsProviders,
 	}, nil
 }
 

@@ -1,7 +1,6 @@
 package encryptiondata
 
 import (
-	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,41 +29,27 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 		return nil, err
 	}
 	var kmsProviders map[string]*configv1.KMSConfig
-	var kmsCredentials map[string]map[string]string
 	for key, value := range encryptionConfigSecret.Data {
+		// Not all data keys are provider configs — the Secret also contains the
+		// encryption-config entry, so skip keys that don't match the pattern.
 		keyID, found, err := kms.KeyIDFromProviderConfigSecretDataKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract keyID from data key %s: %w", key, err)
 		}
-		if found {
-			providerConfig, err := encoding.DecodeKMSConfig(value)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
-			}
-			if kmsProviders == nil {
-				kmsProviders = map[string]*configv1.KMSConfig{}
-			}
-			kmsProviders[keyID] = providerConfig
+		if !found {
 			continue
 		}
-
-		credKeyID, credFound, err := kms.KeyIDFromCredentialSecretDataKey(key)
+		providerConfig, err := encoding.DecodeKMSConfig(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to extract keyID from credential data key %s: %w", key, err)
+			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
 		}
-		if credFound {
-			credentials := map[string]string{}
-			if err := json.Unmarshal(value, &credentials); err != nil {
-				return nil, fmt.Errorf("failed to decode KMS credentials for key %s: %w", credKeyID, err)
-			}
-			if kmsCredentials == nil {
-				kmsCredentials = map[string]map[string]string{}
-			}
-			kmsCredentials[credKeyID] = credentials
+		if kmsProviders == nil {
+			kmsProviders = map[string]*configv1.KMSConfig{}
 		}
+		kmsProviders[keyID] = providerConfig
 	}
 
-	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders, KMSCredentials: kmsCredentials}, nil
+	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -106,18 +91,6 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 			return nil, err
 		}
 		s.Data[dataKey] = encodedProvider
-	}
-
-	for keyID, credentials := range secretData.KMSCredentials {
-		credentialsData, err := json.Marshal(credentials)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode KMS credentials for key %s: %w", keyID, err)
-		}
-		dataKey, err := kms.ToCredentialSecretDataKeyFor(keyID)
-		if err != nil {
-			return nil, err
-		}
-		s.Data[dataKey] = credentialsData
 	}
 
 	return s, nil
