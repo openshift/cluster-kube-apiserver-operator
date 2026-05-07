@@ -14,6 +14,7 @@ import (
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 )
 
@@ -63,18 +64,28 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
 		key.Mode = keyMode
 	case state.KMS:
+		key.KMSConfig = &state.KMSConfig{}
 		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
-			kmsConfiguration := &apiserverconfigv1.KMSConfiguration{}
-			if err := json.Unmarshal(v, kmsConfiguration); err != nil {
+			kmsConfiguration, err := encoding.DecodeKMSConfiguration(v)
+			if err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
-			key.KMS = &state.KMSConfig{
-				EncryptionConfig: kmsConfiguration,
-			}
+			key.KMSConfig.Encryption = kmsConfiguration
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
+		}
+		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
+			kmsConfig, err := encoding.DecodeKMSConfig(v)
+			if err != nil {
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
+			}
+			key.KMSConfig.Provider = kmsConfig
+		} else {
+			// encryption.apiserver.operator.openshift.io-kms-provider-config data field is required for KMS
+			// encryption mode.
+			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSProviderConfig)
 		}
 		key.Mode = keyMode
 	default:
@@ -92,6 +103,10 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	bs, err := base64.StdEncoding.DecodeString(ks.Key.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode key string")
+	}
+
+	if ks.Mode == state.KMS && (!ks.HasKMSEncryption() || !ks.HasKMSProvider()) {
+		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, EncryptionSecretKMSProviderConfig)
 	}
 
 	s := &corev1.Secret{
@@ -128,12 +143,20 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		s.Annotations[EncryptionSecretMigratedResources] = string(bs)
 	}
 
-	if ks.HasKMSEncryptionConfig() {
-		kmsEncCfgJSON, err := json.Marshal(ks.KMS.EncryptionConfig)
+	if ks.HasKMSEncryption() {
+		encryptionConfigurationData, err := encoding.EncodeKMSConfiguration(ks.KMSConfig.Encryption)
 		if err != nil {
 			return nil, err
 		}
-		s.Data[EncryptionSecretKMSEncryptionConfig] = kmsEncCfgJSON
+		s.Data[EncryptionSecretKMSEncryptionConfig] = encryptionConfigurationData
+	}
+
+	if ks.HasKMSProvider() {
+		providerData, err := encoding.EncodeKMSConfig(ks.KMSConfig.Provider)
+		if err != nil {
+			return nil, err
+		}
+		s.Data[EncryptionSecretKMSProviderConfig] = providerData
 	}
 
 	return s, nil
