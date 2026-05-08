@@ -1,6 +1,7 @@
 package kms
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 var kmsEndpointRegexp = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)\.sock$`)
 
 const providerConfigDataKeyPrefix = "kms-provider-config-"
+const credentialDataKeyPrefix = "kms-secret-data-"
 
 // ToProviderConfigSecretDataKeyFor constructs the data key for storing a KMS provider config in the encryption-config Secret.
 // The keyID must be a valid non-negative integer string.
@@ -31,6 +33,28 @@ func ToProviderConfigSecretDataKeyFor(keyID string) (string, error) {
 // Returns the keyID and true if the key matches the "kms-provider-config-<keyID>" pattern.
 func KeyIDFromProviderConfigSecretDataKey(dataKey string) (string, bool, error) {
 	keyID, found := strings.CutPrefix(dataKey, providerConfigDataKeyPrefix)
+	if !found || len(keyID) == 0 {
+		return "", false, nil
+	}
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", false, fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return keyID, true, nil
+}
+
+// ToCredentialSecretDataKeyFor constructs the data key for storing KMS credentials in the encryption-config Secret.
+// The keyID must be a valid non-negative integer string.
+func ToCredentialSecretDataKeyFor(keyID string) (string, error) {
+	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+		return "", fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
+	}
+	return credentialDataKeyPrefix + keyID, nil
+}
+
+// KeyIDFromCredentialSecretDataKey extracts the keyID from a kms-secret-data data key.
+// Returns the keyID and true if the key matches the "kms-secret-data-<keyID>" pattern.
+func KeyIDFromCredentialSecretDataKey(dataKey string) (string, bool, error) {
+	keyID, found := strings.CutPrefix(dataKey, credentialDataKeyPrefix)
 	if !found || len(keyID) == 0 {
 		return "", false, nil
 	}
@@ -115,6 +139,30 @@ func parseProviderConfig(secret *corev1.Secret, kmsConfiguration *apiserverv1.KM
 		return nil, fmt.Errorf("failed to decode provider config: %w", err)
 	}
 	return kmsConfig, nil
+}
+
+func parseRoleID(secret *corev1.Secret, kmsConfiguration *apiserverv1.KMSConfiguration) (string, error) {
+	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse key ID from endpoint: %w", err)
+	}
+	dataKey, err := ToCredentialSecretDataKeyFor(keyID)
+	if err != nil {
+		return "", err
+	}
+	credentialsData, ok := secret.Data[dataKey]
+	if !ok || len(credentialsData) == 0 {
+		return "", fmt.Errorf("missing %s in encryption-config secret", dataKey)
+	}
+	credentials := map[string]string{}
+	if err := json.Unmarshal(credentialsData, &credentials); err != nil {
+		return "", fmt.Errorf("failed to decode credentials from %s: %w", dataKey, err)
+	}
+	roleID, ok := credentials["VAULT_ROLE_ID"]
+	if !ok || len(roleID) == 0 {
+		return "", fmt.Errorf("missing VAULT_ROLE_ID in credentials for keyID %s", keyID)
+	}
+	return roleID, nil
 }
 
 func parseKeyIDFromEndpoint(endpoint string) (string, error) {

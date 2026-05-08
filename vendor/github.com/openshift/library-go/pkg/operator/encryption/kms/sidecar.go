@@ -22,20 +22,12 @@ type SidecarProvider interface {
 	BuildSidecarContainer(name string, kmsConfiguration *apiserverv1.KMSConfiguration) (corev1.Container, error)
 }
 
-func newSidecarProvider(providerConfig *configv1.KMSConfig, secretLister corev1listers.SecretLister) (SidecarProvider, error) {
+func newSidecarProvider(providerConfig *configv1.KMSConfig, roleID string) (SidecarProvider, error) {
 	switch providerConfig.Type {
 	case configv1.VaultKMSProvider:
-		secretName := providerConfig.Vault.Authentication.AppRole.Secret.Name
-		if secretName == "" {
-			return nil, fmt.Errorf("invalid credentials secret name: %v", secretName)
-		}
-		credentials, err := secretLister.Secrets("openshift-config").Get(secretName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get openshift-config/%s secret: %w", secretName, err)
-		}
 		return &plugins.VaultSidecarProvider{
-			Config:      &providerConfig.Vault,
-			Credentials: credentials,
+			Config: &providerConfig.Vault,
+			RoleID: roleID,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported KMS provider configuration")
@@ -77,7 +69,12 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, secretLister corev1listers.Secre
 		return fmt.Errorf("failed to parse provider config: %w", err)
 	}
 
-	sidecarProvider, err := newSidecarProvider(providerConfig, secretLister)
+	roleID, err := parseRoleID(encryptionConfigurationSecret, kmsConfiguration)
+	if err != nil {
+		return fmt.Errorf("failed to parse role ID: %w", err)
+	}
+
+	sidecarProvider, err := newSidecarProvider(providerConfig, roleID)
 	if err != nil {
 		return fmt.Errorf("failed to create a sidecar provider: %w", err)
 	}
@@ -92,10 +89,42 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, secretLister corev1listers.Secre
 		return err
 	}
 
+	if err := addResourceDirMount(podSpec, "kms-plugin"); err != nil {
+		return err
+	}
+
 	if err := addSocketVolume(podSpec, opConfig.APIServerContainerName); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func addResourceDirMount(podSpec *corev1.PodSpec, containerName string) error {
+	containerIndex := -1
+	for i, container := range podSpec.Containers {
+		if container.Name == containerName {
+			containerIndex = i
+			break
+		}
+	}
+	if containerIndex < 0 {
+		return fmt.Errorf("container %s not found", containerName)
+	}
+
+	container := &podSpec.Containers[containerIndex]
+	for _, m := range container.VolumeMounts {
+		if m.Name == "resource-dir" {
+			return nil
+		}
+	}
+	container.VolumeMounts = append(container.VolumeMounts,
+		corev1.VolumeMount{
+			Name:      "resource-dir",
+			MountPath: "/etc/kubernetes/static-pod-resources",
+			ReadOnly:  true,
+		},
+	)
 	return nil
 }
 
