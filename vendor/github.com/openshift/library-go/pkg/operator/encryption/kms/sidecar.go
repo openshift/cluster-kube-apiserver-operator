@@ -22,13 +22,10 @@ type SidecarProvider interface {
 	BuildSidecarContainer(name string, kmsConfiguration *apiserverv1.KMSConfiguration) (corev1.Container, error)
 }
 
-func newSidecarProvider(providerConfig *configv1.KMSConfig, roleID string) (SidecarProvider, error) {
+func newSidecarProvider(providerConfig *configv1.KMSConfig, secretDataPath string) (SidecarProvider, error) {
 	switch providerConfig.Type {
 	case configv1.VaultKMSProvider:
-		return &plugins.VaultSidecarProvider{
-			Config: &providerConfig.Vault,
-			RoleID: roleID,
-		}, nil
+		return plugins.NewVaultSidecarProvider(providerConfig, secretDataPath)
 	default:
 		return nil, fmt.Errorf("unsupported KMS provider configuration")
 	}
@@ -69,12 +66,12 @@ func InjectIntoPodSpec(podSpec *corev1.PodSpec, secretLister corev1listers.Secre
 		return fmt.Errorf("failed to parse provider config: %w", err)
 	}
 
-	roleID, err := parseRoleID(encryptionConfigurationSecret, kmsConfiguration)
+	secretDataPath, err := parseSecretDataPath(kmsConfiguration)
 	if err != nil {
-		return fmt.Errorf("failed to parse role ID: %w", err)
+		return fmt.Errorf("failed to parse secret data path: %w", err)
 	}
 
-	sidecarProvider, err := newSidecarProvider(providerConfig, roleID)
+	sidecarProvider, err := newSidecarProvider(providerConfig, secretDataPath)
 	if err != nil {
 		return fmt.Errorf("failed to create a sidecar provider: %w", err)
 	}

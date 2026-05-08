@@ -1,8 +1,8 @@
 package kms
 
 import (
-	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,6 +19,7 @@ var kmsEndpointRegexp = regexp.MustCompile(`^unix:///var/run/kmsplugin/kms-(\d+)
 
 const providerConfigDataKeyPrefix = "kms-provider-config-"
 const credentialDataKeyPrefix = "kms-secret-data-"
+const credentialsDir = "/etc/kubernetes/static-pod-resources/secrets/encryption-config"
 
 // ToProviderConfigSecretDataKeyFor constructs the data key for storing a KMS provider config in the encryption-config Secret.
 // The keyID must be a valid non-negative integer string.
@@ -121,6 +122,25 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	return nil
 }
 
+func findFirstKMSConfiguration(config *apiserverv1.EncryptionConfiguration) *apiserverv1.KMSConfiguration {
+	for _, resource := range config.Resources {
+		for _, provider := range resource.Providers {
+			if provider.KMS != nil {
+				return provider.KMS
+			}
+		}
+	}
+	return nil
+}
+
+func parseKeyIDFromEndpoint(endpoint string) (string, error) {
+	matches := kmsEndpointRegexp.FindStringSubmatch(endpoint)
+	if matches == nil {
+		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
+	}
+	return matches[1], nil
+}
+
 func parseProviderConfig(secret *corev1.Secret, kmsConfiguration *apiserverv1.KMSConfiguration) (*configv1.KMSConfig, error) {
 	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
 	if err != nil {
@@ -141,45 +161,10 @@ func parseProviderConfig(secret *corev1.Secret, kmsConfiguration *apiserverv1.KM
 	return kmsConfig, nil
 }
 
-func parseRoleID(secret *corev1.Secret, kmsConfiguration *apiserverv1.KMSConfiguration) (string, error) {
+func parseSecretDataPath(kmsConfiguration *apiserverv1.KMSConfiguration) (string, error) {
 	keyID, err := parseKeyIDFromEndpoint(kmsConfiguration.Endpoint)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse key ID from endpoint: %w", err)
 	}
-	dataKey, err := ToCredentialSecretDataKeyFor(keyID)
-	if err != nil {
-		return "", err
-	}
-	credentialsData, ok := secret.Data[dataKey]
-	if !ok || len(credentialsData) == 0 {
-		return "", fmt.Errorf("missing %s in encryption-config secret", dataKey)
-	}
-	credentials := map[string]string{}
-	if err := json.Unmarshal(credentialsData, &credentials); err != nil {
-		return "", fmt.Errorf("failed to decode credentials from %s: %w", dataKey, err)
-	}
-	roleID, ok := credentials["VAULT_ROLE_ID"]
-	if !ok || len(roleID) == 0 {
-		return "", fmt.Errorf("missing VAULT_ROLE_ID in credentials for keyID %s", keyID)
-	}
-	return roleID, nil
-}
-
-func parseKeyIDFromEndpoint(endpoint string) (string, error) {
-	matches := kmsEndpointRegexp.FindStringSubmatch(endpoint)
-	if matches == nil {
-		return "", fmt.Errorf("unexpected KMS endpoint format: %s", endpoint)
-	}
-	return matches[1], nil
-}
-
-func findFirstKMSConfiguration(config *apiserverv1.EncryptionConfiguration) *apiserverv1.KMSConfiguration {
-	for _, resource := range config.Resources {
-		for _, provider := range resource.Providers {
-			if provider.KMS != nil {
-				return provider.KMS
-			}
-		}
-	}
-	return nil
+	return filepath.Join(credentialsDir, credentialDataKeyPrefix+keyID), nil
 }
