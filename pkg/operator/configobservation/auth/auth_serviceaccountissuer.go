@@ -54,7 +54,7 @@ func observedConfig(existingConfig map[string]interface{},
 
 	errs := []error{}
 	var issuerChanged bool
-	var existingConfigIssuer, observedActiveIssuer string
+	var existingConfigIssuer, defaultedExistingConfigIssuer, observedActiveIssuer string
 	// when the issuer will change, indicate that by setting `issuerChanged` to true
 	// to emit the informative event
 	defer func() {
@@ -75,15 +75,16 @@ func observedConfig(existingConfig map[string]interface{},
 	for i := range existingConfigIssuers {
 		if len(existingConfigIssuers[i]) > 0 {
 			existingConfigIssuer = existingConfigIssuers[i]
+			defaultedExistingConfigIssuer = existingConfigIssuer
 			break
 		}
 	}
 
 	// If the issuer is not set, it is safe to assume it is being defaulted by the config override.
 	// However, if there is no issuer set in KAS, we need to default it here and also change the "service-account-jwks-uri".
-	if len(existingConfigIssuer) == 0 {
-		existingConfigIssuer = defaultServiceAccountIssuerValue
-		existingConfigIssuers = []string{existingConfigIssuer}
+	if len(defaultedExistingConfigIssuer) == 0 {
+		defaultedExistingConfigIssuer = defaultServiceAccountIssuerValue
+		existingConfigIssuers = []string{defaultedExistingConfigIssuer}
 	}
 
 	operator, err := getOperator("cluster")
@@ -99,8 +100,8 @@ func observedConfig(existingConfig map[string]interface{},
 	observedActiveIssuer = getActiveServiceAccountIssuer(operator.Status.ServiceAccountIssuers)
 	// if desired active issuer is not set (the serviceaccountissuer for some reason has not defaulted it)
 	// then make sure, we default it here, because we have to set the jwks-uri correctly.
-	if existingConfigIssuer == defaultServiceAccountIssuerValue && len(observedActiveIssuer) == 0 {
-		observedActiveIssuer = existingConfigIssuer
+	if defaultedExistingConfigIssuer == defaultServiceAccountIssuerValue && len(observedActiveIssuer) == 0 {
+		observedActiveIssuer = defaultedExistingConfigIssuer
 	}
 	if err := checkIssuer(observedActiveIssuer); err != nil {
 		return existingConfig, append(errs, err)
