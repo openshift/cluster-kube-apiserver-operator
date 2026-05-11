@@ -22,12 +22,14 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		// gets added to the default featureSet in openshift/api as part of transitioning from
 		// (feature off, v1beta1 off) to (feature on, v1 on).
 		// To prevent that, version ranges below include min and max bounds.
-		// TODO: Update version ranges when rebasing to k8s v1.36+
-		// - If v1 resources are available in 1.36: remove all MutatingAdmissionPolicy references
-		// - If no v1 resources: bump ranges to "<1.37.0" and reassess in next rebase
-		// See api/discovery/apis__admissionregistration.k8s.io__v1.json in the kubernetes repo to easily determine.
-		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.36.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
-		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.36.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
+		// TODO: Remove all MutatingAdmissionPolicy references once openshift-apiserver is rebased to k8s 1.36+
+		// and no longer needs v1beta1 informers. MutatingAdmissionPolicy v1 resources are available in 1.36.
+		// The upper bound is temporarily extended to <1.37.0 because openshift-apiserver still vendors
+		// k8s.io/apiserver at 1.34 (via openshift/kubernetes-apiserver) and its MutatingAdmissionPolicy
+		// admission plugin uses v1beta1 informers. The openshift-apiserver can't be rebased until the
+		// o/k 1.36 rebase lands and a 1.36 branch is created on openshift/kubernetes-apiserver.
+		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
+		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 	},
 }
 
