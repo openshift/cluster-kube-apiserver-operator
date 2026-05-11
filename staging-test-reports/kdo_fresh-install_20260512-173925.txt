@@ -1,0 +1,17 @@
+========================================
+  Test Report: Kube Descheduler Operator v5.4.0
+  Test Type:   fresh-install
+  Date:        Tue May 12 17:39:29 IST 2026
+========================================
+
+Test: Fresh install of Kube Descheduler Operator v5.4.0
+Date: Tue May 12 17:39:29 IST 2026
+
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-10-025105   True        False         9m9s    Cluster version is 4.22.0-0.nightly-2026-05-10-025105
+
+Architecture: amd64
+
+RESULT: FAILED — CatalogSource not ready

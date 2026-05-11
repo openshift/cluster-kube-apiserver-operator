@@ -1,0 +1,34 @@
+========================================
+  Test: Secondary Scheduler Operator for Red Hat OpenShift v1.6.0
+  Type: fresh-install
+  Date: Tue May 12 17:53:40 IST 2026
+========================================
+
+Test: Fresh install Secondary Scheduler Operator for Red Hat OpenShift v1.6.0
+Date: Tue May 12 17:53:40 IST 2026
+
+──── Final state after fresh install ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-10-025105   True        False         25m     Cluster version is 4.22.0-0.nightly-2026-05-10-025105
+
+
+$ oc get subscription -n openshift-secondary-scheduler-operator
+NAME                                     PACKAGE                                  SOURCE         CHANNEL
+openshift-secondary-scheduler-operator   openshift-secondary-scheduler-operator   osso-staging   stable
+
+
+$ oc get csv -n openshift-secondary-scheduler-operator
+NAME                                DISPLAY                                              VERSION   RELEASE   REPLACES                            PHASE
+secondaryscheduleroperator.v1.6.0   Secondary Scheduler Operator for Red Hat OpenShift   1.6.0               secondaryscheduleroperator.v1.5.0   Succeeded
+
+
+$ oc get pods -n openshift-secondary-scheduler-operator
+NAME                                          READY   STATUS    RESTARTS   AGE
+secondary-scheduler-operator-5db46d56-mrgzr   1/1     Running   0          58s
+
+
+════════════════════════════════════════
+RESULT: PASSED
+════════════════════════════════════════

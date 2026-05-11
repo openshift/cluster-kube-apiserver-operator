@@ -1,0 +1,33 @@
+========================================
+  Test: Kube Descheduler Operator v5.4.0
+  Type: upgrade
+  Date: Tue May 12 18:39:18 IST 2026
+========================================
+
+Test: Upgrade Kube Descheduler Operator v5.3 → v5.4.0
+Date: Tue May 12 18:39:18 IST 2026
+
+Operator already installed: v5.3.2
+──── Existing state ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.21.0-0.nightly-2026-05-11-200012   True        False         62m     Cluster version is 4.21.0-0.nightly-2026-05-11-200012
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE             CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   redhat-operators   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.3.2   Kube Descheduler Operator   5.3.2     clusterkubedescheduleroperator.v5.2.0   Succeeded
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                    READY   STATUS    RESTARTS   AGE
+descheduler-operator-548958ccc7-wl5r9   1/1     Running   0          37m
+
+
+Step 2: Switch to staging catalog for v5.4.0

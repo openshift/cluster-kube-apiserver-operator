@@ -1,0 +1,10 @@
+========================================
+  Test: Secondary Scheduler Operator for Red Hat OpenShift v1.6.0
+  Type: upgrade
+  Date: Tue May 12 20:07:12 IST 2026
+========================================
+
+Test: Upgrade Secondary Scheduler Operator for Red Hat OpenShift v1.5 → v1.6.0
+Date: Tue May 12 20:07:12 IST 2026
+
+──── Step 1: Install v1.5.x from redhat-operators on OCP 4.22.0-0.nightly-2026-05-11-232602 ────

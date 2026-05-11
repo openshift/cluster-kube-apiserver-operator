@@ -23,6 +23,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
@@ -58,6 +59,7 @@ type TargetConfigController struct {
 
 	kubeClient          kubernetes.Interface
 	configMapLister     corev1listers.ConfigMapLister
+	secretLister        corev1listers.SecretLister
 	featureGateAccessor featuregates.FeatureGateAccess
 
 	isStartupMonitorEnabledFn      func() (bool, error)
@@ -82,6 +84,7 @@ func NewTargetConfigController(
 		operatorClient:                 operatorClient,
 		kubeClient:                     kubeClient,
 		configMapLister:                kubeInformersForNamespaces.ConfigMapLister(),
+		secretLister:                   kubeInformersForNamespaces.SecretLister(),
 		featureGateAccessor:            featureGateAccessor,
 		isStartupMonitorEnabledFn:      isStartupMonitorEnabledFn,
 		requireMultipleEtcdEndpointsFn: requireMultipleEtcdEndpointsFn,
@@ -224,7 +227,7 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.featureGateAccessor, c.secretLister, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
@@ -308,7 +311,7 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
+func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featureGateAccessor featuregates.FeatureGateAccess, secretLister corev1listers.SecretLister, isStartupMonitorEnabledFn func() (bool, error), recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec, imagePullSpec, operatorImagePullSpec, operatorImageVersion string) (*corev1.ConfigMap, bool, error) {
 	appliedPodTemplate, err := manageTemplate(string(bindata.MustAsset("assets/kube-apiserver/pod.yaml")), imagePullSpec, operatorImagePullSpec, operatorImageVersion, operatorSpec)
 	if err != nil {
 		return nil, false, err
@@ -332,6 +335,12 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, featu
 	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec, "kube-apiserver", featureGateAccessor); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
 	}
+
+	// TODO: enable Vault KMS sidecar injection once the Vault provider is fully wired.
+	// pluginlifecycle.AddKMSPluginSidecarToPodSpec is not called yet because the mock
+	// KMS deployer uses a DaemonSet (not a sidecar) and does not store Vault plugin
+	// config in the encryption-config secret.
+	_ = pluginlifecycle.AddKMSPluginSidecarToPodSpec
 
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/pod-cm.yaml"))
 	configMap.Data["pod.yaml"] = resourceread.WritePodV1OrDie(required)

@@ -1,0 +1,10 @@
+========================================
+  Test: Kube Descheduler Operator v5.4.0
+  Type: upgrade
+  Date: Tue May 12 18:01:24 IST 2026
+========================================
+
+Test: Upgrade Kube Descheduler Operator v5.3.0 → v5.4.0
+Date: Tue May 12 18:01:24 IST 2026
+
+Step 1: Install v5.3.0 from redhat-operators

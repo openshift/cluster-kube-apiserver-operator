@@ -143,7 +143,10 @@ func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx cont
 		return nil
 	}
 
-	desiredSecretData := encryptiondata.FromEncryptionState(desiredEncryptionState)
+	desiredSecretData, err := encryptiondata.FromEncryptionState(desiredEncryptionState)
+	if err != nil {
+		return err
+	}
 	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
 	if err != nil {
 		return err

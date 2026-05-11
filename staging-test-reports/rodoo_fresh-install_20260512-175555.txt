@@ -1,0 +1,37 @@
+========================================
+  Test: Run Once Duration Override Operator v1.4.1
+  Type: fresh-install
+  Date: Tue May 12 17:55:55 IST 2026
+========================================
+
+Test: Fresh install Run Once Duration Override Operator v1.4.1
+Date: Tue May 12 17:55:55 IST 2026
+
+──── Final state after fresh install ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-10-025105   True        False         27m     Cluster version is 4.22.0-0.nightly-2026-05-10-025105
+
+
+$ oc get subscription -n openshift-run-once-duration-override-operator
+NAME                                  PACKAGE                               SOURCE          CHANNEL
+run-once-duration-override-operator   run-once-duration-override-operator   rodoo-staging   stable
+
+
+$ oc get csv -n openshift-run-once-duration-override-operator
+NAME                                     DISPLAY                               VERSION   RELEASE   REPLACES                                 PHASE
+runoncedurationoverrideoperator.v1.4.1   Run Once Duration Override Operator   1.4.1               runoncedurationoverrideoperator.v1.3.0   Succeeded
+
+
+$ oc get pods -n openshift-run-once-duration-override-operator
+NAME                                                   READY   STATUS    RESTARTS   AGE
+run-once-duration-override-operator-66bd8dcbdb-h9fkp   1/1     Running   0          56s
+runoncedurationoverride-bsh9c                          1/1     Running   0          14s
+runoncedurationoverride-cw9px                          1/1     Running   0          15s
+runoncedurationoverride-tvhln                          1/1     Running   0          15s
+
+
+════════════════════════════════════════
+RESULT: PASSED
+════════════════════════════════════════

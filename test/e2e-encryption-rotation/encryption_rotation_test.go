@@ -41,6 +41,6 @@ func TestEncryptionRotation(t *testing.T) {
 			_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
 			return err
 		},
-		EncryptionProvider: configv1.EncryptionType(*provider),
+		EncryptionProvider: library.NewStaticEncryptionProvider(configv1.EncryptionType(*provider)),
 	})
 }

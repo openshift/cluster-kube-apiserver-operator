@@ -1,0 +1,34 @@
+========================================
+  Test: Kube Descheduler Operator v5.4.0
+  Type: upgrade
+  Date: Tue May 12 18:50:12 IST 2026
+========================================
+
+Test: Upgrade Kube Descheduler Operator v5.3 → v5.4.0
+Date: Tue May 12 18:50:12 IST 2026
+
+Operator already installed: v5.3.2 on OCP 4.21.0-0.nightly-2026-05-11-200012
+──── Existing state ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.21.0-0.nightly-2026-05-11-200012   True        False         73m     Cluster version is 4.21.0-0.nightly-2026-05-11-200012
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE             CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   redhat-operators   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.3.2   Kube Descheduler Operator   5.3.2     clusterkubedescheduleroperator.v5.2.0   Replacing
+clusterkubedescheduleroperator.v5.4.0   Kube Descheduler Operator   5.4.0     clusterkubedescheduleroperator.v5.3.2   Pending
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                    READY   STATUS    RESTARTS   AGE
+descheduler-operator-548958ccc7-wl5r9   1/1     Running   0          48m
+
+
+──── Step 2: Upgrade OCP 4.21.0-0.nightly-2026-05-11-200012 → 4.22 ────

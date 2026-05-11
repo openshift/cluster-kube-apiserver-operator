@@ -1,0 +1,35 @@
+========================================
+  Test: Kube Descheduler Operator v5.4.0
+  Type: fresh-install
+  Date: Tue May 12 19:36:50 IST 2026
+========================================
+
+Test: Fresh install Kube Descheduler Operator v5.4.0
+Date: Tue May 12 19:36:50 IST 2026
+
+──── Final state after fresh install ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-10-025105   True        False         10h     Error while reconciling 4.22.0-0.nightly-2026-05-10-025105: the cluster operator insights is not available
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE        CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   kdo-staging   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   RELEASE   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.4.0   Kube Descheduler Operator   5.4.0               clusterkubedescheduleroperator.v5.3.0   Succeeded
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                   READY   STATUS    RESTARTS   AGE
+descheduler-95c5cd8c-2bsxh             1/1     Running   0          17s
+descheduler-operator-b8c44fdfc-fvzvv   1/1     Running   0          57s
+
+
+════════════════════════════════════════
+RESULT: PASSED
+════════════════════════════════════════

@@ -6,13 +6,26 @@ import (
 	"math/rand/v2"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	g "github.com/onsi/ginkgo/v2"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
-	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
+)
+
+const (
+	vaultNamespace         = "vault-kms"
+	vaultCredentialsSecret = "vault-credentials"
+	vaultAppRoleSecretName = "vault-approle-secret"
+	vaultKMSPluginImage    = "registry.ci.openshift.org/control-plane-custom-builds/vault-kube-kms@sha256:33599dd6eee61dcf9a60138759fafda3d88593a3c2072585156882c6b5bd3fa5"
+	vaultAddress           = "https://vault.vault-kms.svc:8200"
+	vaultTransitKey        = "kms-key"
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
@@ -25,23 +38,10 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	})
 })
 
-// testKMSEncryptionOnOff tests KMS encryption on/off cycle.
-// This test:
-// 1. Deploys the mock KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Enables KMS encryption
-// 4. Verifies secret is encrypted
-// 5. Disables encryption (Identity)
-// 6. Verifies secret is NOT encrypted
-// 7. Re-enables KMS encryption
-// 8. Verifies secret is encrypted again
-// 9. Disables encryption (Identity) again
-// 10. Verifies secret is NOT encrypted again
+// testKMSEncryptionOnOff tests KMS encryption on/off cycle with the Vault provider.
+// Vault is deployed by the CI step (etcd-encryption-vault-install) before this
+// test runs. The operator injects the KMS plugin sidecar based on the APIServer CR.
 func testKMSEncryptionOnOff(t testing.TB) {
-	// Deploy the mock KMS plugin for testing.
-	// NOTE: This manual deployment is only required for KMS v1. In the future,
-	// the platform will manage the KMS plugins, and this code will no longer be needed.
-	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -57,20 +57,16 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProvider:             configv1.EncryptionTypeKMS,
+		EncryptionProvider: library.EncryptionProviderConfig{
+			Type:        configv1.EncryptionTypeKMS,
+			ConfigureFn: configureVaultKMS,
+		},
 	})
 }
 
-// testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
-// This test:
-// 1. Deploys the mock KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Randomly picks one AES encryption provider (AESGCM or AESCBC)
-// 4. Shuffles the selected AES provider with KMS to create a randomized migration order
-// 5. Migrates between the providers in the shuffled order
-// 6. Verifies secret is correctly encrypted after each migration
+// testKMSEncryptionProvidersMigration tests migration between KMS (Vault) and
+// AES encryption providers. Vault is deployed by the CI step.
 func testKMSEncryptionProvidersMigration(t testing.TB) {
-	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -86,6 +82,54 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProviders:            library.ShuffleEncryptionProviders([]configv1.EncryptionType{configv1.EncryptionTypeKMS, library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))]}),
+		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProviderConfig{
+			{Type: configv1.EncryptionTypeKMS, ConfigureFn: configureVaultKMS},
+			library.NewStaticEncryptionProvider(library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))]),
+		}),
+	})
+}
+
+// configureVaultKMS reads credentials from the vault-credentials secret
+// (created by the CI step), creates the AppRole secret in openshift-config,
+// and patches the APIServer CR with the Vault KMS configuration.
+func configureVaultKMS(t testing.TB, cs library.ClientSet) {
+	t.Helper()
+	ctx := context.Background()
+
+	creds, err := cs.Kube.CoreV1().Secrets(vaultNamespace).Get(ctx, vaultCredentialsSecret, metav1.GetOptions{})
+	require.NoError(t, err, "failed to read %s/%s secret (was the vault-install CI step run?)", vaultNamespace, vaultCredentialsSecret)
+
+	appRoleSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaultAppRoleSecretName,
+			Namespace: "openshift-config",
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"roleID":   creds.Data["role-id"],
+			"secretID": creds.Data["secret-id"],
+		},
+	}
+	_, err = cs.Kube.CoreV1().Secrets("openshift-config").Create(ctx, appRoleSecret, metav1.CreateOptions{})
+	if err != nil {
+		_, err = cs.Kube.CoreV1().Secrets("openshift-config").Update(ctx, appRoleSecret, metav1.UpdateOptions{})
+		require.NoError(t, err)
+	}
+	t.Logf("Created/updated AppRole secret %s in openshift-config", vaultAppRoleSecretName)
+
+	library.UpdateKMSConfig(t, configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: vaultKMSPluginImage,
+			VaultAddress:   vaultAddress,
+			TransitMount:   "transit",
+			TransitKey:     vaultTransitKey,
+			Authentication: configv1.VaultAuthentication{
+				Type: configv1.VaultAuthenticationTypeAppRole,
+				AppRole: configv1.VaultAppRoleAuthentication{
+					Secret: configv1.VaultSecretReference{Name: vaultAppRoleSecretName},
+				},
+			},
+		},
 	})
 }

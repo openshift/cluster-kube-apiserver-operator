@@ -28,28 +28,28 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var kmsProviders map[string]*configv1.KMSConfig
+	var kmsPlugins map[string]configv1.KMSPluginConfig
 	for key, value := range encryptionConfigSecret.Data {
-		// Not all data keys are provider configs — the Secret also contains the
+		// Not all data keys are plugin configs — the Secret also contains the
 		// encryption-config entry, so skip keys that don't match the pattern.
-		keyID, found, err := kms.KeyIDFromProviderConfigSecretDataKey(key)
+		keyID, found, err := kms.KeyIDFromPluginConfigSecretDataKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract keyID from data key %s: %w", key, err)
 		}
 		if !found {
 			continue
 		}
-		providerConfig, err := encoding.DecodeKMSConfig(value)
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
+			return nil, fmt.Errorf("failed to decode KMS plugin config for key %s: %w", keyID, err)
 		}
-		if kmsProviders == nil {
-			kmsProviders = map[string]*configv1.KMSConfig{}
+		if kmsPlugins == nil {
+			kmsPlugins = map[string]configv1.KMSPluginConfig{}
 		}
-		kmsProviders[keyID] = providerConfig
+		kmsPlugins[keyID] = pluginConfig
 	}
 
-	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
+	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -81,16 +81,16 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	for keyID, providerConfig := range secretData.KMSProviders {
-		encodedProvider, err := encoding.EncodeKMSConfig(providerConfig)
+	for keyID, pluginConfig := range secretData.KMSPlugins {
+		encodedPlugin, err := encoding.EncodeKMSPluginConfig(pluginConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode KMS provider config for key %s: %w", keyID, err)
+			return nil, fmt.Errorf("failed to encode KMS plugin config for key %s: %w", keyID, err)
 		}
-		dataKey, err := kms.ToProviderConfigSecretDataKeyFor(keyID)
+		dataKey, err := kms.ToPluginConfigSecretDataKeyFor(keyID)
 		if err != nil {
 			return nil, err
 		}
-		s.Data[dataKey] = encodedProvider
+		s.Data[dataKey] = encodedPlugin
 	}
 
 	return s, nil

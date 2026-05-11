@@ -5,26 +5,29 @@ import (
 	"strconv"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	corev1 "k8s.io/api/core/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 )
 
-const providerConfigDataKeyPrefix = "kms-provider-config-"
+const pluginConfigDataKeyPrefix = "kms-plugin-config-"
 
-// ToProviderConfigSecretDataKeyFor constructs the data key for storing a KMS provider config in the encryption-config Secret.
+// ToPluginConfigSecretDataKeyFor constructs the data key for storing a KMS plugin config in the encryption-config Secret.
 // The keyID must be a valid non-negative integer string.
-func ToProviderConfigSecretDataKeyFor(keyID string) (string, error) {
+func ToPluginConfigSecretDataKeyFor(keyID string) (string, error) {
 	if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
 		return "", fmt.Errorf("invalid keyID %q: must be a non-negative integer", keyID)
 	}
-	return providerConfigDataKeyPrefix + keyID, nil
+	return pluginConfigDataKeyPrefix + keyID, nil
 }
 
-// KeyIDFromProviderConfigSecretDataKey extracts the keyID from a kms-provider-config data key.
-// Returns the keyID and true if the key matches the "kms-provider-config-<keyID>" pattern.
-func KeyIDFromProviderConfigSecretDataKey(dataKey string) (string, bool, error) {
-	keyID, found := strings.CutPrefix(dataKey, providerConfigDataKeyPrefix)
+// KeyIDFromPluginConfigSecretDataKey extracts the keyID from a kms-plugin-config data key.
+// Returns the keyID and true if the key matches the "kms-plugin-config-<keyID>" pattern.
+func KeyIDFromPluginConfigSecretDataKey(dataKey string) (string, bool, error) {
+	keyID, found := strings.CutPrefix(dataKey, pluginConfigDataKeyPrefix)
 	if !found || len(keyID) == 0 {
 		return "", false, nil
 	}
@@ -89,4 +92,52 @@ func AddKMSPluginVolumeAndMountToPodSpec(podSpec *corev1.PodSpec, containerName 
 	)
 
 	return nil
+}
+
+// KMSendpointsByKeyID walks through all resource configurations in the EncryptionConfiguration
+// and collects every unique KMS provider, deduplicating by endpoint.
+func KMSendpointsByKeyID(config *apiserverv1.EncryptionConfiguration) (map[string]string, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+	byKeyID := map[string]string{}
+	for _, resource := range config.Resources {
+		for _, provider := range resource.Providers {
+			if provider.KMS == nil {
+				continue
+			}
+			keyID, err := GetKeyIDFromPluginName(provider.KMS.Name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse key ID from provider name %q: %w", provider.KMS.Name, err)
+			}
+			byKeyID[keyID] = provider.KMS.Endpoint
+		}
+	}
+	return byKeyID, nil
+}
+
+// GetKeyIDFromPluginName extracts the keyID from a KMS provider name.
+func GetKeyIDFromPluginName(providerName string) (string, error) {
+	parsed := strings.SplitN(providerName, "_", 2)
+	if len(parsed) != 2 {
+		return "", fmt.Errorf("invalid provider name %q: expected format keyID_resourceName", providerName)
+	}
+	return parsed[0], nil
+}
+
+// ParsePluginConfig extracts and decodes the provider-specific KMSPluginConfig for the given keyID from the encryption-config secret.
+func ParsePluginConfig(secret *corev1.Secret, keyID string) (*configv1.KMSPluginConfig, error) {
+	pluginConfigKey, err := ToPluginConfigSecretDataKeyFor(keyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plugin config secret data key for keyID %s: %w", keyID, err)
+	}
+	pluginConfigData, ok := secret.Data[pluginConfigKey]
+	if !ok {
+		return nil, fmt.Errorf("missing plugin config key %s in encryption-config secret", pluginConfigKey)
+	}
+	kmsPluginConfig, err := encoding.DecodeKMSPluginConfig(pluginConfigData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode plugin config: %w", err)
+	}
+	return &kmsPluginConfig, nil
 }

@@ -1,0 +1,87 @@
+========================================
+  Test: Kube Descheduler Operator v5.4.0
+  Type: upgrade
+  Date: Tue May 12 18:51:55 IST 2026
+========================================
+
+Test: Upgrade Kube Descheduler Operator v5.3 → v5.4.0
+Date: Tue May 12 18:51:55 IST 2026
+
+Operator already installed: v5.3.2 on OCP 4.21.0-0.nightly-2026-05-11-200012
+──── Existing state ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.21.0-0.nightly-2026-05-11-200012   True        False         75m     Cluster version is 4.21.0-0.nightly-2026-05-11-200012
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE             CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   redhat-operators   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.3.2   Kube Descheduler Operator   5.3.2     clusterkubedescheduleroperator.v5.2.0   Replacing
+clusterkubedescheduleroperator.v5.4.0   Kube Descheduler Operator   5.4.0     clusterkubedescheduleroperator.v5.3.2   Pending
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                    READY   STATUS    RESTARTS   AGE
+descheduler-operator-548958ccc7-wl5r9   1/1     Running   0          50m
+
+
+──── Step 2: Upgrade OCP 4.21.0-0.nightly-2026-05-11-200012 → 4.22 ────
+
+──── Step 2b: Checking if operator auto-upgraded after OCP upgrade ────
+Operator auto-upgraded: v5.3.2 → v5.4.0
+──── After OCP 4.22 upgrade (operator v5.4.0) ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-11-232602   True        False         83s     Cluster version is 4.22.0-0.nightly-2026-05-11-232602
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE             CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   redhat-operators   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   RELEASE   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.4.0   Kube Descheduler Operator   5.4.0               clusterkubedescheduleroperator.v5.3.2   Succeeded
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                    READY   STATUS    RESTARTS   AGE
+descheduler-operator-64588bc5fb-p5fcr   1/1     Running   0          21m
+
+
+──── Step 3: Switch to staging catalog for v5.4.0 ────
+──── Final state: OCP 4.22 + v5.4.0 ────
+
+$ oc get clusterversion
+NAME      VERSION                              AVAILABLE   PROGRESSING   SINCE   STATUS
+version   4.22.0-0.nightly-2026-05-11-232602   True        False         3m29s   Cluster version is 4.22.0-0.nightly-2026-05-11-232602
+
+
+$ oc get subscription -n openshift-kube-descheduler-operator
+NAME                                PACKAGE                             SOURCE        CHANNEL
+cluster-kube-descheduler-operator   cluster-kube-descheduler-operator   kdo-staging   stable
+
+
+$ oc get csv -n openshift-kube-descheduler-operator
+NAME                                    DISPLAY                     VERSION   RELEASE   REPLACES                                PHASE
+clusterkubedescheduleroperator.v5.4.0   Kube Descheduler Operator   5.4.0               clusterkubedescheduleroperator.v5.3.2   Succeeded
+
+
+$ oc get pods -n openshift-kube-descheduler-operator
+NAME                                    READY   STATUS    RESTARTS   AGE
+descheduler-7bc697d88-8tcgk             1/1     Running   0          18s
+descheduler-operator-64588bc5fb-p5fcr   1/1     Running   0          24m
+
+
+════════════════════════════════════════
+RESULT: PASSED
+Upgrade: OCP 4.21.0-0.nightly-2026-05-11-200012 + v5.3.x → OCP 4.22 + staging v5.4.0
+════════════════════════════════════════

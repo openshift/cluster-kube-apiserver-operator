@@ -24,7 +24,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	"github.com/openshift/library-go/test/library"
-	"github.com/openshift/library-go/test/library/encryption/kms"
 )
 
 var (
@@ -67,7 +66,6 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 	if needsUpdate {
 		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
 		apiServer.Spec.Encryption.Type = encryptionType
-		apiServer.Spec.Encryption.KMS = defaultTestKMSConfig(encryptionType)
 		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
@@ -76,6 +74,27 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 
 	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, encryptionType, defaultTargetGRs, namespace, labelSelector)
 	return clientSet
+}
+
+// UpdateKMSConfig updates the KMS plugin configuration on the APIServer CR.
+// It only patches the CR; callers are responsible for waiting on key rotation
+// or migration if needed.
+func UpdateKMSConfig(t testing.TB, kmsConfig configv1.KMSPluginConfig) {
+	t.Helper()
+	t.Logf("Updating KMS config on APIServer CR (provider: %q)", kmsConfig.Type)
+
+	clientSet := GetClients(t)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		apiServer, getErr := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
+		if getErr != nil {
+			return getErr
+		}
+		apiServer.Spec.Encryption.Type = configv1.EncryptionTypeKMS
+		apiServer.Spec.Encryption.KMS = kmsConfig
+		_, updateErr := clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
+		return updateErr
+	})
+	require.NoError(t, err)
 }
 
 func GetClients(t testing.TB) ClientSet {
@@ -338,25 +357,5 @@ func setUpTearDown(namespace string) func(testing.TB, bool) {
 				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
 			}
 		}
-	}
-}
-
-func defaultTestKMSConfig(encryptionType configv1.EncryptionType) *configv1.KMSConfig {
-	if encryptionType != configv1.EncryptionTypeKMS {
-		return nil
-	}
-	return &configv1.KMSConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSConfig{
-			KMSPluginImage: kms.WellKnownUpstreamMockKMSPluginImage,
-			VaultAddress:   "https://vault.example.com",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
-				},
-			},
-			TransitKey: "test-transit-key",
-		},
 	}
 }
