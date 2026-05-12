@@ -64,28 +64,28 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 	case state.AESCBC, state.AESGCM, state.SecretBox, state.Identity:
 		key.Mode = keyMode
 	case state.KMS:
-		key.KMSConfig = &state.KMSConfig{}
+		key.KMS = &state.KMSState{}
 		if v, ok := s.Data[EncryptionSecretKMSEncryptionConfig]; ok && len(v) > 0 {
 			kmsConfiguration, err := encoding.DecodeKMSConfiguration(v)
 			if err != nil {
 				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSEncryptionConfig, err)
 			}
-			key.KMSConfig.Encryption = kmsConfiguration
+			key.KMS.Encryption = kmsConfiguration
 		} else {
 			// encryption.apiserver.operator.openshift.io-kms-encryption-config data field is required for KMS
 			// encryption mode.
 			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig)
 		}
-		if v, ok := s.Data[EncryptionSecretKMSProviderConfig]; ok && len(v) > 0 {
-			kmsConfig, err := encoding.DecodeKMSConfig(v)
+		if v, ok := s.Data[EncryptionSecretKMSPluginConfig]; ok && len(v) > 0 {
+			kmsConfig, err := encoding.DecodeKMSPluginConfig(v)
 			if err != nil {
-				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSProviderConfig, err)
+				return state.KeyState{}, fmt.Errorf("secret %s/%s has invalid %s data: %w", s.Namespace, s.Name, EncryptionSecretKMSPluginConfig, err)
 			}
-			key.KMSConfig.Provider = kmsConfig
+			key.KMS.Plugin = kmsConfig
 		} else {
-			// encryption.apiserver.operator.openshift.io-kms-provider-config data field is required for KMS
+			// encryption.apiserver.operator.openshift.io-kms-plugin-config data field is required for KMS
 			// encryption mode.
-			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSProviderConfig)
+			return state.KeyState{}, fmt.Errorf("%s can not be empty, when mode is KMS", EncryptionSecretKMSPluginConfig)
 		}
 		key.Mode = keyMode
 	default:
@@ -105,8 +105,8 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 		return nil, fmt.Errorf("failed to decode key string")
 	}
 
-	if ks.Mode == state.KMS && (!ks.HasKMSEncryption() || !ks.HasKMSProvider()) {
-		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, EncryptionSecretKMSProviderConfig)
+	if ks.Mode == state.KMS && (!ks.HasKMSEncryption() || !ks.HasKMSPlugin()) {
+		return nil, fmt.Errorf("%s or %s can not be empty, when mode is KMS", EncryptionSecretKMSEncryptionConfig, EncryptionSecretKMSPluginConfig)
 	}
 
 	s := &corev1.Secret{
@@ -144,19 +144,19 @@ func FromKeyState(component string, ks state.KeyState) (*corev1.Secret, error) {
 	}
 
 	if ks.HasKMSEncryption() {
-		encryptionConfigurationData, err := encoding.EncodeKMSConfiguration(ks.KMSConfig.Encryption)
+		encryptionConfigurationData, err := encoding.EncodeKMSConfiguration(ks.KMS.Encryption)
 		if err != nil {
 			return nil, err
 		}
 		s.Data[EncryptionSecretKMSEncryptionConfig] = encryptionConfigurationData
 	}
 
-	if ks.HasKMSProvider() {
-		providerData, err := encoding.EncodeKMSConfig(ks.KMSConfig.Provider)
+	if ks.HasKMSPlugin() {
+		pluginData, err := encoding.EncodeKMSPluginConfig(ks.KMS.Plugin)
 		if err != nil {
 			return nil, err
 		}
-		s.Data[EncryptionSecretKMSProviderConfig] = providerData
+		s.Data[EncryptionSecretKMSPluginConfig] = pluginData
 	}
 
 	return s, nil

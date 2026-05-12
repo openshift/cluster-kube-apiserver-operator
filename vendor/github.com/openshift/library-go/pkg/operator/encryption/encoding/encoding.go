@@ -11,13 +11,19 @@ import (
 )
 
 var (
-	scheme = runtime.NewScheme()
-	codecs = serializer.NewCodecFactory(scheme)
+	scheme         = runtime.NewScheme()
+	codecs         = serializer.NewCodecFactory(scheme)
+	jsonSerializer runtime.Serializer
 )
 
 func init() {
 	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(apiserverconfigv1.AddToScheme(scheme))
+	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), runtime.ContentTypeJSON)
+	if !ok {
+		panic("json is not a supported media type")
+	}
+	jsonSerializer = info.Serializer
 }
 
 // EncodeEncryptionConfiguration serializes an EncryptionConfiguration to its serialized representation.
@@ -25,7 +31,7 @@ func EncodeEncryptionConfiguration(encryptionConfiguration *apiserverconfigv1.En
 	if encryptionConfiguration == nil {
 		return nil, fmt.Errorf("EncryptionConfiguration object cannot be nil")
 	}
-	encoder := codecs.LegacyCodec(apiserverconfigv1.SchemeGroupVersion)
+	encoder := codecs.EncoderForVersion(jsonSerializer, apiserverconfigv1.SchemeGroupVersion)
 	encryptionConfigurationData, err := runtime.Encode(encoder, encryptionConfiguration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode EncryptionConfiguration: %w", err)
@@ -75,12 +81,9 @@ func DecodeKMSConfiguration(data []byte) (*apiserverconfigv1.KMSConfiguration, e
 	return encryptionConfiguration.Resources[0].Providers[0].KMS, nil
 }
 
-// EncodeKMSConfig serializes a configv1.KMSConfig into a configv1.APIServer wrapper.
-// We use a configv1.APIServer as an envelope type because configv1.KMSConfig is not a runtime.Object.
-func EncodeKMSConfig(kmsConfig *configv1.KMSConfig) ([]byte, error) {
-	if kmsConfig == nil {
-		return nil, fmt.Errorf("KMSConfig object cannot be nil")
-	}
+// EncodeKMSPluginConfig serializes a configv1.KMSPluginConfig into a configv1.APIServer wrapper.
+// We use a configv1.APIServer as an envelope type because configv1.KMSPluginConfig is not a runtime.Object.
+func EncodeKMSPluginConfig(kmsConfig configv1.KMSPluginConfig) ([]byte, error) {
 	apiServerObj := &configv1.APIServer{
 		Spec: configv1.APIServerSpec{
 			Encryption: configv1.APIServerEncryption{
@@ -88,21 +91,21 @@ func EncodeKMSConfig(kmsConfig *configv1.KMSConfig) ([]byte, error) {
 			},
 		},
 	}
-	encoder := codecs.LegacyCodec(configv1.SchemeGroupVersion)
-	providerData, err := runtime.Encode(encoder, apiServerObj)
+	encoder := codecs.EncoderForVersion(jsonSerializer, configv1.SchemeGroupVersion)
+	pluginData, err := runtime.Encode(encoder, apiServerObj)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode KMS provider config: %w", err)
+		return nil, fmt.Errorf("failed to encode KMS plugin config: %w", err)
 	}
-	return providerData, nil
+	return pluginData, nil
 }
 
-// DecodeKMSConfig extracts a configv1.KMSConfig object from its serialized configv1.APIServer wrapper.
-// We use a configv1.APIServer as an envelope type because KMSConfig is not a runtime.Object.
-func DecodeKMSConfig(data []byte) (*configv1.KMSConfig, error) {
+// DecodeKMSPluginConfig extracts a configv1.KMSPluginConfig object from its serialized configv1.APIServer wrapper.
+// We use a configv1.APIServer as an envelope type because KMSPluginConfig is not a runtime.Object.
+func DecodeKMSPluginConfig(data []byte) (configv1.KMSPluginConfig, error) {
 	apiServer := &configv1.APIServer{}
 	err := runtime.DecodeInto(codecs.UniversalDecoder(configv1.SchemeGroupVersion), data, apiServer)
 	if err != nil {
-		return nil, err
+		return configv1.KMSPluginConfig{}, err
 	}
 	return apiServer.Spec.Encryption.KMS, nil
 }
