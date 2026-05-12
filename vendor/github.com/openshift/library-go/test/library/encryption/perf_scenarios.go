@@ -5,10 +5,7 @@ import (
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
-	v1 "github.com/openshift/api/operator/v1"
 )
-
-type GetOperatorConditionsFuncType func(t testing.TB) ([]v1.OperatorCondition, error)
 
 type PerfScenario struct {
 	BasicScenario
@@ -19,7 +16,7 @@ type PerfScenario struct {
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
 	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
 	DBLoaderWorkers    int
-	EncryptionProvider configv1.APIServerEncryption
+	EncryptionProvider EncryptionProvider
 }
 
 func TestPerfEncryption(t *testing.T, scenario PerfScenario) {

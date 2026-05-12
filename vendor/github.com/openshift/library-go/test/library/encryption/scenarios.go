@@ -25,19 +25,27 @@ type BasicScenario struct {
 	AssertFunc                      func(t testing.TB, clientSet ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string)
 }
 
+// EncryptionProvider pairs an encryption config with an optional setup function
+// that ensures prerequisites (secrets, credentials, infrastructure) are in place.
+type EncryptionProvider struct {
+	configv1.APIServerEncryption
+	// Setup is called once before the provider is first used. May be nil.
+	Setup func(t testing.TB)
+}
+
 func TestEncryptionTypeIdentity(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(e, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
 func TestEncryptionTypeUnset(t testing.TB, scenario BasicScenario) {
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
-	clientSet := SetAndWaitForEncryptionType(e, configv1.APIServerEncryption{}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+	clientSet := SetAndWaitForEncryptionType(e, EncryptionProvider{}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
 }
 
-func resolveProvider(t testing.TB, defaultType configv1.EncryptionType, providers []configv1.APIServerEncryption) configv1.APIServerEncryption {
+func resolveProvider(t testing.TB, defaultType configv1.EncryptionType, providers []EncryptionProvider) EncryptionProvider {
 	t.Helper()
 	if len(providers) > 1 {
 		t.Fatalf("expected at most one provider, got %d", len(providers))
@@ -45,10 +53,10 @@ func resolveProvider(t testing.TB, defaultType configv1.EncryptionType, provider
 	if len(providers) == 1 {
 		return providers[0]
 	}
-	return configv1.APIServerEncryption{Type: defaultType}
+	return EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: defaultType}}
 }
 
-func TestEncryptionTypeAESCBC(t testing.TB, scenario BasicScenario, providers ...configv1.APIServerEncryption) {
+func TestEncryptionTypeAESCBC(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeAESCBC, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
@@ -56,7 +64,7 @@ func TestEncryptionTypeAESCBC(t testing.TB, scenario BasicScenario, providers ..
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeAESGCM(t testing.TB, scenario BasicScenario, providers ...configv1.APIServerEncryption) {
+func TestEncryptionTypeAESGCM(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeAESGCM, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
@@ -64,7 +72,7 @@ func TestEncryptionTypeAESGCM(t testing.TB, scenario BasicScenario, providers ..
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionTypeKMS(t testing.TB, scenario BasicScenario, providers ...configv1.APIServerEncryption) {
+func TestEncryptionTypeKMS(t testing.TB, scenario BasicScenario, providers ...EncryptionProvider) {
 	provider := resolveProvider(t, configv1.EncryptionTypeKMS, providers)
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(e, provider, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
@@ -72,7 +80,7 @@ func TestEncryptionTypeKMS(t testing.TB, scenario BasicScenario, providers ...co
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
-func TestEncryptionType(t testing.TB, scenario BasicScenario, provider configv1.APIServerEncryption) {
+func TestEncryptionType(t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
 	switch provider.Type {
 	case configv1.EncryptionTypeAESCBC:
 		TestEncryptionTypeAESCBC(t, scenario, provider)
@@ -94,7 +102,7 @@ type OnOffScenario struct {
 	AssertResourceNotEncryptedFunc func(t testing.TB, clientSet ClientSet, resource runtime.Object)
 	ResourceFunc                   func(t testing.TB, namespace string) runtime.Object
 	ResourceName                   string
-	EncryptionProvider             configv1.APIServerEncryption
+	EncryptionProvider             EncryptionProvider
 }
 
 type testStep struct {
@@ -155,13 +163,13 @@ type ProvidersMigrationScenario struct {
 	// EncryptionProviders is the list of encryption providers to migrate through.
 	// The test will migrate through each provider in order, then always end by
 	// switching to identity (off) to verify the resource is re-written unencrypted.
-	EncryptionProviders []configv1.APIServerEncryption
+	EncryptionProviders []EncryptionProvider
 }
 
 // ShuffleEncryptionProviders returns a new slice with the providers in random order,
 // leaving the original slice unchanged. Use this to test different migration orderings.
-func ShuffleEncryptionProviders(providers []configv1.APIServerEncryption) []configv1.APIServerEncryption {
-	shuffled := make([]configv1.APIServerEncryption, len(providers))
+func ShuffleEncryptionProviders(providers []EncryptionProvider) []EncryptionProvider {
+	shuffled := make([]EncryptionProvider, len(providers))
 	copy(shuffled, providers)
 	mathrand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
@@ -232,7 +240,10 @@ type RotationScenario struct {
 	CreateResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) runtime.Object
 	GetRawResourceFunc    func(t testing.TB, clientSet ClientSet, namespace string) string
 	UnsupportedConfigFunc UpdateUnsupportedConfigFunc
-	EncryptionProvider    configv1.APIServerEncryption
+	EncryptionProvider    EncryptionProvider
+	// GetOperatorConditionsFunc is optional. Overlap tests use it to detect an active migration via
+	// EncryptionMigrationControllerProgressing before falling back to polling encryption key secrets.
+	GetOperatorConditionsFunc GetOperatorConditionsFuncType
 }
 
 // TestEncryptionRotation first encrypts data with aescbc key
@@ -244,6 +255,14 @@ func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 
 	// step 1: create the desired resource
 	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
 	clientSet := GetClients(e)
 	scenario.CreateResourceFunc(e, GetClients(e), ns)
 
@@ -267,4 +286,85 @@ func TestEncryptionRotation(t testing.TB, scenario RotationScenario) {
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+// TestEncryptionRotationDuringFirstMigration ensures storage starts from identity, turns encryption on
+// (initial migration), forces a key rotation while that first migration is still running, then asserts
+// convergence. Use this to exercise overlap between the first encrypt migration and an external rotation
+// reason—not stacked rotations on an already-encrypted cluster.
+func TestEncryptionRotationDuringFirstMigration(t testing.TB, scenario RotationScenario) {
+	ns := scenario.Namespace
+	labelSelector := scenario.LabelSelector
+
+	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
+	clientSet := GetClients(e)
+	scenario.CreateResourceFunc(e, clientSet, ns)
+
+	// ApplyAPIServerEncryptionType is a no-op when the APIServer is already on the target type; start from
+	// identity so the first storage migration always runs.
+	TestEncryptionTypeIdentity(t, scenario.BasicScenario)
+
+	prevMeta, err := GetLastKeyMeta(e, clientSet.Kube, ns, labelSelector)
+	require.NoError(e, err)
+	expectedFirstWriteKey, err := determineNextEncryptionKeyName(prevMeta.Name, labelSelector)
+	require.NoError(e, err)
+
+	ApplyAPIServerEncryptionType(e, clientSet, scenario.EncryptionProvider)
+
+	if !WaitForEncryptionMigrationInProgressWindow(e, clientSet.Kube, scenario.GetOperatorConditionsFunc, expectedFirstWriteKey, scenario.TargetGRs, ns, labelSelector) {
+		t.Skipf("initial migration finished before an in-progress window was observed; set GetOperatorConditionsFunc or use a cluster where migration stays visible longer")
+	}
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-during-first-migration-%s", rand.String(4))))
+	// n=2: one write-key revision from turning encryption on, one from ForceKeyRotation.
+	WaitForNRotations(e, clientSet.Kube, scenario.EncryptionProvider.Type, scenario.TargetGRs, ns, labelSelector, prevMeta, 2)
+
+	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
+}
+
+// TestEncryptionRotationDuringOngoingRotation runs with encryption already enabled and stable, then forces
+// two key rotations in quick succession so the second happens while migration from the first is still
+// in progress. This targets stacked external rotation reasons—not the first encrypt-from-identity path.
+func TestEncryptionRotationDuringOngoingRotation(t testing.TB, scenario RotationScenario) {
+	ns := scenario.Namespace
+	labelSelector := scenario.LabelSelector
+
+	e := NewE(t)
+	defer func() {
+		if err := ClearForcedKeyRotationReason(e, scenario.UnsupportedConfigFunc); err != nil {
+			e.Logf("cleanup: clear encryption rotation reason: %v", err)
+			if !t.Failed() {
+				require.NoError(e, err, "test cleanup: clear encryption rotation reason")
+			}
+		}
+	}()
+	clientSet := GetClients(e)
+	scenario.CreateResourceFunc(e, clientSet, ns)
+
+	TestEncryptionType(t, scenario.BasicScenario, scenario.EncryptionProvider)
+
+	metaAfterEncrypt, err := GetLastKeyMeta(e, clientSet.Kube, ns, labelSelector)
+	require.NoError(e, err)
+	expectedNextWriteKey, err := determineNextEncryptionKeyName(metaAfterEncrypt.Name, labelSelector)
+	require.NoError(e, err)
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-overlap-first-%s", rand.String(4))))
+
+	if !WaitForEncryptionMigrationInProgressWindow(e, clientSet.Kube, scenario.GetOperatorConditionsFunc, expectedNextWriteKey, scenario.TargetGRs, ns, labelSelector) {
+		t.Skipf("migration after first forced rotation finished before an in-progress window was observed; set GetOperatorConditionsFunc or use a slower cluster")
+	}
+
+	require.NoError(e, ForceKeyRotation(e, scenario.UnsupportedConfigFunc, fmt.Sprintf("test-rotation-overlap-second-%s", rand.String(4))))
+	// n=2: two ForceKeyRotation steps after metaAfterEncrypt.
+	WaitForNRotations(e, clientSet.Kube, scenario.EncryptionProvider.Type, scenario.TargetGRs, ns, labelSelector, metaAfterEncrypt, 2)
+
+	scenario.AssertFunc(e, clientSet, scenario.EncryptionProvider.Type, ns, labelSelector)
 }

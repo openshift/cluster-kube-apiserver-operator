@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,4 +81,24 @@ func SecretOfLife(t testing.TB, namespace string) runtime.Object {
 			"quote": []byte("I have no special talents. I am only passionately curious"),
 		},
 	}
+}
+
+func UpdateUnsupportedConfig(t *testing.T, raw []byte) error {
+	operatorClient := GetOperator(t)
+	apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
+	_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
+	return err
+}
+
+func GetClusterOperatorConditions(t testing.TB) ([]operatorv1.OperatorCondition, error) {
+	operatorClient := GetOperator(t)
+	apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return apiServerOperator.Status.Conditions, nil
 }
