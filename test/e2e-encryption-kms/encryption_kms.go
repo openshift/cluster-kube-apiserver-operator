@@ -57,7 +57,10 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProvider:             configv1.EncryptionTypeKMS,
+		EncryptionProvider: configv1.APIServerEncryption{
+			Type: configv1.EncryptionTypeKMS,
+			KMS:  librarykms.DefaultFakeKMSPluginConfig,
+		},
 	})
 }
 
@@ -86,6 +89,9 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProviders:            library.ShuffleEncryptionProviders([]configv1.EncryptionType{configv1.EncryptionTypeKMS, library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))]}),
+		EncryptionProviders: library.ShuffleEncryptionProviders([]configv1.APIServerEncryption{
+			{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig},
+			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
+		}),
 	})
 }
