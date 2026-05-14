@@ -272,14 +272,14 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 		ExternalReason: externalReason,
 	}
 	if currentMode == state.KMS {
-		ks.KMSConfig = &state.KMSConfig{
+		ks.KMS = &state.KMSState{
 			Encryption: &apiserverv1.KMSConfiguration{
 				APIVersion: "v2",
 				Name:       fmt.Sprintf("%d", keyID),
 				Endpoint:   fmt.Sprintf(kmsEndpointFormat, keyID),
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
-			Provider: apiServerEncryption.KMS,
+			Plugin: apiServerEncryption.KMS,
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
@@ -307,9 +307,6 @@ func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Cont
 	case state.AESCBC, state.AESGCM, state.Identity: // secretbox is disabled for now
 		return currentMode, reason, encryption, nil
 	case state.KMS:
-		if encryption.KMS == nil {
-			return "", "", configv1.APIServerEncryption{}, fmt.Errorf("invalid encryption mode %q: KMS config is required", encryption.Type)
-		}
 		return currentMode, reason, encryption, nil
 	case "": // unspecified means use the default (which can change over time)
 		return state.DefaultMode, reason, encryption, nil

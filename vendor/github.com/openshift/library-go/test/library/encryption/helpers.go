@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,7 +25,6 @@ import (
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
 	"github.com/openshift/library-go/test/library"
-	"github.com/openshift/library-go/test/library/encryption/kms"
 )
 
 var (
@@ -36,7 +36,10 @@ var (
 	waitPollTimeout       = 69*time.Minute + 10*time.Minute
 	defaultEncryptionMode = string(configv1.EncryptionTypeIdentity)
 
-	SupportedStaticEncryptionProviders = []configv1.EncryptionType{configv1.EncryptionTypeAESGCM, configv1.EncryptionTypeAESCBC}
+	SupportedStaticEncryptionProviders = []configv1.APIServerEncryption{
+		{Type: configv1.EncryptionTypeAESGCM},
+		{Type: configv1.EncryptionTypeAESCBC},
+	}
 )
 
 type ClientSet struct {
@@ -53,9 +56,9 @@ type EncryptionKeyMeta struct {
 
 type UpdateUnsupportedConfigFunc func(raw []byte) error
 
-func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.EncryptionType, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
+func SetAndWaitForEncryptionType(t testing.TB, provider configv1.APIServerEncryption, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) ClientSet {
 	t.Helper()
-	t.Logf("Starting encryption e2e test for %q mode", encryptionType)
+	t.Logf("Starting encryption e2e test for %q mode", provider.Type)
 
 	clientSet := GetClients(t)
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
@@ -63,18 +66,17 @@ func SetAndWaitForEncryptionType(t testing.TB, encryptionType configv1.Encryptio
 
 	apiServer, err := clientSet.ApiServerConfig.Get(context.TODO(), "cluster", metav1.GetOptions{})
 	require.NoError(t, err)
-	needsUpdate := apiServer.Spec.Encryption.Type != encryptionType
+	needsUpdate := !equality.Semantic.DeepEqual(apiServer.Spec.Encryption, provider)
 	if needsUpdate {
-		t.Logf("Updating encryption type in the config file for APIServer to %q", encryptionType)
-		apiServer.Spec.Encryption.Type = encryptionType
-		apiServer.Spec.Encryption.KMS = defaultTestKMSConfig(encryptionType)
+		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", apiServer.Spec.Encryption, provider)
+		apiServer.Spec.Encryption = provider
 		_, err = clientSet.ApiServerConfig.Update(context.TODO(), apiServer, metav1.UpdateOptions{})
 		require.NoError(t, err)
 	} else {
-		t.Logf("APIServer is already configured to use %q mode", encryptionType)
+		t.Logf("APIServer is already configured to use %q mode", provider.Type)
 	}
 
-	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, encryptionType, defaultTargetGRs, namespace, labelSelector)
+	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, defaultTargetGRs, namespace, labelSelector)
 	return clientSet
 }
 
@@ -338,25 +340,5 @@ func setUpTearDown(namespace string) func(testing.TB, bool) {
 				t.Logf("Last seen: %-15v Type: %-10v Reason: %-40v Source: %-55v Message: %v", now.Sub(ev.LastTimestamp.Time), ev.Type, ev.Reason, ev.Source.Component, ev.Message)
 			}
 		}
-	}
-}
-
-func defaultTestKMSConfig(encryptionType configv1.EncryptionType) *configv1.KMSConfig {
-	if encryptionType != configv1.EncryptionTypeKMS {
-		return nil
-	}
-	return &configv1.KMSConfig{
-		Type: configv1.VaultKMSProvider,
-		Vault: configv1.VaultKMSConfig{
-			KMSPluginImage: kms.WellKnownUpstreamMockKMSPluginImage,
-			VaultAddress:   "https://vault.example.com",
-			Authentication: configv1.VaultAuthentication{
-				Type: configv1.VaultAuthenticationTypeAppRole,
-				AppRole: configv1.VaultAppRoleAuthentication{
-					Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
-				},
-			},
-			TransitKey: "test-transit-key",
-		},
 	}
 }

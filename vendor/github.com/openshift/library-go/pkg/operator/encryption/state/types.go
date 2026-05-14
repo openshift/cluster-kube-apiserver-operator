@@ -42,24 +42,24 @@ type KeyState struct {
 	// the user via unsupportConfigOverrides.encryption.reason triggered this key.
 	ExternalReason string
 	// stores all the KMS encryption mode related configurations
-	KMSConfig *KMSConfig
+	KMS *KMSState
 }
 
 func (k *KeyState) HasKMSEncryption() bool {
-	return k != nil && k.KMSConfig != nil && k.KMSConfig.Encryption != nil
+	return k != nil && k.KMS != nil && k.KMS.Encryption != nil
 }
 
-func (k *KeyState) HasKMSProvider() bool {
-	return k != nil && k.KMSConfig != nil && k.KMSConfig.Provider != nil
+func (k *KeyState) HasKMSPlugin() bool {
+	return k != nil && k.KMS != nil && k.KMS.Plugin != (configv1.KMSPluginConfig{})
 }
 
-// KMSConfig stores all KMS encryption mode related configurations
-type KMSConfig struct {
+// KMSState stores all KMS encryption mode related configurations
+type KMSState struct {
 	// Encoded EncryptionConfig that stores the KMS related fields
 	Encryption *apiserverconfigv1.KMSConfiguration
 
-	// Provider stores KMS provider specific configurations
-	Provider *configv1.KMSConfig
+	// Plugin stores KMS plugin specific configurations
+	Plugin configv1.KMSPluginConfig
 }
 
 type MigrationState struct {

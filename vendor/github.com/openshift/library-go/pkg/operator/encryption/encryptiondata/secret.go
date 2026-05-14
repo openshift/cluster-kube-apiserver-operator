@@ -2,9 +2,13 @@ package encryptiondata
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -28,28 +32,31 @@ func FromSecret(encryptionConfigSecret *corev1.Secret) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	var kmsProviders map[string]*configv1.KMSConfig
+	var kmsPlugins map[string]configv1.KMSPluginConfig
 	for key, value := range encryptionConfigSecret.Data {
-		// Not all data keys are provider configs — the Secret also contains the
+		// Not all data keys are plugin configs — the Secret also contains the
 		// encryption-config entry, so skip keys that don't match the pattern.
-		keyID, found, err := kms.KeyIDFromProviderConfigSecretDataKey(key)
+		keyID, found, err := kms.KeyIDFromPluginConfigSecretDataKey(key)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract keyID from data key %s: %w", key, err)
 		}
 		if !found {
 			continue
 		}
-		providerConfig, err := encoding.DecodeKMSConfig(value)
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode KMS provider config for key %s: %w", keyID, err)
+			return nil, fmt.Errorf("failed to decode KMS plugin config for key %s: %w", keyID, err)
 		}
-		if kmsProviders == nil {
-			kmsProviders = map[string]*configv1.KMSConfig{}
+		if kmsPlugins == nil {
+			kmsPlugins = map[string]configv1.KMSPluginConfig{}
 		}
-		kmsProviders[keyID] = providerConfig
+		if _, exists := kmsPlugins[keyID]; exists {
+			return nil, fmt.Errorf("duplicate KMS plugin config for keyID %s", keyID)
+		}
+		kmsPlugins[keyID] = pluginConfig
 	}
 
-	return &Config{Encryption: encryptionConfig, KMSProviders: kmsProviders}, nil
+	return &Config{Encryption: encryptionConfig, KMSPlugins: kmsPlugins}, nil
 }
 
 func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
@@ -81,17 +88,60 @@ func ToSecret(ns, name string, secretData *Config) (*corev1.Secret, error) {
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	for keyID, providerConfig := range secretData.KMSProviders {
-		encodedProvider, err := encoding.EncodeKMSConfig(providerConfig)
+	for keyID, pluginConfig := range secretData.KMSPlugins {
+		encodedPlugin, err := encoding.EncodeKMSPluginConfig(pluginConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode KMS provider config for key %s: %w", keyID, err)
+			return nil, fmt.Errorf("failed to encode KMS plugin config for key %s: %w", keyID, err)
 		}
-		dataKey, err := kms.ToProviderConfigSecretDataKeyFor(keyID)
+		dataKey, err := kms.ToPluginConfigSecretDataKeyFor(keyID)
 		if err != nil {
 			return nil, err
 		}
-		s.Data[dataKey] = encodedProvider
+		s.Data[dataKey] = encodedPlugin
 	}
 
 	return s, nil
+}
+
+// ExtractUniqueAndSortedKMSConfigurations collects deduplicated KMS providers from the
+// EncryptionConfiguration, strips the resource suffix from each Name, and returns them
+// sorted by keyID descending. Duplicate keyIDs with mismatched config (ignoring Name) error out.
+func ExtractUniqueAndSortedKMSConfigurations(secretData *Config) ([]*apiserverconfigv1.KMSConfiguration, error) {
+	if !secretData.HasEncryptionConfiguration() {
+		return nil, fmt.Errorf("encryption configuration is required")
+	}
+	byKeyID := map[string]*apiserverconfigv1.KMSConfiguration{}
+	for _, resource := range secretData.Encryption.Resources {
+		for _, provider := range resource.Providers {
+			if provider.KMS == nil {
+				continue
+			}
+			keyID, err := getKeyIDFromPluginName(provider.KMS.Name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse key ID from plugin name %q: %w", provider.KMS.Name, err)
+			}
+			if _, err := strconv.ParseUint(keyID, 10, 64); err != nil {
+				return nil, fmt.Errorf("key ID %q is not a valid integer: %w", keyID, err)
+			}
+			kmsCopy := provider.KMS.DeepCopy()
+			kmsCopy.Name = keyID
+			if existing, exists := byKeyID[keyID]; exists {
+				if !equality.Semantic.DeepEqual(existing, kmsCopy) {
+					return nil, fmt.Errorf("KMS configuration mismatch for keyID %s: configs from different resources must be identical", keyID)
+				}
+			}
+			byKeyID[keyID] = kmsCopy
+		}
+	}
+
+	result := make([]*apiserverconfigv1.KMSConfiguration, 0, len(byKeyID))
+	for _, v := range byKeyID {
+		result = append(result, v)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		iKeyID, _ := strconv.ParseUint(result[i].Name, 10, 64)
+		jKeyID, _ := strconv.ParseUint(result[j].Name, 10, 64)
+		return iKeyID > jKeyID
+	})
+	return result, nil
 }

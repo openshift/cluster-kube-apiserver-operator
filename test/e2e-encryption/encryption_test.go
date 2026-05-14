@@ -53,6 +53,6 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProvider:             configv1.EncryptionType(*provider),
+		EncryptionProvider:             configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)},
 	})
 }

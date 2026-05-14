@@ -19,7 +19,7 @@ type PerfScenario struct {
 	AssertMigrationTime   func(t testing.TB, migrationTime time.Duration)
 	// DBLoaderWorker is the number of workers that will execute DBLoaderFunc
 	DBLoaderWorkers    int
-	EncryptionProvider configv1.EncryptionType
+	EncryptionProvider configv1.APIServerEncryption
 }
 
 func TestPerfEncryption(t *testing.T, scenario PerfScenario) {
@@ -51,7 +51,7 @@ func runTestEncryption(tt *testing.T, scenario PerfScenario) time.Time {
 			// Note that AssertFunc is executed after an encryption secret has been annotated
 			ts = time.Now()
 			scenario.AssertFunc(t, clientSet, expectedMode, scenario.Namespace, scenario.LabelSelector)
-			t.Logf("AssertFunc for TestEncryption scenario with %q provider took %v", scenario.EncryptionProvider, time.Since(ts))
+			t.Logf("AssertFunc for TestEncryption scenario with %q provider took %v", scenario.EncryptionProvider.Type, time.Since(ts))
 		},
 	}, scenario.EncryptionProvider)
 	return ts

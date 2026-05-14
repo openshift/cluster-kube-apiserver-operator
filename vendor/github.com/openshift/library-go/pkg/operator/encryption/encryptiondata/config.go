@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/klog/v2"
@@ -26,9 +27,9 @@ var (
 // encryption state that doesn't fit into the upstream type.
 type Config struct {
 	Encryption *apiserverconfigv1.EncryptionConfiguration
-	// KMSProviders maps keyID to provider-specific configuration,
+	// KMSPlugins maps keyID to plugin-specific configuration,
 	// carried from Key Secrets into the encryption-config Secret.
-	KMSProviders map[string]*configv1.KMSConfig
+	KMSPlugins map[string]configv1.KMSPluginConfig
 }
 
 func (c *Config) HasEncryptionConfiguration() bool {
@@ -36,9 +37,9 @@ func (c *Config) HasEncryptionConfiguration() bool {
 }
 
 // FromEncryptionState converts encryption state to Config.
-func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) *Config {
+func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupResourceState) (*Config, error) {
 	resourceConfigs := make([]apiserverconfigv1.ResourceConfiguration, 0, len(encryptionState))
-	var kmsProviders map[string]*configv1.KMSConfig
+	var kmsPlugins map[string]configv1.KMSPluginConfig
 
 	for gr, grKeys := range encryptionState {
 		resourceConfigs = append(resourceConfigs, apiserverconfigv1.ResourceConfiguration{
@@ -46,18 +47,24 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 			Providers: stateToProviders(gr.Resource, grKeys),
 		})
 
-		// Collect KMS provider configs from read keys (which already include the write key).
+		// Collect KMS plugin configs from read keys (which already include the write key).
 		// We iterate over encryptionState which is keyed by GroupResource, so the same
 		// keyID is seen once per resource (e.g. key "1" for secrets and key "1" for configmaps).
-		// Since all resources share the same Key Secret, the provider config is identical
+		// Since all resources share the same Key Secret, the plugin config is identical
 		// across duplicates and we only need to keep the first occurrence.
 		for _, key := range grKeys.ReadKeys {
-			if key.HasKMSProvider() {
-				if kmsProviders == nil {
-					kmsProviders = map[string]*configv1.KMSConfig{}
+			if key.HasKMSPlugin() {
+				if kmsPlugins == nil {
+					kmsPlugins = map[string]configv1.KMSPluginConfig{}
 				}
-				if _, exists := kmsProviders[key.Key.Name]; !exists {
-					kmsProviders[key.Key.Name] = key.KMSConfig.Provider
+				if plugin, exists := kmsPlugins[key.Key.Name]; exists {
+					// Sanity check: the same keyID seen from a different resource must carry
+					// an identical plugin config, since they originate from the same Key Secret.
+					if !equality.Semantic.DeepEqual(plugin, key.KMS.Plugin) {
+						return nil, fmt.Errorf("KMS plugin config mismatch for keyID %s: configs from different resources must be identical", key.Key.Name)
+					}
+				} else {
+					kmsPlugins[key.Key.Name] = key.KMS.Plugin
 				}
 			}
 		}
@@ -69,9 +76,9 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 	})
 
 	return &Config{
-		Encryption:   &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
-		KMSProviders: kmsProviders,
-	}
+		Encryption: &apiserverconfigv1.EncryptionConfiguration{Resources: resourceConfigs},
+		KMSPlugins: kmsPlugins,
+	}, nil
 }
 
 // ToEncryptionState converts config to state.
@@ -145,9 +152,9 @@ func ToEncryptionState(secretData *Config, keySecrets []*corev1.Secret) (map[sch
 
 			case provider.KMS != nil:
 				// Name and Secret must match to find our backed Secret
-				keyID, err := getKeyIDFromProviderName(provider.KMS.Name)
+				keyID, err := getKeyIDFromPluginName(provider.KMS.Name)
 				if err != nil {
-					klog.Warningf("resource: %s provider index: %d: Skipping invalid provider name %s: %v", resourceConfig.Resources[0], i, provider.KMS.Name, err)
+					klog.Warningf("resource: %s provider index: %d: Skipping invalid plugin name %s: %v", resourceConfig.Resources[0], i, provider.KMS.Name, err)
 					continue // should never happen
 				}
 				ks = state.KeyState{
@@ -245,12 +252,12 @@ func stateToProviders(resource string, desired state.GroupResourceState) []apise
 			})
 		case state.KMS:
 			if !key.HasKMSEncryption() {
-				klog.Infof("skipping key %s for %s in KMS mode as its either KMSConfig or KMSConfig.Encryption is nil", key.Key.Name, resource)
+				klog.Infof("skipping key %s for %s in KMS mode as its either KMS or KMS.Encryption is nil", key.Key.Name, resource)
 				continue // this should never happen
 			}
 			// In order to preserve the uniqueness, we should insert resource name
-			kmsCopy := key.KMSConfig.Encryption.DeepCopy()
-			kmsCopy.Name = createKMSProviderName(key.Key.Name, resource)
+			kmsCopy := key.KMS.Encryption.DeepCopy()
+			kmsCopy.Name = createKMSPluginName(key.Key.Name, resource)
 			provider := apiserverconfigv1.ProviderConfiguration{
 				KMS: kmsCopy,
 			}
@@ -274,19 +281,19 @@ func stateToProviders(resource string, desired state.GroupResourceState) []apise
 	return providers
 }
 
-func createKMSProviderName(keyID, resource string) string {
-	// Ideally we should have used keyID simply in kms provider name.
+func createKMSPluginName(keyID, resource string) string {
+	// Ideally we should have used keyID simply in kms plugin name.
 	// However, this is an upstream constraint that every provider name must be unique.
-	// To maintain uniqueness while still allowing access to the keyID, we generate provider name in this format.
+	// To maintain uniqueness while still allowing access to the keyID, we generate plugin name in this format.
 	return fmt.Sprintf("%s_%s", keyID, resource)
 }
 
-func getKeyIDFromProviderName(providerName string) (string, error) {
+func getKeyIDFromPluginName(pluginName string) (string, error) {
 	// We just need to obtain the keyID to find our backed secret
 	// e.g. "1_secrets"
-	parsed := strings.SplitN(providerName, "_", 2)
+	parsed := strings.SplitN(pluginName, "_", 2)
 	if len(parsed) != 2 {
-		return "", fmt.Errorf("invalid provider name %q: expected format keyID_resourceName", providerName)
+		return "", fmt.Errorf("invalid plugin name %q: expected format keyID_resourceName", pluginName)
 	}
 	return parsed[0], nil
 }
