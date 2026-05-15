@@ -29,7 +29,7 @@ const (
 	WellKnownUpstreamMockKMSPluginNamespace = "k8s-mock-plugin"
 
 	// WellKnownUpstreamMockKMSPluginImage is the pre-built mock KMS plugin image.
-	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:76444d7e37d0d2d0f4dfae31893e937f766439ce07036bf19325050b594d2e2c"
+	WellKnownUpstreamMockKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:03bb07a2c08b509653c4c70217a06a4b389c10b4d87922f50ee5eac82db5e140"
 
 	// DefaultKMSPluginCount is the default number of KMS plugin instances to deploy.
 	DefaultKMSPluginCount = 10
