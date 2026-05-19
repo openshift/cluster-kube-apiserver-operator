@@ -41,7 +41,7 @@ func ObserveServiceAccountIssuer(
 ) (map[string]interface{}, []error) {
 
 	listers := genericListers.(configobservation.Listers)
-	ret, errs := observedConfig(existingConfig, listers.KubeAPIServerOperatorLister().Get, listers.InfrastructureLister().Get, recorder)
+	ret, errs := observedConfig(existingConfig, listers.KubeAPIServerOperatorLister().Get, listers.InfrastructureLister().Get, listers.AuthConfigLister.Get, recorder)
 	return configobserver.Pruned(ret, serviceAccountIssuerPath, audiencesPath, jwksURIPath), errs
 }
 
@@ -50,7 +50,9 @@ func ObserveServiceAccountIssuer(
 // Authentication resource.
 func observedConfig(existingConfig map[string]interface{},
 	getOperator func(name string) (*operatorv1.KubeAPIServer, error),
-	getInfrastructureConfig func(string) (*configv1.Infrastructure, error), recorder events.Recorder) (map[string]interface{}, []error) {
+	getInfrastructureConfig func(string) (*configv1.Infrastructure, error),
+	getAuthConfig func(string) (*configv1.Authentication, error),
+	recorder events.Recorder) (map[string]interface{}, []error) {
 
 	errs := []error{}
 	var issuerChanged bool
@@ -98,6 +100,18 @@ func observedConfig(existingConfig map[string]interface{},
 	// observedActiveIssuer is the desired service account issuer set in KAS operator status
 	// This apiServerArgumentValue is being synced using serviceaccountissuer controller.
 	observedActiveIssuer = getActiveServiceAccountIssuer(operator.Status.ServiceAccountIssuers)
+	// If the operator status does not yet have a custom issuer (e.g. during early startup
+	// before ServiceAccountIssuerController has run), fall back to reading the Authentication
+	// CR directly. This prevents the first KAS revision from using the default issuer when
+	// a custom one is configured, avoiding token issuer mismatch during STS/IRSA installs.
+	if len(observedActiveIssuer) == 0 && getAuthConfig != nil {
+		if authConfig, authErr := getAuthConfig("cluster"); authErr == nil && authConfig != nil {
+			if len(authConfig.Spec.ServiceAccountIssuer) > 0 {
+				klog.V(2).Infof("Using serviceAccountIssuer from Authentication CR (operator status not yet populated): %s", authConfig.Spec.ServiceAccountIssuer)
+				observedActiveIssuer = authConfig.Spec.ServiceAccountIssuer
+			}
+		}
+	}
 	// if desired active issuer is not set (the serviceaccountissuer for some reason has not defaulted it)
 	// then make sure, we default it here, because we have to set the jwks-uri correctly.
 	if defaultedExistingConfigIssuer == defaultServiceAccountIssuerValue && len(observedActiveIssuer) == 0 {

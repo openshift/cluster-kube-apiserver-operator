@@ -163,6 +163,9 @@ func TestObservedConfig(t *testing.T) {
 						},
 					}, tc.infraError
 				},
+				func(_ string) (*configv1.Authentication, error) {
+					return &configv1.Authentication{}, nil
+				},
 				testRecorder,
 			)
 
