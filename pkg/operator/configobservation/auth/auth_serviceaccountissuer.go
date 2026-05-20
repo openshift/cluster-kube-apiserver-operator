@@ -54,7 +54,7 @@ func observedConfig(existingConfig map[string]interface{},
 
 	errs := []error{}
 	var issuerChanged bool
-	var existingConfigIssuer, observedActiveIssuer string
+	var existingConfigIssuer, originalConfigIssuer, observedActiveIssuer string
 	// when the issuer will change, indicate that by setting `issuerChanged` to true
 	// to emit the informative event
 	defer func() {
@@ -62,7 +62,7 @@ func observedConfig(existingConfig map[string]interface{},
 			recorder.Eventf(
 				"ObserveServiceAccountIssuer",
 				"ServiceAccount issuer changed from %v to %v",
-				existingConfigIssuer, observedActiveIssuer,
+				originalConfigIssuer, observedActiveIssuer,
 			)
 		}
 	}()
@@ -74,7 +74,8 @@ func observedConfig(existingConfig map[string]interface{},
 
 	for i := range existingConfigIssuers {
 		if len(existingConfigIssuers[i]) > 0 {
-			existingConfigIssuer = existingConfigIssuers[i]
+			originalConfigIssuer = existingConfigIssuers[i]
+			existingConfigIssuer = originalConfigIssuer
 			break
 		}
 	}
