@@ -85,7 +85,7 @@ func TestPerfEncryption(tt *testing.T) {
 			waitUntilNamespaceActive,
 			library.DBLoaderRepeatParallel(5010, 50, false, createConfigMap, reportConfigMap),
 			library.DBLoaderRepeatParallel(9010, 50, false, createSecret, reportSecret)),
-		EncryptionProvider: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)},
+		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
 	})
 }
 
