@@ -31,7 +31,7 @@ var provider = flag.String("provider", "aescbc", "encryption provider used by th
 
 func TestPerfEncryption(tt *testing.T) {
 	operatorClient := operatorencryption.GetOperator(tt)
-	library.TestPerfEncryption(tt, library.PerfScenario{
+	library.TestPerfEncryption(context.TODO(), tt, library.PerfScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,

@@ -8,7 +8,6 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -42,7 +41,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 	// NOTE: This manual deployment is only required for KMS v1. In the future,
 	// the platform will manage the KMS plugins, and this code will no longer be needed.
 	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
-	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
+	library.TestEncryptionTurnOnAndOff(context.TODO(), t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -57,10 +56,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{
-			Type: configv1.EncryptionTypeKMS,
-			KMS:  librarykms.DefaultFakeKMSPluginConfig,
-		}},
+		EncryptionProvider:             librarykms.DefaultFakeVaultEncryptionProvider,
 	})
 }
 
@@ -74,7 +70,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 // 6. Verifies secret is correctly encrypted after each migration
 func testKMSEncryptionProvidersMigration(t testing.TB) {
 	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
-	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
+	library.TestEncryptionProvidersMigration(context.TODO(), t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -90,7 +86,7 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig}},
+			librarykms.DefaultFakeVaultEncryptionProvider,
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})
