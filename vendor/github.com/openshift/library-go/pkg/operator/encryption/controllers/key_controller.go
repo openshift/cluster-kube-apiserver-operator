@@ -287,12 +287,12 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		if secretName, expectedKeys := referencedSecretName(apiServerEncryption.KMS); len(secretName) > 0 {
 			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 			if err != nil {
-				return nil, fmt.Errorf("failed to get secret %s in openshift-config: %w", secretName, err)
+				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
 			}
 			for _, key := range expectedKeys {
 				v, ok := refSecret.Data[key]
 				if !ok {
-					return nil, fmt.Errorf("secret %s in openshift-config is missing required key %q", secretName, key)
+					return nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
 				}
 				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
 					return nil, err
@@ -407,9 +407,13 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string) {
 	switch plugin.Type {
 	case configv1.VaultKMSProvider:
-		// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
-		// These are the only keys carried into the encryption key secret.
-		return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}
+		switch plugin.Vault.Authentication.Type {
+		case configv1.VaultAuthenticationTypeAppRole:
+			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
+			// These are the only keys carried into the encryption key secret.
+			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}
+		}
+		return "", nil
 	default:
 		return "", nil
 	}

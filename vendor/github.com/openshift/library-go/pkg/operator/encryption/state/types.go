@@ -83,6 +83,9 @@ type KMSSecretData struct {
 }
 
 func (d *KMSSecretData) Set(secretName, dataKey string, value []byte) error {
+	if len(secretName) == 0 || len(dataKey) == 0 || len(value) == 0 {
+		return fmt.Errorf("secretName, dataKey, and value must not be empty")
+	}
 	if strings.Contains(secretName, "_") {
 		return fmt.Errorf("secret name %q must not contain underscores", secretName)
 	}
@@ -110,6 +113,9 @@ func (d *KMSSecretData) SetFromRawKey(rawKey string, value []byte) error {
 // "_" separates secretName from dataKey because "_" is forbidden in
 // Kubernetes secret names, making the split unambiguous.
 func (d *KMSSecretData) FlatEntries() map[string][]byte {
+	if d.Entries == nil {
+		return nil
+	}
 	result := map[string][]byte{}
 	for secretName, keys := range d.Entries {
 		for dataKey, value := range keys {

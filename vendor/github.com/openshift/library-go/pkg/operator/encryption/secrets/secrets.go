@@ -90,7 +90,7 @@ func ToKeyState(s *corev1.Secret) (state.KeyState, error) {
 		}
 		for dataKey, value := range s.Data {
 			rawKey, found := strings.CutPrefix(dataKey, encryptionSecretKMSSecretDataPrefix)
-			if !found || len(rawKey) == 0 {
+			if !found {
 				continue
 			}
 			if err := key.KMS.PluginSecretData.SetFromRawKey(rawKey, value); err != nil {

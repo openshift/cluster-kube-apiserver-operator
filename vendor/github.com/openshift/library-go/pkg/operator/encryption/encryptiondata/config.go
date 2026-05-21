@@ -45,6 +45,9 @@ type KMSPluginsSecretData struct {
 // SetFromRawKey stores a value for the given keyID, splitting rawKey
 // on "_" into secretName and dataKey.
 func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte) error {
+	if len(keyID) == 0 {
+		return fmt.Errorf("keyID must not be empty")
+	}
 	if d.ByKeyID == nil {
 		d.ByKeyID = map[string]state.KMSSecretData{}
 	}
@@ -59,9 +62,14 @@ func (d *KMSPluginsSecretData) SetFromRawKey(keyID, rawKey string, value []byte)
 // FlatEntriesByKeyID returns the stored data as a map of keyID to flat entries,
 // where each flat entry is keyed by "secretName_dataKey".
 func (d *KMSPluginsSecretData) FlatEntriesByKeyID() map[string]map[string][]byte {
+	if d.ByKeyID == nil {
+		return nil
+	}
 	result := map[string]map[string][]byte{}
 	for keyID, sd := range d.ByKeyID {
-		result[keyID] = sd.FlatEntries()
+		if flat := sd.FlatEntries(); flat != nil {
+			result[keyID] = flat
+		}
 	}
 	return result
 }
@@ -104,7 +112,7 @@ func FromEncryptionState(encryptionState map[schema.GroupResource]state.GroupRes
 			}
 			if key.HasKMSSecretData() {
 				if existing, exists := kmsPluginsSecretData.ByKeyID[key.Key.Name]; exists {
-					if !equality.Semantic.DeepEqual(existing.FlatEntries(), key.KMS.PluginSecretData.FlatEntries()) {
+					if !equality.Semantic.DeepEqual(existing, key.KMS.PluginSecretData) {
 						return nil, fmt.Errorf("KMS secret data mismatch for keyID %s: secret data from different resources must be identical", key.Key.Name)
 					}
 				} else {
