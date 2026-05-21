@@ -19,7 +19,7 @@ var provider = flag.String("provider", "aescbc", "encryption provider used by th
 // rotation by setting the "encyrption.Reason" in the operator's configuration
 // file
 func TestEncryptionRotation(t *testing.T) {
-	library.TestEncryptionRotation(t, library.RotationScenario{
+	library.TestEncryptionRotation(context.TODO(), t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
