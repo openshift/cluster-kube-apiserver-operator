@@ -10,5 +10,5 @@ import (
 // This situation is temporary until we test the new e2e-gcp-operator-serial-ote job.
 // Eventually all tests will be run only as part of the OTE framework.
 func TestEncryptionTypeAESCBC(t *testing.T) {
-	testEncryptionTypeAESCBC(t)
+	testEncryptionTypeAESCBC(t.Context(), t)
 }
