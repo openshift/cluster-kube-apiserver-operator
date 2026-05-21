@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -12,13 +13,13 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Operator][Serial][Timeout:40m] TestEncryptionTypeAESCBC", func() {
-		testEncryptionTypeAESCBC(g.GinkgoTB())
+	g.It("[Operator][Serial][Timeout:40m] TestEncryptionTypeAESCBC", func(ctx context.Context) {
+		testEncryptionTypeAESCBC(ctx, g.GinkgoTB())
 	})
 })
 
-func testEncryptionTypeAESCBC(t testing.TB) {
-	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
+func testEncryptionTypeAESCBC(ctx context.Context, t testing.TB) {
+	library.TestEncryptionTypeAESCBC(ctx, t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
