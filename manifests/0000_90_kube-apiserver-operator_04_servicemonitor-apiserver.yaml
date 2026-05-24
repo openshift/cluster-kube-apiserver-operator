@@ -17,6 +17,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -117,6 +125,7 @@ spec:
     matchLabels:
       component: apiserver
       provider: kubernetes
+  serviceDiscoveryRole: EndpointSlice
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
