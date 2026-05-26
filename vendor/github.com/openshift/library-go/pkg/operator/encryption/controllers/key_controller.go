@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/crypto"
+	"github.com/openshift/library-go/pkg/operator/encryption/encoding"
 	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
@@ -42,6 +44,7 @@ const (
 	encryptionSecretMigrationInterval = time.Hour * 24 * 7 // one week
 	kmsEndpointFormat                 = "unix:///var/run/kmsplugin/kms-%d.sock"
 	defaultKMSTimeout                 = 10 * time.Second
+	openshiftConfigNS                 = "openshift-config"
 )
 
 // keyController creates new keys if necessary. It
@@ -117,6 +120,7 @@ func NewKeyController(
 			apiServerInformer.Informer(),
 			operatorClient.Informer(),
 			kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+			// TODO: add informer for openshift-config namespace to watch referenced Secrets for KMS plugin secret data changes
 			deployer,
 		).ToController(
 		c.controllerInstanceName,
@@ -167,6 +171,16 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
+	}
+
+	// Apply in-place KMS plugin config updates (e.g. image, TLS) to the latest key
+	// secret regardless of convergence. This unblocks stuck revisions and propagates
+	// operational fixes like CVE image updates. Changes to migration-triggering fields
+	// (transit key, vault address) are skipped via kmsMigrationRequired.
+	if currentMode == state.KMS {
+		if err := c.maybeUpdateKMSPluginConfigInPlace(ctx, syncContext, apiEncryptionConfiguration); err != nil {
+			return err
+		}
 	}
 
 	currentConfig, desiredEncryptionState, secrets, isProgressingReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
@@ -223,7 +237,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	sort.Sort(sort.StringSlice(reasons))
 	internalReason := strings.Join(reasons, ", ")
-	keySecret, err := c.generateKeySecret(newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
+	keySecret, err := c.generateKeySecret(ctx, newKeyID, currentMode, apiEncryptionConfiguration, internalReason, externalReason)
 	if err != nil {
 		return fmt.Errorf("failed to create key: %v", err)
 	}
@@ -260,7 +274,104 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	return nil // we made this key earlier
 }
 
-func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
+// maybeUpdateKMSPluginConfigInPlace updates the latest key secret's KMS plugin
+// config when only in-place-safe fields changed (image, TLS, authentication).
+func (c *keyController) maybeUpdateKMSPluginConfigInPlace(ctx context.Context, syncContext factory.SyncContext, apiServerEncryption configv1.APIServerEncryption) error {
+	keySecrets, err := secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+	if err != nil {
+		return err
+	}
+	if len(keySecrets) == 0 {
+		return nil
+	}
+	// Sort by key ID descending so [0] is the newest.
+	// Parse the newest secret directly — fail fast if it is malformed
+	// instead of silently falling back to an older key.
+	sort.Slice(keySecrets, func(i, j int) bool {
+		iKeyID, _ := state.NameToKeyID(keySecrets[i].Name)
+		jKeyID, _ := state.NameToKeyID(keySecrets[j].Name)
+		return iKeyID > jKeyID
+	})
+	// We only focus on the latest backed key.
+	latest, err := secrets.ToKeyState(keySecrets[0])
+	if err != nil {
+		return fmt.Errorf("latest key secret %s is invalid: %w", keySecrets[0].Name, err)
+	}
+
+	// Any mode mismatch (e.g. KMS <-> AESCBC) requires a migration, not an in-place
+	// update. The normal needsNewKey path handles this after convergence.
+	if latest.Mode != state.KMS {
+		return nil
+	}
+	// This should never happen under normal operation because ToKeyState enforces
+	// that KMS mode keys have a plugin config. This can only occur if someone
+	// manually edited the key secret and removed the kms-plugin-config data field.
+	// To mitigate, re-add the removed kms-plugin-config data to the key secret.
+	if !latest.HasKMSPlugin() {
+		return fmt.Errorf("latest KMS key %s is missing plugin config", latest.Key.Name)
+	}
+	// Skip when the plugin config is already up-to-date or when
+	if equality.Semantic.DeepEqual(latest.KMS.Plugin, apiServerEncryption.KMS) {
+		return nil
+	}
+
+	migrationRequired, err := kmsMigrationRequired(latest.KMS.Plugin, apiServerEncryption.KMS)
+	if err != nil {
+		return err
+	}
+	// migration-triggering fields changed (needs a new key, not an in-place update).
+	if migrationRequired {
+		return nil
+	}
+
+	keySecret, err := secrets.FromKeyState(c.instanceName, latest)
+	if err != nil {
+		return err
+	}
+	s, err := c.secretClient.Secrets(keySecret.Namespace).Get(ctx, keySecret.Name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get key secret %s/%s: %v", keySecret.Namespace, keySecret.Name, err)
+	}
+	pluginData, err := encoding.EncodeKMSPluginConfig(apiServerEncryption.KMS)
+	if err != nil {
+		return fmt.Errorf("failed to encode KMS plugin config: %v", err)
+	}
+	s.Data["encryption.apiserver.operator.openshift.io-kms-plugin-config"] = pluginData
+	_, updateErr := c.secretClient.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
+	if errors.IsConflict(updateErr) {
+		return nil
+	}
+	if updateErr == nil {
+		syncContext.Recorder().Eventf("EncryptionKeyKMSPluginConfigUpdated", "Updated KMS plugin config on key secret %q in-place", s.Name)
+	}
+	return updateErr
+}
+
+// kmsMigrationRequired reports whether the KMS config change between latest
+// (stored in the key secret) and current (from the APIServer CR) involves
+// migration-triggering fields that require a new encryption key.
+// Returns false when only in-place-safe fields differ (image, TLS, authentication)
+// or when configs are identical.
+func kmsMigrationRequired(latest, current configv1.KMSPluginConfig) (bool, error) {
+	if equality.Semantic.DeepEqual(latest, current) {
+		return false, nil
+	}
+	if latest.Type != configv1.VaultKMSProvider || current.Type != configv1.VaultKMSProvider {
+		return false, fmt.Errorf("KMS plugin config has an invalid type: %q", latest.Type)
+	}
+	if latest.Type != current.Type {
+		return true, nil
+	}
+	if latest.Vault.VaultAddress != current.Vault.VaultAddress ||
+		latest.Vault.VaultNamespace != current.Vault.VaultNamespace ||
+		latest.Vault.TransitMount != current.Vault.TransitMount ||
+		latest.Vault.TransitKey != current.Vault.TransitKey {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
 	bs := crypto.ModeToNewKeyFunc[currentMode]()
 	ks := state.KeyState{
 		Key: apiserverv1.Key{
@@ -280,6 +391,24 @@ func (c *keyController) generateKeySecret(keyID uint64, currentMode state.Mode, 
 				Timeout:    &metav1.Duration{Duration: defaultKMSTimeout},
 			},
 			Plugin: apiServerEncryption.KMS,
+		}
+
+		if secretName, expectedKeys, err := referencedSecretName(apiServerEncryption.KMS); err != nil {
+			return nil, err
+		} else if len(secretName) > 0 {
+			refSecret, err := c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
+			}
+			for _, key := range expectedKeys {
+				v, ok := refSecret.Data[key]
+				if !ok {
+					return nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
+				}
+				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	return secrets.FromKeyState(c.instanceName, ks)
@@ -381,6 +510,25 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 	// we check for encryptionSecretMigratedTimestamp set by migration controller to determine when migration completed
 	// this also generates back pressure for key rotation when migration takes a long time or was recently completed
 	return latestKeyID, "rotation-interval-has-passed", time.Since(latestKey.Migrated.Timestamp) > encryptionSecretMigrationInterval
+}
+
+// referencedSecretName returns the name of the secret referenced by the KMS plugin
+// config and the specific data keys to carry from that secret. Only the listed keys
+// are copied into the Key Secret; any other data in the referenced secret is ignored.
+func referencedSecretName(plugin configv1.KMSPluginConfig) (string, []string, error) {
+	switch plugin.Type {
+	case configv1.VaultKMSProvider:
+		switch plugin.Vault.Authentication.Type {
+		case configv1.VaultAuthenticationTypeAppRole:
+			// The Vault AppRole secret must contain "role-id" and "secret-id" keys.
+			// These are the only keys carried into the encryption key secret.
+			return plugin.Vault.Authentication.AppRole.Secret.Name, []string{"role-id", "secret-id"}, nil
+		default:
+			return "", nil, fmt.Errorf("unsupported Vault authentication type %q", plugin.Vault.Authentication.Type)
+		}
+	default:
+		return "", nil, fmt.Errorf("unsupported KMS provider type %q", plugin.Type)
+	}
 }
 
 // TODO make this un-settable once set

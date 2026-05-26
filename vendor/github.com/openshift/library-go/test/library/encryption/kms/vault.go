@@ -33,6 +33,11 @@ const (
 	defaultVaultTransitKey        = "kms-key"
 	defaultAppRoleTargetNamespace = "openshift-config"
 	vaultCommandTimeout           = 30 * time.Second
+
+	// InvalidVaultKMSPluginImage is an OCI image reference that passes API validation
+	// (correct format, sha256 digest, sufficient length) but does not exist in any registry.
+	// Use this to test degradation when the KMS plugin image cannot be pulled.
+	InvalidVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin-nonexistent@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 // DefaultVaultEncryptionProvider is a ready-to-use Vault KMS EncryptionProvider for e2e tests.
@@ -40,6 +45,40 @@ const (
 var DefaultVaultEncryptionProvider = library.EncryptionProvider{
 	APIServerEncryption: DefaultVaultKMSPluginConfig,
 	Setup:               ensureDefaultVaultAppRoleSecret,
+}
+
+var DefaultFakeVaultEncryptionProvider = library.EncryptionProvider{
+	APIServerEncryption: DefaultFakeKMSPluginConfig,
+	Setup:               ensureDefaultVaultAppRoleSecret,
+}
+
+// InvalidImageVaultEncryptionProvider is a Vault KMS EncryptionProvider with a
+// non-existent plugin image. Use this for testing degradation when the image cannot be pulled.
+var InvalidImageVaultEncryptionProvider = library.EncryptionProvider{
+	APIServerEncryption: InvalidImageVaultKMSPluginConfig,
+	Setup:               ensureDefaultVaultAppRoleSecret,
+}
+
+// InvalidImageVaultKMSPluginConfig is identical to DefaultVaultKMSPluginConfig
+// but uses a non-existent image that will fail to pull.
+var InvalidImageVaultKMSPluginConfig = configv1.APIServerEncryption{
+	Type: configv1.EncryptionTypeKMS,
+	KMS: configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: InvalidVaultKMSPluginImage,
+			VaultAddress:   defaultVaultAddress,
+			VaultNamespace: defaultVaultEnterpriseNS,
+			TransitMount:   defaultVaultTransitMount,
+			TransitKey:     defaultVaultTransitKey,
+			Authentication: configv1.VaultAuthentication{
+				Type: configv1.VaultAuthenticationTypeAppRole,
+				AppRole: configv1.VaultAppRoleAuthentication{
+					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
+				},
+			},
+		},
+	},
 }
 
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
@@ -65,18 +104,22 @@ var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 }
 
 // DefaultFakeKMSPluginConfig is a fake Vault KMS configuration used by unit tests.
-var DefaultFakeKMSPluginConfig = configv1.KMSPluginConfig{
-	Type: configv1.VaultKMSProvider,
-	Vault: configv1.VaultKMSPluginConfig{
-		KMSPluginImage: WellKnownUpstreamMockKMSPluginImage,
-		VaultAddress:   "https://vault.example.com",
-		Authentication: configv1.VaultAuthentication{
-			Type: configv1.VaultAuthenticationTypeAppRole,
-			AppRole: configv1.VaultAppRoleAuthentication{
-				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
+	Type: configv1.EncryptionTypeKMS,
+	KMS: configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: WellKnownUpstreamMockKMSPluginImage,
+			VaultAddress:   "https://vault.example.com",
+			Authentication: configv1.VaultAuthentication{
+				Type: configv1.VaultAuthenticationTypeAppRole,
+				AppRole: configv1.VaultAppRoleAuthentication{
+					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
+				},
 			},
+			TransitKey:   "test-transit-key",
+			TransitMount: defaultVaultTransitMount,
 		},
-		TransitKey: "test-transit-key",
 	},
 }
 
@@ -97,8 +140,8 @@ func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"roleID":   creds.Data["role-id"],
-			"secretID": creds.Data["secret-id"],
+			"role-id":   creds.Data["role-id"],
+			"secret-id": creds.Data["secret-id"],
 		},
 	}
 	recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})

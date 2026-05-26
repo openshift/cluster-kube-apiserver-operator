@@ -8,15 +8,12 @@ import (
 	"time"
 
 	g "github.com/onsi/ginkgo/v2"
-	"github.com/stretchr/testify/require"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
+	libraryapiserver "github.com/openshift/library-go/test/library/apiserver"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
@@ -65,7 +62,7 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
-		EncryptionProvider:             librarykms.DefaultFakeVaultEncryptionProvider,
+		EncryptionProvider:             library.EncryptionProvider{APIServerEncryption: librarykms.DefaultFakeKMSPluginConfig},
 	})
 }
 
@@ -95,7 +92,7 @@ func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
 		ResourceFunc:                   operatorencryption.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			librarykms.DefaultFakeVaultEncryptionProvider,
+			{APIServerEncryption: librarykms.DefaultFakeKMSPluginConfig},
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})
@@ -105,10 +102,6 @@ func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
 // causes degradation and that fixing the image restores the cluster.
 func testKMSEncryptionInvalidImageRecovery(ctx context.Context, t testing.TB) {
 	librarykms.DeployUpstreamMockKMSPlugin(ctx, t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
-
-	invalidProvider := librarykms.DefaultFakeVaultEncryptionProvider
-	invalidProvider.KMS.Vault.KMSPluginImage = "quay.io/openshift/invalid-kms-image:does-not-exist"
-
 	library.TestEncryptionInvalidImageRecovery(ctx, t, library.InvalidImageRecoveryScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -119,51 +112,20 @@ func testKMSEncryptionInvalidImageRecovery(ctx context.Context, t testing.TB) {
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
 			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 		},
-		InvalidImageProvider: invalidProvider,
-		ValidImageProvider:   librarykms.DefaultFakeVaultEncryptionProvider,
+		InvalidImageProvider: librarykms.InvalidImageVaultEncryptionProvider,
+		ValidImageProvider:   librarykms.DefaultVaultEncryptionProvider,
 		WaitForDegraded: func(ctx context.Context, t testing.TB) {
 			t.Helper()
-			operatorClient := operatorencryption.GetOperator(t)
-			err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-				operator, err := operatorClient.Get(ctx, "cluster", metav1.GetOptions{})
-				if err != nil {
-					return false, nil
-				}
-				for _, cond := range operator.Status.Conditions {
-					if cond.Type == "Degraded" && cond.Status == operatorv1.ConditionTrue {
-						t.Logf("Operator is degraded: %s", cond.Message)
-						return true, nil
-					}
-				}
-				return false, nil
-			})
-			require.NoError(t, err, "timed out waiting for operator to become degraded")
-		},
-		WaitForRecovery: func(ctx context.Context, t testing.TB) {
-			t.Helper()
-			operatorClient := operatorencryption.GetOperator(t)
-			err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 20*time.Minute, true, func(ctx context.Context) (bool, error) {
-				operator, err := operatorClient.Get(ctx, "cluster", metav1.GetOptions{})
-				if err != nil {
-					return false, nil
-				}
-				degraded := false
-				progressing := false
-				for _, cond := range operator.Status.Conditions {
-					if cond.Type == "Degraded" && cond.Status == operatorv1.ConditionTrue {
-						degraded = true
-					}
-					if cond.Type == "Progressing" && cond.Status == operatorv1.ConditionTrue {
-						progressing = true
-					}
-				}
-				if !degraded && !progressing {
-					t.Log("Operator recovered: not degraded and not progressing")
-					return true, nil
-				}
-				return false, nil
-			})
-			require.NoError(t, err, "timed out waiting for operator to recover")
+			cs := library.GetClients(t)
+			library.WaitForPodImagePullBackOff(ctx, t, cs.Kube, operatorclient.TargetNamespace, "app=openshift-kube-apiserver", 15*time.Minute)
 		},
 	})
+
+	// wait for all kube-apiserver pods to stabilize on the same revision after recovery
+	cs := library.GetClients(t)
+	podClient := cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace)
+	err := libraryapiserver.WaitForAPIServerToStabilizeOnTheSameRevision(t, podClient)
+	if err != nil {
+		t.Fatalf("apiserver pods did not stabilize after recovery: %v", err)
+	}
 }
