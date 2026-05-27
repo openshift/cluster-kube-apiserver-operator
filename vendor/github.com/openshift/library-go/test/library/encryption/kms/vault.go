@@ -42,6 +42,11 @@ var DefaultVaultEncryptionProvider = library.EncryptionProvider{
 	Setup:               ensureDefaultVaultAppRoleSecret,
 }
 
+var DefaultFakeVaultEncryptionProvider = library.EncryptionProvider{
+	APIServerEncryption: DefaultFakeKMSPluginConfig,
+	Setup:               ensureDefaultVaultAppRoleSecret,
+}
+
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
 // used by CI e2e tests.
 var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
@@ -65,18 +70,22 @@ var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{
 }
 
 // DefaultFakeKMSPluginConfig is a fake Vault KMS configuration used by unit tests.
-var DefaultFakeKMSPluginConfig = configv1.KMSPluginConfig{
-	Type: configv1.VaultKMSProvider,
-	Vault: configv1.VaultKMSPluginConfig{
-		KMSPluginImage: WellKnownUpstreamMockKMSPluginImage,
-		VaultAddress:   "https://vault.example.com",
-		Authentication: configv1.VaultAuthentication{
-			Type: configv1.VaultAuthenticationTypeAppRole,
-			AppRole: configv1.VaultAppRoleAuthentication{
-				Secret: configv1.VaultSecretReference{Name: "vault-approle-secret"},
+var DefaultFakeKMSPluginConfig = configv1.APIServerEncryption{
+	Type: configv1.EncryptionTypeKMS,
+	KMS: configv1.KMSPluginConfig{
+		Type: configv1.VaultKMSProvider,
+		Vault: configv1.VaultKMSPluginConfig{
+			KMSPluginImage: WellKnownUpstreamMockKMSPluginImage,
+			VaultAddress:   "https://vault.example.com",
+			Authentication: configv1.VaultAuthentication{
+				Type: configv1.VaultAuthenticationTypeAppRole,
+				AppRole: configv1.VaultAppRoleAuthentication{
+					Secret: configv1.VaultSecretReference{Name: defaultVaultAppRoleSecretName},
+				},
 			},
+			TransitKey:   "test-transit-key",
+			TransitMount: defaultVaultTransitMount,
 		},
-		TransitKey: "test-transit-key",
 	},
 }
 
@@ -97,8 +106,8 @@ func ensureDefaultVaultAppRoleSecret(ctx context.Context, t testing.TB) {
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"roleID":   creds.Data["role-id"],
-			"secretID": creds.Data["secret-id"],
+			"role-id":   creds.Data["role-id"],
+			"secret-id": creds.Data["secret-id"],
 		},
 	}
 	recorder := events.NewInMemoryRecorder("vault-approle-secret-setup", clock.RealClock{})
