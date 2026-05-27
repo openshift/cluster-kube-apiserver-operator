@@ -29,6 +29,7 @@ import (
 	genericrenderoptions "github.com/openshift/library-go/pkg/operator/render/options"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -237,15 +238,23 @@ func (r *renderOpts) Run() error {
 			return fmt.Errorf("unable to parse restricted CIDRs from config %q: %v", r.clusterConfigFile, err)
 		}
 	}
+
+	clusterAuthFileRead := false
 	if len(r.clusterAuthFile) > 0 {
 		clusterAuthFileData, err := ioutil.ReadFile(r.clusterAuthFile)
 		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to load authentication config: %v", err)
 		}
 		if len(clusterAuthFileData) > 0 {
+			clusterAuthFileRead = true
 			if err := discoverServiceAccountIssuer(clusterAuthFileData, &renderConfig); err != nil {
 				return fmt.Errorf("unable to parse service-account issuers from config %q: %v", r.clusterAuthFile, err)
 			}
+		}
+	}
+	if !clusterAuthFileRead {
+		if err := r.discoverServiceAccountIssuerFromManifests(&renderConfig); err != nil {
+			return fmt.Errorf("unable to discover service-account issuer from rendered manifests: %v", err)
 		}
 	}
 
@@ -422,6 +431,24 @@ func mustReadTemplateFile(fname string) genericrenderoptions.Template {
 		panic(fmt.Sprintf("Failed to load %q: %v", fname, err))
 	}
 	return genericrenderoptions.Template{FileName: fname, Content: bs}
+}
+
+func (r *renderOpts) discoverServiceAccountIssuerFromManifests(renderConfig *TemplateData) error {
+	manifests, err := r.generic.ReadInputManifests()
+	if err != nil {
+		return err
+	}
+
+	authManifest, err := manifests.GetManifest(configv1.GroupVersion.WithKind("Authentication"), "", "cluster")
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	klog.V(4).Infof("--cluster-auth-file not present; using Authentication CR from rendered manifests: %q", authManifest.OriginalFilename)
+	return discoverServiceAccountIssuer(authManifest.Content, renderConfig)
 }
 
 func discoverServiceAccountIssuer(clusterAuthFileData []byte, renderConfig *TemplateData) error {
