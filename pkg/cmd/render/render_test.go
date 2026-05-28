@@ -223,10 +223,9 @@ func TestDiscoverCIDRs(t *testing.T) {
 }
 
 func TestRenderCommand(t *testing.T) {
-	assetsInputDir, err := ioutil.TempDir("", "testdata")
-	if err != nil {
-		t.Errorf("unable to create assets input directory, error: %v", err)
-	}
+	assetsInputDir := t.TempDir()
+	authManifestsDir := t.TempDir()
+
 	templateDir := filepath.Join("..", "..", "..", "bindata", "bootkube")
 
 	defaultFGDir := filepath.Join("testdata", "rendered", "default-fg")
@@ -460,6 +459,73 @@ spec:
 				}
 				if !reflect.DeepEqual(cfg.APIServerArguments["service-account-issuer"], kubecontrolplanev1.Arguments([]string{"https://test.dummy.url"})) {
 					return fmt.Errorf("expected the service-account-issuer to be [ https://test.dummy.url ], but it was %s", cfg.APIServerArguments["service-account-issuer"])
+				}
+				return nil
+			},
+		},
+		{
+			name: "discovers service account issuer from rendered manifests when cluster-auth-file not set",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--asset-output-dir=",
+				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir + "," + filepath.Join(authManifestsDir, "no-auth-file"),
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
+			},
+			setupFunction: func() error {
+				dir := filepath.Join(authManifestsDir, "no-auth-file")
+				if err := os.MkdirAll(dir, 0700); err != nil {
+					return err
+				}
+				return os.WriteFile(filepath.Join(dir, "authentication.yaml"), []byte(`apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec:
+  serviceAccountIssuer: https://test.dummy.url`), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				issuer := cfg.APIServerArguments["service-account-issuer"]
+				expected := kubecontrolplanev1.Arguments{"https://test.dummy.url"}
+				if !reflect.DeepEqual(issuer, expected) {
+					return fmt.Errorf("expected service-account-issuer %q, got %q", expected, issuer)
+				}
+				return nil
+			},
+		},
+		{
+			name: "discovers service account issuer from rendered manifests when cluster-auth-file missing",
+			args: []string{
+				"--asset-input-dir=" + assetsInputDir,
+				"--templates-input-dir=" + templateDir,
+				"--cluster-auth-file=" + filepath.Join(assetsInputDir, "nonexistent-authentication.yaml"),
+				"--asset-output-dir=",
+				"--config-output-file=",
+				"--payload-version=test",
+				"--rendered-manifest-files=" + defaultFGDir + "," + filepath.Join(authManifestsDir, "missing-auth-file"),
+				"--manifest-operator-image=kube-apiserver-operator:latest",
+				"--operand-kubernetes-version=1.31.0",
+			},
+			setupFunction: func() error {
+				dir := filepath.Join(authManifestsDir, "missing-auth-file")
+				if err := os.MkdirAll(dir, 0700); err != nil {
+					return err
+				}
+				return os.WriteFile(filepath.Join(dir, "authentication.yaml"), []byte(`apiVersion: config.openshift.io/v1
+kind: Authentication
+metadata:
+  name: cluster
+spec:
+  serviceAccountIssuer: https://test.dummy.url`), 0644)
+			},
+			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
+				issuer := cfg.APIServerArguments["service-account-issuer"]
+				expected := kubecontrolplanev1.Arguments{"https://test.dummy.url"}
+				if !reflect.DeepEqual(issuer, expected) {
+					return fmt.Errorf("expected service-account-issuer %q, got %q", expected, issuer)
 				}
 				return nil
 			},
