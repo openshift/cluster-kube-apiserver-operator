@@ -202,6 +202,12 @@ func ExtractUniqueAndSortedKMSConfigurations(secretData *Config) ([]*apiserverco
 	return result, nil
 }
 
+// SecretDataKeyName returns the data key used in the encryption-config Secret
+// for a KMS plugin secret entry: "kms-plugin-secret-{secretName}_{dataKey}-{keyID}".
+func SecretDataKeyName(secretName, dataKey, keyID string) string {
+	return fmt.Sprintf("%s%s_%s-%s", encryptionConfigSecretDataPrefix, secretName, dataKey, keyID)
+}
+
 func parseSecretDataKey(dataKey string) (keyID, rawKey string, found bool, err error) {
 	rest, found := strings.CutPrefix(dataKey, encryptionConfigSecretDataPrefix)
 	if !found {

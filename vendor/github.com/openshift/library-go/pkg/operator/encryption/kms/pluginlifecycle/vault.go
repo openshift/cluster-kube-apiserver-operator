@@ -2,29 +2,45 @@ package pluginlifecycle
 
 import (
 	"fmt"
+	"path/filepath"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 )
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
-func newVaultSidecarProvider(name, keyID, udsPath string, pluginConfig configv1.KMSPluginConfig) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, pluginConfig configv1.KMSPluginConfig, secretData state.KMSSecretData, credentialsDir string) (*vault, error) {
+	secretName := pluginConfig.Vault.Authentication.AppRole.Secret.Name
+
+	var roleID string
+	if entries, ok := secretData.Entries[secretName]; ok {
+		roleID = string(entries["role-id"])
+	}
+
+	secretIDPath := filepath.Join(credentialsDir, encryptiondata.SecretDataKeyName(secretName, "secret-id", keyID))
+
 	return &vault{
-		name:    name,
-		keyID:   keyID,
-		udsPath: udsPath,
-		config:  &pluginConfig.Vault,
+		name:         name,
+		keyID:        keyID,
+		udsPath:      udsPath,
+		config:       &pluginConfig.Vault,
+		roleID:       roleID,
+		secretIDPath: secretIDPath,
 	}, nil
 }
 
 // vault implements SidecarProvider for HashiCorp Vault KMS.
 type vault struct {
-	name    string
-	keyID   string
-	udsPath string
-	config  *configv1.VaultKMSPluginConfig
+	name         string
+	keyID        string
+	udsPath      string
+	config       *configv1.VaultKMSPluginConfig
+	roleID       string
+	secretIDPath string
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -41,10 +57,8 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 		fmt.Sprintf("-vault-address=%s", v.config.VaultAddress),
 		fmt.Sprintf("-transit-mount=%s", v.config.TransitMount),
 		fmt.Sprintf("-transit-key=%s", v.config.TransitKey),
-		// TODO(bertinatto): dummy value for the Vault mock plugin; will come from the encryption-config secret.
-		fmt.Sprintf("-approle-role-id=dummy-role-id-%s", v.keyID),
-		// TODO(bertinatto): placeholder path for the Vault mock plugin; will differ per operator (KASO vs. aggregated apiserver operators).
-		fmt.Sprintf("-approle-secret-id-path=/var/run/secrets/vault-kms/secret-id-%s", v.keyID),
+		fmt.Sprintf("-approle-role-id=%s", v.roleID),
+		fmt.Sprintf("-approle-secret-id-path=%s", v.secretIDPath),
 	}
 
 	// Optional fields: only pass non-empty values.
