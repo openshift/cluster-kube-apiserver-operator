@@ -19,6 +19,17 @@ var provider = flag.String("provider", "aescbc", "encryption provider used by th
 // rotation by setting the "encyrption.Reason" in the operator's configuration
 // file
 func TestEncryptionRotation(t *testing.T) {
+	updateUnsupportedConfig := func(raw []byte) error {
+		operatorClient := operatorencryption.GetOperator(t)
+		apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
+		_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
+		return err
+	}
+
 	library.TestEncryptionRotation(t.Context(), t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -29,18 +40,10 @@ func TestEncryptionRotation(t *testing.T) {
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
 			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
 		},
-		CreateResourceFunc: operatorencryption.CreateAndStoreSecretOfLife,
-		GetRawResourceFunc: operatorencryption.GetRawSecretOfLife,
-		UnsupportedConfigFunc: func(raw []byte) error {
-			operatorClient := operatorencryption.GetOperator(t)
-			apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
-			_, err = operatorClient.Update(context.TODO(), apiServerOperator, metav1.UpdateOptions{})
-			return err
-		},
-		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
+		CreateResourceFunc:          operatorencryption.CreateAndStoreSecretOfLife,
+		GetRawResourceFunc:          operatorencryption.GetRawSecretOfLife,
+		ForceRotationFunc:           library.StaticEncryptionForceRotation(updateUnsupportedConfig),
+		WaitForRotationCompleteFunc: library.WaitForNextEncryptionKeyRotation(),
+		EncryptionProvider:          library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
 	})
 }
