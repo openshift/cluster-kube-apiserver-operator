@@ -10,12 +10,12 @@ import (
 )
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin configuration.
-func newVaultSidecarProvider(name, keyID, udsPath string, pluginConfig configv1.KMSPluginConfig) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig) (*vault, error) {
 	return &vault{
 		name:    name,
 		keyID:   keyID,
 		udsPath: udsPath,
-		config:  &pluginConfig.Vault,
+		config:  vaultConfig,
 	}, nil
 }
 
@@ -24,7 +24,7 @@ type vault struct {
 	name    string
 	keyID   string
 	udsPath string
-	config  *configv1.VaultKMSPluginConfig
+	config  configv1.VaultKMSPluginConfig
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -51,6 +51,10 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	if v.config.VaultNamespace != "" {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
 	}
+
+	// TODO(bertinatto): this is a temporary workaround until the ca bundle is wired into the
+	// encryption config secret. This should be removed before shipping the KMS feature.
+	args = append(args, "-tls-skip-verify")
 
 	return corev1.Container{
 		Name:            v.Name(),
