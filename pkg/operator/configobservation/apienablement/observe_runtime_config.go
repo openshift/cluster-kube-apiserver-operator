@@ -15,7 +15,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 	"MutatingAdmissionPolicy": {
 		// Both v1alpha1 and v1beta1 versions must be served pre-GA because e2e tests exercise both APIs.
 		// A GA OpenShift release could inadvertently serve these versions if MutatingAdmissionPolicy
@@ -28,17 +28,30 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		// k8s.io/apiserver at 1.34 (via openshift/kubernetes-apiserver) and its MutatingAdmissionPolicy
 		// admission plugin uses v1beta1 informers. The openshift-apiserver can't be rebased until the
 		// o/k 1.36 rebase lands and a 1.36 branch is created on openshift/kubernetes-apiserver.
-		{KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"}},
-		{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
+		{
+			KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.37.0"),
+			GroupVersion:     schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
+			Kinds:            []string{"MutatingAdmissionPolicy", "MutatingAdmissionPolicyBinding"},
+		},
+		{
+			KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.37.0"),
+			GroupVersion:     schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"},
+			Kinds:            []string{"MutatingAdmissionPolicy", "MutatingAdmissionPolicyBinding"},
+		},
 	},
 }
 
-type groupVersionByOpenshiftVersion struct {
+type groupVersionKindsByOpenshiftVersion struct {
 	schema.GroupVersion
 	KubeVersionRange semver.Range
+	// Kinds lists the specific resource kinds this entry is about. When set,
+	// staleness checks can verify per-kind whether the API has graduated to v1
+	// or a higher pre-release version exists. When unset, only a coarse
+	// group-level version priority check is performed.
+	Kinds []string
 }
 
-func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
+func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
 	result := make(map[configv1.FeatureGateName][]schema.GroupVersion, len(groupVersionsByFeatureGate))
 	groupByVersions := map[string][]string{}
 	for featureGate, APIGroups := range groupVersionsByFeatureGate {
