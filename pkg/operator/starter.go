@@ -416,6 +416,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 		resourceSyncController,
 	)
