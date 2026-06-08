@@ -229,7 +229,7 @@ func newCertRotationController(
 			Validity: devRotationExceptionYear, // this comes from the installer
 			// Refresh set to 80% of the validity.
 			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                devRotationExceptionMonth,
+			Refresh:                devRotationExceptionTenMonth,
 			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
 			CertificateName:        "kube-apiserver.kubelet-client-signer",
 			PKIProfileProvider:     pkiProvider,
