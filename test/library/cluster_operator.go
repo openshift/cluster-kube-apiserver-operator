@@ -14,8 +14,32 @@ import (
 	clusteroperatorhelpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 )
 
+// WaitForClusterOperatorAvailableNotProgressingNotDegraded waits for a ClusterOperator to report
+// Available=true, Progressing=false, and Degraded=false.
+func WaitForClusterOperatorAvailableNotProgressingNotDegraded(t testing.TB, client configclient.ConfigV1Interface, name string) error {
+	ctx := context.Background()
+	return wait.PollUntilContextTimeout(ctx, WaitPollInterval, WaitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		clusterOperator, err := client.ClusterOperators().Get(ctx, name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			fmt.Printf("ClusterOperator/%s does not yet exist.\n", name)
+			return false, nil
+		}
+		if err != nil {
+			fmt.Printf("Unable to retrieve ClusterOperator/%s (retrying): %v\n", name, err)
+			return false, nil
+		}
+		conditions := clusterOperator.Status.Conditions
+		available := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorAvailable, configv1.ConditionTrue)
+		notProgressing := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorProgressing, configv1.ConditionFalse)
+		notDegraded := clusteroperatorhelpers.IsStatusConditionPresentAndEqual(conditions, configv1.OperatorDegraded, configv1.ConditionFalse)
+		done := available && notProgressing && notDegraded
+		fmt.Printf("ClusterOperator/%s: Available: %v  Progressing: %v  Degraded: %v\n", name, available, !notProgressing, !notDegraded)
+		return done, nil
+	})
+}
+
 // WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded waits for ClusterOperator/kube-apiserver to report
-// status as active, not progressing, and not failing.
+// Available=true, Progressing=false, and Degraded=false.
 func WaitForKubeAPIServerClusterOperatorAvailableNotProgressingNotDegraded(t *testing.T, client configclient.ConfigV1Interface) {
 	err := wait.Poll(WaitPollInterval, WaitPollTimeout, func() (bool, error) {
 		clusterOperator, err := client.ClusterOperators().Get(context.TODO(), "kube-apiserver", metav1.GetOptions{})
