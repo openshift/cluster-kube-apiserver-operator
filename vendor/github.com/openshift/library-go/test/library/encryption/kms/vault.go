@@ -3,7 +3,6 @@ package kms
 import (
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -39,15 +38,9 @@ const (
 )
 
 // DefaultVaultEncryptionProvider returns a ready-to-use Vault KMS EncryptionProvider for e2e tests.
-// It resolves the Vault Service ClusterIP at call time to avoid DNS resolution issues,
-// and bundles the AppRole secret setup.
 func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
-	cfg := DefaultVaultKMSPluginConfig
-	// Use the Service ClusterIP instead of DNS name because kube-apiserver pods
-	// cannot resolve cluster-local Service names (they use host network DNS).
-	cfg.KMS.Vault.VaultAddress = getVaultServiceAddress(ctx, t, defaultVaultNamespace)
 	return library.EncryptionProvider{
-		APIServerEncryption: cfg,
+		APIServerEncryption: DefaultVaultKMSPluginConfig,
 		Setup:               ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName),
 	}
 }
@@ -194,28 +187,4 @@ func getCurrentKeyVersion(ctx context.Context, t testing.TB) int {
 	return version
 }
 
-// getVaultServiceAddress returns the Vault address using the Service's ClusterIP
-// instead of the DNS name, reading the port and scheme from the Service spec.
-func getVaultServiceAddress(ctx context.Context, t testing.TB, ns string) string {
-	t.Helper()
-	cs := library.GetClients(t)
 
-	svc, err := cs.Kube.CoreV1().Services(ns).Get(ctx, "vault", metav1.GetOptions{})
-	require.NoError(t, err, "failed to get vault Service in namespace %s", ns)
-	require.NotEmpty(t, svc.Spec.ClusterIP, "vault Service has no ClusterIP")
-	require.NotEmpty(t, svc.Spec.Ports, "vault Service has no ports")
-
-	// The Vault Helm chart names the client port "https" (8200).
-	var port *corev1.ServicePort
-	for i := range svc.Spec.Ports {
-		if svc.Spec.Ports[i].Name == "https" {
-			port = &svc.Spec.Ports[i]
-			break
-		}
-	}
-	require.NotNil(t, port, "vault Service has no port named \"https\"")
-
-	addr := fmt.Sprintf("https://%s", net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(int(port.Port))))
-	t.Logf("Resolved Vault Service address: %s", addr)
-	return addr
-}

@@ -290,6 +290,7 @@ spec:
       readOnlyRootFilesystem: true
   terminationGracePeriodSeconds: {{.GracefulTerminationDuration}}
   hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
   priority: 2000001000
   priorityClassName: system-node-critical
   tolerations:
