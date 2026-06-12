@@ -11,13 +11,13 @@ import (
 
 // newVaultSidecarProvider creates a Vault sidecar provider from the given KMS plugin data.
 // It assumes the input data has been already been validated.
-func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, creds *credentialResolver) (*vault, error) {
+func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.VaultKMSPluginConfig, refData *referenceDataResolver) (*vault, error) {
 	secretName := vaultConfig.Authentication.AppRole.Secret.Name
 	if secretName == "" {
 		return nil, fmt.Errorf("vault AppRole authentication secret name cannot be empty")
 	}
 
-	roleID, err := creds.Value(secretName, "role-id")
+	roleID, err := refData.SecretValue(secretName, "role-id")
 	if err != nil {
 		return nil, err
 	}
@@ -26,13 +26,21 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		return nil, fmt.Errorf("role ID cannot be empty")
 	}
 
-	secretIDPath, err := creds.FilePath(secretName, "secret-id")
+	secretIDPath, err := refData.SecretFilePath(secretName, "secret-id")
 	if err != nil {
 		return nil, err
 	}
 
 	if secretIDPath == "" {
 		return nil, fmt.Errorf("secret ID path cannot be empty")
+	}
+
+	var caBundlePath string
+	if configMapName := vaultConfig.TLS.CABundle.Name; configMapName != "" {
+		caBundlePath, err = refData.ConfigMapFilePath(configMapName, "ca-bundle.crt")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &vault{
@@ -42,6 +50,7 @@ func newVaultSidecarProvider(name, keyID, udsPath string, vaultConfig configv1.V
 		config:       vaultConfig,
 		roleID:       roleID,
 		secretIDPath: secretIDPath,
+		caBundlePath: caBundlePath,
 	}, nil
 }
 
@@ -53,6 +62,7 @@ type vault struct {
 	config       configv1.VaultKMSPluginConfig
 	roleID       string
 	secretIDPath string
+	caBundlePath string
 }
 
 // Name returns the sidecar name appended by the key id.
@@ -74,14 +84,18 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	}
 
 	// Optional fields: only pass non-empty values.
+	if v.caBundlePath != "" {
+		args = append(args, fmt.Sprintf("-tls-ca-file=%s", v.caBundlePath))
+	}
+	if v.config.TLS.ServerName != "" {
+		args = append(args, fmt.Sprintf("-tls-sni=%s", v.config.TLS.ServerName))
+	}
 	if v.config.VaultNamespace != "" {
 		args = append(args, fmt.Sprintf("-vault-namespace=%s", v.config.VaultNamespace))
 	}
 
 	// Temporary workarounds. These should go away as we progress with the feature.
 	args = append(args,
-		// TODO: remove before GA once the CA bundle is wired into the encryption config secret.
-		"-tls-skip-verify=true",
 		// TODO: remove once we support scraping metrics from each KMS plugin sidecar independently.
 		// Set the port to zero to disable metrics serving.
 		// Slack discussion: https://redhat-external.slack.com/archives/C09KZ5QCBUH/p1780926464635219
