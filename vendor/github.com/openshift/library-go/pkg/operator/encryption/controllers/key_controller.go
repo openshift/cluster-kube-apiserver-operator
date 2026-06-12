@@ -201,7 +201,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 
 	var commonReason *string
 	for gr, grKeys := range desiredEncryptionState {
-		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs)
+		latestKeyID, internalReason, needed := needsNewKey(grKeys, currentMode, externalReason, encryptedGRs, apiEncryptionConfiguration)
 		if !needed {
 			continue
 		}
@@ -263,6 +263,26 @@ func (c *keyController) validateExistingSecret(ctx context.Context, keySecret *c
 	}
 
 	return nil // we made this key earlier
+}
+
+// kmsMigrationRequired reports whether the KMS config change between latest
+// (stored in the key secret) and current (from the APIServer CR) involves
+// migration-triggering fields that require a new encryption key for KMS encryption mode.
+// Returns false when only in-place-safe fields differ (image, TLS, authentication)
+// or when configs are identical.
+func kmsMigrationRequired(latest, current configv1.KMSPluginConfig) bool {
+	if latest.Type != current.Type {
+		return true
+	}
+	if latest.Type == configv1.VaultKMSProvider {
+		if latest.Vault.VaultAddress != current.Vault.VaultAddress ||
+			latest.Vault.VaultNamespace != current.Vault.VaultNamespace ||
+			latest.Vault.TransitMount != current.Vault.TransitMount ||
+			latest.Vault.TransitKey != current.Vault.TransitKey {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, currentMode state.Mode, apiServerEncryption configv1.APIServerEncryption, internalReason, externalReason string) (*corev1.Secret, error) {
@@ -358,7 +378,7 @@ func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Cont
 
 // needsNewKey checks whether a new key must be created for the given resource. If true, it also returns the latest
 // used key ID and a reason string.
-func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource) (uint64, string, bool) {
+func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, externalReason string, encryptedGRs []schema.GroupResource, currentApiServerEncryption configv1.APIServerEncryption) (uint64, string, bool) {
 	// we always need to have some encryption keys unless we are turned off
 	if len(grKeys.ReadKeys) == 0 {
 		return 0, "key-does-not-exist", currentMode != state.Identity
@@ -403,13 +423,14 @@ func needsNewKey(grKeys state.GroupResourceState, currentMode state.Mode, extern
 
 	if currentMode == state.KMS {
 		// We are here because Encryption Mode is not changed
+		// However, we need to create a new key if migration-triggering fields
+		// in the KMS provider configuration have changed.
+		if kmsMigrationRequired(latestKey.KMS.Plugin, currentApiServerEncryption.KMS) {
+			return latestKeyID, "kms-provider-changed", true
+		}
 
-		// For now in Tech Preview v1, we don't support configurational changes. Therefore,
-		// it is pointless comparing the secrets.
-
-		// For KMS mode, we don't do time-based rotation. Therefore, we shortcut here
-		// KMS keys are rotated externally by the KMS system.
-		// Moreover, we don't trigger new key when external reason is changed.
+		// For KMS mode, we don't do time-based rotation. KMS keys are rotated
+		// externally by the KMS provider. Moreover, we don't trigger new key when external reason is changed.
 		// Because it would lead to duplicate providers which is not allowed.
 		return 0, "", false
 	}
