@@ -87,6 +87,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 
 	extension.AddSuite(oteextension.Suite{
 		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms",
+		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
 			`name.contains("KMSEncryption")`,
@@ -95,6 +96,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 
 	extension.AddSuite(oteextension.Suite{
 		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms-rotation",
+		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
 			`name.contains("[Suite:encryption-kms-rotation]")`,
