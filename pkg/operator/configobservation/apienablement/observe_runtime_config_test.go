@@ -257,13 +257,18 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 // or a new pre-release version appears.
 //
 // If this test fails:
-//   - "kind X exists in stable v1" — the API has graduated to GA. Remove the
+//   - "API version ... is not registered" — the GV was removed from the scheme.
+//     Remove the entry from defaultGroupVersionsByFeatureGate.
+//   - "kind ... is not registered in ..." — the kind was removed or renamed.
+//     Update or remove the kind from the entry's Kinds list.
+//   - "kind ... exists in stable v1" — the API has graduated to GA. Remove the
 //     entry from defaultGroupVersionsByFeatureGate; v1 is served by default.
-//   - "kind X exists in <higher version> but only [<lower>] are listed" — a
-//     higher pre-release version is available. Add the new version to the map,
-//     or update the existing entry.
-//   - "serves <GV> but higher-priority <GV> exists; set Kinds..." — the entry
-//     has no Kinds field. Add the relevant kinds so the test can do precise
+//   - "kind ... highest pre-release version is ... but entry lists ..." — the
+//     entry's version is no longer the highest pre-release. Update the entry's
+//     GV or narrow its KubeVersionRange to exclude versions where a higher
+//     pre-release exists.
+//   - "serves ... but higher version ... exists; set Kinds..." — the entry has
+//     no Kinds field. Add the relevant kinds so the test can do precise
 //     per-resource checking instead of flagging at the group level.
 func TestDefaultGroupVersionsByFeatureGateNotStale(t *testing.T) {
 	kubeVersion, err := semver.Parse(componentbaseversion.DefaultKubeBinaryVersion + ".0")

@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
+	versionutil "k8s.io/apimachinery/pkg/version"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -55,23 +55,23 @@ func findStaleGroupVersionEntries(
 			}
 
 			if len(entry.Kinds) == 0 {
-				// Kinds not specified — fall back to a simple version priority check.
-				// Flag if any higher-priority version is registered for the same group.
-				// This is imprecise (the higher version may be for unrelated resources)
-				// but safe — it nudges maintainers to specify Kinds for precise checking.
+				// Kinds not specified — fall back to a simple version check.
+				// Flag if any semantically higher version is registered for the
+				// same group. This is imprecise (the higher version may be for
+				// unrelated resources) but safe — it nudges maintainers to specify
+				// Kinds for precise checking.
 				for _, gv := range scheme.PrioritizedVersionsForGroup(entry.Group) {
-					if gv == entry.GroupVersion {
+					if versionutil.CompareKubeAwareVersionStrings(gv.Version, entry.Version) > 0 {
+						violations = append(violations, violation{
+							FeatureGate: featureGate,
+							Message: fmt.Sprintf(
+								"serves %s but higher version %s exists (kube %s); "+
+									"set Kinds on the entry for precise checking, or update the version",
+								entry.GroupVersion, gv, kubeVersion,
+							),
+						})
 						break
 					}
-					violations = append(violations, violation{
-						FeatureGate: featureGate,
-						Message: fmt.Sprintf(
-							"serves %s but higher-priority %s exists (kube %s); "+
-								"set Kinds on the entry for precise checking, or update the version",
-							entry.GroupVersion, gv, kubeVersion,
-						),
-					})
-					break
 				}
 				continue
 			}
@@ -112,42 +112,34 @@ func findStaleGroupVersionEntries(
 					}
 				}
 
-				// Check 2: highest pre-release version is listed. Collect all versions
-				// listed for this kind across resolved entries, then verify that the
-				// highest-priority pre-release version containing this kind is among them.
-				listedVersions := sets.New[string]()
-				for _, other := range resolved {
-					if other.Group != entry.Group {
-						continue
-					}
-					for _, k := range other.Kinds {
-						if k == kind {
-							listedVersions.Insert(other.Version)
-						}
-					}
-				}
-
+				// Check 2: this entry's version must be the highest pre-release
+				// version for the kind. If a higher pre-release version exists,
+				// this entry is stale for this kind. We compare version strings
+				// semantically rather than relying on scheme priority order,
+				// which may not reflect the correct version hierarchy.
+				var highestPreRelease schema.GroupVersion
 				for _, gv := range scheme.PrioritizedVersionsForGroup(entry.Group) {
-					// Skip v1 — already handled by check 1 above.
 					if gv.Version == "v1" {
 						continue
 					}
 					if knownTypes := scheme.KnownTypes(gv); knownTypes != nil {
 						if _, exists := knownTypes[kind]; exists {
-							if !listedVersions.Has(gv.Version) {
-								violations = append(violations, violation{
-									FeatureGate: featureGate,
-									Kind:        kind,
-									Message: fmt.Sprintf(
-										"kind %q exists in %s but only %v are listed (kube %s) — "+
-											"update entries",
-										kind, gv, sets.List(listedVersions), kubeVersion,
-									),
-								})
+							if highestPreRelease.Version == "" || versionutil.CompareKubeAwareVersionStrings(gv.Version, highestPreRelease.Version) > 0 {
+								highestPreRelease = gv
 							}
-							break
 						}
 					}
+				}
+				if highestPreRelease.Version != "" && entry.Version != highestPreRelease.Version {
+					violations = append(violations, violation{
+						FeatureGate: featureGate,
+						Kind:        kind,
+						Message: fmt.Sprintf(
+							"kind %q highest pre-release version is %s but entry lists %s (kube %s) — "+
+								"update or remove the entry",
+							kind, highestPreRelease, entry.GroupVersion, kubeVersion,
+						),
+					})
 				}
 			}
 		}
@@ -179,7 +171,7 @@ func TestFindStaleGroupVersionEntries(t *testing.T) {
 			},
 			wantViolations: []violation{{
 				FeatureGate: "TestGate",
-				Message:     "serves testgroup/v1alpha1 but higher-priority testgroup/v1 exists (kube 1.35.0); set Kinds on the entry for precise checking, or update the version",
+				Message:     "serves testgroup/v1alpha1 but higher version testgroup/v1 exists (kube 1.35.0); set Kinds on the entry for precise checking, or update the version",
 			}},
 		},
 		{
@@ -243,14 +235,14 @@ func TestFindStaleGroupVersionEntries(t *testing.T) {
 			},
 		},
 		{
-			name: "highest pre-release not listed — violation",
+			name: "entry version is not the highest pre-release — violation",
 			entries: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"TestGate": {{GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1alpha1"}, Kinds: []string{"KindD"}}},
 			},
 			wantViolations: []violation{{
 				FeatureGate: "TestGate",
 				Kind:        "KindD",
-				Message:     `kind "KindD" exists in testgroup/v1beta1 but only [v1alpha1] are listed (kube 1.35.0) — update entries`,
+				Message:     `kind "KindD" highest pre-release version is testgroup/v1beta1 but entry lists testgroup/v1alpha1 (kube 1.35.0) — update or remove the entry`,
 			}},
 		},
 		{
@@ -259,18 +251,23 @@ func TestFindStaleGroupVersionEntries(t *testing.T) {
 				"TestGate": {{GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1alpha1"}, Kinds: []string{"KindC", "KindD"}}},
 			},
 			wantViolations: []violation{
-				{FeatureGate: "TestGate", Kind: "KindC", Message: `kind "KindC" exists in testgroup/v1beta2 but only [v1alpha1] are listed (kube 1.35.0) — update entries`},
-				{FeatureGate: "TestGate", Kind: "KindD", Message: `kind "KindD" exists in testgroup/v1beta1 but only [v1alpha1] are listed (kube 1.35.0) — update entries`},
+				{FeatureGate: "TestGate", Kind: "KindC", Message: `kind "KindC" highest pre-release version is testgroup/v1beta2 but entry lists testgroup/v1alpha1 (kube 1.35.0) — update or remove the entry`},
+				{FeatureGate: "TestGate", Kind: "KindD", Message: `kind "KindD" highest pre-release version is testgroup/v1beta1 but entry lists testgroup/v1alpha1 (kube 1.35.0) — update or remove the entry`},
 			},
 		},
 		{
-			name: "multiple entries cover highest for kind — no violation",
+			name: "lower version entry is stale even if highest is also listed",
 			entries: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"TestGate": {
 					{GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1alpha1"}, Kinds: []string{"KindD"}},
 					{GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1beta1"}, Kinds: []string{"KindD"}},
 				},
 			},
+			wantViolations: []violation{{
+				FeatureGate: "TestGate",
+				Kind:        "KindD",
+				Message:     `kind "KindD" highest pre-release version is testgroup/v1beta1 but entry lists testgroup/v1alpha1 (kube 1.35.0) — update or remove the entry`,
+			}},
 		},
 
 		// Kube version range filtering
@@ -294,13 +291,18 @@ func TestFindStaleGroupVersionEntries(t *testing.T) {
 			},
 		},
 		{
-			name: "overlapping ranges both resolve, highest listed — no violation",
+			name: "overlapping ranges, lower version entry is stale",
 			entries: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"TestGate": {
 					{KubeVersionRange: semver.MustParseRange(">= 1.33.0"), GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1alpha1"}, Kinds: []string{"KindD"}},
 					{KubeVersionRange: semver.MustParseRange(">= 1.34.0"), GroupVersion: schema.GroupVersion{Group: "testgroup", Version: "v1beta1"}, Kinds: []string{"KindD"}},
 				},
 			},
+			wantViolations: []violation{{
+				FeatureGate: "TestGate",
+				Kind:        "KindD",
+				Message:     `kind "KindD" highest pre-release version is testgroup/v1beta1 but entry lists testgroup/v1alpha1 (kube 1.35.0) — update or remove the entry`,
+			}},
 		},
 
 		// Unregistered GV or kind

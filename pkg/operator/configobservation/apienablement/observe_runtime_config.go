@@ -29,7 +29,7 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		// admission plugin uses v1beta1 informers. The openshift-apiserver can't be rebased until the
 		// o/k 1.36 rebase lands and a 1.36 branch is created on openshift/kubernetes-apiserver.
 		{
-			KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.37.0"),
+			KubeVersionRange: semver.MustParseRange(">=1.33.0 <1.34.0"),
 			GroupVersion:     schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
 			Kinds:            []string{"MutatingAdmissionPolicy", "MutatingAdmissionPolicyBinding"},
 		},
