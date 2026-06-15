@@ -107,7 +107,7 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 		t.Logf("APIServer is already configured to use %q mode", provider.Type)
 	}
 
-	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, defaultTargetGRs, namespace, labelSelector)
+	WaitForEncryptionKeyBasedOn(t, clientSet.Kube, lastMigratedKeyMeta, provider.Type, needsUpdate, defaultTargetGRs, namespace, labelSelector)
 	return clientSet
 }
 
@@ -126,7 +126,7 @@ func GetClients(t testing.TB) ClientSet {
 	return ClientSet{Etcd: etcdClient, ApiServerConfig: apiServerConfigClient, Kube: kubeClient}
 }
 
-func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, encryptionType configv1.EncryptionType, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) {
+func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, prevKeyMeta EncryptionKeyMeta, encryptionType configv1.EncryptionType, configChanged bool, defaultTargetGRs []schema.GroupResource, namespace, labelSelector string) {
 	encryptionMode := string(encryptionType)
 	if encryptionMode == "" {
 		encryptionMode = defaultEncryptionMode
@@ -135,7 +135,7 @@ func WaitForEncryptionKeyBasedOn(t testing.TB, kubeClient kubernetes.Interface, 
 		prevKeyMeta.Mode = defaultEncryptionMode
 	}
 
-	if prevKeyMeta.Mode == encryptionMode {
+	if prevKeyMeta.Mode == encryptionMode && !configChanged {
 		WaitForNoNewEncryptionKey(t, kubeClient, prevKeyMeta, namespace, labelSelector)
 		return
 	}
