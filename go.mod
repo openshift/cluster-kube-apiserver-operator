@@ -2,6 +2,12 @@ module github.com/openshift/cluster-kube-apiserver-operator
 
 go 1.25.0
 
+replace github.com/openshift/api => github.com/bhperry/openshift-api v0.0.0-20260701172439-91ea97fb96d3
+
+replace github.com/openshift/client-go => github.com/bhperry/openshift-client-go v0.0.0-20260701172553-b5b680e6b047
+
+replace github.com/openshift/library-go => github.com/bhperry/openshift-library-go v0.0.0-20260702211757-aaca0d30fd9a
+
 require (
 	github.com/apparentlymart/go-cidr v1.0.1
 	github.com/blang/semver/v4 v4.0.0
@@ -14,7 +20,7 @@ require (
 	github.com/miekg/dns v1.1.61
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-	github.com/openshift/api v0.0.0-20260623101811-c5eb460d04e3
+	github.com/openshift/api v0.0.0-20260626094904-39631f42b31b
 	github.com/openshift/build-machinery-go v0.0.0-20250530140348-dc5b2804eeee
 	github.com/openshift/client-go v0.0.0-20260622130833-df412d4d283e
 	github.com/openshift/library-go v0.0.0-20260629134817-a64e9a6e21ca

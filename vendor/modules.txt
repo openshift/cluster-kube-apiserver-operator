@@ -286,7 +286,7 @@ github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo
 github.com/openshift-eng/openshift-tests-extension/pkg/junit
 github.com/openshift-eng/openshift-tests-extension/pkg/util/sets
 github.com/openshift-eng/openshift-tests-extension/pkg/version
-# github.com/openshift/api v0.0.0-20260623101811-c5eb460d04e3
+# github.com/openshift/api v0.0.0-20260626094904-39631f42b31b => github.com/bhperry/openshift-api v0.0.0-20260701172439-91ea97fb96d3
 ## explicit; go 1.25.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -377,7 +377,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20260622130833-df412d4d283e
+# github.com/openshift/client-go v0.0.0-20260622130833-df412d4d283e => github.com/bhperry/openshift-client-go v0.0.0-20260701172553-b5b680e6b047
 ## explicit; go 1.25.0
 github.com/openshift/client-go/config/applyconfigurations/config/v1
 github.com/openshift/client-go/config/applyconfigurations/config/v1alpha1
@@ -435,7 +435,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20260629134817-a64e9a6e21ca
+# github.com/openshift/library-go v0.0.0-20260629134817-a64e9a6e21ca => github.com/bhperry/openshift-library-go v0.0.0-20260702211757-aaca0d30fd9a
 ## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -1734,4 +1734,7 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# github.com/openshift/api => github.com/bhperry/openshift-api v0.0.0-20260701172439-91ea97fb96d3
+# github.com/openshift/client-go => github.com/bhperry/openshift-client-go v0.0.0-20260701172553-b5b680e6b047
+# github.com/openshift/library-go => github.com/bhperry/openshift-library-go v0.0.0-20260702211757-aaca0d30fd9a
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
