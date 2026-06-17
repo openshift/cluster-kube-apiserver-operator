@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -22,6 +23,28 @@ import (
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
+var defaultVaultKMSPluginImage = resolveVaultKMSPluginImage()
+
+// resolveVaultKMSPluginImage determines the vault-kube-kms plugin image to use.
+// It checks SHARED_DIR because the openshift-e2e-test step ref is a widely-used
+// shared ref that does not declare VAULT_KMS_PLUGIN_IMAGE in its env list.
+// The vault-install step writes the image reference to a file in SHARED_DIR,
+// allowing subsequent steps to pick it up without modifying the shared ref.
+func resolveVaultKMSPluginImage() string {
+	if sharedDir := os.Getenv("SHARED_DIR"); sharedDir != "" {
+		imagePath := sharedDir + "/vault-kms-plugin-image"
+		data, err := os.ReadFile(imagePath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", imagePath, err)
+			}
+		} else if img := strings.TrimSpace(string(data)); img != "" {
+			return img
+		}
+	}
+	return ""
+}
+
 const (
 	defaultVaultNamespace          = "vault-kms"
 	defaultVaultServiceName        = "vault"
@@ -30,7 +53,6 @@ const (
 	defaultVaultAppRoleSecretName  = "vault-approle-secret"
 	defaultVaultConfigMapName      = "vault-ca-bundle"
 	defaultFAKEVaultKMSPluginImage = "quay.io/openshifttest/mock-kms-plugin@sha256:958a2f8276037468aa47dc2137d3c30dfcd96489455eddb2fe655f8168a57622"
-	defaultVaultKMSPluginImage     = "registry.ci.openshift.org/control-plane-custom-builds/vault-kube-kms@sha256:33599dd6eee61dcf9a60138759fafda3d88593a3c2072585156882c6b5bd3fa5"
 	defaultVaultAddress            = "https://vault.vault-kms.svc:8200"
 	defaultVaultEnterpriseNS       = "admin"
 	defaultVaultTransitMount       = "transit"
