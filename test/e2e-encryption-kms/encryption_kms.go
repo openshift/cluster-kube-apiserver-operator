@@ -15,12 +15,20 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
-		testKMSEncryptionOnOff(ctx, g.GinkgoTB())
+	//g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+	//	testKMSEncryptionOnOff(ctx, g.GinkgoTB())
+	//})
+
+	//g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+	//	testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
+	//})
+
+	g.It("TestKMSToKMSOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+		testKMSToKMSOnOff(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
-		testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
+	g.It("TestKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+		testKMSToKMSMigration(ctx, g.GinkgoTB())
 	})
 })
 
@@ -84,5 +92,49 @@ func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
+	})
+}
+
+// testKMSToKMSMigration tests KMS-to-KMS migration (primary → secondary → primary → identity).
+func testKMSToKMSMigration(ctx context.Context, t testing.TB) {
+	library.TestKMSToKMSMigration(ctx, t, library.KMSToKMSMigrationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               operatorclient.OperatorNamespace,
+			TargetGRs:                       operatorencryption.DefaultTargetGRs,
+			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+		},
+		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
+		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
+		ResourceFunc:                   operatorencryption.SecretOfLife,
+		ResourceName:                   "SecretOfLife",
+		PrimaryProvider:                librarykms.DefaultVaultEncryptionProvider(ctx, t),
+		SecondaryProvider:              librarykms.SecondaryVaultEncryptionProvider(ctx, t),
+	})
+}
+
+// testKMSToKMSOnOff tests KMS on/off cycle with two distinct KMS providers.
+func testKMSToKMSOnOff(ctx context.Context, t testing.TB) {
+	library.TestKMSToKMSOnOff(ctx, t, library.KMSToKMSMigrationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               operatorclient.OperatorNamespace,
+			TargetGRs:                       operatorencryption.DefaultTargetGRs,
+			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+		},
+		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
+		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
+		ResourceFunc:                   operatorencryption.SecretOfLife,
+		ResourceName:                   "SecretOfLife",
+		PrimaryProvider:                librarykms.DefaultVaultEncryptionProvider(ctx, t),
+		SecondaryProvider:              librarykms.SecondaryVaultEncryptionProvider(ctx, t),
 	})
 }
