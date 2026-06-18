@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -92,7 +91,7 @@ func EnsureFileContent(filePath string, data []byte) error {
 			return fmt.Errorf("file %q is a directory", filePath)
 		}
 
-		fileBytes, err := ioutil.ReadFile(filePath)
+		fileBytes, err := os.ReadFile(filePath)
 		if err != nil {
 			return fmt.Errorf("failed to read file %q: %v", filePath, err)
 		}
@@ -113,7 +112,7 @@ func EnsureFileContent(filePath string, data []byte) error {
 		klog.Warningf("File %q doesn't exist.", filePath)
 	}
 
-	err = ioutil.WriteFile(filePath, data, mode)
+	err = os.WriteFile(filePath, data, mode)
 	if err != nil {
 		return fmt.Errorf("failed to write content into %q: %v", filePath, err)
 	}
