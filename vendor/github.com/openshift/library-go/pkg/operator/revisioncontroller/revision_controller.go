@@ -39,7 +39,8 @@ type RevisionController struct {
 	configMapGetter corev1client.ConfigMapsGetter
 	secretGetter    corev1client.SecretsGetter
 
-	revisionPrecondition PreconditionFunc
+	revisionPrecondition  PreconditionFunc
+	revisionPostcondition PostconditionFunc
 }
 
 type RevisionResource struct {
@@ -49,6 +50,9 @@ type RevisionResource struct {
 
 // PreconditionFunc checks if revision precondition is met (is true) and then proceeeds with the creation of new revision
 type PreconditionFunc func(ctx context.Context) (bool, error)
+
+// PostconditionFunc validates the assembled revision data after all resources have been copied but before the revision is marked as ready.
+type PostconditionFunc func(ctx context.Context, revision int32) (bool, error)
 
 // NewRevisionController create a new revision controller.
 func NewRevisionController(
@@ -62,9 +66,15 @@ func NewRevisionController(
 	secretGetter corev1client.SecretsGetter,
 	eventRecorder events.Recorder,
 	revisionPrecondition PreconditionFunc,
+	revisionPostcondition PostconditionFunc,
 ) factory.Controller {
 	if revisionPrecondition == nil {
 		revisionPrecondition = func(ctx context.Context) (bool, error) {
+			return true, nil
+		}
+	}
+	if revisionPostcondition == nil {
+		revisionPostcondition = func(_ context.Context, _ int32) (bool, error) {
 			return true, nil
 		}
 	}
@@ -75,10 +85,11 @@ func NewRevisionController(
 		configMaps:             configMaps,
 		secrets:                secrets,
 
-		operatorClient:       operatorClient,
-		configMapGetter:      configMapGetter,
-		secretGetter:         secretGetter,
-		revisionPrecondition: revisionPrecondition,
+		operatorClient:        operatorClient,
+		configMapGetter:       configMapGetter,
+		secretGetter:          secretGetter,
+		revisionPrecondition:  revisionPrecondition,
+		revisionPostcondition: revisionPostcondition,
 	}
 
 	return factory.New().
@@ -307,6 +318,15 @@ func (c RevisionController) createNewRevision(ctx context.Context, recorder even
 		if obj == nil && !s.Optional {
 			return false, apierrors.NewNotFound(corev1.Resource("secrets"), s.Name)
 		}
+	}
+
+	// We run the post-condition function here because at this point in time, the revision
+	// ConfigMap is already created, but it doesn't yet have the "revision-ready: true" annotation.
+	// This means that the installer pod has not yet started deploying the revision.
+	if postconditionMet, err := c.revisionPostcondition(ctx, revision); err != nil {
+		return false, fmt.Errorf("revision postcondition failed for revision %d: %w", revision, err)
+	} else if !postconditionMet {
+		return false, nil
 	}
 
 	if createdStatus.Annotations == nil {
