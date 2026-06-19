@@ -53,7 +53,7 @@ func newSidecarProvider(keyID string, udsPath string, pluginConfig configv1.KMSP
 //
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, operatorImage string) error {
+func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, operatorCmd string, operatorImage string) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -76,7 +76,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 	return NewKMSPluginBuilder().
 		FromEncryptionConfig(encryptionConfigSecretName, cfg).
 		AsStaticPod().
-		WithHealthReporter(healthReporterContainerName, operatorImage).
+		WithHealthReporter(healthReporterContainerName, operatorCmd, operatorImage).
 		Apply(podSpec, containerName)
 }
 
@@ -84,7 +84,7 @@ func AddKMSPluginSidecarToStaticPodSpec(ctx context.Context, podSpec *corev1.Pod
 //
 // It is a no-op when the KMSEncryption feature gate is not enabled or the encryption-config secret does not exist.
 // The secretClient should be uncached to avoid injecting sidecars based on a stale encryption configuration.
-func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, operatorImage string) error {
+func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, containerName string, encryptionConfigNamespace string, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, featureGateAccessor featuregates.FeatureGateAccess, operatorCmd string, operatorImage string) error {
 	if !featureGateAccessor.AreInitialFeatureGatesObserved() {
 		return nil
 	}
@@ -106,7 +106,7 @@ func AddKMSPluginSidecarToPodSpec(ctx context.Context, podSpec *corev1.PodSpec, 
 
 	return NewKMSPluginBuilder().
 		FromEncryptionConfig(encryptionConfigSecretName, cfg).
-		WithHealthReporter(healthReporterContainerName, operatorImage).
+		WithHealthReporter(healthReporterContainerName, operatorCmd, operatorImage).
 		Apply(podSpec, containerName)
 }
 

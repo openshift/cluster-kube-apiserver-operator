@@ -26,6 +26,7 @@ type KMSPluginBuilder struct {
 
 	enableHealthReporter        bool
 	healthReporterContainerName string
+	healthReporterOperatorCmd   string
 	healthReporterImage         string
 }
 
@@ -51,14 +52,13 @@ func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	return b
 }
 
-// WithHealthReporter enables injection of a health-reporter sidecar that
-// monitors the co-located KMS plugins via their UDS endpoints.
-// containerName identifies the sidecar container. operatorImage is the
-// container image (must not be empty). In static pod mode the reporter uses
-// defaultStaticPodKubeconfig; in deployment mode it uses in-cluster config.
-func (b *KMSPluginBuilder) WithHealthReporter(containerName, operatorImage string) *KMSPluginBuilder {
+// WithHealthReporter enables injection of a health-reporter sidecar.
+// containerName is used as both the container name and the subcommand name.
+// operatorCmd is the parent binary (e.g. "cluster-kube-apiserver-operator").
+func (b *KMSPluginBuilder) WithHealthReporter(containerName, operatorCmd, operatorImage string) *KMSPluginBuilder {
 	b.enableHealthReporter = true
 	b.healthReporterContainerName = containerName
+	b.healthReporterOperatorCmd = operatorCmd
 	b.healthReporterImage = operatorImage
 	return b
 }
@@ -171,7 +171,7 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 			kubeconfig = defaultStaticPodKubeconfig
 		}
 
-		reporter := &healthReporter{name: b.healthReporterContainerName, image: b.healthReporterImage, sockets: sockets, kubeconfig: kubeconfig}
+		reporter := &healthReporter{name: b.healthReporterContainerName, operatorCmd: b.healthReporterOperatorCmd, image: b.healthReporterImage, sockets: sockets, kubeconfig: kubeconfig}
 		if err := ensureSidecarContainer(podSpec, reporter); err != nil {
 			return err
 		}
@@ -202,10 +202,11 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 const defaultStaticPodKubeconfig = "/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig"
 
 type healthReporter struct {
-	name       string
-	image      string
-	sockets    []string
-	kubeconfig string
+	name        string
+	operatorCmd string
+	image       string
+	sockets     []string
+	kubeconfig  string
 }
 
 func (h *healthReporter) Name() string {
@@ -214,7 +215,6 @@ func (h *healthReporter) Name() string {
 
 func (h *healthReporter) BuildSidecarContainer() (corev1.Container, error) {
 	args := []string{
-		"kms-health-reporter",
 		fmt.Sprintf("--kms-sockets=%s", strings.Join(h.sockets, ",")),
 		"--node-name=$(NODE_NAME)",
 	}
@@ -225,6 +225,7 @@ func (h *healthReporter) BuildSidecarContainer() (corev1.Container, error) {
 	return corev1.Container{
 		Name:                     h.name,
 		Image:                    h.image,
+		Command:                  []string{h.operatorCmd, h.name},
 		Args:                     args,
 		ImagePullPolicy:          corev1.PullIfNotPresent,
 		RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
