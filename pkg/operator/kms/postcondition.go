@@ -59,7 +59,7 @@ func kmsRevisionPostcondition(ctx context.Context, kubeClient kubernetes.Interfa
 		return fmt.Errorf("kms revision post-check: failed to get kube-apiserver-pod for revision %d: %w", revision, err)
 	}
 
-	expectedSidecars, err := buildExpectedKMSSidecars(encryptionSecret)
+	expectedSidecars, err := buildExpectedKMSSidecars("encryption-config", encryptionSecret)
 	if err != nil {
 		return fmt.Errorf("kms revision post-check: failed to build expected sidecars for revision %d: %w", revision, err)
 	}
@@ -73,15 +73,15 @@ func kmsRevisionPostcondition(ctx context.Context, kubeClient kubernetes.Interfa
 	sortContainersByName(actualSidecars)
 
 	if !equality.Semantic.DeepEqual(expectedSidecars, actualSidecars) {
-		return fmt.Errorf("kms revision post-check: revision %d has inconsistent KMS sidecars: expected=%v actual=%v",
-			revision, containerNames(expectedSidecars), containerNames(actualSidecars))
+		return fmt.Errorf("kms revision post-check: revision %d has inconsistent KMS sidecars: expected=%+v actual=%+v",
+			revision, expectedSidecars, actualSidecars)
 	}
 
 	klog.V(4).Infof("kms revision post-check passed for revision %d: sidecars=%v", revision, containerNames(expectedSidecars))
 	return nil
 }
 
-func buildExpectedKMSSidecars(encryptionSecret *corev1.Secret) ([]corev1.Container, error) {
+func buildExpectedKMSSidecars(encryptionConfigSecretName string, encryptionSecret *corev1.Secret) ([]corev1.Container, error) {
 	cfg, err := encryptiondata.FromSecret(encryptionSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract encryption config from %s/%s secret: %w", encryptionSecret.Namespace, encryptionSecret.Name, err)
@@ -94,8 +94,11 @@ func buildExpectedKMSSidecars(encryptionSecret *corev1.Secret) ([]corev1.Contain
 		Containers: []corev1.Container{{Name: "kube-apiserver"}},
 	}
 
+	// Use the non-revisioned secret name so the builder generates the same
+	// file paths (e.g. -approle-secret-id-path, -tls-ca-file) that the
+	// target config controller used when it originally built the pod spec.
 	if err := kmspluginlifecycle.NewKMSPluginBuilder().
-		FromEncryptionConfig(encryptionSecret.Name, cfg).
+		FromEncryptionConfig(encryptionConfigSecretName, cfg).
 		AsStaticPod().
 		Apply(podSpec, "kube-apiserver"); err != nil {
 		return nil, err
