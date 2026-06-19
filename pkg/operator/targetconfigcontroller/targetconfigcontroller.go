@@ -330,7 +330,7 @@ func managePods(ctx context.Context, client coreclientv1.ConfigMapsGetter, secre
 		required.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	if err := kmspluginlifecycle.AddKMSPluginSidecarToStaticPodSpec(ctx, &required.Spec, "kube-apiserver", operatorclient.TargetNamespace, "encryption-config", secretClient, featureGateAccessor); err != nil {
+	if err := kmspluginlifecycle.AddKMSPluginSidecarToStaticPodSpec(ctx, &required.Spec, "kube-apiserver", operatorclient.TargetNamespace, "encryption-config", secretClient, featureGateAccessor, operatorImagePullSpec); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin to pod spec: %w", err)
 	}
 
