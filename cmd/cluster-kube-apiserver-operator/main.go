@@ -11,7 +11,6 @@ import (
 
 	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	kmshealth "github.com/openshift/library-go/pkg/operator/encryption/kms/health"
-	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
@@ -72,7 +71,6 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		// is implemented in library-go.
 		return nil, nil
 	}))
-	cmd.AddCommand(kmspreflight.NewCommand(ctx))
 
 	return cmd
 }
