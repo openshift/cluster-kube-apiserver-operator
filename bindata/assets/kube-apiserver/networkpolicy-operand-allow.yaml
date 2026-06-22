@@ -4,6 +4,7 @@
 # bypasses NetworkPolicy entirely). They need egress for:
 # - installer/pruner: API server access to manage static pod manifests
 # - guard: kube-apiserver health checks on port 6443
+# - openshift-kms-preflight: for the kms plugin sidecar to contact in-cluster vault
 # - all: DNS resolution via openshift-dns
 #
 # All egress is permitted because the API server address can vary by cluster configuration.
@@ -21,6 +22,7 @@ spec:
       - guard
       - installer
       - pruner
+      - openshift-kms-preflight
   egress:
   - {}
   policyTypes:
