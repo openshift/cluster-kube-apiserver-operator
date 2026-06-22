@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
 )
@@ -102,9 +99,11 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 	socketVolumeMount := corev1.VolumeMount{Name: kmsPluginSocketVolumeName, MountPath: kmsPluginSocketMountPath, ReadOnly: false}
 	refDataVolumeMount := corev1.VolumeMount{Name: refDataVolumeName, MountPath: refDataMountPath, ReadOnly: true}
 
+	sockets := make([]string, 0, len(kmsConfigurations))
 	for _, kmsConfiguration := range kmsConfigurations {
 		// ExtractUniqueAndSortedKMSConfigurations function rewrites the .Name field to include only the key ID
 		keyID := kmsConfiguration.Name
+		sockets = append(sockets, kmsConfiguration.Endpoint)
 
 		pluginConfig, ok := b.encryptionConfig.KMSPlugins[keyID]
 		if !ok {
@@ -157,102 +156,12 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 	}
 
 	if b.enableHealthReporter {
-		if b.healthReporterImage == "" {
-			return fmt.Errorf("health reporter image is required when WithHealthReporter is used")
-		}
-
-		sockets := make([]string, 0, len(kmsConfigurations))
-		for _, kmsConfiguration := range kmsConfigurations {
-			sockets = append(sockets, kmsConfiguration.Endpoint)
-		}
-
-		var kubeconfig string
-		if b.staticPod {
-			kubeconfig = defaultStaticPodKubeconfig
-		}
-
-		reporter := &healthReporter{name: b.healthReporterContainerName, operatorCmd: b.healthReporterOperatorCmd, image: b.healthReporterImage, sockets: sockets, kubeconfig: kubeconfig}
-		if err := ensureSidecarContainer(podSpec, reporter); err != nil {
+		if err := b.applyHealthReporter(podSpec, sockets); err != nil {
 			return err
-		}
-
-		healthReporterSocketMount := corev1.VolumeMount{Name: kmsPluginSocketVolumeName, MountPath: kmsPluginSocketMountPath, ReadOnly: true}
-		if err := ensureVolumeMountInContainer(podSpec.InitContainers, reporter.Name(), healthReporterSocketMount); err != nil {
-			return err
-		}
-
-		if b.staticPod {
-			resourceDirMount := corev1.VolumeMount{Name: resourceDirVolumeName, MountPath: resourcesDir, ReadOnly: true}
-			if err := ensureVolumeMountInContainer(podSpec.InitContainers, reporter.Name(), resourceDirMount); err != nil {
-				return err
-			}
-			if err := setRunAsRoot(podSpec.InitContainers, reporter.Name()); err != nil {
-				return err
-			}
 		}
 	}
 
 	return nil
-}
-
-// defaultStaticPodKubeconfig is reused from the cert-syncer kubeconfig because
-// in-cluster config does not work on host-network static pods (kubernetes.default.svc
-// does not resolve). This matches the pattern used by the startup monitor.
-// TODO: move to a dedicated least-privilege kubeconfig once available.
-const defaultStaticPodKubeconfig = "/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig"
-
-type healthReporter struct {
-	name        string
-	operatorCmd string
-	image       string
-	sockets     []string
-	kubeconfig  string
-}
-
-func (h *healthReporter) Name() string {
-	return h.name
-}
-
-func (h *healthReporter) BuildSidecarContainer() (corev1.Container, error) {
-	args := []string{
-		fmt.Sprintf("--kms-sockets=%s", strings.Join(h.sockets, ",")),
-		"--node-name=$(NODE_NAME)",
-	}
-	if h.kubeconfig != "" {
-		args = append(args, fmt.Sprintf("--kubeconfig=%s", h.kubeconfig))
-	}
-
-	return corev1.Container{
-		Name:                     h.name,
-		Image:                    h.image,
-		Command:                  []string{h.operatorCmd, h.name},
-		Args:                     args,
-		ImagePullPolicy:          corev1.PullIfNotPresent,
-		RestartPolicy:            ptr.To(corev1.ContainerRestartPolicyAlways),
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		Env: []corev1.EnvVar{
-			{
-				Name: "NODE_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{
-						FieldPath: "spec.nodeName",
-					},
-				},
-			},
-		},
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-			},
-		},
-		SecurityContext: &corev1.SecurityContext{
-			ReadOnlyRootFilesystem:   ptr.To(true),
-			AllowPrivilegeEscalation: ptr.To(false),
-			Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-			SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
-		},
-	}, nil
 }
 
 func fetchEncryptionConfig(ctx context.Context, encryptionConfigNamespace, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter) (*encryptiondata.Config, error) {
