@@ -181,37 +181,8 @@ $ OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=docker.io/sttts/origin-release:latest
 
 ## Tests
 
- This repository is compatible with the [OpenShift Tests Extension (OTE)](https://github.com/openshift-eng/openshift-tests-extension) framework.
+See the [OpenShift Tests Extension (OTE)](CONTRIBUTING.md#openshift-tests-extension-ote) section in `CONTRIBUTING.md` for instructions on building and running tests.
 
-### Building the test binary
+## Contributing
 
-```bash
-make build
-```
-
-### Running test suites and tests
-
-```bash
-# Run a specific test suite or test
-./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial
-./cluster-kube-apiserver-operator-tests-ext run-test "test-name"
-
-# To run serial suites cases serially, use the following command:
-./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial -c 1
-
-# Run with JUnit output
-./cluster-kube-apiserver-operator-tests-ext run-suite openshift/cluster-kube-apiserver-operator/operator/serial --junit-path=/tmp/junit.xml
-./cluster-kube-apiserver-operator-tests-ext run-test "test-name" --junit-path=/tmp/junit.xml
-```
-
-### Listing available tests and suites
-
-```bash
-# List all test suites
-./cluster-kube-apiserver-operator-tests-ext list suites
-
-# List tests in a suite
-./cluster-kube-apiserver-operator-tests-ext list tests --suite=openshift/cluster-kube-apiserver-operator/operator/serial
-```
-
-For more information about the OTE framework, see the [openshift-tests-extension documentation](https://github.com/openshift-eng/openshift-tests-extension).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
