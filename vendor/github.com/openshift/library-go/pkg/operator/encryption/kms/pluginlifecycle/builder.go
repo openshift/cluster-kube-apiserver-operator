@@ -18,9 +18,11 @@ import (
 // KMSPluginBuilder constructs KMS plugin pod spec contributions for injection
 // into API server pods.
 type KMSPluginBuilder struct {
-	encryptionConfig           *encryptiondata.Config
+	secretClient               corev1client.SecretsGetter
+	encryptionConfigNamespace  string
 	encryptionConfigSecretName string
 	staticPod                  bool
+	errorIfNotFound            bool
 
 	healthReporter *healthReporter
 }
@@ -30,13 +32,12 @@ func NewKMSPluginBuilder() *KMSPluginBuilder {
 	return &KMSPluginBuilder{}
 }
 
-// FromEncryptionConfig loads all KMS plugins from a parsed encryption config.
-// The encryptionConfigSecretName identifies the Secret the config was parsed
-// from; it is used for volume configuration in both deployment and static pod
-// modes.
-func (b *KMSPluginBuilder) FromEncryptionConfig(encryptionConfigSecretName string, cfg *encryptiondata.Config) *KMSPluginBuilder {
-	b.encryptionConfigSecretName = encryptionConfigSecretName
-	b.encryptionConfig = cfg
+// FromEncryptionConfigSecret configures the builder to load KMS plugins from the
+// named encryption-config Secret. The Secret is fetched at Apply time.
+func (b *KMSPluginBuilder) FromEncryptionConfigSecret(namespace, secretName string, secretClient corev1client.SecretsGetter) *KMSPluginBuilder {
+	b.encryptionConfigNamespace = namespace
+	b.encryptionConfigSecretName = secretName
+	b.secretClient = secretClient
 	return b
 }
 
@@ -44,6 +45,14 @@ func (b *KMSPluginBuilder) FromEncryptionConfig(encryptionConfigSecretName strin
 // data from the resource-dir volume and run as root (UID 0).
 func (b *KMSPluginBuilder) AsStaticPod() *KMSPluginBuilder {
 	b.staticPod = true
+	return b
+}
+
+// WithSecretRequired makes Apply return an error when the encryption-config Secret
+// does not exist, instead of silently treating it as a no-op. This is useful for
+// callers like the preflight checker that expect the Secret to be present.
+func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
+	b.errorIfNotFound = true
 	return b
 }
 
@@ -66,7 +75,7 @@ func (b *KMSPluginBuilder) WithHealthReporter(operatorBinary, operatorImage stri
 //
 // It is a no-op (returns nil error) when no KMS plugins are found.
 // It is idempotent.
-func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) error {
+func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, containerName string) error {
 	if podSpec == nil {
 		return fmt.Errorf("pod spec cannot be nil")
 	}
@@ -74,7 +83,19 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 		return fmt.Errorf("container name cannot be empty")
 	}
 
-	kmsConfigurations, err := encryptiondata.ExtractUniqueAndSortedKMSConfigurations(b.encryptionConfig)
+	if b.secretClient == nil {
+		return fmt.Errorf("secret client cannot be nil")
+	}
+
+	cfg, err := fetchEncryptionConfig(ctx, b.encryptionConfigNamespace, b.encryptionConfigSecretName, b.secretClient, b.errorIfNotFound)
+	if err != nil {
+		return err
+	}
+	if cfg == nil {
+		return nil
+	}
+
+	kmsConfigurations, err := encryptiondata.ExtractUniqueAndSortedKMSConfigurations(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to get KMS configurations: %w", err)
 	}
@@ -101,18 +122,17 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 
 	sockets := make([]string, 0, len(kmsConfigurations))
 	for _, kmsConfiguration := range kmsConfigurations {
-		// ExtractUniqueAndSortedKMSConfigurations function rewrites the .Name field to include only the key ID
 		keyID := kmsConfiguration.Name
 		sockets = append(sockets, kmsConfiguration.Endpoint)
 
-		pluginConfig, ok := b.encryptionConfig.KMSPlugins[keyID]
+		pluginConfig, ok := cfg.KMSPlugins[keyID]
 		if !ok {
 			return fmt.Errorf("missing plugin config for keyID %s", keyID)
 		}
 
 		refData := &referenceDataResolver{
-			pluginsSecretData:    b.encryptionConfig.KMSPluginsSecretData,
-			pluginsConfigMapData: b.encryptionConfig.KMSPluginsConfigMapData,
+			pluginsSecretData:    cfg.KMSPluginsSecretData,
+			pluginsConfigMapData: cfg.KMSPluginsConfigMapData,
 			referenceDataDir:     referenceDataDir,
 			keyID:                keyID,
 		}
@@ -162,9 +182,12 @@ func (b *KMSPluginBuilder) Apply(podSpec *corev1.PodSpec, containerName string) 
 	return nil
 }
 
-func fetchEncryptionConfig(ctx context.Context, encryptionConfigNamespace, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter) (*encryptiondata.Config, error) {
+func fetchEncryptionConfig(ctx context.Context, encryptionConfigNamespace, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, errorIfNotFound bool) (*encryptiondata.Config, error) {
 	encryptionConfigurationSecret, err := secretClient.Secrets(encryptionConfigNamespace).Get(ctx, encryptionConfigSecretName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
+		if errorIfNotFound {
+			return nil, fmt.Errorf("encryption-config secret %s/%s not found", encryptionConfigNamespace, encryptionConfigSecretName)
+		}
 		klog.V(4).Infof("skipping KMS sidecar injection: %s/%s secret not found", encryptionConfigNamespace, encryptionConfigSecretName)
 		return nil, nil
 	}
