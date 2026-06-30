@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -312,7 +311,7 @@ func TestRenderCommand(t *testing.T) {
 				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-v6.yaml"), []byte(networkConfigV6), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "config-v6.yaml"), []byte(networkConfigV6), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if cfg.ServingInfo.BindAddress != "[::]:6443" {
@@ -338,7 +337,7 @@ func TestRenderCommand(t *testing.T) {
 				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "config-dual.yaml"), []byte(networkConfigDual), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if cfg.ServingInfo.BindAddress != "[::]:6443" {
@@ -390,7 +389,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 			setupFunction: func() error {
 				data := ``
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				issuer := cfg.APIServerArguments["service-account-issuer"]
@@ -420,7 +419,7 @@ kind: Authentication
 metadata:
   name: cluster
 spec: {}`
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				issuer := cfg.APIServerArguments["service-account-issuer"]
@@ -451,7 +450,7 @@ metadata:
   name: cluster
 spec:
   serviceAccountIssuer: https://test.dummy.url`
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "authentication.yaml"), []byte(data), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if len(cfg.APIServerArguments["service-account-issuer"]) == 0 {
@@ -560,10 +559,10 @@ spec:
 				if err := os.Mkdir(filepath.Join(assetsInputDir, "2"), 0700); err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0644); err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
 					return err
 				}
 				return nil
@@ -629,7 +628,7 @@ spec:
 				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureHA), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureHA), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
@@ -664,7 +663,7 @@ spec:
 				"--operand-kubernetes-version=1.31.0",
 			},
 			setupFunction: func() error {
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureSNO), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "infrastructure.yaml"), []byte(infrastructureSNO), 0644)
 			},
 			testFunction: func(cfg *kubecontrolplanev1.KubeAPIServerConfig) error {
 				if len(cfg.APIServerArguments["shutdown-delay-duration"]) == 0 {
@@ -708,7 +707,7 @@ spec:
 				t.Fatalf("%s: got unexpected error %v", test.name, err)
 			}
 
-			rawConfigFile, err := ioutil.ReadFile(filepath.Join(outputDir, "configs", "config.yaml"))
+			rawConfigFile, err := os.ReadFile(filepath.Join(outputDir, "configs", "config.yaml"))
 			if err != nil {
 				t.Fatalf("cannot read the rendered config file, error: %v", err)
 			}
@@ -717,7 +716,7 @@ spec:
 				t.Fatalf("cannot unmarshal config into KubeAPIServerConfig, error: %v", err)
 			}
 
-			rawStaticPodFile, err := ioutil.ReadFile(filepath.Join(outputDir, "manifests", "bootstrap-manifests", "kube-apiserver-pod.yaml"))
+			rawStaticPodFile, err := os.ReadFile(filepath.Join(outputDir, "manifests", "bootstrap-manifests", "kube-apiserver-pod.yaml"))
 			if err != nil {
 				t.Fatalf("cannot read the rendered config file, error: %v", err)
 			}
@@ -774,7 +773,7 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 }
 
 func setupAssetOutputDir(testName string) (teardown func(), outputDir string, err error) {
-	outputDir, err = ioutil.TempDir("", testName)
+	outputDir, err = os.MkdirTemp("", testName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -818,7 +817,7 @@ func runRender(args []string, overrides []func(*renderOpts)) error {
 }
 
 func Test_renderOpts_Validate(t *testing.T) {
-	assetsInputDir, err := ioutil.TempDir("", "testdata")
+	assetsInputDir, err := os.MkdirTemp("", "testdata")
 	if err != nil {
 		t.Errorf("unable to create assets input directory, error: %v", err)
 	}
@@ -840,7 +839,7 @@ func Test_renderOpts_Validate(t *testing.T) {
 				if err := os.Mkdir(filepath.Join(assetsInputDir, "0"), 0700); err != nil {
 					return err
 				}
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0600)
+				return os.WriteFile(filepath.Join(assetsInputDir, "0", "bound-service-account-signing-key.key"), []byte(data), 0600)
 			},
 			operatorImage:            "kube-apiserver-operator:latest",
 			operandKubernetesVersion: "1.31.0",
@@ -854,7 +853,7 @@ func Test_renderOpts_Validate(t *testing.T) {
 				if err := os.Mkdir(filepath.Join(assetsInputDir, "1"), 0700); err != nil {
 					return err
 				}
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
+				return os.WriteFile(filepath.Join(assetsInputDir, "1", "bound-service-account-signing-key.pub"), []byte(data), 0644)
 			},
 			operatorImage:            "kube-apiserver-operator:latest",
 			operandKubernetesVersion: "1.31.0",
@@ -868,10 +867,10 @@ func Test_renderOpts_Validate(t *testing.T) {
 				if err := os.Mkdir(filepath.Join(assetsInputDir, "2"), 0700); err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.pub"), []byte(data), 0644); err != nil {
 					return err
 				}
-				return ioutil.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0600)
+				return os.WriteFile(filepath.Join(assetsInputDir, "2", "bound-service-account-signing-key.key"), []byte(data), 0600)
 			},
 			operatorImage:            "kube-apiserver-operator:latest",
 			operandKubernetesVersion: "1.31.0",
