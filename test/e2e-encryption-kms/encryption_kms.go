@@ -22,20 +22,19 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
 		testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
 	})
+
 })
 
 // testKMSEncryptionOnOff tests KMS encryption on/off cycle.
 // This test:
-// 1. Deploys the real Vault KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Enables KMS encryption
-// 4. Verifies secret is encrypted
-// 5. Disables encryption (Identity)
-// 6. Verifies secret is NOT encrypted
-// 7. Re-enables KMS encryption
-// 8. Verifies secret is encrypted again
-// 9. Disables encryption (Identity) again
-// 10. Verifies secret is NOT encrypted again
+// 1. Enables KMS encryption
+// 2. Verifies secret is encrypted
+// 3. Disables encryption (Identity)
+// 4. Verifies secret is NOT encrypted
+// 5. Re-enables KMS encryption
+// 6. Verifies secret is encrypted again
+// 7. Disables encryption (Identity) again
+// 8. Verifies secret is NOT encrypted again
 func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
@@ -58,12 +57,11 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 
 // testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
 // This test:
-// 1. Deploys the real Vault KMS plugin
-// 2. Creates a test secret (SecretOfLife)
-// 3. Randomly picks one AES encryption provider (AESGCM or AESCBC)
-// 4. Shuffles the selected AES provider with KMS to create a randomized migration order
-// 5. Migrates between the providers in the shuffled order
-// 6. Verifies secret is correctly encrypted after each migration
+// 1. Creates a test secret (SecretOfLife)
+// 2. Randomly picks one AES encryption provider (AESGCM or AESCBC)
+// 3. Shuffles the selected AES provider with KMS to create a randomized migration order
+// 4. Migrates between the providers in the shuffled order
+// 5. Verifies secret is correctly encrypted after each migration
 func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
 	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
