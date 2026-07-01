@@ -78,6 +78,14 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 	})
 
 	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/operator/parallel",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Operator]") && !name.contains("[Serial]")`,
+		},
+	})
+
+	extension.AddSuite(oteextension.Suite{
 		Name:        "openshift/cluster-kube-apiserver-operator/event-ttl",
 		Parallelism: 1,
 		Qualifiers: []string{
