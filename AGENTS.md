@@ -66,5 +66,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines. Key rules:
 ## Testing
 
 - **Unit tests:** co-located `*_test.go` files, table-driven, `go test ./pkg/... ./cmd/...`
-- **E2E tests:** suites under `test/e2e*/`, each with its own Makefile target. `test/e2e/` and `test/e2e-encryption-kms/` use Ginkgo v2; the rest use standard Go testing.
+- **E2E tests:** suites under `test/e2e*/`, each with its own Makefile target. `test/e2e/` and `test/e2e-encryption-kms/` contain Ginkgo v2 specs for the OTE framework; `test/e2e/` also has standard Go test files. The remaining directories use standard Go testing only.
 - **OTE framework:** `cluster-kube-apiserver-operator-tests-ext` binary. See [CONTRIBUTING.md](CONTRIBUTING.md#openshift-tests-extension-ote) for usage.

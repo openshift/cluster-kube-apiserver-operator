@@ -90,7 +90,7 @@ Observers are registered in `pkg/operator/configobservation/configobservercontro
 
 | Package | Watches | Config paths set |
 |---------|---------|-----------------|
-| `apiserver/` | `APIServer` CR | Named certificates, CORS, TLS profile, shutdown delay, graceful termination, admission plugins, event TTL, GOAWAY chance |
+| `apiserver/` | `APIServer` CR | Named certificates, user client CA bundle, CORS, shutdown delay, graceful termination, send-retry-after, admission plugins, event TTL, GOAWAY chance |
 | `auth/` | `Authentication` CR | Auth metadata, SA issuer, webhook authenticator, external OIDC, pod security enforcement |
 | `etcdendpoints/` | etcd endpoints in `openshift-etcd` | `etcd-servers` |
 | `images/` | `Image` CR | Internal/external registry hostnames, allowed registries for import |
@@ -98,6 +98,10 @@ Observers are registered in `pkg/operator/configobservation/configobservercontro
 | `node/` | `Node` CR | Minimum kubelet version, authorization modes, latency profile |
 | `scheduler/` | `Scheduler` CR | Default node selector |
 | `apienablement/` | `FeatureGate` CR | `runtime-config`, `feature-gates` (Kubernetes API enablement) |
+| *(library-go)* `cloudprovider` | `Infrastructure` CR | Cloud provider configuration |
+| *(library-go)* `proxy` | `Proxy` CR | Proxy configuration |
+| *(library-go)* `encryption` | Encryption config Secret | Encryption config path |
+| *(library-go)* `apiserver` | `APIServer` CR | TLS security profile |
 
 Several observers are feature-gated and only activate when the corresponding feature gate is enabled.
 
@@ -110,7 +114,7 @@ Several observers are feature-gated and only activate when the corresponding fea
 - CA bundle and server CA ConfigMaps
 - Recovery serving cert and client token Secrets
 
-The target config controller validates that required configuration is present (etcd servers, certs, admission plugins) before rendering.
+The target config controller validates that required configuration is present (etcd servers, named serving certificates, RestrictedEndpointsAdmission plugin config) before rendering.
 
 ## Certificate Rotation
 
@@ -146,7 +150,7 @@ The operator manages encryption at rest for `secrets` and `configmaps` resources
 
 `pkg/recovery/` provides a disaster recovery mechanism that creates a temporary recovery kube-apiserver pod:
 
-- Copies the main kube-apiserver pod manifest and modifies it for recovery
+- Reads the main kube-apiserver pod manifest to extract the container image, then renders a recovery pod from a separate template (`bindata/assets/kube-apiserver/recovery-pod.yaml`)
 - Generates short-lived (7-day) self-signed certificates
 - Creates an admin kubeconfig for recovery access
 - Stores recovery resources in `{StaticPodResourcesDir}/recovery-kube-apiserver-pod/`
@@ -173,3 +177,5 @@ The operator manages encryption at rest for `secrets` and `configmaps` resources
 | `SCCReconcileController` | Reconciles SecurityContextConstraints |
 | `LatencyProfileController` | Applies latency profile settings from node configuration |
 | `NodeKubeconfigController` | Generates per-node kubeconfigs |
+| `StaleConditionsController` | Removes stale operator conditions |
+| `EventWatcher` | Watches `LateConnections` events and processes late connection metrics |
