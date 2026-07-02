@@ -13,6 +13,8 @@ make verify                      # Formatting, vetting, golang version checks
 make test-e2e                    # E2E operator tests (3h timeout, serial)
 make test-e2e-encryption-aescbc  # Encryption tests with aescbc provider (4h)
 make test-e2e-encryption-kms     # KMS encryption tests (4h)
+make update-bindata-v4.1.0       # Copy apirequestcounts CRD from vendor/
+make verify-bindata-v4.1.0       # Verify apirequestcounts CRD is in sync
 ```
 
 Go version: see `go.mod`.
@@ -21,12 +23,12 @@ Go version: see `go.mod`.
 
 | Directory | Purpose |
 |-----------|---------|
-| `cmd/cluster-kube-apiserver-operator/` | Operator binary entry point (operator, render, installer, pruner, startup-monitor, cert controllers) |
-| `cmd/cluster-kube-apiserver-operator-tests-ext/` | OTE test runner entry point |
+| `cmd/cluster-kube-apiserver-operator/` | Operator binary entry point (operator, render, installer, pruner, startup-monitor, cert controllers, and more) |
+| `cmd/cluster-kube-apiserver-operator-tests-ext/` | OpenShift Tests Extension (OTE) test runner entry point |
 | `pkg/operator/starter.go` | Operator initialization — creates clients, informers, and starts all controllers |
 | `pkg/operator/targetconfigcontroller/` | Renders observed config + defaults into kube-apiserver ConfigMaps/Secrets |
-| `pkg/operator/configobservation/` | Configuration observers — each subdirectory watches a cluster resource type |
-| `pkg/operator/certrotationcontroller/` | Certificate rotation for serving, LB, aggregator, and kubelet certs |
+| `pkg/operator/configobservation/` | Configuration observers — each observer watches a cluster state to infer the operand config |
+| `pkg/operator/certrotationcontroller/` | Certificate rotation for serving, LB, aggregator, kubelet, etc. certs |
 | `pkg/operator/resourcesynccontroller/` | Syncs ConfigMaps/Secrets between namespaces |
 | `pkg/operator/operatorclient/` | Namespace constants and operator client interfaces |
 | `pkg/cmd/render/` | Bootstrap manifest renderer for cluster installation |
@@ -48,8 +50,7 @@ Config observers follow a specific pattern: each observer function receives the 
 - **Logging:** `k8s.io/klog/v2` with verbosity levels
 - **Error handling:** wrap with `fmt.Errorf("context: %w", err)`
 - **Feature gates:** controllers that depend on feature gates use `FeatureGateAccessor` from library-go; wait for gates before starting
-- **Cert rotation:** `Refresh` should be ~80% of `Validity`. The `certificates.openshift.io/refresh-period` annotation is informational — actual rotation is decided by `notBefore`/`notAfter` on the secret. Cert rotation logic lives in `library-go/pkg/operator/certrotation/`.
-- **API enablement:** `defaultGroupVersionsByFeatureGate` in `pkg/operator/configobservation/apienablement/` maps feature gates to API GroupVersions for `--runtime-config`. The vendored kube version is `k8s.io/component-base/version.DefaultKubeBinaryVersion`. Do not use `Scheme.PrioritizedVersionsForGroup` for version ordering — it returns registration order, not semantic order.
+- **Cert rotation:** `Refresh` relative to `Validity` varies per certificate (e.g. ~50% for short-lived certs, ~80% for long-lived ones). The `certificates.openshift.io/refresh-period` annotation is informational — actual rotation is decided by `notBefore`/`notAfter` on the secret. Cert rotation logic lives in `library-go/pkg/operator/certrotation/`.
 - **Upstream changes:** controllers that wrap library-go functionality should have fixes made upstream in [library-go](https://github.com/openshift/library-go), not here
 
 ## Contributing
@@ -58,9 +59,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines. Key rules:
 
 - Do not modify files under `vendor/`. Use `go mod tidy && go mod vendor`.
 - `bindata/assets.go` uses Go's `embed` directive to embed asset files — update the embedded files, not this file.
-- The `apirequestcounts` CRD in bindata is copied from `vendor/`; use `make update-bindata-v4.1.0` to refresh and `make verify-bindata-v4.1.0` to check.
 - Write unit tests for every change. E2E tests for significant features.
 - Backwards compatibility matters — deprecate before removing.
+- Before modifying the operator API, ensure there is a corresponding enhancement proposal in [openshift/enhancements](https://github.com/openshift/enhancements). API changes require design review and approval.
 
 ## Testing
 

@@ -76,7 +76,7 @@ The operator uses library-go's `staticpod.NewBuilder()` to manage kube-apiserver
 - **Pruner** — removes old static pod revisions to free disk space.
 - **PDB guard** — ensures availability during upgrades (only on multi-node clusters; disabled for single-node).
 - **Min ready duration** — waits 30 seconds before considering a pod ready.
-- **Startup monitor** — tracks kube-apiserver startup progress, with KMS-awareness.
+- **Startup monitor** — tracks kube-apiserver startup progress and can trigger rollback on failed revisions. Enabled on single-node clusters or via unsupported config override.
 
 Resources are split into two categories:
 - **Revisioned** — ConfigMaps and Secrets that trigger a new revision when changed (config, pod manifest, certs, audit policies, encryption config).
@@ -122,6 +122,12 @@ The target config controller validates that required configuration is present (e
 - **Internal load balancer cert** — HTTPS serving for internal LB (dynamically tracks hostnames)
 - **Aggregator client cert** — client cert for aggregated API servers
 - **Kubelet client cert** — client cert for kubelet communication
+- **Localhost recovery serving cert** — HTTPS serving for the localhost recovery SNI endpoint
+- **Kube-controller-manager client cert** — client cert for KCM to authenticate to kube-apiserver
+- **Kube-scheduler client cert** — client cert for KS to authenticate to kube-apiserver
+- **Control plane node admin client cert** — client cert for the control plane node kubeconfig
+- **Check-endpoints client cert** — client cert for the network connectivity checker
+- **Node system admin client cert** — long-lived `system:admin` client cert placed on each master for debugging
 
 Load balancer certificates use dynamic hostname tracking (`externalloadbalancer.go`, `internalloadbalancer.go`) to add SANs as new endpoints appear.
 
