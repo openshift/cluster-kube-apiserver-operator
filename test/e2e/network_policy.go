@@ -6,7 +6,6 @@ import (
 	g "github.com/onsi/ginkgo/v2"
 	o "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -48,28 +47,26 @@ func testKubeAPIServerNetworkPolicies() {
 	operatorDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, defaultDenyAllPolicyName)
 	logNetworkPolicySummary("kube-apiserver-operator/default-deny-all", operatorDefaultDeny)
 	logNetworkPolicyDetails("kube-apiserver-operator/default-deny-all", operatorDefaultDeny)
-	requireDefaultDenyAll(operatorDefaultDeny)
+	o.Expect(operatorDefaultDeny).To(BeDefaultDenyPolicy())
 
 	operatorAllowPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, operatorAllowPolicyName)
 	logNetworkPolicySummary("kube-apiserver-operator/"+operatorAllowPolicyName, operatorAllowPolicy)
 	logNetworkPolicyDetails("kube-apiserver-operator/"+operatorAllowPolicyName, operatorAllowPolicy)
-	requirePodSelectorLabel(operatorAllowPolicy, "app", "kube-apiserver-operator")
-	requireIngressPort(operatorAllowPolicy, corev1.ProtocolTCP, 8443)
-	requireIngressAllowAll(operatorAllowPolicy, 8443)
-	requireEgressAllowAllTCP(operatorAllowPolicy)
+	o.Expect(operatorAllowPolicy).To(SelectPods("app", "kube-apiserver-operator"))
+	o.Expect(operatorAllowPolicy).To(AllowIngressOnPort(8443))
+	o.Expect(operatorAllowPolicy).To(AllowAllTCPEgress())
 
 	g.By("Validating NetworkPolicies in openshift-kube-apiserver")
 	operandDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, defaultDenyAllPolicyName)
 	logNetworkPolicySummary("kube-apiserver/default-deny-all", operandDefaultDeny)
 	logNetworkPolicyDetails("kube-apiserver/default-deny-all", operandDefaultDeny)
-	requireDefaultDenyAll(operandDefaultDeny)
+	o.Expect(operandDefaultDeny).To(BeDefaultDenyPolicy())
 
 	operandAllowPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, operandAllowPolicyName)
 	logNetworkPolicySummary("kube-apiserver/"+operandAllowPolicyName, operandAllowPolicy)
 	logNetworkPolicyDetails("kube-apiserver/"+operandAllowPolicyName, operandAllowPolicy)
-	// Verify it selects guard, installer, pruner, and openshift-kms-preflight pods with In expression
-	requirePodSelectorExpression(operandAllowPolicy, "app", []string{"guard", "installer", "pruner", "openshift-kms-preflight"})
-	requireEgressAllowAllTCP(operandAllowPolicy)
+	o.Expect(operandAllowPolicy).To(SelectPodsExpression("app", []string{"guard", "installer", "pruner", "openshift-kms-preflight"}))
+	o.Expect(operandAllowPolicy).To(AllowAllTCPEgress())
 
 	g.By("Verifying pods are ready in kube-apiserver namespaces")
 	waitForPodsReadyByLabel(ctx, kubeClient, kubeAPIServerOperatorNamespace, "app=kube-apiserver-operator")
