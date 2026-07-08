@@ -16,7 +16,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/prune"
 	"github.com/openshift/library-go/pkg/operator/staticpod/startupmonitor"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/certregenerationcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/cmd/checkendpoints"
@@ -67,9 +66,9 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		}
 		return client.KubeAPIServers(), nil
 	}))
-	cmd.AddCommand(kmshealth.NewCommand(ctx, func(config *rest.Config) (v1helpers.OperatorClient, error) {
-		// TODO: replace with a real operator client once the health reporter's condition writer
-		// is implemented in library-go.
+	cmd.AddCommand(kmshealth.NewCommand(ctx, func(config *rest.Config, fieldManager string) (kmshealth.EncryptionStatusWriter, error) {
+		// TODO: replace with a real status writer once the operator status
+		// applier is wired in.
 		return nil, nil
 	}))
 	cmd.AddCommand(kmspreflight.NewCommand(ctx))
