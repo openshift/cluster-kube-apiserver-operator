@@ -8,7 +8,6 @@ import (
 	g "github.com/onsi/ginkgo/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -34,13 +33,13 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+			TargetGRs:                       library.DefaultTargetGRs,
+			AssertFunc:                      library.AssertSecretsAndConfigMaps,
 		},
-		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
-		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
-		ResourceFunc:                   operatorencryption.SecretOfLife,
+		CreateResourceFunc:             library.CreateAndStoreSecretOfLife,
+		AssertResourceEncryptedFunc:    library.AssertSecretOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: library.AssertSecretOfLifeNotEncrypted,
+		ResourceFunc:                   library.SecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),

@@ -181,48 +181,96 @@ func ShuffleEncryptionProviders(providers []EncryptionProvider) []EncryptionProv
 // It creates a resource, migrates through each provider,
 // verifies the resource is encrypted after each migration, and finally
 // switches to identity (off).
-func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, scenario ProvidersMigrationScenario) {
-	if len(scenario.EncryptionProviders) < 2 {
-		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(scenario.EncryptionProviders))
+// Pass one scenario for a single operator, or multiple scenarios to run
+// KAS/Auth/OAS migration together (shared EncryptionProviders required).
+func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrationScenarios ...ProvidersMigrationScenario) {
+	if len(migrationScenarios) == 0 {
+		t.Fatalf("TestEncryptionProvidersMigration requires at least one scenario")
 	}
 
-	for _, provider := range scenario.EncryptionProviders {
+	providers := migrationScenarios[0].EncryptionProviders
+	if len(providers) < 2 {
+		t.Fatalf("ProvidersMigrationScenario requires at least 2 encryption providers, got %d", len(providers))
+	}
+	for _, provider := range providers {
 		if provider.Type == configv1.EncryptionTypeIdentity || provider.Type == "" {
 			t.Fatalf("Unsupported encryption provider %q passed", provider.Type)
 		}
 	}
 
-	// step 1: create the resource
-	scenarios := []testStep{
-		{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+	multi := len(migrationScenarios) > 1
+
+	// step 1: create the resource(s)
+	scenarios := []testStep{}
+	if multi {
+		createSteps := make([]testStep, len(migrationScenarios))
+		for i, scenario := range migrationScenarios {
+			createSteps[i] = testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
+			}}
+		}
+		scenarios = append(scenarios, inParallel(createSteps...))
+	} else {
+		scenario := migrationScenarios[0]
+		scenarios = append(scenarios, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
-		}},
+		}})
 	}
 
 	// step 2: migrate through each provider in sequence
-	for i, provider := range scenario.EncryptionProviders {
+	for i, provider := range providers {
 		prefix := "EncryptWith"
 		if i > 0 {
 			prefix = "MigrateTo"
 		}
-		scenarios = append(scenarios,
-			testStep{name: fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type))), testFunc: func(t testing.TB) {
+		stepName := fmt.Sprintf("%s%s", prefix, strings.ToUpper(string(provider.Type)))
+		if multi {
+			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
+				runMigrationStepMultiOperator(ctx, t, migrationScenarios, provider)
+			}})
+			assertSteps := make([]testStep, len(migrationScenarios))
+			for i, scenario := range migrationScenarios {
+				assertSteps[i] = testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+					e := NewE(t)
+					scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+				}}
+			}
+			scenarios = append(scenarios, inParallel(assertSteps...))
+		} else {
+			scenario := migrationScenarios[0]
+			scenarios = append(scenarios, testStep{name: stepName, testFunc: func(t testing.TB) {
 				TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
-			}},
-			testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+			}})
+			scenarios = append(scenarios, testStep{name: fmt.Sprintf("Assert%sEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
 				e := NewE(t)
 				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-			}},
-		)
+			}})
+		}
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
-	scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
-		TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
-		e := NewE(t)
-		scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-	}})
+	if multi {
+		scenarios = append(scenarios, testStep{name: "OffIdentity", testFunc: func(t testing.TB) {
+			runMigrationStepMultiOperator(ctx, t, migrationScenarios, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}})
+		}})
+		assertSteps := make([]testStep, len(migrationScenarios))
+		for i, scenario := range migrationScenarios {
+			assertSteps[i] = testStep{name: fmt.Sprintf("Assert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+			}}
+		}
+		scenarios = append(scenarios, inParallel(assertSteps...))
+	} else {
+		scenario := migrationScenarios[0]
+		scenarios = append(scenarios, testStep{name: fmt.Sprintf("OffIdentityAndAssert%sNotEncrypted", scenario.ResourceName), testFunc: func(t testing.TB) {
+			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
+			e := NewE(t)
+			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+		}})
+	}
 
 	// run scenarios
 	for _, testScenario := range scenarios {
@@ -280,6 +328,50 @@ func TestEncryptionRotation(ctx context.Context, t testing.TB, scenario Rotation
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
+}
+
+func runMigrationStepMultiOperator(ctx context.Context, t testing.TB, migrationScenarios []ProvidersMigrationScenario, provider EncryptionProvider) {
+	t.Helper()
+	t.Logf("Starting multi-operator encryption e2e test for %q mode", provider.Type)
+
+	clientSet := GetClients(t)
+	prevKeyMeta := make([]EncryptionKeyMeta, len(migrationScenarios))
+	for i, scenario := range migrationScenarios {
+		keyMeta, err := GetLastKeyMeta(t, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
+		require.NoError(t, err)
+		prevKeyMeta[i] = keyMeta
+	}
+
+	// APIServer config is cluster-wide: update once (with conflict retry), then wait per operator in parallel.
+	_, clusterConfigUpdated := ApplyEncryptionProviderIfNeeded(ctx, t, provider)
+
+	waitSteps := make([]testStep, len(migrationScenarios))
+	for i, scenario := range migrationScenarios {
+		waitSteps[i] = testStep{
+			name: scenario.ResourceName,
+			testFunc: func(st testing.TB) {
+				waitAndAssertOperatorEncryption(st, clientSet, scenario, provider, prevKeyMeta[i], clusterConfigUpdated)
+			},
+		}
+	}
+	inParallel(waitSteps...).testFunc(t)
+}
+
+func waitAndAssertOperatorEncryption(t testing.TB, clientSet ClientSet, scenario ProvidersMigrationScenario, provider EncryptionProvider, prevKeyMeta EncryptionKeyMeta, clusterConfigUpdated bool) {
+	t.Helper()
+	bs := scenario.BasicScenario
+	t.Logf("Waiting for encryption key migration for %q", scenario.ResourceName)
+	if clusterConfigUpdated {
+		WaitForNextMigratedKey(t, clientSet.Kube, prevKeyMeta, bs.TargetGRs, bs.Namespace, bs.LabelSelector)
+	} else {
+		WaitForEncryptionKeyBasedOn(t, clientSet.Kube, prevKeyMeta, provider.Type, bs.TargetGRs, bs.Namespace, bs.LabelSelector)
+	}
+	e := NewE(t, PrintEventsOnFailure(bs.OperatorNamespace))
+	bs.AssertFunc(e, clientSet, provider.Type, bs.Namespace, bs.LabelSelector)
+	switch provider.Type {
+	case configv1.EncryptionTypeAESCBC, configv1.EncryptionTypeAESGCM, configv1.EncryptionTypeKMS:
+		AssertEncryptionConfig(e, clientSet, bs.EncryptionConfigSecretName, bs.EncryptionConfigSecretNamespace, bs.TargetGRs)
+	}
 }
 
 // ApplyEncryption applies the given encryption config to apiserver/cluster
