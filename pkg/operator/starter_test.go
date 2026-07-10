@@ -20,6 +20,10 @@ func TestNewDegradedInertia(t *testing.T) {
 			expected:      10 * time.Minute,
 		},
 		{
+			conditionType: condition.StaticPodsDegradedConditionType,
+			expected:      10 * time.Minute,
+		},
+		{
 			conditionType: "TargetConfigControllerDegraded",
 			expected:      2 * time.Minute,
 		},

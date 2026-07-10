@@ -566,11 +566,18 @@ func newDegradedInertia() status.Inertia {
 		2*time.Minute,
 		// Nodes may temporarily become unready during upgrades while the machine/kubelet restarts.
 		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
-		status.InertiaCondition{
-			ConditionTypeMatcher: regexp.MustCompile("^" + condition.NodeControllerDegradedConditionType + "$"),
-			Duration:             10 * time.Minute,
-		},
+		inertiaForCondition(condition.NodeControllerDegradedConditionType, 10*time.Minute),
+		// Similarly, applying static pods to nodes that are being restarted may temporarily fail.
+		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
+		inertiaForCondition(condition.StaticPodsDegradedConditionType, 10*time.Minute),
 	).Inertia
+}
+
+func inertiaForCondition(cond string, duration time.Duration) status.InertiaCondition {
+	return status.InertiaCondition{
+		ConditionTypeMatcher: regexp.MustCompile("^" + cond + "$"),
+		Duration:             duration,
+	}
 }
 
 // installerErrorInjector mutates the given installer pod to fail or OOM depending on the propability (
