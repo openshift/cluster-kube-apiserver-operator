@@ -7,7 +7,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -20,8 +19,8 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+		TargetGRs:                       library.WellKnownKASTargetGRs,
+		AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 	})
 }
 
@@ -32,8 +31,8 @@ func TestEncryptionTypeUnset(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+		TargetGRs:                       library.WellKnownKASTargetGRs,
+		AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 	})
 }
 
@@ -45,13 +44,13 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 		},
-		CreateResourceFunc:             operatorencryption.CreateAndStoreSecretOfLife,
-		AssertResourceEncryptedFunc:    operatorencryption.AssertSecretOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertSecretOfLifeNotEncrypted,
-		ResourceFunc:                   operatorencryption.SecretOfLife,
+		CreateResourceFunc:             library.CreateAndStoreWellKnownSecretOfLife,
+		AssertResourceEncryptedFunc:    library.AssertWellKnownSecretOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: library.AssertWellKnownSecretOfLifeNotEncrypted,
+		ResourceFunc:                   library.WellKnownSecretOfLife,
 		ResourceName:                   "SecretOfLife",
 		EncryptionProvider:             library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
 	})

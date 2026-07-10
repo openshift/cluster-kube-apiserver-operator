@@ -8,7 +8,6 @@ import (
 	g "github.com/onsi/ginkgo/v2"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-kube-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -25,7 +24,7 @@ func testEncryptionTypeAESCBC(ctx context.Context, t testing.TB) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+		TargetGRs:                       library.WellKnownKASTargetGRs,
+		AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 	})
 }
