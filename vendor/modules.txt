@@ -473,8 +473,8 @@ github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/deployer
 github.com/openshift/library-go/pkg/operator/encryption/encoding
 github.com/openshift/library-go/pkg/operator/encryption/encryptiondata
+github.com/openshift/library-go/pkg/operator/encryption/kms/encryptionstatus
 github.com/openshift/library-go/pkg/operator/encryption/kms/health
-github.com/openshift/library-go/pkg/operator/encryption/kms/health/writers
 github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle
 github.com/openshift/library-go/pkg/operator/encryption/kms/preflight
 github.com/openshift/library-go/pkg/operator/encryption/observer
