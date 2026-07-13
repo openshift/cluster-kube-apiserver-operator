@@ -10,8 +10,8 @@ import (
 	"k8s.io/component-base/cli"
 
 	operatorclientv1 "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	kasencryptionstatus "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryptionstatusclient"
 	kmshealth "github.com/openshift/library-go/pkg/operator/encryption/kms/health"
-	kmswriters "github.com/openshift/library-go/pkg/operator/encryption/kms/health/writers"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/staticpod/certsyncpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/installerpod"
@@ -67,7 +67,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		}
 		return client.KubeAPIServers(), nil
 	}))
-	cmd.AddCommand(kmshealth.NewCommand(ctx, kmswriters.NewKubeAPIServerWriter))
+	cmd.AddCommand(kmshealth.NewCommand(ctx, kasencryptionstatus.NewKubeAPIServerClientFromConfig))
 	cmd.AddCommand(kmspreflight.NewCommand(ctx))
 
 	return cmd

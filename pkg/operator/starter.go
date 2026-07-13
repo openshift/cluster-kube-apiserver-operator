@@ -48,8 +48,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	kasencryptionstatus "github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryptionstatusclient"
+	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
@@ -404,13 +407,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
+	encryptionProvider := encryption.StaticEncryptionProvider{
+		schema.GroupResource{Group: "", Resource: "secrets"},
+		schema.GroupResource{Group: "", Resource: "configmaps"},
+	}
+
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
-		encryption.StaticEncryptionProvider{
-			schema.GroupResource{Group: "", Resource: "secrets"},
-			schema.GroupResource{Group: "", Resource: "configmaps"},
-		},
+		encryptionProvider,
 		deployer,
 		migrator,
 		operatorClient,
@@ -425,6 +430,28 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+
+	kmsPreflightDeployer := kmspreflight.NewPodPreflightDeployer(
+		operatorclient.TargetNamespace,
+		kubeClient.CoreV1(),
+		kubeClient.RbacV1(),
+		controllerContext.EventRecorder,
+		os.Getenv("OPERATOR_IMAGE"),
+		[]string{"cluster-kube-apiserver-operator", "kms-preflight"},
+		30*time.Second,
+	)
+	kmsPreflightController := encryptioncontrollers.NewKMSPreflightController(
+		operatorclient.TargetNamespace,
+		encryptionProvider,
+		func() (bool, error) { return true, nil },
+		kmsPreflightDeployer,
+		operatorClient,
+		configClient.ConfigV1().APIServers(),
+		configInformers.Config().V1().APIServers(),
+		kubeClient.CoreV1(),
+		kasencryptionstatus.NewKubeAPIServerClient(operatorV1Client.OperatorV1()),
+		controllerContext.EventRecorder,
+	)
 
 	certRotationTimeUpgradeableController := certrotationtimeupgradeablecontroller.NewCertRotationTimeUpgradeableController(
 		operatorClient,
@@ -542,6 +569,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go clusterOperatorStatus.Run(ctx, 1)
 	go certRotationController.Run(ctx, 1)
 	go encryptionControllers.Run(ctx, 1)
+	go kmsPreflightController.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
 	go eventWatcher.Run(ctx, 1)
