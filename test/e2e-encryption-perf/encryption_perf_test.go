@@ -38,8 +38,8 @@ func TestPerfEncryption(tt *testing.T) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertSecretsAndConfigMaps,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 		},
 		GetOperatorConditionsFunc: func(t testing.TB) ([]operatorv1.OperatorCondition, error) {
 			apiServerOperator, err := operatorClient.Get(context.TODO(), "cluster", metav1.GetOptions{})
