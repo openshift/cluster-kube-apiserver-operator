@@ -46,6 +46,17 @@ func (c *kubeAPIServerClient) GetKMSEncryptionStatus(ctx context.Context) (*oper
 	return &s, nil
 }
 
+func (c *kubeAPIServerClient) UpdateKMSEncryptionStatus(ctx context.Context, mutate func(*operatorv1.KMSEncryptionStatus)) error {
+	obj, err := c.getter.KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	obj = obj.DeepCopy()
+	mutate(&obj.Status.EncryptionStatus)
+	_, err = c.getter.KubeAPIServers().UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+	return err
+}
+
 func (c *kubeAPIServerClient) ApplyKMSEncryptionStatus(ctx context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
 	// Encryption controllers use live clients (not listers) for strong consistency guarantees.
 	// TODO: consider the extract-compare-skip pattern from dynamicOperatorClient.applyOperatorStatus
