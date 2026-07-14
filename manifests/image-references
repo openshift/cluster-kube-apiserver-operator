@@ -10,7 +10,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-hyperkube:v4.0
-  - name: vault
+  - name: vault-kube-kms
     from:
        kind: DockerImage
        name: docker.io/hashicorp/vault-kube-kms:0.1.0-beta-ubi
