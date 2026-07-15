@@ -33,7 +33,7 @@ func BuildRunCommand() command.Command {
 		Usage:         "ginkgo run <FLAGS> <PACKAGES> -- <PASS-THROUGHS>",
 		ShortDoc:      "Run the tests in the passed in <PACKAGES> (or the package in the current directory if left blank)",
 		Documentation: "Any arguments after -- will be passed to the test.",
-		DocLink:       "running-specs",
+		DocLink:       "running-tests",
 		Command: func(args []string, additionalArgs []string) {
 			var errors []error
 			cliConfig, goFlagsConfig, errors = types.VetAndInitializeCLIAndGoConfig(cliConfig, goFlagsConfig)
@@ -107,7 +107,7 @@ OUTER_LOOP:
 		}
 
 		opc := internal.NewOrderedParallelCompiler(r.cliConfig.ComputedNumCompilers())
-		opc.StartCompiling(suites, r.goFlagsConfig, false)
+		opc.StartCompiling(suites, r.goFlagsConfig)
 
 	SUITE_LOOP:
 		for {
@@ -142,7 +142,7 @@ OUTER_LOOP:
 			}
 
 			if !endTime.IsZero() {
-				r.suiteConfig.Timeout = time.Until(endTime)
+				r.suiteConfig.Timeout = endTime.Sub(time.Now())
 				if r.suiteConfig.Timeout <= 0 {
 					suites[suiteIdx].State = internal.TestSuiteStateFailedDueToTimeout
 					opc.StopAndDrain()
