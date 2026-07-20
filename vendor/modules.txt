@@ -440,7 +440,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20260715193157-1a5091f58ece
+# github.com/openshift/library-go v0.0.0-20260720072157-74b319aba2d7
 ## explicit; go 1.26.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -478,8 +478,8 @@ github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/deployer
 github.com/openshift/library-go/pkg/operator/encryption/encoding
 github.com/openshift/library-go/pkg/operator/encryption/encryptiondata
+github.com/openshift/library-go/pkg/operator/encryption/kms
 github.com/openshift/library-go/pkg/operator/encryption/kms/health
-github.com/openshift/library-go/pkg/operator/encryption/kms/health/writers
 github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle
 github.com/openshift/library-go/pkg/operator/encryption/kms/preflight
 github.com/openshift/library-go/pkg/operator/encryption/observer
