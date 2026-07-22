@@ -3,35 +3,34 @@ package apiserver
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 var sendRetryAfterWhileNotReadyOncePath = []string{"apiServerArguments", "send-retry-after-while-not-ready-once"}
 
-// ObserveSendRetryAfterWhileNotReadyOnce ensures that send-retry-after-while-not-ready-once is set for SNO clusters.
-func ObserveSendRetryAfterWhileNotReadyOnce(genericListers configobserver.Listers, _ events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
+// ObserveSendRetryAfterWhileNotReadyOnce ensures that send-retry-after-while-not-ready-once is set for all
+// control plane topologies.
+//
+// Historically this was enabled only for single-node (SNO) clusters, where the load balancer has a single
+// target and inevitably routes requests to a kube-apiserver that is not ready yet. However, it has been
+// observed (OCPBUGS-86789) that on multi-node clusters load balancers can also route requests to a
+// not-yet-ready kube-apiserver even while healthy replicas are available. Such requests could be processed
+// before RBAC and admission post-start hooks have completed. Since no load balancer implementation
+// (cloud LB, on-prem haproxy/keepalived, or the in-cluster kubernetes.default service) can be perfectly
+// synchronized with /readyz, the only robust protection is server-side: reject early requests with
+// Retry-After until the server has been ready once.
+func ObserveSendRetryAfterWhileNotReadyOnce(_ configobserver.Listers, _ events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, errs []error) {
 	defer func() {
 		// Prune the observed config so that it only contains apiServerArguments field.
 		ret = configobserver.Pruned(ret, sendRetryAfterWhileNotReadyOncePath)
 	}()
 
-	// read the observed value
-	listers := genericListers.(configobservation.Listers)
-	infra, err := listers.InfrastructureLister().Get("cluster")
-	if err != nil && !apierrors.IsNotFound(err) {
-		// we got an error so without the infrastructure object we are not able to determine the type of platform we are running on
-		return existingConfig, append(errs, err)
-	}
-
-	observedSendRetryAfterWhileNotReadyOnce := strconv.FormatBool(infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode)
+	// the protection is topology-independent, see the function documentation
+	observedSendRetryAfterWhileNotReadyOnce := "true"
 
 	// read the current value
 	var currentSendRetryAfterWhileNotReadyOnce string

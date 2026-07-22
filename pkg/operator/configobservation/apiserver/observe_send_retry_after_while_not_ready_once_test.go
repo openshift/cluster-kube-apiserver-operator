@@ -10,7 +10,6 @@ import (
 	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
-	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -18,19 +17,29 @@ import (
 
 func TestObserveSendRetryAfterWhileNotReadyOnce(t *testing.T) {
 	scenarios := []struct {
-		name                    string
-		validateKubeAPIConfigFn func(kubecontrolplanev1.KubeAPIServerConfig) error
-		existingKubeAPIConfig   map[string]interface{}
-		expectedKubeAPIConfig   map[string]interface{}
-		controlPlaneTopology    configv1.TopologyMode
+		name                  string
+		existingKubeAPIConfig map[string]interface{}
+		expectedKubeAPIConfig map[string]interface{}
+		controlPlaneTopology  configv1.TopologyMode
 	}{
-
-		// scenario 1 - HA unset
+		// scenario 1 - HA unset, defaults to true
 		{
-			name:                 "ha: defaults to false",
+			name:                 "ha: defaults to true",
 			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
 			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"send-retry-after-while-not-ready-once": []interface{}{"true"},
+			}},
+		},
+
+		// scenario 2 - HA, update required
+		{
+			name:                 "ha: update required",
+			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
+			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
 				"send-retry-after-while-not-ready-once": []interface{}{"false"},
+			}},
+			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
 		},
 
@@ -39,35 +48,23 @@ func TestObserveSendRetryAfterWhileNotReadyOnce(t *testing.T) {
 			name:                 "ha: update not required",
 			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
 			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
-				"send-retry-after-while-not-ready-once": []interface{}{"false"},
-			}},
-			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
-				"send-retry-after-while-not-ready-once": []interface{}{"false"},
-			}},
-		},
-
-		// scenario 4 - HA, update required
-		{
-			name:                 "ha: update required",
-			controlPlaneTopology: configv1.HighlyAvailableTopologyMode,
-			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
 				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
 			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
-				"send-retry-after-while-not-ready-once": []interface{}{"false"},
+				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
 		},
 
-		// scenario 5 - SNO
+		// scenario 4 - SNO, defaults to true
 		{
-			name:                 "ha: defaults to true",
+			name:                 "sno: defaults to true",
 			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
 			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
 				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
 		},
 
-		// scenario 6 - SNO, update required
+		// scenario 5 - SNO, update required
 		{
 			name:                 "sno: update required",
 			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
@@ -79,13 +76,22 @@ func TestObserveSendRetryAfterWhileNotReadyOnce(t *testing.T) {
 			}},
 		},
 
-		// scenario 7 - SNO, update not required
+		// scenario 6 - SNO, update not required
 		{
 			name:                 "sno: update not required",
 			controlPlaneTopology: configv1.SingleReplicaTopologyMode,
 			existingKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
 				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
+			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
+				"send-retry-after-while-not-ready-once": []interface{}{"true"},
+			}},
+		},
+
+		// scenario 7 - external topology also gets the protection
+		{
+			name:                 "external: defaults to true",
+			controlPlaneTopology: configv1.ExternalTopologyMode,
 			expectedKubeAPIConfig: map[string]interface{}{"apiServerArguments": map[string]interface{}{
 				"send-retry-after-while-not-ready-once": []interface{}{"true"},
 			}},
