@@ -24,6 +24,8 @@ func NewKubeAPIServerEncryptionStatusProviderFromConfig(restConfig *rest.Config)
 	return &kubeAPIServerEncryptionStatusProvider{client: client}, nil
 }
 
+var _ kms.EncryptionStatusProvider = &kubeAPIServerEncryptionStatusProvider{}
+
 type kubeAPIServerEncryptionStatusProvider struct {
 	client *operatorclient.Clientset
 }
@@ -42,5 +44,15 @@ func (p *kubeAPIServerEncryptionStatusProvider) ApplyKMSEncryptionStatus(ctx con
 		applyoperatorv1.KubeAPIServer("cluster").WithStatus(applyoperatorv1.KubeAPIServerStatus().WithEncryptionStatus(status)),
 		metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
 	)
+	return err
+}
+
+func (p *kubeAPIServerEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx context.Context, mutateFn func(*operatorv1.KMSEncryptionStatus)) error {
+	obj, err := p.client.OperatorV1().KubeAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	mutateFn(&obj.Status.EncryptionStatus)
+	_, err = p.client.OperatorV1().KubeAPIServers().UpdateStatus(ctx, obj, metav1.UpdateOptions{})
 	return err
 }
