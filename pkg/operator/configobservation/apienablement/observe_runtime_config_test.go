@@ -6,11 +6,15 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-cmp/cmp"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	componentbaseversion "k8s.io/component-base/version"
+
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func staticObserver(cfg map[string]interface{}, errs []error) configobserver.ObserveConfigFunc {
@@ -175,14 +179,14 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 	for _, tc := range []struct {
 		name                       string
 		kubeVersion                semver.Version
-		groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion
+		groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion
 		expectedGroupVersions      map[configv1.FeatureGateName][]schema.GroupVersion
 		expectErrors               bool
 	}{
 		{
 			name:        "partial from/to",
 			kubeVersion: semver.MustParse("1.30.0"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"ValidatingAdmissionPolicy": {{GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}}},
 				"DynamicResourceAllocation": {
 					{KubeVersionRange: semver.MustParseRange("< 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
@@ -197,7 +201,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 		{
 			name:        "resolves newer API",
 			kubeVersion: semver.MustParse("1.31.0"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"DynamicResourceAllocation": {
 					{KubeVersionRange: semver.MustParseRange("< 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
@@ -210,7 +214,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 		{
 			name:        "resolves minor versions API",
 			kubeVersion: semver.MustParse("1.31.15"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"DynamicResourceAllocation": {
 					{KubeVersionRange: semver.MustParseRange("< 1.31.15"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.15"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
@@ -223,7 +227,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 		{
 			name:        "no intersection resolves to empty",
 			kubeVersion: semver.MustParse("1.31.15"),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
 				"DynamicResourceAllocation": {
 					{KubeVersionRange: semver.MustParseRange("< 1.31.14"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha2"}},
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.16"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
@@ -244,5 +248,35 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 				t.Errorf("unexpecteded errors: %v", err)
 			}
 		})
+	}
+}
+
+// TestDefaultGroupVersionsByFeatureGateNotStale verifies that the API versions
+// listed in defaultGroupVersionsByFeatureGate are still current for the vendored
+// Kubernetes version. This test fails after a kube rebase when an API graduates
+// or a new pre-release version appears.
+//
+// If this test fails:
+//   - "API version ... is not registered" — the GV was removed from the scheme.
+//     Remove the entry from defaultGroupVersionsByFeatureGate.
+//   - "kind ... is not registered in ..." — the kind was removed or renamed.
+//     Update or remove the kind from the entry's Kinds list.
+//   - "kind ... exists in stable v1" — the API has graduated to GA. Remove the
+//     entry from defaultGroupVersionsByFeatureGate; v1 is served by default.
+//   - "kind ... highest pre-release version is ... but entry lists ..." — the
+//     entry's version is no longer the highest pre-release. Update the entry's
+//     GV or narrow its KubeVersionRange to exclude versions where a higher
+//     pre-release exists.
+//   - "serves ... but higher version ... exists; set Kinds..." — the entry has
+//     no Kinds field. Add the relevant kinds so the test can do precise
+//     per-resource checking instead of flagging at the group level.
+func TestDefaultGroupVersionsByFeatureGateNotStale(t *testing.T) {
+	kubeVersion, err := semver.Parse(componentbaseversion.DefaultKubeBinaryVersion + ".0")
+	if err != nil {
+		t.Fatalf("failed to parse DefaultKubeBinaryVersion %q: %v", componentbaseversion.DefaultKubeBinaryVersion, err)
+	}
+
+	for _, v := range findStaleGroupVersionEntries(defaultGroupVersionsByFeatureGate, clientgoscheme.Scheme, kubeVersion) {
+		t.Errorf("feature gate %q: %s", v.FeatureGate, v.Message)
 	}
 }
