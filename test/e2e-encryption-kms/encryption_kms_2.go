@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	g "github.com/onsi/ginkgo/v2"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -21,9 +22,9 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // testKMSEncryptionKMSToKMSMigration tests migration between two distinct KMS providers
 // (default Vault instance and secondary Vault instance).
 // This test:
-// 1. Shuffles the two KMS providers to create a randomized migration order
+// 1. Shuffles the two KMS providers and one AES provider to create a randomized migration order
 // 2. Migrates between the providers in the shuffled order
-// 3. Verifies secret is correctly encrypted after each migration
+// 3. Verifies route is correctly encrypted after each migration
 // 4. Switches to identity (off) to verify the resource is re-written unencrypted
 func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
@@ -36,8 +37,14 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			TargetGRs:                       library.WellKnownKASTargetGRs,
 			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
 		},
-		CreateResourceFunc:             library.CreateAndStoreWellKnownSecretOfLife,
-		AssertResourceEncryptedFunc:    library.AssertWellKnownSecretOfLifeEncrypted,
+		CreateResourceFunc: library.CreateAndStoreWellKnownSecretOfLife,
+		AssertResourceEncryptedFunc: func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
+			library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
+			library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
+				operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				"encryption.apiserver.operator.openshift.io/component="+operatorclient.TargetNamespace,
+				resource)
+		},
 		AssertResourceNotEncryptedFunc: library.AssertWellKnownSecretOfLifeNotEncrypted,
 		ResourceFunc:                   library.WellKnownSecretOfLife,
 		ResourceName:                   "SecretOfLife",
