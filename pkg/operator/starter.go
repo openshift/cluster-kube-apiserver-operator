@@ -231,7 +231,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
 	if err != nil {
@@ -327,7 +327,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(
 		operatorClient,
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		configInformers.Config().V1().Infrastructures(),
 		controllerContext.EventRecorder,
 	)
@@ -454,7 +454,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	boundSATokenSignerController := boundsatokensignercontroller.NewBoundSATokenSignerController(
 		operatorClient,
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
 
