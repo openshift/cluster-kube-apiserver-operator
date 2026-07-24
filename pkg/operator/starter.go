@@ -11,6 +11,7 @@ import (
 
 	"github.com/blang/semver/v4"
 
+	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -50,10 +51,12 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
@@ -66,6 +69,7 @@ import (
 	v1 "k8s.io/api/policy/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -353,6 +357,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			},
 		).
 		WithOperandPodLabelSelector(labels.Set{"apiserver": "true"}.AsSelector()).
+		WithRevisionControllerReadinessCheck(kmsRevisionReadinessCheck(kubeClient, featureGateAccessor, os.Getenv("OPERATOR_IMAGE"))).
 		ToControllers()
 	if err != nil {
 		return err
@@ -623,6 +628,42 @@ func installerErrorInjector(operatorClient v1helpers.StaticPodOperatorClient) fu
 		}
 
 		return nil
+	}
+}
+
+// kmsRevisionReadinessCheck is a revision controller readiness check: it reports a revision ready only if its static pod already has the KMS plugin sidecar it should have.
+// It's safe for this check to fail: without the "revision-ready" annotation, the revision won't become the LatestAvailableRevision and won't be deployed. The platform retries on the next sync loop until the check passes.
+func kmsRevisionReadinessCheck(kubeClient kubernetes.Interface, featureGateAccessor featuregates.FeatureGateAccess, operatorImagePullSpec string) func(ctx context.Context, revision int32) (bool, error) {
+	return func(ctx context.Context, revision int32) (bool, error) {
+		configMapName := fmt.Sprintf("kube-apiserver-pod-%d", revision)
+		cm, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).Get(ctx, configMapName, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get configmap %s: %w", configMapName, err)
+		}
+
+		podData, ok := cm.Data["pod.yaml"]
+		if !ok {
+			return false, fmt.Errorf("configmap %s does not contain pod.yaml", configMapName)
+		}
+
+		pod, err := resourceread.ReadPodV1([]byte(podData))
+		if err != nil {
+			return false, fmt.Errorf("failed to parse pod from configmap %s: %w", configMapName, err)
+		}
+
+		podCopy := pod.DeepCopy()
+		encryptionConfigSecretName := fmt.Sprintf("encryption-config-%d", revision)
+
+		if err := kmspluginlifecycle.EnsureKMSPluginSidecarInStaticPodSpec(ctx, &podCopy.Spec, "kube-apiserver", operatorclient.TargetNamespace, encryptionConfigSecretName, "encryption-config", "cluster-kube-apiserver-operator", operatorImagePullSpec, kubeClient.CoreV1(), featureGateAccessor); err != nil {
+			return false, fmt.Errorf("failed to ensure KMS plugin sidecar in static pod spec: %w", err)
+		}
+
+		if !equality.Semantic.DeepEqual(pod, podCopy) {
+			klog.V(4).Infof("revision %d not ready for KMS: static pod missing expected KMS plugin sidecar (-current +expected):\n%s", revision, cmp.Diff(pod, podCopy))
+			return false, nil
+		}
+
+		return true, nil
 	}
 }
 
