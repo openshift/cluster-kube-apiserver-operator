@@ -24,6 +24,7 @@ spec:
   selector:
     matchLabels:
       app: kube-apiserver-operator
+  serviceDiscoveryRole: EndpointSlice
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
