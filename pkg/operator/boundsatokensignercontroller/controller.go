@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	errorsutil "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -56,14 +55,14 @@ type BoundSATokenSignerController struct {
 func NewBoundSATokenSignerController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	coreClient corev1client.CoreV1Interface,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 
 	ret := &BoundSATokenSignerController{
 		operatorClient:  operatorClient,
-		secretClient:    v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		configMapClient: v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		secretClient:    v1helpers.CachedSecretGetter(coreClient, kubeInformersForNamespaces),
+		configMapClient: v1helpers.CachedConfigMapGetter(coreClient, kubeInformersForNamespaces),
 	}
 
 	return factory.New().WithInformers(
