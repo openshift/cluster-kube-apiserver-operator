@@ -311,14 +311,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		dynamicClient,
 		controllerContext.EventRecorder)
 
+	targetNSInformersFactory := kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace)
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
 		os.Getenv("OPERATOR_IMAGE_VERSION"),
 		operatorClient,
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		targetNSInformersFactory.Core().V1().ConfigMaps(),
+		targetNSInformersFactory.Core().V1().Secrets(),
+		targetNSInformersFactory.Core().V1().ServiceAccounts(),
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		featureGateAccessor,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
 		requireMultipleEtcdEndpoints,
@@ -398,8 +401,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	).WithDegradedInertia(newDegradedInertia())
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
-		kubeClient,
+		kubeClient.CoreV1(),
 		operatorClient,
+		configInformers.Config().V1().Networks(),
+		configInformers.Config().V1().Infrastructures(),
 		configInformers,
 		kubeInformersForNamespaces,
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
