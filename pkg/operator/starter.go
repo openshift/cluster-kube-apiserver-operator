@@ -116,6 +116,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	podSecurityKubeClient, podSecurityWarningsHandler, err := podsecurityreadinesscontroller.NewWarningAwareKubeClient(controllerContext.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
 	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
@@ -527,7 +531,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	)
 
 	podSecurityReadinessController, err := podsecurityreadinesscontroller.NewPodSecurityReadinessController(
-		controllerContext.ProtoKubeConfig,
+		podSecurityKubeClient,
+		podSecurityWarningsHandler,
 		operatorClient,
 		controllerContext.EventRecorder,
 	)
