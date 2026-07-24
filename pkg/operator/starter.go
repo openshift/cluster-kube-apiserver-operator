@@ -305,7 +305,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		AddKubeInformers(kubeInformersForNamespaces)
 
 	highCpuUsageAlertController := highcpuusagealertcontroller.NewHighCPUUsageAlertController(
-		configInformers.Config().V1(),
+		configInformers.Config().V1().Infrastructures(),
+		configInformers.Config().V1().ClusterVersions(),
 		dynamicInformersForTargetNamespace,
 		dynamicClient,
 		controllerContext.EventRecorder)
@@ -444,9 +445,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	targetNSInformers := kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace)
 	terminationObserver := terminationobserver.NewTerminationObserver(
 		operatorclient.TargetNamespace,
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		targetNSInformers.Core().V1().Pods(),
+		targetNSInformers.Core().V1().Events(),
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
@@ -487,9 +490,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	kubeletVersionSkewController := kubeletversionskewcontroller.NewKubeletVersionSkewController(
 		operatorClient,
-		kubeInformersForNamespaces,
-		clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
-		clusterInformers.InformersFor("").Core().V1().Nodes().Informer(),
+		clusterInformers.InformersFor("").Core().V1().Nodes(),
 		controllerContext.EventRecorder,
 	)
 
@@ -510,7 +511,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	webhookSupportabilityController := webhooksupportabilitycontroller.NewWebhookSupportabilityController(
 		operatorClient,
 		clusterInformers,
-		apiextensionsInformers,
+		apiextensionsInformers.Apiextensions().V1().CustomResourceDefinitions(),
 		controllerContext.EventRecorder,
 	)
 
