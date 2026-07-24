@@ -83,6 +83,10 @@ import (
 )
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
+
+	// -- PHASE 1: Clients and Initialization --
+	// All NewForConfig calls, version parsing, direct API calls that read bootstrap state.
+
 	// This kube client use protobuf, do not use it for CR
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.ProtoKubeConfig)
 	if err != nil {
@@ -112,6 +116,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
+	podSecurityKubeClient, podSecurityWarningsHandler, err := podsecurityreadinesscontroller.NewWarningAwareKubeClient(controllerContext.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
+	if err != nil {
+		return err
+	}
+
 	operandKubernetesVersion, err := semver.Parse(status.VersionForOperandFromEnv())
 	if err != nil {
 		return err
@@ -121,19 +134,9 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
-		kubeClient,
-		operatorclient.GlobalUserSpecifiedConfigNamespace,
-		operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		operatorclient.TargetNamespace,
-		operatorclient.OperatorNamespace,
-		"kube-system", // system:openshift:controller:kube-apiserver-check-endpoints role binding
-		"openshift-etcd",
-		"openshift-apiserver",
-	)
-	clusterInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "")
+	desiredVersion := status.VersionForOperatorFromEnv()
+	missingVersion := "0.0.1-snapshot"
 
-	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
 	operatorClient, dynamicInformersForAllNamespaces, err := genericoperatorclient.NewStaticPodOperatorClient(
 		controllerContext.Clock,
 		controllerContext.KubeConfig,
@@ -145,63 +148,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	if err != nil {
 		return err
 	}
-
-	securityInformers := securityvnformers.NewSharedInformerFactory(securityClient, 10*time.Minute)
-
-	desiredVersion := status.VersionForOperatorFromEnv()
-	missingVersion := "0.0.1-snapshot"
-
-	// By default, this will exit(0) the process if the featuregates ever change to a different set of values.
-	featureGateAccessor := featuregates.NewFeatureGateAccess(
-		desiredVersion, missingVersion,
-		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
-		controllerContext.EventRecorder,
-	)
-	go featureGateAccessor.Run(ctx)
-	go configInformers.Start(ctx.Done())
-
-	var featureGates featuregates.FeatureGate
-	select {
-	case <-featureGateAccessor.InitialFeatureGatesObserved():
-		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
-		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
-	case <-time.After(1 * time.Minute):
-		klog.Errorf("timed out waiting for FeatureGate detection")
-		return fmt.Errorf("timed out waiting for FeatureGate detection")
-	}
-
-	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
-		operatorClient,
-		kubeInformersForNamespaces,
-		kubeClient,
-		controllerContext.EventRecorder,
-	)
-	if err != nil {
-		return err
-	}
-
-	operatorV1Client, err := operatorv1client.NewForConfig(controllerContext.KubeConfig)
-	if err != nil {
-		return err
-	}
-	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
-
-	configObserver := configobservercontroller.NewConfigObserver(
-		operatorClient,
-		kubeInformersForNamespaces,
-		configInformers,
-		operatorInformers,
-		resourceSyncController,
-		featureGateAccessor,
-		controllerContext.EventRecorder,
-		groupVersionsByFeatureGate,
-	)
-
-	serviceAccountIssuerController := serviceaccountissuercontroller.NewController(operatorV1Client.OperatorV1().KubeAPIServers(), operatorInformers, configInformers, controllerContext.EventRecorder)
-
-	eventWatcher := eventwatch.New().
-		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
-		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
 	// TODO: use informer instead of direct api call
 	// Also, in the future there is a plan to make infrastructure type dynamic
@@ -227,6 +173,100 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	var requireMultipleEtcdEndpoints resourceapply.ConditionalFunction = func() bool {
 		return isMultipleEtcdEndpointsRequired
 	}
+
+	// don't change any versions until we sync
+	versionRecorder := status.NewVersionGetter()
+	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get(ctx, "kube-apiserver", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	for _, version := range clusterOperator.Status.Versions {
+		versionRecorder.SetVersion(version.Name, version.Version)
+	}
+	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
+
+	// -- PHASE 2: Informer Factories --
+	// All SharedInformerFactory and KubeInformersForNamespaces creation.
+
+	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(
+		kubeClient,
+		operatorclient.GlobalUserSpecifiedConfigNamespace,
+		operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		operatorclient.TargetNamespace,
+		operatorclient.OperatorNamespace,
+		"kube-system", // system:openshift:controller:kube-apiserver-check-endpoints role binding
+		"openshift-etcd",
+		"openshift-apiserver",
+	)
+	clusterInformers := v1helpers.NewKubeInformersForNamespaces(kubeClient, "")
+
+	configInformers := configv1informers.NewSharedInformerFactory(configClient, 10*time.Minute)
+	securityInformers := securityvnformers.NewSharedInformerFactory(securityClient, 10*time.Minute)
+	operatorInformers := operatorv1informers.NewSharedInformerFactory(operatorV1Client, 10*time.Minute)
+	dynamicInformersForTargetNamespace := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 12*time.Hour, operatorclient.TargetNamespace, nil)
+	apiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(apiextensionsClient, 10*time.Minute)
+	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
+
+	// -- PHASE 3: Feature Gates --
+	// FeatureGateAccess creation, config informers early start, blocking wait.
+
+	// By default, this will exit(0) the process if the featuregates ever change to a different set of values.
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion, missingVersion,
+		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
+		controllerContext.EventRecorder,
+	)
+	go featureGateAccessor.Run(ctx)
+	go configInformers.Start(ctx.Done())
+
+	var featureGates featuregates.FeatureGate
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		featureGates, _ = featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
+	case <-time.After(1 * time.Minute):
+		klog.Errorf("timed out waiting for FeatureGate detection")
+		return fmt.Errorf("timed out waiting for FeatureGate detection")
+	}
+
+	// -- PHASE 4: Controllers --
+	// All controller construction.
+
+	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		kubeClient.CoreV1(),
+		controllerContext.EventRecorder,
+	)
+	if err != nil {
+		return err
+	}
+
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorClient,
+		kubeInformersForNamespaces,
+		configInformers.Config().V1().APIServers(),
+		configInformers.Config().V1().Authentications(),
+		configInformers.Config().V1().FeatureGates(),
+		configInformers.Config().V1().Images(),
+		configInformers.Config().V1().Infrastructures(),
+		configInformers.Config().V1().Networks(),
+		configInformers.Config().V1().Nodes(),
+		configInformers.Config().V1().OAuths(),
+		configInformers.Config().V1().Proxies(),
+		configInformers.Config().V1().Schedulers(),
+		operatorInformers.Operator().V1().KubeAPIServers(),
+		resourceSyncController,
+		featureGateAccessor,
+		controllerContext.EventRecorder,
+		groupVersionsByFeatureGate,
+	)
+
+	serviceAccountIssuerController := serviceaccountissuercontroller.NewController(operatorV1Client.OperatorV1().KubeAPIServers(), operatorInformers, configInformers, controllerContext.EventRecorder)
+
+	eventWatcher := eventwatch.New().
+		WithEventHandler(operatorclient.TargetNamespace, "LateConnections", terminationobserver.ProcessLateConnectionEvents).
+		ToController(kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace), kubeClient.CoreV1(), controllerContext.EventRecorder)
 
 	staticResourceController := staticresourcecontroller.NewStaticResourceController(
 		"KubeAPIServerStaticResources",
@@ -277,22 +317,24 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		WithConditionalResources(bindata.Asset, []string{"assets/alerts/kube-apiserver-slos-extended.yaml"}, notOnSingleReplicaTopology, nil).
 		AddKubeInformers(kubeInformersForNamespaces)
 
-	dynamicInformersForTargetNamespace := dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 12*time.Hour, operatorclient.TargetNamespace, nil)
-
 	highCpuUsageAlertController := highcpuusagealertcontroller.NewHighCPUUsageAlertController(
-		configInformers.Config().V1(),
+		configInformers.Config().V1().Infrastructures(),
+		configInformers.Config().V1().ClusterVersions(),
 		dynamicInformersForTargetNamespace,
 		dynamicClient,
 		controllerContext.EventRecorder)
 
+	targetNSInformersFactory := kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace)
 	targetConfigReconciler := targetconfigcontroller.NewTargetConfigController(
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
 		os.Getenv("OPERATOR_IMAGE_VERSION"),
 		operatorClient,
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		targetNSInformersFactory.Core().V1().ConfigMaps(),
+		targetNSInformersFactory.Core().V1().Secrets(),
+		targetNSInformersFactory.Core().V1().ServiceAccounts(),
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		featureGateAccessor,
 		startupmonitorreadiness.IsStartupMonitorEnabledFunction(configInformers.Config().V1().Infrastructures().Lister(), operatorClient),
 		requireMultipleEtcdEndpoints,
@@ -302,12 +344,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	nodeKubeconfigController := nodekubeconfigcontroller.NewNodeKubeconfigController(
 		operatorClient,
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		configInformers.Config().V1().Infrastructures(),
 		controllerContext.EventRecorder,
 	)
 
-	apiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(apiextensionsClient, 10*time.Minute)
 	connectivityCheckController := connectivitycheckcontroller.NewKubeAPIServerConnectivityCheckController(
 		kubeClient,
 		operatorClient,
@@ -319,17 +360,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		apiextensionsInformers,
 		controllerContext.EventRecorder,
 	)
-
-	// don't change any versions until we sync
-	versionRecorder := status.NewVersionGetter()
-	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get(ctx, "kube-apiserver", metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	for _, version := range clusterOperator.Status.Versions {
-		versionRecorder.SetVersion(version.Name, version.Version)
-	}
-	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
 	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces, clusterInformers.InformersFor(""), configInformers, controllerContext.Clock).
 		WithEvents(controllerContext.EventRecorder).
@@ -384,8 +414,10 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	).WithDegradedInertia(newDegradedInertia())
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
-		kubeClient,
+		kubeClient.CoreV1(),
 		operatorClient,
+		configInformers.Config().V1().Networks(),
+		configInformers.Config().V1().Infrastructures(),
 		configInformers,
 		kubeInformersForNamespaces,
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
@@ -401,7 +433,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
-	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
@@ -432,9 +463,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	targetNSInformers := kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace)
 	terminationObserver := terminationobserver.NewTerminationObserver(
 		operatorclient.TargetNamespace,
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		targetNSInformers.Core().V1().Pods(),
+		targetNSInformers.Core().V1().Events(),
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
@@ -442,7 +475,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	boundSATokenSignerController := boundsatokensignercontroller.NewBoundSATokenSignerController(
 		operatorClient,
 		kubeInformersForNamespaces,
-		kubeClient,
+		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 	)
 
@@ -475,9 +508,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	kubeletVersionSkewController := kubeletversionskewcontroller.NewKubeletVersionSkewController(
 		operatorClient,
-		kubeInformersForNamespaces,
-		clusterInformers.InformersFor("").Core().V1().Nodes().Lister(),
-		clusterInformers.InformersFor("").Core().V1().Nodes().Informer(),
+		clusterInformers.InformersFor("").Core().V1().Nodes(),
 		controllerContext.EventRecorder,
 	)
 
@@ -498,7 +529,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	webhookSupportabilityController := webhooksupportabilitycontroller.NewWebhookSupportabilityController(
 		operatorClient,
 		clusterInformers,
-		apiextensionsInformers,
+		apiextensionsInformers.Apiextensions().V1().CustomResourceDefinitions(),
 		controllerContext.EventRecorder,
 	)
 
@@ -509,13 +540,17 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	)
 
 	podSecurityReadinessController, err := podsecurityreadinesscontroller.NewPodSecurityReadinessController(
-		controllerContext.ProtoKubeConfig,
+		podSecurityKubeClient,
+		podSecurityWarningsHandler,
 		operatorClient,
 		controllerContext.EventRecorder,
 	)
 	if err != nil {
 		return err
 	}
+
+	// -- PHASE 5: Start --
+	// Metrics registration, informer starts, controller goroutine launches.
 
 	// register termination metrics
 	terminationobserver.RegisterMetrics()

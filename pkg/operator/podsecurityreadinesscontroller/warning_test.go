@@ -6,7 +6,7 @@ import (
 )
 
 func TestWarningHandler(t *testing.T) {
-	w := warningsHandler{}
+	w := WarningsHandler{}
 	warningMessage := "warning"
 	w.HandleWarningHeader(0, "", warningMessage)
 

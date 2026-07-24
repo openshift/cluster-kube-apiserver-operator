@@ -1,7 +1,7 @@
 package resourcesynccontroller
 
 import (
-	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
@@ -13,15 +13,15 @@ import (
 func NewResourceSyncController(
 	operatorConfigClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	coreClient corev1client.CoreV1Interface,
 	eventRecorder events.Recorder) (*resourcesynccontroller.ResourceSyncController, error) {
 
 	resourceSyncController := resourcesynccontroller.NewResourceSyncController(
 		"kube-apiserver",
 		operatorConfigClient,
 		kubeInformersForNamespaces,
-		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(coreClient, kubeInformersForNamespaces),
+		v1helpers.CachedConfigMapGetter(coreClient, kubeInformersForNamespaces),
 		eventRecorder,
 	)
 
