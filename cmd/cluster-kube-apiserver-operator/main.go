@@ -68,7 +68,7 @@ func NewOperatorCommand(ctx context.Context) *cobra.Command {
 		}
 		return client.KubeAPIServers(), nil
 	}))
-	cmd.AddCommand(kmshealth.NewCommand(ctx, encryptionstatusprovider.NewKubeAPIServerEncryptionStatusProviderFromConfig))
+	cmd.AddCommand(kmshealth.NewCommand(ctx, encryptionstatusprovider.NewKubeAPIServerEncryptionStatusProvider))
 	cmd.AddCommand(kmspreflight.NewCommand(ctx))
 
 	return cmd
