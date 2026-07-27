@@ -82,6 +82,6 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 		},
 		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
 		AssertDeployFunc:           library.AssertPreflightDeploy,
-		EncryptionProvider: librarykms.DefaultVaultEncryptionProvider(ctx, t),
+		EncryptionProvider:         librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
