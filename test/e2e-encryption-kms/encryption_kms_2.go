@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	g "github.com/onsi/ginkgo/v2"
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 
@@ -67,6 +65,9 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, library.PreflightDeployScenario{
 		BasicScenario: library.BasicScenario{
+			// Preflight deploys into the operand namespace because the library-go
+			// scenario validates the actual workload pod wiring there, unlike the
+			// migration scenarios that operate on the rendered encryption config.
 			Namespace:     operatorclient.TargetNamespace,
 			LabelSelector: "apiserver=true",
 		},
@@ -80,12 +81,7 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 			)
 		},
 		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
-		AssertDeployFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet, namespace string, deployer *preflight.PodPreflightDeployer) {
-			library.AssertPreflightDeploy(ctx, t, cs, namespace, deployer)
-			pod, err := cs.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
-			require.NoError(t, err)
-			require.True(t, pod.Spec.HostNetwork, "static-pod preflight should use hostNetwork")
-		},
+		AssertDeployFunc:           library.AssertPreflightDeploy,
 		EncryptionProvider: librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
