@@ -7,8 +7,11 @@ import (
 
 	g "github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -16,6 +19,10 @@ import (
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSEncryptionKMSToKMSMigration(ctx, g.GinkgoTB())
+	})
+
+	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+		testKMSPreflightDeploy(ctx, g.GinkgoTB())
 	})
 })
 
@@ -52,5 +59,29 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),
 			librarykms.SecondaryVaultEncryptionProvider(ctx, t),
 		}),
+	})
+}
+
+func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
+	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, library.PreflightDeployScenario{
+		BasicScenario: library.BasicScenario{
+			// Preflight deploys into the operand namespace because the library-go
+			// scenario validates the actual workload pod wiring there, unlike the
+			// migration scenarios that operate on the rendered encryption config.
+			Namespace:     operatorclient.TargetNamespace,
+			LabelSelector: "apiserver=true",
+		},
+		CreateDeployerFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet) *preflight.PodPreflightDeployer {
+			image := library.OperatorImageFromDeployment(ctx, t,
+				operatorclient.OperatorNamespace, "kube-apiserver-operator", "kube-apiserver-operator")
+			recorder := events.NewInMemoryRecorder("kms-preflight-e2e", clock.RealClock{})
+			return preflight.NewStaticPodPreflightDeployer(
+				operatorclient.TargetNamespace, cs.Kube.CoreV1(), cs.Kube.RbacV1(),
+				recorder, image, []string{"cluster-kube-apiserver-operator", "kms-preflight"}, library.PreflightDeployCallTimeout,
+			)
+		},
+		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
+		AssertDeployFunc:           library.AssertPreflightDeploy,
+		EncryptionProvider:         librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
