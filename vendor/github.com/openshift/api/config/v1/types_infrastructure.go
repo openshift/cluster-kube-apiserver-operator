@@ -601,6 +601,15 @@ type AWSPlatformStatus struct {
 	// IPv4-only, or dual-stack networking with IPv4 or IPv6 as the primary
 	// protocol family.
 	//
+	// Valid values are:
+	// * "IPv4" (default): Cloud platform resources use IPv4 addressing only.
+	// * "DualStackIPv6Primary": Cloud platform resources use dual-stack networking with IPv6 as the primary protocol family.
+	// * "DualStackIPv4Primary": Cloud platform resources use dual-stack networking with IPv4 as the primary protocol family.
+	//
+	// When omitted, this field defaults to "IPv4".
+	//
+	// This field is immutable and cannot be changed once set.
+	//
 	// +default="IPv4"
 	// +kubebuilder:default="IPv4"
 	// +kubebuilder:validation:XValidation:rule="oldSelf == '' || self == oldSelf",message="ipFamily is immutable once set"
@@ -1453,6 +1462,9 @@ type VSpherePlatformFailureDomainSpec struct {
 	ZoneAffinity *VSphereFailureDomainZoneAffinity `json:"zoneAffinity,omitempty"`
 
 	// server is the fully-qualified domain name or the IP address of the vCenter server.
+	// This must match the server field of an entry in the vcenters list.
+	// The match is case-sensitive; the value must be specified exactly as it appears in the vcenters entry.
+	// The value must be between 1 and 255 characters long.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=255
@@ -1687,6 +1699,7 @@ type VSpherePlatformNodeNetworking struct {
 // use these fields for configuration.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.apiServerInternalIPs) || has(self.apiServerInternalIPs)",message="apiServerInternalIPs list is required once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.ingressIPs) || has(self.ingressIPs)",message="ingressIPs list is required once set"
+// +openshift:validation:FeatureGateAwareXValidation:featureGate=VSphereMultiVCenterDay2,rule="!has(self.failureDomains) || size(self.failureDomains) == 0 || (has(self.vcenters) && self.failureDomains.all(fd, self.vcenters.exists(vc, vc.server == fd.server)))",message="all failure domains must have a corresponding vCenter entry"
 type VSpherePlatformSpec struct {
 	// vcenters holds the connection details for services to communicate with vCenter.
 	// Up to 3 vCenters are supported.
@@ -1711,6 +1724,7 @@ type VSpherePlatformSpec struct {
 
 	// failureDomains contains the definition of region, zone and the vCenter topology.
 	// If this is omitted failure domains (regions and zones) will not be used.
+	// Each failure domain's server must match the server field of an entry in the vcenters list.
 	// +listType=map
 	// +listMapKey=name
 	// +optional
