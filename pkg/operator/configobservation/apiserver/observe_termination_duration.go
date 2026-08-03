@@ -43,7 +43,7 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		//
 		// Note this is the official number we got from AWS
-		observedShutdownDelayDuration = "129s"
+		observedShutdownDelayDuration = "210s"
 	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
 		// We are receiving inconsistent information from the GCP support team.
 		// In some responses, they confirm an additional ~60s delay in traffic propagation,
@@ -123,7 +123,7 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		//   the initial 129s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
 		//   additional 60s for finishing all in-flight requests
 		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-		observedGracefulTerminationDuration = "194"
+		observedGracefulTerminationDuration = "275"
 	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
 		// 160s is calculated as follows:
 		//   the initial 95s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
