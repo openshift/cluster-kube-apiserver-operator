@@ -189,6 +189,7 @@ github.com/google/gnostic-models/openapiv3
 # github.com/google/go-cmp v0.7.0
 ## explicit; go 1.21
 github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
@@ -286,7 +287,7 @@ github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo
 github.com/openshift-eng/openshift-tests-extension/pkg/junit
 github.com/openshift-eng/openshift-tests-extension/pkg/util/sets
 github.com/openshift-eng/openshift-tests-extension/pkg/version
-# github.com/openshift/api v0.0.0-20260729033540-b9305b7e8c5c
+# github.com/openshift/api v0.0.0-20260804225205-7c5fbe31f5c2
 ## explicit; go 1.26.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -435,7 +436,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20260728221828-f675e9a73816
+# github.com/openshift/library-go v0.0.0-20260805091818-b6bd3feeb41e
 ## explicit; go 1.26.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
