@@ -1,3 +1,5 @@
+FROM quay.io/openshifttest/vault-kube-kms@sha256:222bba6cc71fb7527bac262b67f614152491105c25f3f0a7a19385a5d878123a AS vault-plugin
+
 FROM registry.ci.openshift.org/ocp/builder:rhel-9-golang-1.26-openshift-5.0 AS builder
 WORKDIR /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY . .
@@ -13,6 +15,7 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/vendor/github.com/openshift/api/apiserver/v1/zz_generated.crd-manifests/kube-apiserver_apirequestcounts.crd.yaml /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator-tests-ext.gz /usr/bin/
+COPY --from=vault-plugin /usr/bin/vault-kube-kms /usr/bin/vault-kube-kms
 
 COPY manifests /manifests
 COPY bindata/bootkube/scc-manifests /manifests

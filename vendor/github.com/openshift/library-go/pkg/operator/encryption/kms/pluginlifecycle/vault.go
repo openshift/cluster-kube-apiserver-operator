@@ -107,6 +107,7 @@ func (v *vault) BuildSidecarContainer() (corev1.Container, error) {
 	return corev1.Container{
 		Name:            v.Name(),
 		Image:           v.config.KMSPluginImage,
+		Command:         []string{"/usr/bin/vault-kube-kms"},
 		Args:            args,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		// We place the container in InitContainers with RestartPolicyAlways so the kubelet starts it before
