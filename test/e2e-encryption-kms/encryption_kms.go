@@ -25,34 +25,70 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 
 })
 
-// testKMSEncryptionOnOff tests KMS encryption on/off cycle.
+// testKMSEncryptionOnOff tests KMS encryption on/off cycle across kube-apiserver,
+// oauth-apiserver, and openshift-apiserver operators.
 // This test:
-// 1. Enables KMS encryption
-// 2. Verifies secret is encrypted
-// 3. Disables encryption (Identity)
-// 4. Verifies secret is NOT encrypted
-// 5. Re-enables KMS encryption
-// 6. Verifies secret is encrypted again
-// 7. Disables encryption (Identity) again
-// 8. Verifies secret is NOT encrypted again
+// 1. Creates SecretOfLife, TokenOfLife, and RouteOfLife test resources
+// 2. Enables KMS encryption and verifies all resources are encrypted
+// 3. Disables encryption (Identity) and verifies all resources are NOT encrypted
+// 4. Re-enables KMS encryption and verifies all resources are encrypted again
+// 5. Disables encryption (Identity) again and verifies all resources are NOT encrypted again
 func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
-	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
-		BasicScenario: library.BasicScenario{
-			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
-			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       library.WellKnownKASTargetGRs,
-			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+	library.TestEncryptionTurnOnAndOff(ctx, t,
+		library.OnOffScenario{
+			BasicScenario: library.BasicScenario{
+				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+				EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
+				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				OperatorNamespace:               operatorclient.OperatorNamespace,
+				TargetGRs:                       library.WellKnownKASTargetGRs,
+				AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+			},
+			CreateResourceFunc:             library.CreateAndStoreWellKnownSecretOfLife,
+			AssertResourceEncryptedFunc:    library.AssertWellKnownSecretOfLifeEncrypted,
+			AssertResourceNotEncryptedFunc: library.AssertWellKnownSecretOfLifeNotEncrypted,
+			ResourceFunc:                   library.WellKnownSecretOfLife,
+			ResourceName:                   "SecretOfLife",
+			EncryptionProvider:             librarykms.DefaultVaultEncryptionProvider(ctx, t),
 		},
-		CreateResourceFunc:             library.CreateAndStoreWellKnownSecretOfLife,
-		AssertResourceEncryptedFunc:    library.AssertWellKnownSecretOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: library.AssertWellKnownSecretOfLifeNotEncrypted,
-		ResourceFunc:                   library.WellKnownSecretOfLife,
-		ResourceName:                   "SecretOfLife",
-		EncryptionProvider:             librarykms.DefaultVaultEncryptionProvider(ctx, t),
-	})
+		library.OnOffScenario{
+			BasicScenario: library.BasicScenario{
+				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
+				EncryptionConfigSecretName:      "encryption-config-openshift-oauth-apiserver",
+				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				OperatorNamespace:               "openshift-authentication-operator",
+				TargetGRs:                       library.WellKnownAuthTargetGRs,
+				AssertFunc:                      library.AssertWellKnownTokens,
+			},
+			CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
+				return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
+			},
+			AssertResourceEncryptedFunc:    library.AssertWellKnownTokenOfLifeEncrypted,
+			AssertResourceNotEncryptedFunc: library.AssertWellKnownTokenOfLifeNotEncrypted,
+			ResourceFunc:                   library.WellKnownTokenOfLife,
+			ResourceName:                   "TokenOfLife",
+		},
+		library.OnOffScenario{
+			BasicScenario: library.BasicScenario{
+				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
+				EncryptionConfigSecretName:      "encryption-config-openshift-apiserver",
+				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+				OperatorNamespace:               "openshift-apiserver-operator",
+				TargetGRs:                       library.WellKnownOASTargetGRs,
+				AssertFunc:                      library.AssertWellKnownRoutes,
+			},
+			CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
+				return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
+			},
+			AssertResourceEncryptedFunc:    library.AssertWellKnownRouteOfLifeEncrypted,
+			AssertResourceNotEncryptedFunc: library.AssertWellKnownRouteOfLifeNotEncrypted,
+			ResourceFunc:                   library.WellKnownRouteOfLife,
+			ResourceName:                   "RouteOfLife",
+		},
+	)
 }
 
 // testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers
