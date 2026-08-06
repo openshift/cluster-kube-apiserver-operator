@@ -15,7 +15,7 @@ COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/vendor/github.com/openshift/api/apiserver/v1/zz_generated.crd-manifests/kube-apiserver_apirequestcounts.crd.yaml /usr/share/bootkube/manifests/manifests/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/cluster-kube-apiserver-operator/cluster-kube-apiserver-operator-tests-ext.gz /usr/bin/
-COPY --from=vault-plugin /usr/bin/vault-kube-kms /usr/bin/vault-kube-kms
+COPY --from=vault-plugin /vault-kube-kms /usr/bin/vault-kube-kms
 
 COPY manifests /manifests
 COPY bindata/bootkube/scc-manifests /manifests
