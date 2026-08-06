@@ -112,6 +112,30 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-perf",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-perf]")`,
+		},
+	})
+
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-perf-aescbc",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-perf-aescbc]")`,
+		},
+	})
+
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-perf-aesgcm",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-perf-aesgcm]")`,
+		},
+	})
+
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
