@@ -32,6 +32,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/connectivitycheckcontroller"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/encryptionstatusprovider"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/highcpuusagealertcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/kubeletversionskewcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/nodekubeconfigcontroller"
@@ -52,6 +53,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
+	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
@@ -409,6 +411,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
+	kmsEncryptionStatusProvider, err := encryptionstatusprovider.NewKubeAPIServerEncryptionStatusProvider(operatorV1Client)
+	if err != nil {
+		return err
+	}
+
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
@@ -426,6 +433,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeClient.CoreV1(),
 		controllerContext.EventRecorder,
 		resourceSyncController,
+		kmsEncryptionStatusProvider,
+		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
 	)
 	if err != nil {
 		return err
