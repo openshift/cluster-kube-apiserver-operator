@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -31,23 +32,26 @@ const (
 
 var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
+// resolveEncryptionProvider returns the encryption type from the ENCRYPTION_PROVIDER
+// env var (used in OTE/CI), falling back to the -provider flag (used in Makefile runs).
+func resolveEncryptionProvider() configv1.EncryptionType {
+	if env := os.Getenv("ENCRYPTION_PROVIDER"); env != "" {
+		return configv1.EncryptionType(env)
+	}
+	return configv1.EncryptionType(*provider)
+}
+
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestPerfEncryption [Serial][Timeout:120m][Suite:encryption-perf]", func() {
-		testPerfEncryption(g.GinkgoTB(), configv1.EncryptionType(*provider))
-	})
-
-	g.It("TestPerfEncryptionAESCBC [Serial][Timeout:120m][Suite:encryption-perf-aescbc]", func() {
-		testPerfEncryption(g.GinkgoTB(), configv1.EncryptionTypeAESCBC)
-	})
-
-	g.It("TestPerfEncryptionAESGCM [Serial][Timeout:120m][Suite:encryption-perf-aesgcm]", func() {
-		testPerfEncryption(g.GinkgoTB(), configv1.EncryptionTypeAESGCM)
+	g.It("TestPerfEncryption [Serial][Timeout:120m][Suite:encryption-perf]", func(ctx context.Context) {
+		testPerfEncryption(ctx, g.GinkgoTB())
 	})
 })
 
-func testPerfEncryption(tt testing.TB, encType configv1.EncryptionType) {
+func testPerfEncryption(ctx context.Context, tt testing.TB) {
+	encType := resolveEncryptionProvider()
+	tt.Logf("encryption type: %s\n", encType)
 	operatorClient := operatorencryption.GetOperator(tt)
-	library.TestPerfEncryption(tt.Context(), tt, library.PerfScenario{
+	library.TestPerfEncryption(ctx, tt, library.PerfScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
