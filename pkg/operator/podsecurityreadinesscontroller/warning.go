@@ -1,13 +1,13 @@
 package podsecurityreadinesscontroller
 
-// warningsHandler collects the warnings and makes them available.
-type warningsHandler struct {
+// WarningsHandler collects the warnings and makes them available.
+type WarningsHandler struct {
 	warnings []string
 }
 
 // HandleWarningHeader implements the WarningHandler interface. It stores the
 // warning headers.
-func (w *warningsHandler) HandleWarningHeader(code int, agent string, text string) {
+func (w *WarningsHandler) HandleWarningHeader(code int, agent string, text string) {
 	if text == "" {
 		return
 	}
@@ -16,7 +16,7 @@ func (w *warningsHandler) HandleWarningHeader(code int, agent string, text strin
 }
 
 // PopAll returns all warnings and clears the slice.
-func (w *warningsHandler) PopAll() []string {
+func (w *WarningsHandler) PopAll() []string {
 	warnings := w.warnings
 	w.warnings = []string{}
 

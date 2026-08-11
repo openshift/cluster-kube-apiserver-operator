@@ -131,8 +131,10 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	}
 
 	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
-		kubeClient,
+		kubeClient.CoreV1(),
 		operatorClient,
+		configInformers.Config().V1().Networks(),
+		configInformers.Config().V1().Infrastructures(),
 		configInformers,
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
