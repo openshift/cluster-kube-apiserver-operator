@@ -40,8 +40,12 @@ func NewEncryptionComputer(keyCtrl *keyController, stateCtrl *stateController) *
 // It computes the encryption configuration that would result after creating
 // the next key, giving the KMS preflight deployer the configuration it needs
 // to test the plugin before the key is actually created.
+//
+// It unconditionally skips the KMS preflight gate: the preflight controller
+// calls this method to obtain the configuration it will deploy for testing,
+// so blocking on a result that does not exist yet would deadlock.
 func (e *EncryptionComputer) ComputeEncryptionConfiguration(ctx context.Context) (*corev1.Secret, error) {
-	newKeySecret, err := e.keyController.computeKeySecret(ctx, e.syncCtx)
+	newKeySecret, err := e.keyController.computeKeySecretSkippingPreflight(ctx, e.syncCtx)
 	if err != nil {
 		return nil, err
 	}
