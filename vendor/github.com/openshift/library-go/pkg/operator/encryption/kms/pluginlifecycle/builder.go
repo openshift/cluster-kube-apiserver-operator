@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +26,8 @@ type KMSPluginBuilder struct {
 	staticPod                  bool
 	errorIfNotFound            bool
 
-	healthReporter *healthReporter
+	healthReporter    *healthReporter
+	injectSocketFlags bool
 }
 
 // NewKMSPluginBuilder creates a builder that defaults to deployment mode.
@@ -61,6 +63,15 @@ func (b *KMSPluginBuilder) WithDiskSecretName(name string) *KMSPluginBuilder {
 // callers like the preflight checker that expect the Secret to be present.
 func (b *KMSPluginBuilder) WithSecretRequired() *KMSPluginBuilder {
 	b.errorIfNotFound = true
+	return b
+}
+
+// WithPreflightChecker tells Apply to inject --kms-sockets and
+// --kms-socket-to-verify flags into the checker container's args. The socket
+// to verify is the highest-keyID provider (first in the sorted list), which is
+// the one the key controller is about to create a key for.
+func (b *KMSPluginBuilder) WithPreflightChecker() *KMSPluginBuilder {
+	b.injectSocketFlags = true
 	return b
 }
 
@@ -195,7 +206,30 @@ func (b *KMSPluginBuilder) Apply(ctx context.Context, podSpec *corev1.PodSpec, c
 		return err
 	}
 
+	if b.injectSocketFlags {
+		if err := injectPreflightSocketFlags(podSpec.Containers, containerName, sockets); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// injectPreflightSocketFlags appends --kms-sockets and --kms-socket-to-verify
+// to the named container's args. sockets[0] is the highest-keyID provider
+// (the one being verified).
+func injectPreflightSocketFlags(containers []corev1.Container, containerName string, sockets []string) error {
+	for i, c := range containers {
+		if c.Name != containerName {
+			continue
+		}
+		containers[i].Args = append(c.Args,
+			fmt.Sprintf("--kms-sockets=%s", strings.Join(sockets, ",")),
+			fmt.Sprintf("--kms-socket-to-verify=%s", sockets[0]),
+		)
+		return nil
+	}
+	return fmt.Errorf("container %s not found for preflight socket flag injection", containerName)
 }
 
 func fetchEncryptionConfig(ctx context.Context, encryptionConfigNamespace, encryptionConfigSecretName string, secretClient corev1client.SecretsGetter, errorIfNotFound bool) (*encryptiondata.Config, error) {
