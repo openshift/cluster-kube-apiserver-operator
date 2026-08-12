@@ -4,6 +4,7 @@ import (
 	"context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -43,11 +44,13 @@ func (p *kubeAPIServerEncryptionStatusProvider) ApplyKMSEncryptionStatus(ctx con
 }
 
 func (p *kubeAPIServerEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx context.Context, mutateFn func(*operatorv1.KMSEncryptionStatus)) error {
-	obj, err := p.client.Get(ctx, "cluster", metav1.GetOptions{})
-	if err != nil {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		obj, err := p.client.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		mutateFn(&obj.Status.EncryptionStatus)
+		_, err = p.client.UpdateStatus(ctx, obj, metav1.UpdateOptions{})
 		return err
-	}
-	mutateFn(&obj.Status.EncryptionStatus)
-	_, err = p.client.UpdateStatus(ctx, obj, metav1.UpdateOptions{})
-	return err
+	})
 }
