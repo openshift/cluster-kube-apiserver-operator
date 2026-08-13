@@ -21,6 +21,9 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 	"DRADeviceTaintRules": {
 		{KubeVersionRange: semver.MustParseRange(">=1.36.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}, Kinds: []string{"DeviceTaintRule"}},
 	},
+	"PodCertificateRequest": {
+		{KubeVersionRange: semver.MustParseRange(">=1.35.0"), GroupVersion: schema.GroupVersion{Group: "certificates.k8s.io", Version: "v1beta1"}, Kinds: []string{"PodCertificateRequest"}},
+	},
 }
 
 type groupVersionKindsByOpenshiftVersion struct {
