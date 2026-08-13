@@ -50,6 +50,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
@@ -435,6 +436,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		resourceSyncController,
 		kmsEncryptionStatusProvider,
 		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
+		encryptioncontrollers.NoopEncryptionConfigurationComputer{},
 	)
 	if err != nil {
 		return err
