@@ -38,12 +38,18 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// reduce the shutdown delay to 0 to reach the maximum downtime for SNO
 		observedShutdownDelayDuration = "0s"
 	case infra.Spec.PlatformSpec.Type == configv1.AWSPlatformType:
+		// PRIOR CONTEXT (when delay was 129s):
 		// AWS has a known issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		//
 		// Note this is the official number we got from AWS
-		observedShutdownDelayDuration = "129s"
+		// ---
+		// NEW OBSERVATIONS AS OF AUGUST 2026:
+		// 129s is no longer sufficient, we have observed the delay for NLB to notice and remove unhealthy instances to be widening.
+		// The newest bug is https://redhat.atlassian.net/browse/OCPBUGS-86789
+		// 240s appears to be sufficient now to let NLB drain.
+		observedShutdownDelayDuration = "240s"
 	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
 		// We are receiving inconsistent information from the GCP support team.
 		// In some responses, they confirm an additional ~60s delay in traffic propagation,
@@ -119,11 +125,11 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		// We need to extend the shutdown-delay-duration so that an NLB has a chance to notice and remove unhealthy instance.
 		// Once the mentioned issue is resolved this code must be removed and default values applied
 		//
-		// 194s is calculated as follows:
-		//   the initial 129s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
+		// 305s is calculated as follows:
+		//   the initial 240s is reserved for the minimal termination period - the time needed for an LB to take an instance out of rotation
 		//   additional 60s for finishing all in-flight requests
 		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
-		observedGracefulTerminationDuration = "194"
+		observedGracefulTerminationDuration = "305"
 	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
 		// 160s is calculated as follows:
 		//   the initial 95s is reserved fo the minimal termination period - the time needed for an LB to take an instance out of rotation
