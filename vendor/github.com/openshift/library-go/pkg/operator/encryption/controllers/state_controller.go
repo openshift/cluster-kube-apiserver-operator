@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -16,6 +17,7 @@ import (
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	"github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/encryption/state"
 	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -46,6 +48,14 @@ type stateController struct {
 	deployer                 statemachine.Deployer
 	provider                 Provider
 	preconditionsFulfilledFn preconditionsFulfilled
+
+	deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error)
+	listKeySecretsFn                 func(context.Context) ([]*corev1.Secret, error)
+
+	// fields used only by ToFactoryController
+	apiServerConfigInformer    configv1informers.APIServerInformer
+	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces
+	eventRecorder              events.Recorder
 }
 
 func NewStateController(
@@ -59,7 +69,7 @@ func NewStateController(
 	secretClient corev1client.SecretsGetter,
 	encryptionSecretSelector metav1.ListOptions,
 	eventRecorder events.Recorder,
-) factory.Controller {
+) *stateController {
 	c := &stateController{
 		operatorClient:         operatorClient,
 		instanceName:           instanceName,
@@ -70,16 +80,31 @@ func NewStateController(
 		deployer:                 deployer,
 		provider:                 provider,
 		preconditionsFulfilledFn: preconditionsFulfilledFn,
+
+		apiServerConfigInformer:    apiServerConfigInformer,
+		kubeInformersForNamespaces: kubeInformersForNamespaces,
+		eventRecorder:              eventRecorder,
 	}
 
+	c.deployedEncryptionConfigSecretFn = c.deployer.DeployedEncryptionConfigSecret
+	c.listKeySecretsFn = func(ctx context.Context) ([]*corev1.Secret, error) {
+		return secrets.ListKeySecrets(ctx, c.secretClient, c.encryptionSecretSelector)
+	}
+
+	return c
+}
+
+// ToFactoryController wraps this stateController in a factory.Controller so it
+// can be added to a controller set and run.
+func (c *stateController) ToFactoryController() factory.Controller {
 	return factory.New().ResyncEvery(time.Minute).WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).WithInformers(
-		operatorClient.Informer(),
-		kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
-		apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
-		deployer,
+		c.operatorClient.Informer(),
+		c.kubeInformersForNamespaces.InformersFor("openshift-config-managed").Core().V1().Secrets().Informer(),
+		c.apiServerConfigInformer.Informer(), // do not remove, used by the precondition checker
+		c.deployer,
 	).ToController(
 		c.controllerInstanceName,
-		eventRecorder.WithComponentSuffix("encryption-state-controller"),
+		c.eventRecorder.WithComponentSuffix("encryption-state-controller"),
 	)
 }
 
@@ -108,7 +133,17 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		return err // we will get re-kicked when the operator status updates
 	}
 
-	configError := c.generateAndApplyCurrentEncryptionConfigSecret(ctx, syncCtx.Queue(), syncCtx.Recorder(), c.provider.EncryptedGRs())
+	secretToApply, pendingEvents, configError := c.computeEncryptionConfigSecret(ctx, syncCtx.Queue())
+	if configError == nil && secretToApply != nil {
+		_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, syncCtx.Recorder(), secretToApply)
+		if applyErr != nil {
+			configError = applyErr
+		} else if changed {
+			for _, event := range pendingEvents {
+				syncCtx.Recorder().Eventf(event.reason, "%s", event.message)
+			}
+		}
+	}
 	if configError != nil {
 		degradedCondition = degradedCondition.
 			WithStatus(operatorv1.ConditionTrue).
@@ -126,51 +161,57 @@ type eventWithReason struct {
 	message string
 }
 
-func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+func (c *stateController) computeEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface) (*corev1.Secret, []eventWithReason, error) {
+	return c.computeEncryptionConfigSecretWithCustomListKeySecretFn(ctx, queue, c.listKeySecretsFn)
+}
+
+func (c *stateController) computeEncryptionConfigSecretWithCustomListKeySecretFn(ctx context.Context, queue workqueue.RateLimitingInterface, listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
+	return generateEncryptionConfigSecret(ctx, queue, c.provider.EncryptedGRs(), c.instanceName, c.deployedEncryptionConfigSecretFn, listKeySecretsFn)
+}
+
+func generateEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, encryptedGRs []schema.GroupResource, instanceName string, deployedEncryptionConfigSecretFn func(context.Context) (*corev1.Secret, bool, error), listKeySecretsFn func(context.Context) ([]*corev1.Secret, error)) (*corev1.Secret, []eventWithReason, error) {
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(
+		ctx,
+		deployedEncryptionConfigSecretFn,
+		listKeySecretsFn,
+		encryptedGRs,
+	)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if len(transitioningReason) > 0 {
 		queue.AddAfter(stateWorkKey, 2*time.Minute)
-		return nil
+		return nil, nil, nil
 	}
 
 	if currentConfig == nil && len(encryptionSecrets) == 0 {
 		// we depend on the key controller to create the first key to bootstrap encryption.
 		// Later-on either the config exists or there are keys, even in the case of disabled
 		// encryption via the apiserver config.
-		return nil
+		return nil, nil, nil
 	}
 
 	desiredSecretData, err := encryptiondata.FromEncryptionState(desiredEncryptionState)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	changed, err := c.applyEncryptionConfigSecret(ctx, desiredSecretData, recorder)
+	secretToApply, err := applyEncryptionConfigSecret(instanceName, desiredSecretData)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
-	if changed {
-		currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
-		if actionEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState); len(actionEvents) > 0 {
-			for _, event := range actionEvents {
-				recorder.Eventf(event.reason, "%s", event.message)
-			}
-		}
-	}
-	return nil
+	currentEncryptionConfig, _ := encryptiondata.ToEncryptionState(currentConfig, encryptionSecrets)
+	pendingEvents := eventsFromEncryptionConfigChanges(currentEncryptionConfig, desiredEncryptionState)
+
+	return secretToApply, pendingEvents, nil
 }
 
-func (c *stateController) applyEncryptionConfigSecret(ctx context.Context, secretData *encryptiondata.Config, recorder events.Recorder) (bool, error) {
-	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, c.instanceName), secretData)
+func applyEncryptionConfigSecret(instanceName string, secretData *encryptiondata.Config) (*corev1.Secret, error) {
+	s, err := encryptiondata.ToSecret("openshift-config-managed", fmt.Sprintf("%s-%s", encryptiondata.EncryptionConfSecretName, instanceName), secretData)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-
-	_, changed, applyErr := resourceapply.ApplySecret(ctx, c.secretClient, recorder, s)
-	return changed, applyErr
+	return s, nil
 }
 
 // eventsFromEncryptionConfigChanges return slice of event reasons with messages corresponding to a difference between current and desired encryption state.

@@ -434,7 +434,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 		resourceSyncController,
 		kmsEncryptionStatusProvider,
-		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
+		kmspreflight.NewStaticPodPreflightDeployer(
+			operatorclient.TargetNamespace,
+			kubeClient.CoreV1(),
+			kubeClient.RbacV1(),
+			controllerContext.EventRecorder,
+			os.Getenv("OPERATOR_IMAGE"),
+			[]string{"cluster-kube-apiserver-operator", "kms-preflight"},
+			10*time.Second,
+		),
 	)
 	if err != nil {
 		return err

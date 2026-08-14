@@ -15,14 +15,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const kmsSocketEndpoint = "unix:///var/run/kmsplugin/kms.sock"
-
 type options struct {
-	kmsCallTimeout time.Duration
-	podName        string
-	podNamespace   string
-	configHash     string
-	kubeconfig     string
+	kmsSockets        []string
+	kmsSocketToVerify string
+	kmsCallTimeout    time.Duration
+	podName           string
+	podNamespace      string
+	configHash        string
+	kubeconfig        string
 }
 
 // NewCommand creates the kms-preflight cobra command.
@@ -45,6 +45,8 @@ func NewCommand(ctx context.Context) *cobra.Command {
 }
 
 func (o *options) addFlags(fs *pflag.FlagSet) {
+	fs.StringSliceVar(&o.kmsSockets, "kms-sockets", nil, "KMS plugin endpoints in unix:// URI format (e.g. unix:///var/run/kmsplugin/kms-1.sock); each is checked for reachability (Status)")
+	fs.StringVar(&o.kmsSocketToVerify, "kms-socket-to-verify", "", "KMS plugin endpoint that requires full verification (Status + Encrypt + Decrypt)")
 	fs.DurationVar(&o.kmsCallTimeout, "kms-call-timeout", 0, "timeout for each gRPC call to the KMS plugin")
 	fs.StringVar(&o.configHash, "config-hash", o.configHash, "hash of config to use for encryption")
 	fs.StringVar(&o.podName, "pod-name", o.podName, "name of pod to use to report checker status")
@@ -53,6 +55,22 @@ func (o *options) addFlags(fs *pflag.FlagSet) {
 }
 
 func (o *options) validate() error {
+	if len(o.kmsSockets) == 0 {
+		return fmt.Errorf("--kms-sockets is required, at least one")
+	}
+	if o.kmsSocketToVerify == "" {
+		return fmt.Errorf("--kms-socket-to-verify is required")
+	}
+	found := false
+	for _, s := range o.kmsSockets {
+		if s == o.kmsSocketToVerify {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("--kms-socket-to-verify %q must be one of --kms-sockets", o.kmsSocketToVerify)
+	}
 	if o.kmsCallTimeout <= 0 {
 		return fmt.Errorf("--kms-call-timeout must be greater than 0")
 	}
@@ -70,13 +88,31 @@ func (o *options) validate() error {
 }
 
 func (o *options) run(ctx context.Context) error {
-	klog.Infof("Running KMS preflight check at %s", kmsSocketEndpoint)
+	// Check reachability (Status) for all sockets. This validates that every
+	// KMS plugin sidecar started and is healthy, including older providers that
+	// are still needed for decryption.
+	for _, socket := range o.kmsSockets {
+		if socket == o.kmsSocketToVerify {
+			continue
+		}
+		klog.Infof("Checking reachability of KMS plugin at %s", socket)
+		service, err := k8senvelopekmsv2.NewGRPCService(ctx, socket, "preflight", o.kmsCallTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to create KMS gRPC client for %s: %w", socket, err)
+		}
+		c := newChecker(service)
+		if _, err := c.checkStatus(ctx); err != nil {
+			return fmt.Errorf("KMS plugin at %s is not reachable: %w", socket, err)
+		}
+		klog.Infof("KMS plugin at %s is reachable", socket)
+	}
 
-	// k8senvelopekmsv2.NewGRPCService is not a public API and may change.
-	// If it breaks, we can inline a minimal gRPC client using k8s.io/kms directly.
-	service, err := k8senvelopekmsv2.NewGRPCService(ctx, kmsSocketEndpoint, "preflight", o.kmsCallTimeout)
+	// Full verification (Status + Encrypt + Decrypt) on the provider that
+	// needs it — typically the newest one that is about to receive a key.
+	klog.Infof("Running full KMS preflight check at %s", o.kmsSocketToVerify)
+	service, err := k8senvelopekmsv2.NewGRPCService(ctx, o.kmsSocketToVerify, "preflight", o.kmsCallTimeout)
 	if err != nil {
-		return fmt.Errorf("failed to create KMS gRPC client: %w", err)
+		return fmt.Errorf("failed to create KMS gRPC client for %s: %w", o.kmsSocketToVerify, err)
 	}
 
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", o.kubeconfig)
@@ -88,13 +124,12 @@ func (o *options) run(ctx context.Context) error {
 		return fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	checker := newChecker(service)
+	c := newChecker(service)
 	start := time.Now()
-	status, checkErr := checker.check(ctx)
+	status, checkErr := c.check(ctx)
 
 	podClient := kubeClient.CoreV1().Pods(o.podNamespace)
 	reportErr := setPodCheckCondition(ctx, podClient, o.podName, o.configHash, status, checkErr)
-	// join the errors to not lose the original error message
 	if err := errors.Join(checkErr, reportErr); err != nil {
 		return err
 	}

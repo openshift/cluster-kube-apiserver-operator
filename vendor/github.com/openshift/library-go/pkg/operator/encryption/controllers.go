@@ -63,35 +63,39 @@ func NewControllers(
 		}
 	}
 
+	keyController := controllers.NewKeyController(
+		component,
+		unsupportedConfigPrefix,
+		provider,
+		deployer,
+		encryptionEnabledChecker.PreconditionFulfilled,
+		operatorClient,
+		apiServerClient,
+		apiServerInformer,
+		kubeInformersForNamespaces,
+		secretsClient,
+		configMapClient,
+		encryptionSecretSelector,
+		eventRecorder,
+		encryptionStatusProvider,
+	)
+	stateController := controllers.NewStateController(
+		component,
+		provider,
+		deployer,
+		encryptionEnabledChecker.PreconditionFulfilled,
+		operatorClient,
+		apiServerInformer,
+		kubeInformersForNamespaces,
+		secretsClient,
+		encryptionSecretSelector,
+		eventRecorder,
+	)
+	computer := controllers.NewEncryptionComputer(keyController, stateController)
+
 	encryptionControllers := []factory.Controller{
-		controllers.NewKeyController(
-			component,
-			unsupportedConfigPrefix,
-			provider,
-			deployer,
-			encryptionEnabledChecker.PreconditionFulfilled,
-			operatorClient,
-			apiServerClient,
-			apiServerInformer,
-			kubeInformersForNamespaces,
-			secretsClient,
-			configMapClient,
-			encryptionSecretSelector,
-			eventRecorder,
-			encryptionStatusProvider,
-		),
-		controllers.NewStateController(
-			component,
-			provider,
-			deployer,
-			encryptionEnabledChecker.PreconditionFulfilled,
-			operatorClient,
-			apiServerInformer,
-			kubeInformersForNamespaces,
-			secretsClient,
-			encryptionSecretSelector,
-			eventRecorder,
-		),
+		keyController.ToFactoryController(),
+		stateController.ToFactoryController(),
 		controllers.NewPruneController(
 			component,
 			provider,
@@ -136,9 +140,9 @@ func NewControllers(
 		provider,
 		encryptionEnabledChecker.PreconditionFulfilled,
 		preflightDeployer,
+		computer,
 		operatorClient,
 		apiServerClient,
-		apiServerInformer,
 		secretsClient,
 		configMapClient,
 		encryptionStatusProvider,
