@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: tokenrequest-expiration-annotation-policy
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  failurePolicy: Ignore
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources: ["serviceaccounts/token"]
+  validations:
+  - expression: "true"
+  auditAnnotations:
+  - key: "requested-expiration-seconds"
+    valueExpression: "has(object.spec.expirationSeconds) ? string(object.spec.expirationSeconds) : '3600'"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: tokenrequest-expiration-annotation-binding
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  policyName: tokenrequest-expiration-annotation-policy
+  validationActions: [Deny]
+  matchResources: {}
