@@ -6,4 +6,5 @@ import (
 	// Import test packages to register Ginkgo tests
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption-kms"
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption-perf"
 )
