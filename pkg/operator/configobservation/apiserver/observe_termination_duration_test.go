@@ -8,8 +8,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/clock"
 
@@ -20,6 +22,23 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
+// coreNodeListerForArch returns a NodeLister with a single master node
+// carrying the given architecture label.
+func coreNodeListerForArch(t *testing.T, arch string) corelistersv1.NodeLister {
+	t.Helper()
+	nodeIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, nodeIndexer.Add(&corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "master-0",
+			Labels: map[string]string{
+				"node-role.kubernetes.io/master": "",
+				corev1.LabelArchStable:           arch,
+			},
+		},
+	}))
+	return corelistersv1.NewNodeLister(nodeIndexer)
+}
+
 func TestObserveWatchTerminationDuration(t *testing.T) {
 	scenarios := []struct {
 		name                    string
@@ -28,6 +47,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 		expectedKubeAPIConfig   map[string]interface{}
 		platformType            configv1.PlatformType
 		controlPlaneTopology    configv1.TopologyMode
+		nodeArch                string // master node arch; sets CoreNodeLister via coreNodeListerForArch
 	}{
 
 		// scenario 1
@@ -73,6 +93,22 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "160"},
 			platformType:          configv1.GCPPlatformType,
 		},
+
+		// scenario 7
+		{
+			name:                  "the gracefulTerminationDuration is extended for ppc64le architecture",
+			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "70"},
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
+			nodeArch:              "ppc64le",
+		},
+
+		// scenario 8
+		{
+			name:                  "the gracefulTerminationDuration is extended for s390x architecture",
+			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "70"},
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
+			nodeArch:              "s390x",
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -87,6 +123,9 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 			})
 			listers := configobservation.Listers{
 				InfrastructureLister_: configlistersv1.NewInfrastructureLister(infrastructureIndexer),
+			}
+			if scenario.nodeArch != "" {
+				listers.CoreNodeLister_ = coreNodeListerForArch(t, scenario.nodeArch)
 			}
 
 			// act

@@ -19,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	kubeinformers "k8s.io/client-go/informers"
 
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/apienablement"
@@ -38,7 +39,7 @@ type ConfigObserver struct {
 	factory.Controller
 }
 
-func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, configInformer configinformers.SharedInformerFactory, operatorInformer operatorv1informers.SharedInformerFactory, resourceSyncer resourcesynccontroller.ResourceSyncer, featureGateAccessor featuregates.FeatureGateAccess, eventRecorder events.Recorder, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) *ConfigObserver {
+func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, coreKubeInformers kubeinformers.SharedInformerFactory, configInformer configinformers.SharedInformerFactory, operatorInformer operatorv1informers.SharedInformerFactory, resourceSyncer resourcesynccontroller.ResourceSyncer, featureGateAccessor featuregates.FeatureGateAccess, eventRecorder events.Recorder, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) *ConfigObserver {
 	interestingNamespaces := []string{
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -88,6 +89,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
 				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
 
+				CoreNodeLister_:     coreKubeInformers.Core().V1().Nodes().Lister(),
 				SecretLister_:       kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				ConfigSecretLister_: kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 				ConfigmapLister_:    kubeInformersForNamespaces.ConfigMapLister(),
@@ -112,6 +114,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 					configInformer.Config().V1().OAuths().Informer().HasSynced,
 					configInformer.Config().V1().Proxies().Informer().HasSynced,
 					configInformer.Config().V1().Schedulers().Informer().HasSynced,
+					coreKubeInformers.Core().V1().Nodes().Informer().HasSynced,
 				),
 			},
 			infomers,
