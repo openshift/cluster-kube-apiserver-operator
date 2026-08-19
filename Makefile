@@ -58,41 +58,12 @@ test-e2e-encryption-rotation: test-unit
 $(TEST_E2E_ENCRYPTION_ROTATION_TARGETS): test-e2e-encryption-rotation-%:
 	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption-rotation
 
-TEST_E2E_ENCRYPTION_PERF_TARGETS=$(addprefix test-e2e-encryption-perf-,$(ENCRYPTION_PROVIDERS))
-
-test-e2e-encryption-perf: GO_TEST_PACKAGES :=./test/e2e-encryption-perf/...
-test-e2e-encryption-perf: GO_TEST_FLAGS += -v
-test-e2e-encryption-perf: GO_TEST_FLAGS += -timeout 2h
-test-e2e-encryption-perf: GO_TEST_FLAGS += -p 1
-test-e2e-encryption-perf: GO_TEST_ARGS += -args -provider=$(ENCRYPTION_PROVIDER)
-test-e2e-encryption-perf: test-unit
-.PHONY: test-e2e-encryption-perf
-
-.PHONY: $(TEST_E2E_ENCRYPTION_PERF_TARGETS)
-$(TEST_E2E_ENCRYPTION_PERF_TARGETS): test-e2e-encryption-perf-%:
-	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption-perf
-
-test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
-test-e2e: GO_TEST_FLAGS += -v
-test-e2e: GO_TEST_FLAGS += -timeout 3h
-test-e2e: GO_TEST_FLAGS += -p 1
-test-e2e: test-unit
-.PHONY: test-e2e
-
 test-e2e-sno-disruptive: GO_TEST_PACKAGES :=./test/e2e-sno-disruptive/...
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -v
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -timeout 3h
 test-e2e-sno-disruptive: GO_TEST_FLAGS += -p 1
 test-e2e-sno-disruptive: test-unit
 .PHONY: test-e2e-sno-disruptive
-
-# KMS encryption tests
-test-e2e-encryption-kms: GO_TEST_PACKAGES :=./test/e2e-encryption-kms/...
-test-e2e-encryption-kms: GO_TEST_FLAGS += -v
-test-e2e-encryption-kms: GO_TEST_FLAGS += -timeout 4h
-test-e2e-encryption-kms: GO_TEST_FLAGS += -p 1
-test-e2e-encryption-kms: test-unit
-.PHONY: test-e2e-encryption-kms
 
 clean:
 	$(RM) ./cluster-kube-apiserver-operator
