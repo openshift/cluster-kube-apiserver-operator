@@ -184,7 +184,7 @@ func (c *keyController) sync(ctx context.Context, syncCtx factory.SyncContext) (
 }
 
 func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext factory.SyncContext, encryptedGRs []schema.GroupResource) error {
-	currentMode, externalReason, apiEncryptionConfiguration, err := getCurrentModeReasonAndEncryptionConfig(ctx, c.apiServerClient, c.operatorClient, c.unsupportedConfigPrefix)
+	currentMode, externalReason, apiEncryptionConfiguration, err := c.getCurrentModeReasonAndEncryptionConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (c *keyController) checkAndCreateKeys(ctx context.Context, syncContext fact
 		return c.validateExistingSecret(ctx, keySecret, newKeyID)
 	}
 	if createErr != nil {
-		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, createErr)
+		syncContext.Recorder().Warningf("EncryptionKeyCreateFailed", "Secret %q failed to create: %v", keySecret.Name, err)
 		return createErr
 	}
 
@@ -331,28 +331,39 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 		// Fetch the referenced Secret and ConfigMap, copying their data into the
 		// key state. The fetched objects are reused by prefetchedKMSConfigHasherResourceProvider
 		// to compute the config hash without a second API round-trip.
-		refSecret, refCM, err := fetchReferencedResources(ctx, desiredProviderCfg, c.secretClient, c.configMapClient, openshiftConfigNS)
-		if err != nil {
+		var refSecret *corev1.Secret
+		if secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName(); err != nil {
 			return nil, false, err
-		}
-		if refSecret != nil {
-			secretName, expectedKeys, err := desiredProviderCfg.referencedSecretName()
+		} else if len(secretName) > 0 {
+			refSecret, err = c.secretClient.Secrets(openshiftConfigNS).Get(ctx, secretName, metav1.GetOptions{})
 			if err != nil {
-				return nil, false, err
+				return nil, false, fmt.Errorf("failed to get secret %s in %s: %w", secretName, openshiftConfigNS, err)
 			}
 			for _, key := range expectedKeys {
-				if err := ks.KMS.PluginSecretData.Set(secretName, key, refSecret.Data[key]); err != nil {
+				v, ok := refSecret.Data[key]
+				if !ok {
+					return nil, false, fmt.Errorf("secret %s in %s is missing required key %q", secretName, openshiftConfigNS, key)
+				}
+				if err := ks.KMS.PluginSecretData.Set(secretName, key, v); err != nil {
 					return nil, false, err
 				}
 			}
 		}
-		if refCM != nil {
-			cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName()
+
+		var refCM *corev1.ConfigMap
+		if cmName, expectedKeys, err := desiredProviderCfg.referencedConfigMapName(); err != nil {
+			return nil, false, err
+		} else if len(cmName) > 0 {
+			refCM, err = c.configMapClient.ConfigMaps(openshiftConfigNS).Get(ctx, cmName, metav1.GetOptions{})
 			if err != nil {
-				return nil, false, err
+				return nil, false, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, openshiftConfigNS, err)
 			}
 			for _, key := range expectedKeys {
-				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(refCM.Data[key])); err != nil {
+				v, ok := refCM.Data[key]
+				if !ok {
+					return nil, false, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, openshiftConfigNS, key)
+				}
+				if err := ks.KMS.PluginConfigMapData.Set(cmName, key, []byte(v)); err != nil {
 					return nil, false, err
 				}
 			}
@@ -383,54 +394,18 @@ func (c *keyController) generateKeySecret(ctx context.Context, keyID uint64, cur
 	return secret, true, nil
 }
 
-// fetchReferencedResources loads the Secret and ConfigMap referenced by providerCfg from namespace, validating that every expected key is present. Either return value may be nil when the provider does not reference that resource type.
-func fetchReferencedResources(ctx context.Context, providerCfg kmsProviderConfig, secretClient corev1client.SecretsGetter, configMapClient corev1client.ConfigMapsGetter, namespace string) (*corev1.Secret, *corev1.ConfigMap, error) {
-	var refSecret *corev1.Secret
-	if secretName, expectedKeys, err := providerCfg.referencedSecretName(); err != nil {
-		return nil, nil, err
-	} else if len(secretName) > 0 {
-		refSecret, err = secretClient.Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get secret %s in %s: %w", secretName, namespace, err)
-		}
-		for _, key := range expectedKeys {
-			if _, ok := refSecret.Data[key]; !ok {
-				return nil, nil, fmt.Errorf("secret %s in %s is missing required key %q", secretName, namespace, key)
-			}
-		}
-	}
-
-	var refCM *corev1.ConfigMap
-	if cmName, expectedKeys, err := providerCfg.referencedConfigMapName(); err != nil {
-		return nil, nil, err
-	} else if len(cmName) > 0 {
-		refCM, err = configMapClient.ConfigMaps(namespace).Get(ctx, cmName, metav1.GetOptions{})
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get configmap %s in %s: %w", cmName, namespace, err)
-		}
-		for _, key := range expectedKeys {
-			if _, ok := refCM.Data[key]; !ok {
-				return nil, nil, fmt.Errorf("configmap %s in %s is missing required key %q", cmName, namespace, key)
-			}
-		}
-	}
-
-	return refSecret, refCM, nil
-}
-
-// getCurrentModeReasonAndEncryptionConfig the active encryption mode, any external rotation reason from unsupported config overrides, and the full encryption spec.
-func getCurrentModeReasonAndEncryptionConfig(ctx context.Context, apiServerClient configv1client.APIServerInterface, operatorClient operatorv1helpers.OperatorClient, unsupportedConfigPrefix []string) (state.Mode, string, configv1.APIServerEncryption, error) {
-	apiServer, err := apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
+func (c *keyController) getCurrentModeReasonAndEncryptionConfig(ctx context.Context) (state.Mode, string, configv1.APIServerEncryption, error) {
+	apiServer, err := c.apiServerClient.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	operatorSpec, _, _, err := operatorClient.GetOperatorState()
+	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
 
-	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, unsupportedConfigPrefix)
+	encryptionConfig, err := structuredUnsupportedConfigFrom(operatorSpec.UnsupportedConfigOverrides.Raw, c.unsupportedConfigPrefix)
 	if err != nil {
 		return "", "", configv1.APIServerEncryption{}, err
 	}
