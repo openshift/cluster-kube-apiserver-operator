@@ -82,6 +82,8 @@ import (
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 )
 
+const guardControllerDegradedConditionType = "GuardControllerDegraded"
+
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
 	kubeClient, err := kubernetes.NewForConfig(controllerContext.ProtoKubeConfig)
@@ -568,6 +570,9 @@ func newDegradedInertia() status.Inertia {
 		// Similarly, applying static pods to nodes that are being restarted may temporarily fail.
 		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
 		inertiaForCondition(condition.StaticPodsDegradedConditionType, 10*time.Minute),
+		// Guard pods and PDBs may temporarily fail to reconcile during upgrades while nodes restart.
+		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
+		inertiaForCondition(guardControllerDegradedConditionType, 10*time.Minute),
 	).Inertia
 }
 
