@@ -29,7 +29,6 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 		platformType            configv1.PlatformType
 		controlPlaneTopology    configv1.TopologyMode
 	}{
-
 		// scenario 1
 		{
 			name:                  "default value is not applied",
@@ -47,7 +46,7 @@ func TestObserveWatchTerminationDuration(t *testing.T) {
 		{
 			name:                  "the gracefulTerminationDuration is extended due to a known AWS issue: https://bugzilla.redhat.com/show_bug.cgi?id=1943804a",
 			existingKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "135"},
-			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "194"},
+			expectedKubeAPIConfig: map[string]interface{}{"gracefulTerminationDuration": "305"},
 			platformType:          configv1.AWSPlatformType,
 		},
 
@@ -111,7 +110,6 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 		platformType            configv1.PlatformType
 		controlPlaneTopology    configv1.TopologyMode
 	}{
-
 		// scenario 1
 		{
 			name: "a config with a shutdown-delay-duration value is respected",
@@ -133,8 +131,8 @@ func TestObserveShutdownDelayDuration(t *testing.T) {
 				if len(shutdownDurationArgs) != 1 {
 					return fmt.Errorf("expected only one argument under shutdown-delay-duration key, got %d", len(shutdownDurationArgs))
 				}
-				if shutdownDurationArgs[0] != "129s" {
-					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 129s, got %v", shutdownDurationArgs[0])
+				if shutdownDurationArgs[0] != "240s" {
+					return fmt.Errorf("incorrect shutdown-delay-duration value, expected = 240s, got %v", shutdownDurationArgs[0])
 				}
 				return nil
 			},
