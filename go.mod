@@ -145,3 +145,5 @@ require (
 )
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+
+replace github.com/openshift/api => github.com/haircommander/api v0.0.0-20260821134552-e6e33fa16f9b
