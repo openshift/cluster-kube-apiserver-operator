@@ -15,14 +15,19 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion{}
+var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{}
 
-type groupVersionByOpenshiftVersion struct {
+type groupVersionKindsByOpenshiftVersion struct {
 	schema.GroupVersion
 	KubeVersionRange semver.Range
+	// Kinds lists the specific resource kinds this entry is about. When set,
+	// staleness checks can verify per-kind whether the API has graduated to v1
+	// or a higher pre-release version exists. When unset, only a coarse
+	// group-level version priority check is performed.
+	Kinds []string
 }
 
-func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
+func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
 	result := make(map[configv1.FeatureGateName][]schema.GroupVersion, len(groupVersionsByFeatureGate))
 	groupByVersions := map[string][]string{}
 	for featureGate, APIGroups := range groupVersionsByFeatureGate {
