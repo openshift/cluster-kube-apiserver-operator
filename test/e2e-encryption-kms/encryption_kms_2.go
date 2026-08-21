@@ -2,16 +2,10 @@ package e2e_encryption_kms
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	g "github.com/onsi/ginkgo/v2"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/clock"
 
-	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
-	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -36,106 +30,9 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // 4. Verifies each resource is correctly encrypted with the active KMS provider after each migration
 // 5. Switches to identity (off) to verify the resources are re-written unencrypted
 func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
-	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-		librarykms.DefaultVaultEncryptionProvider(ctx, t),
-		librarykms.SecondaryVaultEncryptionProvider(ctx, t),
-	})
-
-	library.TestEncryptionProvidersMigration(ctx, t,
-		library.ProvidersMigrationScenario{
-			BasicScenario: library.BasicScenario{
-				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-				EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
-				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				OperatorNamespace:               operatorclient.OperatorNamespace,
-				TargetGRs:                       library.WellKnownKASTargetGRs,
-				AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
-			},
-			CreateResourceFunc: library.CreateAndStoreWellKnownSecretOfLife,
-			AssertResourceEncryptedFunc: func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
-				library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
-				library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
-					operatorclient.GlobalMachineSpecifiedConfigNamespace,
-					"encryption.apiserver.operator.openshift.io/component="+operatorclient.TargetNamespace,
-					resource)
-			},
-			AssertResourceNotEncryptedFunc: library.AssertWellKnownSecretOfLifeNotEncrypted,
-			ResourceFunc:                   library.WellKnownSecretOfLife,
-			ResourceName:                   "SecretOfLife",
-			EncryptionProviders:            providers,
-		},
-		library.ProvidersMigrationScenario{
-			BasicScenario: library.BasicScenario{
-				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
-				EncryptionConfigSecretName:      "encryption-config-openshift-oauth-apiserver",
-				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				OperatorNamespace:               "openshift-authentication-operator",
-				TargetGRs:                       library.WellKnownAuthTargetGRs,
-				AssertFunc:                      library.AssertWellKnownTokens,
-			},
-			CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
-				return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
-			},
-			AssertResourceEncryptedFunc: func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
-				library.AssertWellKnownTokenOfLifeEncrypted(t, clientSet, resource)
-				library.AssertWellKnownTokenOfLifeEncryptedWithKMS(t, clientSet,
-					operatorclient.GlobalMachineSpecifiedConfigNamespace,
-					"encryption.apiserver.operator.openshift.io/component=openshift-oauth-apiserver",
-					resource)
-			},
-			AssertResourceNotEncryptedFunc: library.AssertWellKnownTokenOfLifeNotEncrypted,
-			ResourceFunc:                   library.WellKnownTokenOfLife,
-			ResourceName:                   "TokenOfLife",
-		},
-		library.ProvidersMigrationScenario{
-			BasicScenario: library.BasicScenario{
-				Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
-				EncryptionConfigSecretName:      "encryption-config-openshift-apiserver",
-				EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				OperatorNamespace:               "openshift-apiserver-operator",
-				TargetGRs:                       library.WellKnownOASTargetGRs,
-				AssertFunc:                      library.AssertWellKnownRoutes,
-			},
-			CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
-				return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
-			},
-			AssertResourceEncryptedFunc: func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
-				library.AssertWellKnownRouteOfLifeEncrypted(t, clientSet, resource)
-				library.AssertWellKnownRouteOfLifeEncryptedWithKMS(t, clientSet,
-					operatorclient.GlobalMachineSpecifiedConfigNamespace,
-					"encryption.apiserver.operator.openshift.io/component=openshift-apiserver",
-					resource)
-			},
-			AssertResourceNotEncryptedFunc: library.AssertWellKnownRouteOfLifeNotEncrypted,
-			ResourceFunc:                   library.WellKnownRouteOfLife,
-			ResourceName:                   "RouteOfLife",
-		},
-	)
+	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionKMSToKMSMigrationScenarios(ctx, t)...)
 }
 
 func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
-	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, library.PreflightDeployScenario{
-		BasicScenario: library.BasicScenario{
-			// Preflight deploys into the operand namespace because the library-go
-			// scenario validates the actual workload pod wiring there, unlike the
-			// migration scenarios that operate on the rendered encryption config.
-			Namespace:     operatorclient.TargetNamespace,
-			LabelSelector: "apiserver=true",
-		},
-		CreateDeployerFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet) *preflight.PodPreflightDeployer {
-			image := library.OperatorImageFromDeployment(ctx, t,
-				operatorclient.OperatorNamespace, "kube-apiserver-operator", "kube-apiserver-operator")
-			recorder := events.NewInMemoryRecorder("kms-preflight-e2e", clock.RealClock{})
-			return preflight.NewStaticPodPreflightDeployer(
-				operatorclient.TargetNamespace, cs.Kube.CoreV1(), cs.Kube.RbacV1(),
-				recorder, image, []string{"cluster-kube-apiserver-operator", "kms-preflight"}, library.PreflightDeployCallTimeout,
-			)
-		},
-		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
-		AssertDeployFunc:           library.AssertPreflightDeploy,
-		EncryptionProvider:         librarykms.DefaultVaultEncryptionProvider(ctx, t),
-	})
+	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, librarykms.PreflightDeployScenario(ctx, t))
 }
