@@ -134,7 +134,6 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.TargetNamespace,
 		operatorclient.OperatorNamespace,
-		"kube-system", // system:openshift:controller:kube-apiserver-check-endpoints role binding
 		"openshift-etcd",
 		"openshift-apiserver",
 	)
