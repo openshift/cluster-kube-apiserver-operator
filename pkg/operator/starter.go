@@ -50,7 +50,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
-	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
@@ -435,8 +434,18 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 		resourceSyncController,
 		kmsEncryptionStatusProvider,
-		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
-		encryptioncontrollers.NoopEncryptionConfigurationComputer{},
+		kmspreflight.NewStaticPodPreflightDeployer(
+			operatorclient.TargetNamespace,
+			kubeClient.CoreV1(),
+			kubeClient.RbacV1(),
+			controllerContext.EventRecorder,
+			os.Getenv("OPERATOR_IMAGE"),
+			[]string{"cluster-kube-apiserver-operator", "kms-preflight"},
+			10*time.Second,
+		),
+		// nil selects the real EncryptionPlanner-based encryption config
+		// computation in the KMS preflight controller instead of the no-op.
+		nil,
 	)
 	if err != nil {
 		return err
