@@ -28,7 +28,7 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // 2. Shuffles the two KMS providers to create a randomized migration order
 // 3. Migrates between the two KMS providers (KMS-to-KMS) in the shuffled order
 // 4. Verifies each resource is correctly encrypted with the active KMS provider after each migration
-// 5. Switches to identity (off) to verify the resources are re-written unencrypted
+// 5. Switches to dentity (off) to verify the resources are re-written unencrypted
 func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionKMSToKMSMigrationScenarios(ctx, t)...)
 }
