@@ -728,7 +728,6 @@ var RevisionSecrets = []revision.RevisionResource{
 
 	// this needs to be revisioned as certsyncer's kubeconfig isn't wired to be live reloaded, nor will be autorecovery
 	{Name: "localhost-recovery-serving-certkey"},
-	{Name: "localhost-recovery-client-token"},
 
 	{Name: "webhook-authenticator", Optional: true},
 }
@@ -750,6 +749,10 @@ var CertConfigMaps = []installer.UnrevisionedResource{
 var CertSecrets = []installer.UnrevisionedResource{
 	{Name: "aggregator-client"},
 	{Name: "localhost-serving-cert-certkey"},
+	// localhost-recovery-client-token is consumed via tokenFile in the cert-syncer kubeconfig,
+	// which client-go re-reads from disk (no restart needed). Revisioning it caused spurious
+	// rollouts whenever external tools (ArgoCD, Kyverno) triggered SA token regeneration.
+	{Name: "localhost-recovery-client-token"},
 	{Name: "service-network-serving-certkey"},
 	{Name: "external-loadbalancer-serving-certkey"},
 	{Name: "internal-loadbalancer-serving-certkey"},
