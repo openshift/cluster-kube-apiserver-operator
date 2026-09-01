@@ -416,13 +416,14 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	encryptionProvider := encryption.StaticEncryptionProvider{
+		schema.GroupResource{Group: "", Resource: "secrets"},
+		schema.GroupResource{Group: "", Resource: "configmaps"},
+	}
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
-		encryption.StaticEncryptionProvider{
-			schema.GroupResource{Group: "", Resource: "secrets"},
-			schema.GroupResource{Group: "", Resource: "configmaps"},
-		},
+		encryptionProvider,
 		deployer,
 		migrator,
 		operatorClient,
