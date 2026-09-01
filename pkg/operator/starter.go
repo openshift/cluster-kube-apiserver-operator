@@ -50,10 +50,12 @@ import (
 	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	encryptionsecrets "github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
@@ -420,6 +422,19 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		schema.GroupResource{Group: "", Resource: "secrets"},
 		schema.GroupResource{Group: "", Resource: "configmaps"},
 	}
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionsecrets.EncryptionKeySecretsLabel + "=" + operatorclient.TargetNamespace}
+	encryptionConfigurationComputer := encryptioncontrollers.NewEncryptionConfigurationComputer(
+		operatorclient.TargetNamespace,
+		nil,
+		encryptionProvider,
+		deployer,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		configClient.ConfigV1().APIServers(),
+		operatorClient,
+		encryptionSecretSelector,
+	)
+
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
@@ -444,9 +459,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			[]string{"cluster-kube-apiserver-operator", "kms-preflight"},
 			10*time.Second,
 		),
-		// nil selects the real EncryptionPlanner-based encryption config
-		// computation in the KMS preflight controller instead of the no-op.
-		nil,
+		encryptionConfigurationComputer,
 	)
 	if err != nil {
 		return err
