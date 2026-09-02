@@ -27,6 +27,7 @@ type Listers struct {
 
 	KubeAPIServerOperatorLister_ operatorlistersv1.KubeAPIServerLister
 
+	CoreNodeLister_     corelistersv1.NodeLister
 	ConfigmapLister_    corelistersv1.ConfigMapLister
 	SecretLister_       corelistersv1.SecretLister
 	ConfigSecretLister_ corelistersv1.SecretLister
@@ -65,6 +66,10 @@ func (l Listers) ConfigSecretLister() corelistersv1.SecretLister {
 
 func (l Listers) NodeLister() configlistersv1.NodeLister {
 	return l.NodeLister_
+}
+
+func (l Listers) CoreNodeLister() corelistersv1.NodeLister {
+	return l.CoreNodeLister_
 }
 
 func (l Listers) ProxyLister() configlistersv1.ProxyLister {
