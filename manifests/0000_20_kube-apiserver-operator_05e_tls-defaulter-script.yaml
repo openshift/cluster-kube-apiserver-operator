@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-kube-apiserver-operator
+  name: tls-security-profile-defaulter-script
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "false"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/feature-gate: "TLSSecurityProfileModernDefault"
+data:
+  defaulter.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    # If no predecessor version, this is a fresh install — nothing to do
+    PREDECESSOR_VERSION=$(oc get clusterversion version -o jsonpath='{.status.history[1].version}')
+    if [[ -z "${PREDECESSOR_VERSION}" ]]; then
+      echo "Fresh install. Nothing to do."
+      exit 0
+    fi
+    echo "Upgrade from ${PREDECESSOR_VERSION} detected."
+
+    # If tlsSecurityProfile is already set, leave it alone
+    TLS_TYPE=$(oc get apiserver cluster -o jsonpath='{.spec.tlsSecurityProfile.type}')
+    if [[ -n "${TLS_TYPE}" ]]; then
+      echo "tlsSecurityProfile.type is already '${TLS_TYPE}'. Nothing to do."
+      exit 0
+    fi
+
+    echo "tlsSecurityProfile.type is unset. Defaulting to Intermediate."
+    oc apply --server-side --field-manager=tls-security-profile-defaulter --force-conflicts -f - <<PATCH
+    apiVersion: config.openshift.io/v1
+    kind: APIServer
+    metadata:
+      name: cluster
+    spec:
+      tlsSecurityProfile:
+        type: Intermediate
+    PATCH
+    echo "Successfully set tlsSecurityProfile.type to Intermediate."

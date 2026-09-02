@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-tls-defaulter-egress
+  namespace: openshift-kube-apiserver-operator
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "false"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/feature-gate: "TLSSecurityProfileModernDefault"
+spec:
+  podSelector:
+    matchLabels:
+      job-name: tls-security-profile-defaulter
+  egress:
+  - {}
+  policyTypes:
+  - Egress
