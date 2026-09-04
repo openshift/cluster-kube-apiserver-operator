@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -235,7 +234,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	recoveryConfigPath := filepath.Join(s.recoveryResourcesDir, RecoveryCofigFileName)
-	err = ioutil.WriteFile(recoveryConfigPath, recoveryConfigBytes, 644)
+	err = os.WriteFile(recoveryConfigPath, recoveryConfigBytes, 644)
 	if err != nil {
 		return fmt.Errorf("failed to write recovery config %q: %v", recoveryConfigPath, err)
 	}
@@ -258,7 +257,7 @@ func (s *Apiserver) Create() error {
 		}
 
 		recoveryEncryptionConfigPath := filepath.Join(s.recoveryResourcesDir, RecoveryEncryptionCofigFileName)
-		err = ioutil.WriteFile(recoveryEncryptionConfigPath, recoveryEncryptionConfigBytes, 644)
+		err = os.WriteFile(recoveryEncryptionConfigPath, recoveryEncryptionConfigBytes, 644)
 		if err != nil {
 			return fmt.Errorf("failed to write recovery encryption config %q: %v", recoveryEncryptionConfigPath, err)
 		}
@@ -275,7 +274,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	recoveryPodManifestPath := filepath.Join(s.PodManifestDir, RecoveryPodFileName)
-	err = ioutil.WriteFile(recoveryPodManifestPath, recoveryPodBytes, 644)
+	err = os.WriteFile(recoveryPodManifestPath, recoveryPodBytes, 644)
 	if err != nil {
 		return fmt.Errorf("failed to write recovery pod manifest %q: %v", recoveryPodManifestPath, err)
 	}
@@ -323,7 +322,7 @@ func (s *Apiserver) Create() error {
 	}
 
 	kubeconfigPath := filepath.Join(s.recoveryResourcesDir, AdminKubeconfigFileName)
-	err = ioutil.WriteFile(kubeconfigPath, kubeconfigBytes, 600)
+	err = os.WriteFile(kubeconfigPath, kubeconfigBytes, 600)
 	if err != nil {
 		return fmt.Errorf("failed to write kubeconfig %q: %v", kubeconfigPath, err)
 	}
