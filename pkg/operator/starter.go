@@ -55,6 +55,7 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	encryptionsecrets "github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/eventwatch"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/latencyprofilecontroller"
@@ -417,13 +418,27 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	encryptionProvider := encryption.StaticEncryptionProvider{
+		schema.GroupResource{Group: "", Resource: "secrets"},
+		schema.GroupResource{Group: "", Resource: "configmaps"},
+	}
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionsecrets.EncryptionKeySecretsLabel + "=" + operatorclient.TargetNamespace}
+	encryptionConfigurationComputer := encryptioncontrollers.NewEncryptionConfigurationComputer(
+		operatorclient.TargetNamespace,
+		nil,
+		encryptionProvider,
+		deployer,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		configClient.ConfigV1().APIServers(),
+		operatorClient,
+		encryptionSecretSelector,
+	)
+
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		nil,
-		encryption.StaticEncryptionProvider{
-			schema.GroupResource{Group: "", Resource: "secrets"},
-			schema.GroupResource{Group: "", Resource: "configmaps"},
-		},
+		encryptionProvider,
 		deployer,
 		migrator,
 		operatorClient,
@@ -435,8 +450,16 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 		resourceSyncController,
 		kmsEncryptionStatusProvider,
-		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
-		encryptioncontrollers.NoopEncryptionConfigurationComputer{},
+		kmspreflight.NewStaticPodPreflightDeployer(
+			operatorclient.TargetNamespace,
+			kubeClient.CoreV1(),
+			kubeClient.RbacV1(),
+			controllerContext.EventRecorder,
+			os.Getenv("OPERATOR_IMAGE"),
+			[]string{"cluster-kube-apiserver-operator", "kms-preflight"},
+			10*time.Second,
+		),
+		encryptionConfigurationComputer,
 	)
 	if err != nil {
 		return err
