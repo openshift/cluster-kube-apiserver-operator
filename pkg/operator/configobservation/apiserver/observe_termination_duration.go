@@ -3,8 +3,10 @@ package apiserver
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
@@ -45,6 +47,7 @@ func ObserveShutdownDelayDuration(genericListers configobserver.Listers, _ event
 		// Note this is the official number we got from AWS
 		observedShutdownDelayDuration = "129s"
 	case infra.Spec.PlatformSpec.Type == configv1.GCPPlatformType:
+
 		// We are receiving inconsistent information from the GCP support team.
 		// In some responses, they confirm an additional ~60s delay in traffic propagation,
 		// while in others they state that no such delay exists.
@@ -107,6 +110,23 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		return existingConfig, append(errs, err)
 	}
 
+	// check control-plane node architecture to detect ppc64le or s390x.
+	// Only master nodes are considered because gracefulTerminationDuration affects
+	// the kube-apiserver static pod, which runs exclusively on control-plane nodes.
+	var hasPPC64leOrS390x bool
+	if nodeLister := listers.CoreNodeLister(); nodeLister != nil {
+		masterSelector := labels.SelectorFromSet(labels.Set{"node-role.kubernetes.io/master": ""})
+		masterNodes, nodeErr := nodeLister.List(masterSelector)
+		if nodeErr != nil {
+			return existingConfig, append(errs, fmt.Errorf("unable to list master nodes to determine architecture: %w", nodeErr))
+		}
+		// control-plane nodes are homogeneous, so checking the first one is sufficient
+		if len(masterNodes) > 0 {
+			arch := masterNodes[0].Labels[corev1.LabelArchStable] // "kubernetes.io/arch"
+			hasPPC64leOrS390x = arch == "ppc64le" || arch == "s390x"
+		}
+	}
+
 	switch {
 	case infra.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode:
 		// reduce termination duration from 135s (default) to 15s to reach the maximum downtime for SNO:
@@ -133,6 +153,13 @@ func ObserveGracefulTerminationDuration(genericListers configobserver.Listers, _
 		// See: https://console.cloud.google.com/support/cases/detail/v2/65801689?project=openshift-gce-devel
 		// See: https://issues.redhat.com/browse/OCPBUGS-61674
 		observedGracefulTerminationDuration = "160"
+	case hasPPC64leOrS390x:
+		// 135s is calculated as follows:
+		//   the initial 70s is reserved for the minimal termination period on ppc64le and s390x -
+		//   the time needed for an LB to take an instance out of rotation on these architectures
+		//   additional 60s for finishing all in-flight requests
+		//   an extra 5s to make sure the potential SIGTERM will be sent after the server terminates itself
+		observedGracefulTerminationDuration = "135"
 	default:
 		// don't override default value
 		return map[string]interface{}{}, errs
