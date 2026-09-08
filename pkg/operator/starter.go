@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -44,6 +45,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhooksupportabilitycontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -79,6 +81,8 @@ import (
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 )
+
+const guardControllerDegradedConditionType = "GuardControllerDegraded"
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
 	// This kube client use protobuf, do not use it for CR
@@ -378,7 +382,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		versionRecorder,
 		controllerContext.EventRecorder,
 		controllerContext.Clock,
-	)
+	).WithDegradedInertia(newDegradedInertia())
 
 	certRotationController, err := certrotationcontroller.NewCertRotationController(
 		kubeClient,
@@ -555,6 +559,28 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 
 	<-ctx.Done()
 	return nil
+}
+
+func newDegradedInertia() status.Inertia {
+	return status.MustNewInertia(
+		2*time.Minute,
+		// Nodes may temporarily become unready during upgrades while the machine/kubelet restarts.
+		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
+		inertiaForCondition(condition.NodeControllerDegradedConditionType, 10*time.Minute),
+		// Similarly, applying static pods to nodes that are being restarted may temporarily fail.
+		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
+		inertiaForCondition(condition.StaticPodsDegradedConditionType, 10*time.Minute),
+		// Guard pods and PDBs may temporarily fail to reconcile during upgrades while nodes restart.
+		// Use a longer inertia to avoid flapping the ClusterOperator Degraded condition.
+		inertiaForCondition(guardControllerDegradedConditionType, 10*time.Minute),
+	).Inertia
+}
+
+func inertiaForCondition(cond string, duration time.Duration) status.InertiaCondition {
+	return status.InertiaCondition{
+		ConditionTypeMatcher: regexp.MustCompile("^" + cond + "$"),
+		Duration:             duration,
+	}
 }
 
 // installerErrorInjector mutates the given installer pod to fail or OOM depending on the propability (
