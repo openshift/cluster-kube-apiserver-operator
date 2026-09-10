@@ -227,7 +227,9 @@ func (r *renderOpts) Run() error {
 		return err
 	}
 
-	renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGates(featureGates, r.groupVersionsByFeatureGate)
+	// renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGates(featureGates, r.groupVersionsByFeatureGate)
+	
+	renderConfig.RuntimeConfig = apienablement.RuntimeConfigFromFeatureGatesNoHardcode(featureGates)
 
 	if len(r.clusterConfigFile) > 0 {
 		clusterConfigFileData, err := ioutil.ReadFile(r.clusterConfigFile)

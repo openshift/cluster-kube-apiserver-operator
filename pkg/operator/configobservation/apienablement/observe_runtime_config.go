@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -83,7 +84,8 @@ func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.
 
 		observedConfig, errs = featureGateObserver(listers, recorder, existingConfig)
 
-		runtimeConfig := RuntimeConfigFromFeatureGates(featureGates, groupVersionsByFeatureGate)
+		//runtimeConfig := RuntimeConfigFromFeatureGates(featureGates, groupVersionsByFeatureGate)
+		runtimeConfig := RuntimeConfigFromFeatureGatesNoHardcode(featureGates)
 		if len(runtimeConfig) == 0 {
 			return observedConfig, errs
 		}
@@ -105,6 +107,23 @@ func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupV
 		}
 		for _, gv := range gvs {
 			entries = append(entries, fmt.Sprintf("%s=true", gv.String()))
+		}
+	}
+	sort.Strings(entries)
+	return entries
+}
+
+func RuntimeConfigFromFeatureGatesNoHardcode(featureGates featuregates.FeatureGate) []string {
+	var entries []string
+	for _, name := range featureGates.KnownFeatures() {
+		if !featureGates.Enabled(name) {
+			continue
+		}
+
+		gvrs := features.GroupVersionResourcesForFeatureGate(name)
+
+		for _, gvr := range gvrs {
+			entries = append(entries, fmt.Sprintf("%s/%s/%s=true", gvr.Group, gvr.Version, gvr.Resource))
 		}
 	}
 	sort.Strings(entries)
