@@ -79,13 +79,8 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	// preflight ran for it (the remote key id advances when the config genuinely changes).
 	previousPreflightStatus, err := ReadKMSPreflightForOperator(ctx, e, GetClients(e), scenario.OperatorNamespace)
 	require.NoError(e, err)
-	// scenario.Namespace is where this scenario's encryption key secrets live
-	// (openshift-config-managed for migration), not where the operator runs the preflight
-	// pod and operand pods. Those run in the operand namespace, which equals the component
-	// label's value (the operator deploys preflight into it), so derive it from the selector.
-	ls, err := metav1.ParseToLabelSelector(scenario.LabelSelector)
-	require.NoError(e, err)
-	operandNamespace := ls.MatchLabels["encryption.apiserver.operator.openshift.io/component"]
+	operandNamespace := operandNamespaceForOperator(scenario.OperatorNamespace)
+	require.NotEmpty(e, operandNamespace, "no operand namespace known for operator namespace %q", scenario.OperatorNamespace)
 	// Capture the preflight pod as the operator creates it; on success the operator reaps it,
 	// so it cannot be fetched live afterwards for the PodSpec drift check below.
 	capturedPreflightPod, stopCapture := StartCapturingLatestPreflightPod(ctx, e, GetClients(e), operandNamespace)
@@ -94,7 +89,22 @@ func TestEncryptionTypeKMS(ctx context.Context, t testing.TB, scenario BasicScen
 	stopCapture() // preflight has run; join the watch before reading the capture
 	scenario.AssertFunc(e, clientSet, provider.Type, scenario.Namespace, scenario.LabelSelector)
 	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
-	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, operandNamespace, "apiserver=true", previousPreflightStatus, capturedPreflightPod.Load())
+	AssertKMSPreflight(ctx, e, clientSet, scenario.OperatorNamespace, operandNamespace, previousPreflightStatus, capturedPreflightPod.Load())
+}
+
+// operandNamespaceForOperator maps a control-plane operator namespace to the operand
+// namespace where it runs its apiserver and KMS preflight pods.
+func operandNamespaceForOperator(operatorNamespace string) string {
+	switch operatorNamespace {
+	case "openshift-kube-apiserver-operator":
+		return "openshift-kube-apiserver"
+	case "openshift-apiserver-operator":
+		return "openshift-apiserver"
+	case "openshift-authentication-operator":
+		return "openshift-oauth-apiserver"
+	default:
+		return ""
+	}
 }
 
 func TestEncryptionType(ctx context.Context, t testing.TB, scenario BasicScenario, provider EncryptionProvider) {
