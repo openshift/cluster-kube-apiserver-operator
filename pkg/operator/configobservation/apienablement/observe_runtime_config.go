@@ -15,7 +15,13 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
-var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{}
+var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
+	// Remove this mapping on the Kubernetes 1.37 rebase, when DeviceTaintRule is served from v1 by default.
+	// RuntimeConfigFromFeatureGates maps group versions, so v1beta2 is enabled version-wide.
+	"DRADeviceTaintRules": {
+		{KubeVersionRange: semver.MustParseRange(">=1.36.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}, Kinds: []string{"DeviceTaintRule"}},
+	},
+}
 
 type groupVersionKindsByOpenshiftVersion struct {
 	schema.GroupVersion
@@ -99,8 +105,9 @@ func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.
 
 func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) []string {
 	var entries []string
+	knownFeatures := sets.New(featureGates.KnownFeatures()...)
 	for name, gvs := range groupVersionsByFeatureGate {
-		if !featureGates.Enabled(name) {
+		if !knownFeatures.Has(name) || !featureGates.Enabled(name) {
 			continue
 		}
 		for _, gv := range gvs {

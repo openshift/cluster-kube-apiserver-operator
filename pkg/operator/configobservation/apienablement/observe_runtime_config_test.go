@@ -12,6 +12,7 @@ import (
 	componentbaseversion "k8s.io/component-base/version"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -172,6 +173,83 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 				t.Errorf("unexpecteded errors: %v", errs)
 			}
 		})
+	}
+}
+
+func TestRuntimeConfigFromFeatureGates(t *testing.T) {
+	mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.36.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	filteredMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.35.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	graduatedMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.37.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		featureGates   featuregates.FeatureGate
+		mappings       map[configv1.FeatureGateName][]schema.GroupVersion
+		expectedConfig []string
+	}{
+		{
+			name:         "absent gate",
+			featureGates: featuregates.NewFeatureGate(nil, nil),
+			mappings:     mappings,
+		},
+		{
+			name:         "disabled gate",
+			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{"DRADeviceTaintRules"}),
+			mappings:     mappings,
+		},
+		{
+			name:           "enabled gate",
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:       mappings,
+			expectedConfig: []string{"resource.k8s.io/v1beta2=true"},
+		},
+		{
+			name:         "version-filtered gate before Kubernetes 1.36",
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:     filteredMappings,
+		},
+		{
+			name:         "version-filtered gate after Kubernetes 1.36",
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:     graduatedMappings,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, tc.mappings)); diff != "" {
+				t.Errorf("unexpected runtime config:\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestDefaultGroupVersionFeatureGatesAreRegistered(t *testing.T) {
+	knownFeatures := map[configv1.FeatureGateName]struct{}{}
+	for _, profiles := range features.AllFeatureSets() {
+		for _, featureSets := range profiles {
+			for _, featureGates := range featureSets {
+				for _, featureGate := range featureGates.Enabled {
+					knownFeatures[featureGate.FeatureGateAttributes.Name] = struct{}{}
+				}
+				for _, featureGate := range featureGates.Disabled {
+					knownFeatures[featureGate.FeatureGateAttributes.Name] = struct{}{}
+				}
+			}
+		}
+	}
+
+	for featureGate := range defaultGroupVersionsByFeatureGate {
+		if _, ok := knownFeatures[featureGate]; !ok {
+			t.Errorf("feature gate %q is not registered in openshift/api", featureGate)
+		}
 	}
 }
 
