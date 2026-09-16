@@ -16,6 +16,8 @@ import (
 )
 
 var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
+	// Remove this mapping on the Kubernetes 1.37 rebase, when DeviceTaintRule is served from v1 by default.
+	// RuntimeConfigFromFeatureGates maps group versions, so v1beta2 is enabled version-wide.
 	"DRADeviceTaintRules": {
 		{KubeVersionRange: semver.MustParseRange(">=1.36.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}, Kinds: []string{"DeviceTaintRule"}},
 	},
