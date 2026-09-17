@@ -145,3 +145,10 @@ require (
 )
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1
+
+replace (
+	github.com/openshift/api => github.com/bertinatto/api v0.0.0-20260911193022-1cd4ac617d05
+	github.com/openshift/client-go => github.com/ardaguclu/client-go v0.0.0-20260916101010-99b7ca71c899
+)
+
+replace github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20260916101213-e482337150a4
