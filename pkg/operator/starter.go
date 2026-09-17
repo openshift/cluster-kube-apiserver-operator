@@ -432,6 +432,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeClient.CoreV1(),
 		configClient.ConfigV1().APIServers(),
 		operatorClient,
+		dynamicClient,
 		encryptionSecretSelector,
 	)
 
@@ -447,6 +448,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
+		dynamicClient,
 		controllerContext.EventRecorder,
 		resourceSyncController,
 		kmsEncryptionStatusProvider,
