@@ -96,6 +96,38 @@ func DefaultVaultEncryptionProvider(ctx context.Context, t testing.TB) library.E
 	}
 }
 
+// InvalidVaultAddressEncryptionProvider is like DefaultVaultEncryptionProvider but points at an
+// unreachable Vault address so KMS preflight is expected to fail.
+func InvalidVaultAddressEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	cfg := DefaultVaultKMSPluginConfig
+	vault := defaultVaultConfig.DeepCopy()
+	require.NoError(t, unstructured.SetNestedField(vault.Object, resolveVaultKMSPluginImage(t), "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, "https://192.0.2.1:8200", "spec", "vaultAddress"))
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
+	}
+}
+
+// InvalidVaultImageEncryptionProvider is like DefaultVaultEncryptionProvider but uses an invalid
+// plugin image so KMS preflight is expected to fail.
+func InvalidVaultImageEncryptionProvider(ctx context.Context, t testing.TB) library.EncryptionProvider {
+	cfg := DefaultVaultKMSPluginConfig
+	vault := defaultVaultConfig.DeepCopy()
+	require.NoError(t, unstructured.SetNestedField(vault.Object, "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000", "status", "kmsPluginImage"))
+	require.NoError(t, unstructured.SetNestedField(vault.Object, getVaultServiceAddress(ctx, t, defaultVaultNamespace, defaultVaultServiceName), "spec", "vaultAddress"))
+	return library.EncryptionProvider{
+		APIServerEncryption: cfg,
+		Setup: func(ctx context.Context, t testing.TB) {
+			ensureVaultAppRoleSecret(defaultVaultNamespace, defaultVaultAppRoleSecretName)(ctx, t)
+			ensureVaultKMSConfig(ctx, t, cfg.KMS.PluginConfig.Name, vault)
+		},
+	}
+}
+
 // DefaultVaultKMSPluginConfig is the standard Vault KMS encryption config
 // used by CI e2e tests.
 var DefaultVaultKMSPluginConfig = configv1.APIServerEncryption{

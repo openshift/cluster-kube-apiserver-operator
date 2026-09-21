@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
 type BasicScenario struct {
@@ -37,6 +38,65 @@ func TestEncryptionTypeIdentity(ctx context.Context, t testing.TB, scenario Basi
 	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
 	clientSet := SetAndWaitForEncryptionType(ctx, e, EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeIdentity}}, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
 	scenario.AssertFunc(e, clientSet, configv1.EncryptionTypeIdentity, scenario.Namespace, scenario.LabelSelector)
+}
+
+type KMSPreflightNegativeScenario struct {
+	Name string
+	// InvalidProvider is applied once per case (cluster-wide APIServer encryption).
+	InvalidProvider EncryptionProvider
+	// Operators are the components that must observe preflight failure and create no keys
+	// (typically KAS, Auth, and OAS).
+	Operators []BasicScenario
+}
+
+// TestKMSPreflightNegative applies each invalid KMS provider once, asserts every operator
+// reports preflight failure without creating a new encryption key, and restores identity
+// via t.Cleanup.
+func TestKMSPreflightNegative(ctx context.Context, t testing.TB, scenarios ...KMSPreflightNegativeScenario) {
+	t.Helper()
+	require.NotEmpty(t, scenarios)
+	require.NotEmpty(t, scenarios[0].Operators)
+
+	e := NewE(t, PrintEventsOnFailure(scenarios[0].Operators[0].OperatorNamespace))
+	clients := GetClients(e)
+
+	// Suite isolation: invalid KMS must start from encryption-off so empty key baselines
+	// and WaitForNoNewEncryptionKey are meaningful.
+	apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+	require.NoError(e, err)
+	require.Truef(e, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
+		"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
+
+	cleanupBasic := scenarios[0].Operators[0]
+	t.Cleanup(func() {
+		TestEncryptionTypeIdentity(context.Background(), e, cleanupBasic)
+	})
+
+	for _, scenario := range scenarios {
+		if scenario.Name != "" {
+			t.Logf("=== STEP: %s ===", scenario.Name)
+		}
+		require.NotEmpty(e, scenario.Operators)
+		require.NotNil(e, scenario.InvalidProvider.Setup)
+
+		baselines := make([]EncryptionKeyMeta, len(scenario.Operators))
+		previous := make([]operatorv1.KMSPreflightCheck, len(scenario.Operators))
+		for i, op := range scenario.Operators {
+			baselines[i], err = GetLastKeyMeta(e, clients.Kube, op.Namespace, op.LabelSelector)
+			require.NoError(e, err)
+			previous[i], err = ReadKMSPreflightForOperator(ctx, e, clients, op.OperatorNamespace)
+			require.NoError(e, err)
+		}
+
+		scenario.InvalidProvider.Setup(ctx, e)
+		ApplyEncryption(ctx, e, scenario.InvalidProvider.APIServerEncryption)
+
+		for i, op := range scenario.Operators {
+			t.Logf("=== asserting preflight failure for %s ===", op.OperatorNamespace)
+			AssertKMSPreflightFailedForOperator(ctx, e, clients, op.OperatorNamespace, previous[i])
+			WaitForNoNewEncryptionKey(e, clients.Kube, baselines[i], op.Namespace, op.LabelSelector)
+		}
+	}
 }
 
 func TestEncryptionTypeUnset(ctx context.Context, t testing.TB, scenario BasicScenario) {

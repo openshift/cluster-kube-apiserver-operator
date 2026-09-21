@@ -111,6 +111,51 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 	}
 }
 
+func KMSPreflightNegativeScenarios(ctx context.Context, t testing.TB) []library.KMSPreflightNegativeScenario {
+	t.Helper()
+	operators := []library.BasicScenario{
+		{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(kubeAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", kubeAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               kubeAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+		},
+		{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(oauthAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", oauthAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               authenticationOperatorNamespace,
+			TargetGRs:                       library.WellKnownAuthTargetGRs,
+			AssertFunc:                      library.AssertWellKnownTokens,
+		},
+		{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", openshiftAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               openshiftAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
+		},
+	}
+	return []library.KMSPreflightNegativeScenario{
+		{
+			Name:            "invalid-vault-address",
+			InvalidProvider: InvalidVaultAddressEncryptionProvider(ctx, t),
+			Operators:       operators,
+		},
+		{
+			Name:            "invalid-image",
+			InvalidProvider: InvalidVaultImageEncryptionProvider(ctx, t),
+			Operators:       operators,
+		},
+	}
+}
+
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
 	return library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
