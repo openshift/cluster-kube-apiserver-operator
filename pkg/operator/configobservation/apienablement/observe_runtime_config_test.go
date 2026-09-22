@@ -176,49 +176,62 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 }
 
 func TestRuntimeConfigFromFeatureGates(t *testing.T) {
-	mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.36.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	filteredMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.35.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	graduatedMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.37.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	const (
+		deviceTaintRules      configv1.FeatureGateName = "DRADeviceTaintRules"
+		podCertificateRequest configv1.FeatureGateName = "PodCertificateRequest"
+	)
 
 	for _, tc := range []struct {
 		name           string
+		kubeVersion    semver.Version
 		featureGates   featuregates.FeatureGate
-		mappings       map[configv1.FeatureGateName][]schema.GroupVersion
 		expectedConfig []string
 	}{
 		{
-			name:         "disabled gate",
-			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{"DRADeviceTaintRules"}),
-			mappings:     mappings,
+			name:         "disabled DeviceTaintRules gate",
+			kubeVersion:  semver.MustParse("1.36.0"),
+			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{deviceTaintRules}),
 		},
 		{
-			name:           "enabled gate",
-			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
-			mappings:       mappings,
+			name:           "enabled DeviceTaintRules gate",
+			kubeVersion:    semver.MustParse("1.36.0"),
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
 			expectedConfig: []string{"resource.k8s.io/v1beta2=true"},
 		},
 		{
-			name:         "version-filtered gate before Kubernetes 1.36",
-			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
-			mappings:     filteredMappings,
+			name:         "version-filtered DeviceTaintRules gate before Kubernetes 1.36",
+			kubeVersion:  semver.MustParse("1.35.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
 		},
 		{
-			name:         "version-filtered gate after Kubernetes 1.36",
-			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
-			mappings:     graduatedMappings,
+			name:         "version-filtered DeviceTaintRules gate after Kubernetes 1.36",
+			kubeVersion:  semver.MustParse("1.37.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
+		},
+		{
+			name:         "skips unregistered PodCertificateRequest",
+			kubeVersion:  semver.MustParse("1.35.0"),
+			featureGates: featuregates.NewFeatureGate(nil, nil),
+		},
+		{
+			name:           "includes registered enabled PodCertificateRequest at 1.35",
+			kubeVersion:    semver.MustParse("1.35.0"),
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
+			expectedConfig: []string{"certificates.k8s.io/v1beta1=true"},
+		},
+		{
+			name:         "excludes registered enabled PodCertificateRequest before 1.35",
+			kubeVersion:  semver.MustParse("1.34.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, tc.mappings)); diff != "" {
+			mappings, err := GetDefaultGroupVersionByFeatureGate(tc.kubeVersion)
+			if err != nil {
+				t.Fatalf("get default group versions: %v", err)
+			}
+
+			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, mappings)); diff != "" {
 				t.Errorf("unexpected runtime config:\n%s", diff)
 			}
 		})

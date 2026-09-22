@@ -108,8 +108,9 @@ func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.
 
 func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) []string {
 	var entries []string
+	knownFeatures := sets.New(featureGates.KnownFeatures()...)
 	for name, gvs := range groupVersionsByFeatureGate {
-		if !featureGates.Enabled(name) {
+		if !knownFeatures.Has(name) || !featureGates.Enabled(name) {
 			continue
 		}
 		for _, gv := range gvs {
