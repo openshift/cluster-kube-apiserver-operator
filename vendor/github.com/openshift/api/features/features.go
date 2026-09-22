@@ -107,6 +107,14 @@ var (
 					enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
 					mustRegister()
 
+	FeatureGateAzureWorkloadIdentity = newFeatureGate("AzureWorkloadIdentity").
+						reportProblemsToJiraComponent("cloud-credential-operator").
+						contactPerson("abutcher").
+						productScope(ocpSpecific).
+						enhancementPR(legacyFeatureGateWithoutEnhancement).
+						enable(inDefault(), inOKD(), inTechPreviewNoUpgrade(), inDevPreviewNoUpgrade()).
+						mustRegister()
+
 	FeatureGateAzureDedicatedHosts = newFeatureGate("AzureDedicatedHosts").
 					reportProblemsToJiraComponent("installer").
 					contactPerson("rvanderp3").
@@ -161,14 +169,6 @@ var (
 					enhancementPR("https://github.com/ovn-kubernetes/ovn-kubernetes/pull/6801").
 					enable(inDevPreviewNoUpgrade(), inTechPreviewNoUpgrade()).
 					mustRegister()
-
-	FeatureGateOVNKubernetesUplinkMode = newFeatureGate("OVNKubernetesUplinkMode").
-						reportProblemsToJiraComponent("Networking/ovn-kubernetes").
-						contactPerson("anbhat").
-						productScope(ocpSpecific).
-						enhancementPR("https://github.com/openshift/enhancements/pull/2093").
-						enable(inDevPreviewNoUpgrade()).
-						mustRegister()
 
 	FeatureGateNoOverlayMode = newFeatureGate("NoOverlayMode").
 					reportProblemsToJiraComponent("Networking/ovn-kubernetes").
