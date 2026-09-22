@@ -177,9 +177,15 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 }
 
 func TestRuntimeConfigFromFeatureGates(t *testing.T) {
+	const (
+		deviceTaintRules      configv1.FeatureGateName = "DRADeviceTaintRules"
+		podCertificateRequest configv1.FeatureGateName = "PodCertificateRequest"
+	)
+
 	allFeatureGates := []configv1.FeatureGateName{
 		"DRADeviceTaintRules", "GenericWorkload", "WorkloadWithJob", "PodGroupPreemptionPolicy",
 		"CompositePodGroup", "TopologyAwareWorkloadScheduling", "DRAWorkloadResourceClaims",
+		podCertificateRequest,
 	}
 	newFeatureGate := func(enabled ...configv1.FeatureGateName) featuregates.FeatureGate {
 		var disabled []configv1.FeatureGateName
@@ -191,77 +197,85 @@ func TestRuntimeConfigFromFeatureGates(t *testing.T) {
 		return featuregates.NewFeatureGate(enabled, disabled)
 	}
 
-	mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.36.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	filteredMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.35.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	graduatedMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.37.0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	for _, tc := range []struct {
 		name           string
+		kubeVersion    semver.Version
 		featureGates   featuregates.FeatureGate
-		mappings       map[configv1.FeatureGateName][]schema.GroupVersion
 		expectedConfig []string
 	}{
 		{
-			name:         "disabled gate",
-			featureGates: newFeatureGate(),
-			mappings:     mappings,
+			name:         "disabled DeviceTaintRules gate",
+			kubeVersion:  semver.MustParse("1.36.0"),
+			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{deviceTaintRules}),
 		},
 		{
-			name:           "enabled gate",
-			featureGates:   newFeatureGate("DRADeviceTaintRules"),
-			mappings:       mappings,
+			name:           "enabled DeviceTaintRules gate",
+			kubeVersion:    semver.MustParse("1.36.0"),
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
 			expectedConfig: []string{"resource.k8s.io/v1beta2=true"},
 		},
 		{
-			name:         "version-filtered gate before Kubernetes 1.36",
-			featureGates: newFeatureGate("DRADeviceTaintRules"),
-			mappings:     filteredMappings,
+			name:         "version-filtered DeviceTaintRules gate before Kubernetes 1.36",
+			kubeVersion:  semver.MustParse("1.35.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
 		},
 		{
-			name:         "version-filtered gate after Kubernetes 1.36",
-			featureGates: newFeatureGate("DRADeviceTaintRules"),
-			mappings:     graduatedMappings,
+			name:         "version-filtered DeviceTaintRules gate after Kubernetes 1.36",
+			kubeVersion:  semver.MustParse("1.37.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{deviceTaintRules}, nil),
+		},
+		{
+			name:         "skips unregistered PodCertificateRequest",
+			kubeVersion:  semver.MustParse("1.35.0"),
+			featureGates: featuregates.NewFeatureGate(nil, nil),
+		},
+		{
+			name:           "includes registered enabled PodCertificateRequest at 1.35",
+			kubeVersion:    semver.MustParse("1.35.0"),
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
+			expectedConfig: []string{"certificates.k8s.io/v1beta1=true"},
+		},
+		{
+			name:         "excludes registered enabled PodCertificateRequest before 1.35",
+			kubeVersion:  semver.MustParse("1.34.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
 		},
 		{
 			name:           "generic workload enables the beta scheduling API",
+			kubeVersion:    semver.MustParse("1.37.0"),
 			featureGates:   newFeatureGate("GenericWorkload"),
-			mappings:       graduatedMappings,
 			expectedConfig: []string{"scheduling.k8s.io/v1beta1=true"},
 		},
 		{
 			name:           "composite pod group enables the alpha scheduling API",
+			kubeVersion:    semver.MustParse("1.37.0"),
 			featureGates:   newFeatureGate("CompositePodGroup"),
-			mappings:       graduatedMappings,
 			expectedConfig: []string{"scheduling.k8s.io/v1alpha3=true"},
 		},
 		{
-			name: "all workload gates enable their APIs",
+			name:        "all workload gates enable their APIs",
+			kubeVersion: semver.MustParse("1.37.0"),
 			featureGates: newFeatureGate(
 				"GenericWorkload", "WorkloadWithJob", "PodGroupPreemptionPolicy",
 				"CompositePodGroup", "TopologyAwareWorkloadScheduling", "DRAWorkloadResourceClaims",
 			),
-			mappings:       graduatedMappings,
 			expectedConfig: []string{"scheduling.k8s.io/v1alpha3=true", "scheduling.k8s.io/v1beta1=true"},
 		},
 		{
-			name: "workload APIs are not enabled before Kubernetes 1.37",
+			name:        "workload APIs are not enabled before Kubernetes 1.37",
+			kubeVersion: semver.MustParse("1.35.0"),
 			featureGates: newFeatureGate(
 				"GenericWorkload", "CompositePodGroup",
 			),
-			mappings: filteredMappings,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, tc.mappings)); diff != "" {
+			mappings, err := GetDefaultGroupVersionByFeatureGate(tc.kubeVersion)
+			if err != nil {
+				t.Fatalf("get default group versions: %v", err)
+			}
+
+			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, mappings)); diff != "" {
 				t.Errorf("unexpected runtime config:\n%s", diff)
 			}
 		})
