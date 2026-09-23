@@ -171,6 +171,56 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 	}
 }
 
+func TestRuntimeConfigFromFeatureGates(t *testing.T) {
+	mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.36.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	filteredMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.35.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	graduatedMappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.37.0"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name           string
+		featureGates   featuregates.FeatureGate
+		mappings       map[configv1.FeatureGateName][]schema.GroupVersion
+		expectedConfig []string
+	}{
+		{
+			name:         "disabled gate",
+			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{"DRADeviceTaintRules"}),
+			mappings:     mappings,
+		},
+		{
+			name:           "enabled gate",
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:       mappings,
+			expectedConfig: []string{"resource.k8s.io/v1beta2=true"},
+		},
+		{
+			name:         "version-filtered gate before Kubernetes 1.36",
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:     filteredMappings,
+		},
+		{
+			name:         "version-filtered gate after Kubernetes 1.36",
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			mappings:     graduatedMappings,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if diff := cmp.Diff(tc.expectedConfig, RuntimeConfigFromFeatureGates(tc.featureGates, tc.mappings)); diff != "" {
+				t.Errorf("unexpected runtime config:\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestGroupVersionsByFeatureGate(t *testing.T) {
 	for _, tc := range []struct {
 		name                       string
