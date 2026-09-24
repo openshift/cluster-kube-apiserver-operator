@@ -28,21 +28,6 @@ $(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3
 
 $(call verify-golang-versions,Dockerfile.rhel7)
 
-TEST_E2E_ENCRYPTION_TARGETS=$(addprefix test-e2e-encryption-,$(ENCRYPTION_PROVIDERS))
-
-# these are extremely slow serial e2e encryption tests that modify the cluster's global state
-test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
-test-e2e-encryption: GO_TEST_FLAGS += -v
-test-e2e-encryption: GO_TEST_FLAGS += -timeout 4h
-test-e2e-encryption: GO_TEST_FLAGS += -p 1
-test-e2e-encryption: export ENCRYPTION_PROVIDER := $(ENCRYPTION_PROVIDER)
-test-e2e-encryption: test-unit
-.PHONY: test-e2e-encryption
-
-.PHONY: $(TEST_E2E_ENCRYPTION_TARGETS)
-$(TEST_E2E_ENCRYPTION_TARGETS): test-e2e-encryption-%:
-	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption
-
 TEST_E2E_ENCRYPTION_ROTATION_TARGETS=$(addprefix test-e2e-encryption-rotation-,$(ENCRYPTION_PROVIDERS))
 
 # these are extremely slow serial e2e encryption rotation tests that modify the cluster's global state
