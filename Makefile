@@ -35,7 +35,7 @@ test-e2e-encryption: GO_TEST_PACKAGES :=./test/e2e-encryption/...
 test-e2e-encryption: GO_TEST_FLAGS += -v
 test-e2e-encryption: GO_TEST_FLAGS += -timeout 4h
 test-e2e-encryption: GO_TEST_FLAGS += -p 1
-test-e2e-encryption: GO_TEST_ARGS += -args -provider=$(ENCRYPTION_PROVIDER)
+test-e2e-encryption: export ENCRYPTION_PROVIDER := $(ENCRYPTION_PROVIDER)
 test-e2e-encryption: test-unit
 .PHONY: test-e2e-encryption
 

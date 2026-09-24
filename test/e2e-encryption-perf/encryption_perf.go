@@ -3,9 +3,7 @@ package e2e_encryption_perf
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -30,17 +28,6 @@ const (
 	secretsStatsKey = "created secrets"
 )
 
-var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
-
-// resolveEncryptionProvider returns the encryption type from the ENCRYPTION_PROVIDER
-// env var (used in OTE/CI), falling back to the -provider flag (used in Makefile runs).
-func resolveEncryptionProvider() configv1.EncryptionType {
-	if env := os.Getenv("ENCRYPTION_PROVIDER"); env != "" {
-		return configv1.EncryptionType(env)
-	}
-	return configv1.EncryptionType(*provider)
-}
-
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	g.It("TestPerfEncryption [Serial][Timeout:120m][Suite:encryption-perf]", func(ctx context.Context) {
 		testPerfEncryption(ctx, g.GinkgoTB())
@@ -48,7 +35,7 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 })
 
 func testPerfEncryption(ctx context.Context, tt testing.TB) {
-	encType := resolveEncryptionProvider()
+	encType := operatorencryption.EncryptionTypeFromEnv(tt)
 	tt.Logf("encryption type: %s\n", encType)
 	operatorClient := operatorencryption.GetOperator(tt)
 	library.TestPerfEncryption(ctx, tt, library.PerfScenario{
