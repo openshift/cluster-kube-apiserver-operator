@@ -3,6 +3,7 @@ package certregenerationcontroller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -117,8 +118,17 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		o.controllerContext.EventRecorder,
 	)
 
-	go configInformers.Start(ctx.Done())
-	go featureGateAccessor.Run(ctx)
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	// cancel must happen before wg.Wait (so in a later defer), otherwise we can get stuck on early return.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	configInformers.Start(ctx.Done())
+
+	wg.Go(func() {
+		featureGateAccessor.Run(ctx)
+	})
 
 	var featureGates featuregates.FeatureGate
 	select {
@@ -128,6 +138,8 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 	case <-time.After(1 * time.Minute):
 		klog.Errorf("timed out waiting for FeatureGate detection")
 		return fmt.Errorf("timed out waiting for FeatureGate detection")
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 
 	kubeAPIServerCertRotationController, err := certrotationcontroller.NewCertRotationControllerOnlyWhenExpired(
@@ -142,30 +154,23 @@ func (o *Options) Run(ctx context.Context, clock clock.Clock) error {
 		return err
 	}
 
-	caBundleController, err := NewCABundleController(
+	caBundleController := NewCABundleController(
 		kubeClient.CoreV1(),
 		kubeAPIServerInformersForNamespaces,
 		o.controllerContext.EventRecorder,
 	)
-	if err != nil {
-		return err
-	}
 
 	// We can't start informers until after the resources have been requested. Now is the time.
 	kubeAPIServerInformersForNamespaces.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 
-	// FIXME: These are missing a wait group to track goroutines and handle graceful termination
-	// (@deads2k wants time to think it through)
-
-	go func() {
+	wg.Go(func() {
 		kubeAPIServerCertRotationController.Run(ctx, 1)
-	}()
-
-	go func() {
-		caBundleController.Run(ctx)
-	}()
+	})
+	wg.Go(func() {
+		caBundleController.Run(ctx, 1)
+	})
 
 	<-ctx.Done()
 
