@@ -113,7 +113,7 @@ func TestIsNamespaceViolating(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mockWarnings := &warningsHandler{
+			mockWarnings := &WarningsHandler{
 				warnings: tc.warnings,
 			}
 
