@@ -50,6 +50,8 @@ github.com/fvbommel/sortorder v1.1.0 h1:fUmoe+HLsBTctBDoaBwpQo5N+nrCp8g/BjKb/6ZQ
 github.com/fvbommel/sortorder v1.1.0/go.mod h1:uk88iVf1ovNn1iLfgUVU2F9o5eO30ui720w+kxuqRs0=
 github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=
 github.com/fxamacker/cbor/v2 v2.9.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
+github.com/gangwgr/library-go v0.0.0-20260926082817-d73b109ccefe h1:iwuJJqDu1n5D+rGIPx1RRYEBVm8++vnBK8qqEabZv7w=
+github.com/gangwgr/library-go v0.0.0-20260926082817-d73b109ccefe/go.mod h1:SkC/kTkbEuPSRoIDzSLSoc+Hy9csnK34lskSS8gLomg=
 github.com/ghodss/yaml v1.0.0 h1:wQHKEahhL6wmXdzwWG11gIVCkOv05bNOh+Rxn0yngAk=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -188,8 +190,6 @@ github.com/openshift/build-machinery-go v0.0.0-20260902143904-520f675c892b h1:Er
 github.com/openshift/build-machinery-go v0.0.0-20260902143904-520f675c892b/go.mod h1:8jcm8UPtg2mCAsxfqKil1xrmRMI3a+XU2TZ9fF8A7TE=
 github.com/openshift/client-go v0.0.0-20260923093432-89e5bba1be29 h1:V+W9GhShpFN2ZvnStLg8Gy36XMPiVPV+XhPwDs9cJ94=
 github.com/openshift/client-go v0.0.0-20260923093432-89e5bba1be29/go.mod h1:GVii4aDijWCuAGuqbOdtpyJb0uyj64nhhWxfw2ZLDic=
-github.com/openshift/library-go v0.0.0-20260923145428-2ffdea481173 h1:do+kyk6gXR6ZFNZLHeUqFqsKrHReKiJSKyLlAhKu9AU=
-github.com/openshift/library-go v0.0.0-20260923145428-2ffdea481173/go.mod h1:SkC/kTkbEuPSRoIDzSLSoc+Hy9csnK34lskSS8gLomg=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1 h1:PMTgifBcBRLJJiM+LgSzPDTk9/Rx4qS09OUrfpY6GBQ=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20251001123353-fd5b1fb35db1/go.mod h1:7Du3c42kxCUegi0IImZ1wUQzMBVecgIHjR1C+NkhLQo=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
