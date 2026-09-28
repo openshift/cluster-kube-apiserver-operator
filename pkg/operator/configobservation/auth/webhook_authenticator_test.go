@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
@@ -82,10 +81,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 		{
 			name:         "empty config",
 			expectEvents: true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "referenced secret missing",
@@ -103,10 +99,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			},
 			expectedConfig: nil,
 			expectErrs:     true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:          featureGatesWithOIDC,
 		},
 		{
 			name:           "config removal",
@@ -128,10 +121,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates: featureGatesWithOIDC,
 		},
 		{
 			name: "correct config",
@@ -157,10 +147,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
 			expectEvents: true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name:           "same existing and observed config",
@@ -186,13 +173,10 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "secret/config-secret.openshift-config",
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates: featureGatesWithOIDC,
 		},
 		{
-			name: "no webhook token authenticator config with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			name: "no webhook token authenticator config with ExternalOIDCAsWebhook feature gate enabled",
 			config: &configv1.Authentication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
@@ -208,13 +192,10 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates: featureGatesWithWebhook,
 		},
 		{
-			name: "authentication set to None with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			name: "authentication set to None with ExternalOIDCAsWebhook feature gate enabled",
 			config: &configv1.Authentication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
@@ -226,13 +207,10 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			existingConfig:   unprunedBaseWebhookAuthenticatorConfig,
 			configSecretName: "",
 			expectEvents:     true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:            featureGatesWithWebhook,
 		},
 		{
-			name: "explicit webhook token authenticator config with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			name: "explicit webhook token authenticator config with ExternalOIDCAsWebhook feature gate enabled",
 			config: &configv1.Authentication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
@@ -255,10 +233,7 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", "config-secret"),
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates: featureGatesWithWebhook,
 		},
 		{
 			name: "initial feature gates not observed",
@@ -288,14 +263,11 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": "DELETE",
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:             featureGatesWithOIDC,
 			authConfigPresent: true,
 		},
 		{
-			name:           "config not removed when authentication type is OIDC and ExternalOIDCExternalClaimsSourcing gate is enabled",
+			name:           "config not removed when authentication type is OIDC and ExternalOIDCAsWebhook gate is enabled",
 			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
 			config: &configv1.Authentication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -314,11 +286,154 @@ func TestObserveWebhookTokenAuthenticator(t *testing.T) {
 			expectedSynced: map[string]string{
 				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
 			},
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:             featureGatesWithWebhook,
 			webhookConfigured: true,
+		},
+		{
+			name: "no webhook token authenticator config with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			configSecretName:  defaultWebhookSecretName,
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
+			gates: featureGatesWithExternalClaimsSourcing,
+		},
+		{
+			name: "authentication set to None with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					Type: configv1.AuthenticationTypeNone,
+				},
+			},
+			existingConfig:   unprunedBaseWebhookAuthenticatorConfig,
+			configSecretName: "",
+			expectEvents:     true,
+			gates:            featureGatesWithExternalClaimsSourcing,
+		},
+		{
+			name: "explicit webhook token authenticator config with ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "config-secret",
+						},
+					},
+				},
+			},
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			configSecretName:  "config-secret",
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", "config-secret"),
+			},
+			gates: featureGatesWithExternalClaimsSourcing,
+		},
+		{
+			name: "no webhook token authenticator config with ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+			},
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			configSecretName:  defaultWebhookSecretName,
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
+			gates: featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name: "authentication set to None with ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					Type: configv1.AuthenticationTypeNone,
+				},
+			},
+			existingConfig:   unprunedBaseWebhookAuthenticatorConfig,
+			configSecretName: "",
+			expectEvents:     true,
+			gates:            featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name: "explicit webhook token authenticator config with ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing feature gate enabled",
+			config: &configv1.Authentication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.AuthenticationSpec{
+					WebhookTokenAuthenticator: &configv1.WebhookTokenAuthenticator{
+						KubeConfig: configv1.SecretNameReference{
+							Name: "config-secret",
+						},
+					},
+				},
+			},
+			existingConfig: unprunedBaseWebhookAuthenticatorConfig,
+			configSecret: map[string][]byte{
+				"kubeConfig": correctKubeConfigString,
+			},
+			configSecretName:  "config-secret",
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", "config-secret"),
+			},
+			gates: featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name:              "claims sourcing alone retains the OIDC webhook",
+			gates:             featureGatesWithExternalClaimsSourcing,
+			existingConfig:    unprunedBaseWebhookAuthenticatorConfig,
+			config:            &authResourceWithOIDC,
+			configSecretName:  defaultWebhookSecretName,
+			configSecret:      map[string][]byte{"kubeConfig": correctKubeConfigString},
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
+		},
+		{
+			name:              "both webhook architecture gates retain the OIDC webhook",
+			gates:             featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig:    unprunedBaseWebhookAuthenticatorConfig,
+			config:            &authResourceWithOIDC,
+			configSecretName:  defaultWebhookSecretName,
+			configSecret:      map[string][]byte{"kubeConfig": correctKubeConfigString},
+			webhookConfigured: true,
+			expectedConfig:    prunedBaseWebhookAuthenticatorConfig,
+			expectedSynced: map[string]string{
+				"secret/webhook-authenticator.openshift-kube-apiserver": fmt.Sprintf("secret/%s.openshift-config", defaultWebhookSecretName),
+			},
 		},
 	}
 	for _, tt := range tests {

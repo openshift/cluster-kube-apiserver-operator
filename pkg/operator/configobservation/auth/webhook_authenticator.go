@@ -12,7 +12,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -103,7 +102,7 @@ func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(gen
 	// - CAO + CKASO have been updated to use a shared constant for default behavior
 	// - CAO returns early and does not attempt to set the field (field is still set)
 	// - CKASO sees the field is set - it reads from the set field instead of using its hardcoded default
-	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+	if externalOIDCWebhookArchitectureRequired(featureGates) {
 		if auth.Spec.Type != configv1.AuthenticationTypeNone {
 			webhookSecretName = defaultWebhookSecretName
 		}
@@ -120,10 +119,10 @@ func (o *webhookTokenAuthenticatorObserver) ObserveWebhookTokenAuthenticator(gen
 
 	observedWebhookConfigured := len(webhookSecretName) > 0
 
-	// When the ExternalOIDCExternalClaimsSourcing feature gate is enabled, the oauth-apiserver
+	// When the webhook-based External OIDC architecture is enabled, the oauth-apiserver
 	// will always be the webhook authenticator called by the kube-apiserver.
 	// This means this should _always_ sync the webhook authenticator secret.
-	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+	if externalOIDCWebhookArchitectureRequired(featureGates) {
 		if observedWebhookConfigured {
 			// retrieve the secret from config and validate it, don't proceed on failure
 			kubeconfigSecret, err := listers.ConfigSecretLister().Secrets("openshift-config").Get(webhookSecretName)

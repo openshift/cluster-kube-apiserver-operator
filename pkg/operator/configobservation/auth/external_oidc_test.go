@@ -26,6 +26,13 @@ import (
 var (
 	featureGatesWithOIDC = featuregates.NewHardcodedFeatureGateAccessForTesting(
 		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC},
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDCAsWebhook, features.FeatureGateExternalOIDCExternalClaimsSourcing},
+		makeClosedChannel(),
+		nil,
+	)
+
+	featureGatesWithWebhook = featuregates.NewHardcodedFeatureGateAccessForTesting(
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC, features.FeatureGateExternalOIDCAsWebhook},
 		[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
 		makeClosedChannel(),
 		nil,
@@ -33,6 +40,13 @@ var (
 
 	featureGatesWithExternalClaimsSourcing = featuregates.NewHardcodedFeatureGateAccessForTesting(
 		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC, features.FeatureGateExternalOIDCExternalClaimsSourcing},
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDCAsWebhook},
+		makeClosedChannel(),
+		nil,
+	)
+
+	featureGatesWithWebhookAndExternalClaimsSourcing = featuregates.NewHardcodedFeatureGateAccessForTesting(
+		[]configv1.FeatureGateName{features.FeatureGateExternalOIDC, features.FeatureGateExternalOIDCAsWebhook, features.FeatureGateExternalOIDCExternalClaimsSourcing},
 		[]configv1.FeatureGateName{},
 		makeClosedChannel(),
 		nil,
@@ -314,8 +328,8 @@ func TestObserveExternalOIDC(t *testing.T) {
 			expectErrors: false,
 		},
 		{
-			name:                    "ExternalOIDCExternalClaimsSourcing enabled with no target configmap",
-			featureGates:            featureGatesWithExternalClaimsSourcing,
+			name:                    "ExternalOIDCAsWebhook enabled with no target configmap",
+			featureGates:            featureGatesWithWebhook,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: nil,
 			expectedConfig:          nil,
@@ -326,8 +340,8 @@ func TestObserveExternalOIDC(t *testing.T) {
 			expectErrors: false,
 		},
 		{
-			name:                    "ExternalOIDCExternalClaimsSourcing enabled with existing target configmap",
-			featureGates:            featureGatesWithExternalClaimsSourcing,
+			name:                    "ExternalOIDCAsWebhook enabled with existing target configmap",
+			featureGates:            featureGatesWithWebhook,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			expectedConfig:          nil,
@@ -338,8 +352,8 @@ func TestObserveExternalOIDC(t *testing.T) {
 			expectErrors: false,
 		},
 		{
-			name:             "ExternalOIDCExternalClaimsSourcing enabled with target configmap lister error",
-			featureGates:     featureGatesWithExternalClaimsSourcing,
+			name:             "ExternalOIDCAsWebhook enabled with target configmap lister error",
+			featureGates:     featureGatesWithWebhook,
 			existingConfig:   baseConfig,
 			listerErrorForNS: sets.New("openshift-kube-apiserver"),
 			expectedConfig:   baseConfig,
@@ -348,14 +362,84 @@ func TestObserveExternalOIDC(t *testing.T) {
 			expectErrors:     true,
 		},
 		{
-			name:                    "ExternalOIDCExternalClaimsSourcing enabled with syncer error",
-			featureGates:            featureGatesWithExternalClaimsSourcing,
+			name:                    "ExternalOIDCAsWebhook enabled with syncer error",
+			featureGates:            featureGatesWithWebhook,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			syncerError:             fmt.Errorf("syncer error"),
 			expectedConfig:          baseConfig,
 			expectedSynced:          nil,
 			expectEvents:            false,
+			expectErrors:            true,
+		},
+		{
+			name:           "claims sourcing alone with no target configmap",
+			featureGates:   featureGatesWithExternalClaimsSourcing,
+			existingConfig: baseConfig,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+		},
+		{
+			name:                    "claims sourcing alone removes direct OIDC config",
+			featureGates:            featureGatesWithExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+			expectEvents: true,
+		},
+		{
+			name:             "claims sourcing alone with target configmap lister error",
+			featureGates:     featureGatesWithExternalClaimsSourcing,
+			existingConfig:   baseConfig,
+			listerErrorForNS: sets.New("openshift-kube-apiserver"),
+			expectedConfig:   baseConfig,
+			expectErrors:     true,
+		},
+		{
+			name:                    "claims sourcing alone with syncer error",
+			featureGates:            featureGatesWithExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			syncerError:             fmt.Errorf("syncer error"),
+			expectedConfig:          baseConfig,
+			expectErrors:            true,
+		},
+		{
+			name:           "both webhook architecture gates with no target configmap",
+			featureGates:   featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig: baseConfig,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+		},
+		{
+			name:                    "both webhook architecture gates remove direct OIDC config",
+			featureGates:            featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			expectedSynced: map[string]string{
+				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
+			},
+			expectEvents: true,
+		},
+		{
+			name:             "both webhook architecture gates with target configmap lister error",
+			featureGates:     featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig:   baseConfig,
+			listerErrorForNS: sets.New("openshift-kube-apiserver"),
+			expectedConfig:   baseConfig,
+			expectErrors:     true,
+		},
+		{
+			name:                    "both webhook architecture gates with syncer error",
+			featureGates:            featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig:          baseConfig,
+			existingTargetConfigMap: &baseTargetConfigMap,
+			syncerError:             fmt.Errorf("syncer error"),
+			expectedConfig:          baseConfig,
 			expectErrors:            true,
 		},
 	} {
