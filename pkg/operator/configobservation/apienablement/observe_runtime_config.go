@@ -21,6 +21,9 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 	"DRADeviceTaintRules": {
 		{KubeVersionRange: semver.MustParseRange(">=1.36.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}, Kinds: []string{"DeviceTaintRule"}},
 	},
+	"PodCertificateRequest": {
+		{KubeVersionRange: semver.MustParseRange(">=1.35.0"), GroupVersion: schema.GroupVersion{Group: "certificates.k8s.io", Version: "v1beta1"}, Kinds: []string{"PodCertificateRequest"}},
+	},
 }
 
 type groupVersionKindsByOpenshiftVersion struct {
@@ -105,8 +108,9 @@ func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.
 
 func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) []string {
 	var entries []string
+	knownFeatures := sets.New(featureGates.KnownFeatures()...)
 	for name, gvs := range groupVersionsByFeatureGate {
-		if !featureGates.Enabled(name) {
+		if !knownFeatures.Has(name) || !featureGates.Enabled(name) {
 			continue
 		}
 		for _, gv := range gvs {
