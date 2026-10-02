@@ -7,7 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
@@ -113,14 +112,14 @@ func (o *oauthMetadataObserver) ObserveAuthMetadata(genericListers configobserve
 		}
 
 	case configv1.AuthenticationTypeOIDC:
-		// When the ExternalOIDCExternalClaimsSourcing feature gate is not enabled the
+		// When the webhook-based External OIDC architecture is not enabled the
 		// existing KAS configuration logic for External OIDC should take place, including
 		// waiting to remove the oauth metadata.
 		// We still shouldn't serve oauth metadata when this feature gate is enabled because
 		// the oauth-apiserver will just become a webhook authenticator and the oauth-server
 		// will still be removed, but we do not need to do any waiting for existence of the
 		// openshift-kube-apiserver/auth-config ConfigMap because it will no longer be created.
-		if !featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+		if !externalOIDCWebhookArchitectureRequired(featureGates) {
 			if _, err := listers.ConfigmapLister_.ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName); errors.IsNotFound(err) {
 				// auth-config does not exist in target namespace yet; do not remove oauth metadata until it's there
 				return prevObservedConfig, errs

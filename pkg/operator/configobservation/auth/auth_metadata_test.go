@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
-	"github.com/openshift/api/features"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
@@ -62,10 +61,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectedConfig: map[string]any{},
 			expectedSynced: nil,
 			expectErrors:   false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:          featureGatesWithOIDC,
 		},
 		{
 			name:           "auth resource lister error",
@@ -75,10 +71,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectedConfig: prunedBaseAuthMetadataConfig,
 			expectedSynced: nil,
 			expectErrors:   true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:          featureGatesWithOIDC,
 		},
 		{
 			name:           "syncer error",
@@ -94,10 +87,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectedConfig:     prunedBaseAuthMetadataConfig,
 			expectedSynced:     nil,
 			expectErrors:       true,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:              featureGatesWithOIDC,
 		},
 		{
 			name:           "empty auth metadata without existing",
@@ -114,10 +104,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name:           "empty auth metadata with existing",
@@ -134,10 +121,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from spec",
@@ -153,10 +137,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from spec with auth type empty",
@@ -172,10 +153,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from spec with auth type None",
@@ -191,10 +169,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-spec.openshift-config",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "empty auth metadata with auth type None",
@@ -210,10 +185,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from spec with auth type OIDC but auth-config missing",
@@ -227,10 +199,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectedConfig:     nil,
 			expectedSynced:     map[string]string{},
 			expectErrors:       false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:              featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from spec with auth type OIDC",
@@ -252,10 +221,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from status",
@@ -271,10 +237,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-status.openshift-config-managed",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from status with auth type empty",
@@ -290,10 +253,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "configmap/metadata-from-status.openshift-config-managed",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from status with auth type None",
@@ -309,10 +269,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from status with auth type OIDC but auth-config missing",
@@ -326,10 +283,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 			expectedConfig:     nil,
 			expectedSynced:     map[string]string{},
 			expectErrors:       false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:              featureGatesWithOIDC,
 		},
 		{
 			name: "metadata from status with auth type OIDC",
@@ -351,10 +305,83 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{},
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-			),
+			gates:        featureGatesWithOIDC,
+		},
+		{
+			name: "metadata from spec with auth type OIDC but auth-config missing and feature gate ExternalOIDCAsWebhook enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "metadata-from-spec",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhook,
+		},
+		{
+			name: "metadata from status with auth type OIDC but auth-config missing with feature gate ExternalOIDCAsWebhook enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhook,
+		},
+		{
+			name: "metadata from status with auth type OIDC and feature gate ExternalOIDCAsWebhook enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
+				},
+			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhook,
+		},
+		{
+			name: "metadata from spec with auth type OIDC and feature gate ExternalOIDCAsWebhook enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "metadata-from-spec",
+				},
+			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhook,
 		},
 		{
 			name: "metadata from spec with auth type OIDC but auth-config missing and feature gate ExternalOIDCExternalClaimsSourcing enabled",
@@ -370,10 +397,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:        featureGatesWithExternalClaimsSourcing,
 		},
 		{
 			name: "metadata from status with auth type OIDC but auth-config missing with feature gate ExternalOIDCExternalClaimsSourcing enabled",
@@ -389,10 +413,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:        featureGatesWithExternalClaimsSourcing,
 		},
 		{
 			name: "metadata from status with auth type OIDC and feature gate ExternalOIDCExternalClaimsSourcing enabled",
@@ -414,10 +435,7 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:        featureGatesWithExternalClaimsSourcing,
 		},
 		{
 			name: "metadata from spec with auth type OIDC and feature gate ExternalOIDCExternalClaimsSourcing enabled",
@@ -439,10 +457,105 @@ func TestObserveAuthMetadata(t *testing.T) {
 				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
 			},
 			expectErrors: false,
-			gates: featuregates.NewHardcodedFeatureGateAccess(
-				[]configv1.FeatureGateName{features.FeatureGateExternalOIDCExternalClaimsSourcing},
-				[]configv1.FeatureGateName{},
-			),
+			gates:        featureGatesWithExternalClaimsSourcing,
+		},
+		{
+			name: "metadata from spec with auth type OIDC but auth-config missing and feature gate ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "metadata-from-spec",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name: "metadata from status with auth type OIDC but auth-config missing with feature gate ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name: "metadata from status with auth type OIDC and feature gate ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "",
+				},
+			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name: "metadata from spec with auth type OIDC and feature gate ExternalOIDCAsWebhook and ExternalOIDCExternalClaimsSourcing enabled",
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+				OAuthMetadata: configv1.ConfigMapNameReference{
+					Name: "metadata-from-spec",
+				},
+			},
+			authConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "auth-config",
+					Namespace: "openshift-kube-apiserver",
+				},
+			},
+			statusMetadataName: "metadata-from-status",
+			expectedConfig:     nil,
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+			expectErrors: false,
+			gates:        featureGatesWithWebhookAndExternalClaimsSourcing,
+		},
+		{
+			name:           "claims sourcing alone removes metadata without waiting for auth-config",
+			gates:          featureGatesWithExternalClaimsSourcing,
+			existingConfig: unprunedBaseAuthMetadataConfig,
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+			},
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
+		},
+		{
+			name:           "both webhook architecture gates remove metadata without waiting for auth-config",
+			gates:          featureGatesWithWebhookAndExternalClaimsSourcing,
+			existingConfig: unprunedBaseAuthMetadataConfig,
+			authSpec: &configv1.AuthenticationSpec{
+				Type: configv1.AuthenticationTypeOIDC,
+			},
+			expectedSynced: map[string]string{
+				"configmap/oauth-metadata.openshift-kube-apiserver": "DELETE",
+			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
