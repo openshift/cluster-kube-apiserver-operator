@@ -1,0 +1,49 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: rolebinding-serviceaccount-token-escalation-clusterrole
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  failurePolicy: Fail
+  paramKind:
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["rbac.authorization.k8s.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["rolebindings"]
+  matchConditions:
+  - name: references-clusterrole
+    expression: 'object.roleRef.kind == "ClusterRole" && object.roleRef.apiGroup == "rbac.authorization.k8s.io"'
+  variables:
+  - name: nameMatches
+    expression: 'params.metadata.name == object.roleRef.name'
+  - name: grantsTokenCreate
+    expression: >-
+      has(params.rules) && params.rules.exists(r,
+        r.verbs.exists(v, v == "create" || v == "*") &&
+        r.apiGroups.exists(g, g == "" || g == "*") &&
+        r.resources.exists(res, res == "serviceaccounts/token" || res == "*"))
+  validations:
+  - expression: '!(variables.nameMatches && variables.grantsTokenCreate)'
+    message: "Binding the create verb on serviceaccounts/tokens to an entity allows that entity to impersonate any existing or future serviceaccount within the same namespace. This may allow privilege escalation (to the cluster level) when the serviceaccount has broader permissions than the impersonating entity."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: rolebinding-serviceaccount-token-escalation-clusterrole
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  policyName: rolebinding-serviceaccount-token-escalation-clusterrole
+  validationActions: ["Warn"]
+  paramRef:
+    selector: {}
+    parameterNotFoundAction: Allow
