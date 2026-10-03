@@ -1,0 +1,27 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:openshift:operator:tls-security-profile-defaulter
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "false"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+    release.openshift.io/feature-gate: "TLSSecurityProfileModernDefault"
+rules:
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - apiservers
+  resourceNames:
+  - cluster
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  resourceNames:
+  - version
+  verbs:
+  - get
