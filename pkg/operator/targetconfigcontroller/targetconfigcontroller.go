@@ -37,8 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	coreinformersv1 "k8s.io/client-go/informers/core/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
@@ -56,7 +55,7 @@ type TargetConfigController struct {
 
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient      kubernetes.Interface
+	kubeClient      coreclientv1.CoreV1Interface
 	configMapLister corev1listers.ConfigMapLister
 
 	featureGateAccessor featuregates.FeatureGateAccess
@@ -68,9 +67,11 @@ type TargetConfigController struct {
 func NewTargetConfigController(
 	targetImagePullSpec, operatorImagePullSpec, operatorImageVersion string,
 	operatorClient v1helpers.StaticPodOperatorClient,
-	kubeInformersForOpenshiftKubeAPIServerNamespace informers.SharedInformerFactory,
+	configMapInformer coreinformersv1.ConfigMapInformer,
+	secretInformer coreinformersv1.SecretInformer,
+	serviceAccountInformer coreinformersv1.ServiceAccountInformer,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	kubeClient coreclientv1.CoreV1Interface,
 	featureGateAccessor featuregates.FeatureGateAccess,
 	isStartupMonitorEnabledFn func() (bool, error),
 	requireMultipleEtcdEndpointsFn func() bool,
@@ -90,9 +91,9 @@ func NewTargetConfigController(
 
 	return factory.New().WithInformers(
 		operatorClient.Informer(),
-		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer(),
-		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().Secrets().Informer(),
-		kubeInformersForOpenshiftKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer(),
+		configMapInformer.Informer(),
+		secretInformer.Informer(),
+		serviceAccountInformer.Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Informer(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Informer(),
@@ -221,29 +222,29 @@ func etcdEndpointsPresent(configMapLister corev1listers.ConfigMapLister, config 
 func createTargetConfig(ctx context.Context, c TargetConfigController, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (bool, error) {
 	errors := []error{}
 
-	_, _, err := manageKubeAPIServerConfig(ctx, c.kubeClient.CoreV1(), recorder, operatorSpec)
+	_, _, err := manageKubeAPIServerConfig(ctx, c.kubeClient, recorder, operatorSpec)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/config", err))
 	}
-	_, _, err = managePods(ctx, c.kubeClient.CoreV1(), c.kubeClient.CoreV1(), c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
+	_, _, err = managePods(ctx, c.kubeClient, c.kubeClient, c.featureGateAccessor, c.isStartupMonitorEnabledFn, recorder, operatorSpec, c.targetImagePullSpec, c.operatorImagePullSpec, c.operatorImageVersion)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-pod", err))
 	}
-	_, _, err = ManageClientCABundle(ctx, c.configMapLister, c.kubeClient.CoreV1(), recorder)
+	_, _, err = ManageClientCABundle(ctx, c.configMapLister, c.kubeClient, recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/client-ca", err))
 	}
-	_, _, err = manageKubeAPIServerCABundle(ctx, c.configMapLister, c.kubeClient.CoreV1(), recorder)
+	_, _, err = manageKubeAPIServerCABundle(ctx, c.configMapLister, c.kubeClient, recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/kube-apiserver-server-ca", err))
 	}
 
-	err = ensureKubeAPIServerTrustedCA(ctx, c.kubeClient.CoreV1(), recorder)
+	err = ensureKubeAPIServerTrustedCA(ctx, c.kubeClient, recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/trusted-ca-bundle", err))
 	}
 
-	err = ensureLocalhostRecoverySAToken(ctx, c.kubeClient.CoreV1(), recorder)
+	err = ensureLocalhostRecoverySAToken(ctx, c.kubeClient, recorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "serviceaccount/localhost-recovery-client", err))
 	}

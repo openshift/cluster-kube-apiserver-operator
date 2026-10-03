@@ -35,15 +35,16 @@ type highCPUUsageAlertController struct {
 }
 
 func NewHighCPUUsageAlertController(
-	configInformer configv1informers.Interface,
+	infraInformer configv1informers.InfrastructureInformer,
+	clusterVersionInformer configv1informers.ClusterVersionInformer,
 	dynamicInformersForTargetNamespace dynamicinformer.DynamicSharedInformerFactory,
 	client dynamic.Interface,
 	recorder events.Recorder,
 ) factory.Controller {
 	c := &highCPUUsageAlertController{
 		client:               client,
-		infraLister:          configInformer.Infrastructures().Lister(),
-		clusterVersionLister: configInformer.ClusterVersions().Lister(),
+		infraLister:          infraInformer.Lister(),
+		clusterVersionLister: clusterVersionInformer.Lister(),
 	}
 
 	prometheusAlertInformerForTargetNamespace := dynamicInformersForTargetNamespace.ForResource(schema.GroupVersionResource{
@@ -53,7 +54,7 @@ func NewHighCPUUsageAlertController(
 	})
 
 	return factory.New().
-		WithInformers(configInformer.Infrastructures().Informer(), configInformer.ClusterVersions().Informer(), prometheusAlertInformerForTargetNamespace.Informer()).
+		WithInformers(infraInformer.Informer(), clusterVersionInformer.Informer(), prometheusAlertInformerForTargetNamespace.Informer()).
 		WithSync(c.sync).ResyncEvery(10*time.Minute).
 		ToController("highCPUUsageAlertController", recorder.WithComponentSuffix("high-cpu-usage-alert-controller"))
 }
