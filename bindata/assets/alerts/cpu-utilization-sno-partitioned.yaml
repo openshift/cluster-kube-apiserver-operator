@@ -17,7 +17,7 @@ spec:
               problems with cluster or control plane pods. To manage this alert or modify threshold it in case of false positives see the following link:
               https://docs.openshift.com/container-platform/latest/monitoring/managing-alerts.html
           expr: |
-            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / 8 * 100 > 60
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / ${CPU-COUNT} * 100 > 60
           for: 10m
           labels:
             namespace: openshift-kube-apiserver
@@ -40,7 +40,7 @@ spec:
               To manage this alert or modify threshold it in case of false positives see the following link: 
               https://docs.openshift.com/container-platform/latest/monitoring/managing-alerts.html
           expr: |
-            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / 8 * 100 > 90
+            sum(rate(container_cpu_usage_seconds_total{namespace=~"openshift-.*",image!=""}[4m])) / ${CPU-COUNT} * 100 > 90
           for: 1h
           labels:
             namespace: openshift-kube-apiserver
