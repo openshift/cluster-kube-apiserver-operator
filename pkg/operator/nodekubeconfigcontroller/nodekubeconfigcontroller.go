@@ -20,7 +20,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -30,7 +29,7 @@ const workQueueKey = "key"
 type NodeKubeconfigController struct {
 	operatorClient v1helpers.StaticPodOperatorClient
 
-	kubeClient           kubernetes.Interface
+	kubeClient           coreclientv1.CoreV1Interface
 	configMapLister      corev1listers.ConfigMapLister
 	secretLister         corev1listers.SecretLister
 	infrastructureLister configv1listers.InfrastructureLister
@@ -39,7 +38,7 @@ type NodeKubeconfigController struct {
 func NewNodeKubeconfigController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	kubeClient kubernetes.Interface,
+	kubeClient coreclientv1.CoreV1Interface,
 	infrastuctureInformer configv1informers.InfrastructureInformer,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -83,7 +82,7 @@ func (c NodeKubeconfigController) sync(ctx context.Context, syncContext factory.
 
 	err = ensureNodeKubeconfigs(
 		ctx,
-		c.kubeClient.CoreV1(),
+		c.kubeClient,
 		c.secretLister,
 		c.configMapLister,
 		c.infrastructureLister,
