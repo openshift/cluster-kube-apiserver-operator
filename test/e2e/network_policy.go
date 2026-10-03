@@ -6,8 +6,8 @@ import (
 	g "github.com/onsi/ginkgo/v2"
 	o "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
 	configclient "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -15,98 +15,105 @@ import (
 )
 
 const (
-	kubeAPIServerNamespace         = "openshift-kube-apiserver"
-	kubeAPIServerOperatorNamespace = "openshift-kube-apiserver-operator"
-	defaultDenyAllPolicyName       = "default-deny"
-	operatorAllowPolicyName        = "allow-all-egress-and-metrics-ingress"
-	operandAllowPolicyName         = "allow-all-egress"
+	kasNamespace         = "openshift-kube-apiserver"
+	kasOperatorNamespace = "openshift-kube-apiserver-operator"
 )
 
-var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Serial][Operator][Feature:NetworkPolicy] should ensure kube-apiserver NetworkPolicies are defined", func() {
-		testKubeAPIServerNetworkPolicies()
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator [Serial][Operator][Feature:NetworkPolicy]", func() {
+	var (
+		ctx          context.Context
+		kubeClient   kubernetes.Interface
+		configClient configclient.ConfigV1Interface
+	)
+
+	g.BeforeEach(func() {
+		ctx = context.Background()
+		config := getClientConfigForTest()
+		var err error
+		kubeClient, err = kubernetes.NewForConfig(config)
+		o.Expect(err).NotTo(o.HaveOccurred())
+		configClient, err = configclient.NewForConfig(config)
+		o.Expect(err).NotTo(o.HaveOccurred())
+
+		g.By("Waiting for kube-apiserver ClusterOperator to be stable")
+		err = test.WaitForClusterOperatorAvailableNotProgressingNotDegraded(configClient, "kube-apiserver")
+		o.Expect(err).NotTo(o.HaveOccurred())
 	})
-	g.It("[Serial][Operator][Feature:NetworkPolicy] should restore kube-apiserver NetworkPolicies after delete or mutation", func() {
-		testKubeAPIServerNetworkPolicyReconcile()
+
+	getPolicy := func(ns, name string) *networkingv1.NetworkPolicy {
+		g.GinkgoHelper()
+		p, err := kubeClient.NetworkingV1().NetworkPolicies(ns).Get(ctx, name, metav1.GetOptions{})
+		o.Expect(err).NotTo(o.HaveOccurred(), "get NetworkPolicy %s/%s", ns, name)
+		return p
+	}
+
+	g.Context("conformance", func() {
+		g.Context("in the operator namespace", func() {
+			g.It("should have a default-deny-all policy", func() {
+				policy := getPolicy(kasOperatorNamespace, "default-deny")
+				logNetworkPolicyDetails("operator/default-deny", policy)
+				o.Expect(policy).To(BeDefaultDenyPolicy())
+			})
+
+			g.It("should allow egress and metrics ingress for the operator pod", func() {
+				policy := getPolicy(kasOperatorNamespace, "allow-all-egress-and-metrics-ingress")
+				logNetworkPolicyDetails("operator/allow-all-egress-and-metrics-ingress", policy)
+				o.Expect(policy).To(SelectPods("app", "kube-apiserver-operator"))
+				o.Expect(policy).To(AllowIngressOnPort(8443))
+				o.Expect(policy).To(AllowAllTCPEgress())
+			})
+
+			g.It("should have ready operator pods", func() {
+				waitForPodsReadyByLabel(ctx, kubeClient, kasOperatorNamespace, "app=kube-apiserver-operator")
+			})
+		})
+
+		g.Context("in the operand namespace", func() {
+			g.It("should have a default-deny-all policy", func() {
+				policy := getPolicy(kasNamespace, "default-deny")
+				logNetworkPolicyDetails("operand/default-deny", policy)
+				o.Expect(policy).To(BeDefaultDenyPolicy())
+			})
+
+			g.It("should allow egress for guard, installer, pruner, and preflight pods", func() {
+				policy := getPolicy(kasNamespace, "allow-all-egress")
+				logNetworkPolicyDetails("operand/allow-all-egress", policy)
+				o.Expect(policy).To(SelectPodsExpression("app", []string{
+					"guard", "installer", "pruner", "openshift-kms-preflight",
+				}))
+				o.Expect(policy).To(AllowAllTCPEgress())
+			})
+		})
+	})
+
+	g.Context("reconciliation", func() {
+		g.It("should restore deleted NetworkPolicies", func() {
+			policies := []*networkingv1.NetworkPolicy{
+				getPolicy(kasOperatorNamespace, "default-deny"),
+				getPolicy(kasOperatorNamespace, "allow-all-egress-and-metrics-ingress"),
+				getPolicy(kasNamespace, "default-deny"),
+				getPolicy(kasNamespace, "allow-all-egress"),
+			}
+
+			g.By("Deleting all policies and waiting for restoration")
+			deleteAndWaitForAllRestored(ctx, kubeClient, policies)
+		})
+
+		g.It("should reconcile mutated NetworkPolicies", func() {
+			policies := []struct{ namespace, name string }{
+				{kasOperatorNamespace, "default-deny"},
+				{kasOperatorNamespace, "allow-all-egress-and-metrics-ingress"},
+				{kasNamespace, "default-deny"},
+				{kasNamespace, "allow-all-egress"},
+			}
+
+			g.By("Mutating all policies and waiting for reconciliation")
+			mutateAndWaitForAllReconciled(ctx, kubeClient, policies)
+
+			g.By("Checking NetworkPolicy-related events (best-effort)")
+			logNetworkPolicyEvents(ctx, kubeClient,
+				[]string{kasOperatorNamespace, kasNamespace},
+				"allow-all-egress-and-metrics-ingress")
+		})
 	})
 })
-
-func testKubeAPIServerNetworkPolicies() {
-	ctx := context.Background()
-	g.By("Creating Kubernetes clients")
-	kubeConfig := getClientConfigForTest()
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	o.Expect(err).NotTo(o.HaveOccurred())
-	configClient, err := configclient.NewForConfig(kubeConfig)
-	o.Expect(err).NotTo(o.HaveOccurred())
-
-	g.By("Waiting for kube-apiserver ClusterOperator to be stable")
-	err = test.WaitForClusterOperatorAvailableNotProgressingNotDegraded(configClient, "kube-apiserver")
-	o.Expect(err).NotTo(o.HaveOccurred())
-
-	g.By("Validating NetworkPolicies in openshift-kube-apiserver-operator")
-	operatorDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, defaultDenyAllPolicyName)
-	logNetworkPolicySummary("kube-apiserver-operator/default-deny-all", operatorDefaultDeny)
-	logNetworkPolicyDetails("kube-apiserver-operator/default-deny-all", operatorDefaultDeny)
-	requireDefaultDenyAll(operatorDefaultDeny)
-
-	operatorAllowPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, operatorAllowPolicyName)
-	logNetworkPolicySummary("kube-apiserver-operator/"+operatorAllowPolicyName, operatorAllowPolicy)
-	logNetworkPolicyDetails("kube-apiserver-operator/"+operatorAllowPolicyName, operatorAllowPolicy)
-	requirePodSelectorLabel(operatorAllowPolicy, "app", "kube-apiserver-operator")
-	requireIngressPort(operatorAllowPolicy, corev1.ProtocolTCP, 8443)
-	requireIngressAllowAll(operatorAllowPolicy, 8443)
-	requireEgressAllowAllTCP(operatorAllowPolicy)
-
-	g.By("Validating NetworkPolicies in openshift-kube-apiserver")
-	operandDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, defaultDenyAllPolicyName)
-	logNetworkPolicySummary("kube-apiserver/default-deny-all", operandDefaultDeny)
-	logNetworkPolicyDetails("kube-apiserver/default-deny-all", operandDefaultDeny)
-	requireDefaultDenyAll(operandDefaultDeny)
-
-	operandAllowPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, operandAllowPolicyName)
-	logNetworkPolicySummary("kube-apiserver/"+operandAllowPolicyName, operandAllowPolicy)
-	logNetworkPolicyDetails("kube-apiserver/"+operandAllowPolicyName, operandAllowPolicy)
-	// Verify it selects guard, installer, pruner, and openshift-kms-preflight pods with In expression
-	requirePodSelectorExpression(operandAllowPolicy, "app", []string{"guard", "installer", "pruner", "openshift-kms-preflight"})
-	requireEgressAllowAllTCP(operandAllowPolicy)
-
-	g.By("Verifying pods are ready in kube-apiserver namespaces")
-	waitForPodsReadyByLabel(ctx, kubeClient, kubeAPIServerOperatorNamespace, "app=kube-apiserver-operator")
-}
-
-func testKubeAPIServerNetworkPolicyReconcile() {
-	ctx := context.Background()
-	g.By("Creating Kubernetes clients")
-	kubeConfig := getClientConfigForTest()
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	o.Expect(err).NotTo(o.HaveOccurred())
-
-	g.By("Capturing expected NetworkPolicy specs across all namespaces")
-	expectedOperatorPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, operatorAllowPolicyName)
-	expectedOperandPolicy := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, operandAllowPolicyName)
-	expectedOperatorDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerOperatorNamespace, defaultDenyAllPolicyName)
-	expectedOperandDefaultDeny := getNetworkPolicy(ctx, kubeClient, kubeAPIServerNamespace, defaultDenyAllPolicyName)
-
-	policiesToDelete := []*networkingv1.NetworkPolicy{
-		expectedOperatorPolicy,
-		expectedOperandPolicy,
-		expectedOperatorDefaultDeny,
-		expectedOperandDefaultDeny,
-	}
-
-	g.By("Deleting all NetworkPolicies simultaneously and waiting for restoration")
-	deleteAndWaitForAllRestored(ctx, kubeClient, policiesToDelete)
-
-	g.By("Mutating all NetworkPolicies simultaneously and waiting for reconciliation")
-	policiesToMutate := []struct{ namespace, name string }{
-		{kubeAPIServerOperatorNamespace, operatorAllowPolicyName},
-		{kubeAPIServerNamespace, operandAllowPolicyName},
-		{kubeAPIServerOperatorNamespace, defaultDenyAllPolicyName},
-		{kubeAPIServerNamespace, defaultDenyAllPolicyName},
-	}
-	mutateAndWaitForAllReconciled(ctx, kubeClient, policiesToMutate)
-
-	g.By("Checking NetworkPolicy-related events (best-effort)")
-	logNetworkPolicyEvents(ctx, kubeClient, []string{kubeAPIServerOperatorNamespace, kubeAPIServerNamespace}, operatorAllowPolicyName)
-}

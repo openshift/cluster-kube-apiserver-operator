@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -59,148 +59,11 @@ func createTestNamespace(client corev1client.NamespaceInterface, prefix string) 
 
 // Network Policy validation helpers
 
-// getNetworkPolicy retrieves a NetworkPolicy by namespace and name.
-// Fails the test if the policy cannot be retrieved.
 func getNetworkPolicy(ctx context.Context, client kubernetes.Interface, namespace, name string) *networkingv1.NetworkPolicy {
 	g.GinkgoHelper()
 	policy, err := client.NetworkingV1().NetworkPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
 	o.Expect(err).NotTo(o.HaveOccurred(), "failed to get NetworkPolicy %s/%s", namespace, name)
 	return policy
-}
-
-// requireDefaultDenyAll asserts that a NetworkPolicy is a default-deny policy:
-// - empty podSelector (selects all pods in the namespace)
-// - includes both Ingress and Egress policy types
-// - no allow rules (empty Ingress and Egress slices)
-func requireDefaultDenyAll(policy *networkingv1.NetworkPolicy) {
-	g.GinkgoHelper()
-	if len(policy.Spec.PodSelector.MatchLabels) != 0 || len(policy.Spec.PodSelector.MatchExpressions) != 0 {
-		g.Fail(fmt.Sprintf("%s/%s: expected empty podSelector", policy.Namespace, policy.Name))
-	}
-
-	policyTypes := sets.New[string]()
-	for _, policyType := range policy.Spec.PolicyTypes {
-		policyTypes.Insert(string(policyType))
-	}
-	if !policyTypes.Has(string(networkingv1.PolicyTypeIngress)) || !policyTypes.Has(string(networkingv1.PolicyTypeEgress)) {
-		g.Fail(fmt.Sprintf("%s/%s: expected both Ingress and Egress policyTypes, got %v", policy.Namespace, policy.Name, policy.Spec.PolicyTypes))
-	}
-
-	if len(policy.Spec.Ingress) != 0 {
-		g.Fail(fmt.Sprintf("%s/%s: expected empty Ingress rules for default-deny policy, got %d rules", policy.Namespace, policy.Name, len(policy.Spec.Ingress)))
-	}
-	if len(policy.Spec.Egress) != 0 {
-		g.Fail(fmt.Sprintf("%s/%s: expected empty Egress rules for default-deny policy, got %d rules", policy.Namespace, policy.Name, len(policy.Spec.Egress)))
-	}
-}
-
-// requirePodSelectorLabel asserts that a NetworkPolicy's podSelector contains a specific label.
-func requirePodSelectorLabel(policy *networkingv1.NetworkPolicy, key, value string) {
-	g.GinkgoHelper()
-	actual, ok := policy.Spec.PodSelector.MatchLabels[key]
-	if !ok || actual != value {
-		g.Fail(fmt.Sprintf("%s/%s: expected podSelector %s=%s, got %v", policy.Namespace, policy.Name, key, value, policy.Spec.PodSelector.MatchLabels))
-	}
-}
-
-// requirePodSelectorExpression asserts that a NetworkPolicy's podSelector contains a matchExpression
-// with the given key and values using the In operator.
-func requirePodSelectorExpression(policy *networkingv1.NetworkPolicy, key string, values []string) {
-	g.GinkgoHelper()
-	found := false
-	for _, expr := range policy.Spec.PodSelector.MatchExpressions {
-		if expr.Key == key && expr.Operator == metav1.LabelSelectorOpIn {
-			if sets.New[string](expr.Values...).Equal(sets.New[string](values...)) {
-				found = true
-				break
-			}
-		}
-	}
-	if !found {
-		g.Fail(fmt.Sprintf("%s/%s: expected podSelector expression %s in %v", policy.Namespace, policy.Name, key, values))
-	}
-}
-
-// requireIngressPort asserts that a NetworkPolicy allows ingress traffic on the specified protocol and port.
-func requireIngressPort(policy *networkingv1.NetworkPolicy, protocol corev1.Protocol, port int32) {
-	g.GinkgoHelper()
-	if !hasPortInIngress(policy.Spec.Ingress, protocol, port) {
-		g.Fail(fmt.Sprintf("%s/%s: expected ingress port %s/%d", policy.Namespace, policy.Name, protocol, port))
-	}
-}
-
-// requireIngressAllowAll asserts that a NetworkPolicy allows ingress from any source on the specified port.
-func requireIngressAllowAll(policy *networkingv1.NetworkPolicy, port int32) {
-	g.GinkgoHelper()
-	if !hasIngressAllowAll(policy.Spec.Ingress, port) {
-		g.Fail(fmt.Sprintf("%s/%s: expected ingress allow-all on port %d", policy.Namespace, policy.Name, port))
-	}
-}
-
-// requireEgressAllowAllTCP asserts that a NetworkPolicy has an egress allow-all TCP rule.
-// The rule should have no destination restrictions (empty To field) and allow TCP traffic.
-func requireEgressAllowAllTCP(policy *networkingv1.NetworkPolicy) {
-	g.GinkgoHelper()
-	o.Expect(hasEgressAllowAllTCP(policy.Spec.Egress)).To(o.BeTrue(),
-		fmt.Sprintf("NetworkPolicy %s/%s should have egress allow-all TCP rule", policy.Namespace, policy.Name))
-}
-
-func hasIngressAllowAll(rules []networkingv1.NetworkPolicyIngressRule, port int32) bool {
-	for _, rule := range rules {
-		if !hasPort(rule.Ports, corev1.ProtocolTCP, port) {
-			continue
-		}
-		if len(rule.From) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func hasEgressAllowAllTCP(rules []networkingv1.NetworkPolicyEgressRule) bool {
-	for _, rule := range rules {
-		if len(rule.To) != 0 {
-			continue
-		}
-		if hasAnyTCPPort(rule.Ports) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasAnyTCPPort(ports []networkingv1.NetworkPolicyPort) bool {
-	if len(ports) == 0 {
-		return true
-	}
-	for _, p := range ports {
-		if p.Protocol != nil && *p.Protocol != corev1.ProtocolTCP {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-func hasPortInIngress(rules []networkingv1.NetworkPolicyIngressRule, protocol corev1.Protocol, port int32) bool {
-	for _, rule := range rules {
-		if hasPort(rule.Ports, protocol, port) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasPort(ports []networkingv1.NetworkPolicyPort, protocol corev1.Protocol, port int32) bool {
-	for _, p := range ports {
-		if p.Port == nil || p.Port.IntValue() != int(port) {
-			continue
-		}
-		if p.Protocol == nil || *p.Protocol == protocol {
-			return true
-		}
-	}
-	return false
 }
 
 // deleteAndWaitForAllRestored deletes all given NetworkPolicies at once, then
@@ -280,8 +143,6 @@ func mutateAndWaitForAllReconciled(ctx context.Context, client kubernetes.Interf
 		states = append(states, mutationState{namespace: p.namespace, name: p.name, original: original.Spec})
 	}
 
-	time.Sleep(2 * time.Second)
-
 	err := wait.PollUntilContextTimeout(ctx, 15*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
 		allReconciled := true
 		for i := range states {
@@ -342,7 +203,7 @@ func isPodReady(pod *corev1.Pod) bool {
 func logNetworkPolicyEvents(ctx context.Context, client kubernetes.Interface, namespaces []string, policyName string) {
 	g.GinkgoHelper()
 	found := false
-	_ = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+	_ = wait.PollUntilContextTimeout(ctx, 5*time.Second, 15*time.Second, true, func(ctx context.Context) (bool, error) {
 		for _, namespace := range namespaces {
 			events, err := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{})
 			if err != nil {
@@ -492,8 +353,8 @@ func netexecPod(name, namespace string, labels map[string]string, port int32) *c
 		Spec: corev1.PodSpec{
 			ServiceAccountName: "netpolicy-test-sa",
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsNonRoot:   boolptr(true),
-				RunAsUser:      int64ptr(1001),
+				RunAsNonRoot:   ptr.To(true),
+				RunAsUser:      ptr.To[int64](1001),
 				SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 			},
 			Containers: []corev1.Container{
@@ -501,10 +362,10 @@ func netexecPod(name, namespace string, labels map[string]string, port int32) *c
 					Name:  "netexec",
 					Image: agnhostImage,
 					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: boolptr(false),
+						AllowPrivilegeEscalation: ptr.To(false),
 						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-						RunAsNonRoot:             boolptr(true),
-						RunAsUser:                int64ptr(1001),
+						RunAsNonRoot:             ptr.To(true),
+						RunAsUser:                ptr.To[int64](1001),
 					},
 					Command: []string{"/agnhost"},
 					Args:    []string{"netexec", fmt.Sprintf("--http-port=%d", port)},
@@ -591,8 +452,8 @@ func createConnectivityClientPod(ctx context.Context, kubeClient kubernetes.Inte
 			ServiceAccountName: "netpolicy-test-sa",
 			RestartPolicy:      corev1.RestartPolicyNever,
 			SecurityContext: &corev1.PodSecurityContext{
-				RunAsNonRoot:   boolptr(true),
-				RunAsUser:      int64ptr(1001),
+				RunAsNonRoot:   ptr.To(true),
+				RunAsUser:      ptr.To[int64](1001),
 				SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 			},
 			Containers: []corev1.Container{
@@ -600,10 +461,10 @@ func createConnectivityClientPod(ctx context.Context, kubeClient kubernetes.Inte
 					Name:  "connect",
 					Image: agnhostImage,
 					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: boolptr(false),
+						AllowPrivilegeEscalation: ptr.To(false),
 						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-						RunAsNonRoot:             boolptr(true),
-						RunAsUser:                int64ptr(1001),
+						RunAsNonRoot:             ptr.To(true),
+						RunAsUser:                ptr.To[int64](1001),
 					},
 					Command: []string{"/bin/sh", "-c"},
 					Args: []string{
@@ -773,12 +634,4 @@ func formatIPPort(ip string, port int32) string {
 
 func protocolPtr(protocol corev1.Protocol) *corev1.Protocol {
 	return &protocol
-}
-
-func boolptr(value bool) *bool {
-	return &value
-}
-
-func int64ptr(value int64) *int64 {
-	return &value
 }
