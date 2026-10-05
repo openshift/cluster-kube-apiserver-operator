@@ -297,15 +297,15 @@ spec:
                             - message: must be a valid base64url encoded value
                               rule: self.matches('^[A-Za-z0-9_-]*={0,2}$')
                           failedAttempts:
-                            default: 0
+                            default: 1
                             description: |-
                               failedAttempts is the number of failed preflight pod attempts for configHash.
                               It is required with every result, resets for a new configuration, and must
-                              be between 0 and 3. Zero means no failed attempts have been recorded.
-                              When omitted, it defaults to 0.
+                              be between 1 and 10.
+                              When omitted, it defaults to 1.
                             format: int32
-                            maximum: 3
-                            minimum: 0
+                            maximum: 10
+                            minimum: 1
                             type: integer
                           remoteKeyID:
                             description: |-

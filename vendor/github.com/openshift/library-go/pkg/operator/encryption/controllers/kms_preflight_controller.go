@@ -589,7 +589,7 @@ func (c *kmsPreflightController) runPreflightChecks(ctx context.Context) (requeu
 			Status:         operatorv1.KMSPreflightResultSucceeded,
 			ConfigHash:     requiredHash,
 			RemoteKeyID:    remoteKeyID,
-			FailedAttempts: failedAttempts,
+			FailedAttempts: max(failedAttempts, 1),
 		}); err != nil {
 			return false, "", "", err
 		}
