@@ -263,12 +263,24 @@ spec:
                             x-kubernetes-validations:
                             - message: must be a valid base64url encoded value
                               rule: self.matches('^[A-Za-z0-9_-]*={0,2}$')
+                          failedAttempts:
+                            default: 1
+                            description: |-
+                              failedAttempts is the number of failed preflight pod attempts for configHash.
+                              It is required with every result, resets for a new configuration, and must
+                              be between 1 and 10.
+                              When omitted, it defaults to 1.
+                            format: int32
+                            maximum: 10
+                            minimum: 1
+                            type: integer
                           remoteKeyID:
                             description: |-
                               remoteKeyID is the remote key encryption key identifier from KMS v2
                               StatusResponse.key_id. This is not a cryptographic key, but a unique
                               representation of the remote key used to encrypt data.
                               The value must be between 1 and 1024 characters.
+                              When the preflight fails before receiving an ID, this field is omitted.
                             maxLength: 1024
                             minLength: 1
                             type: string
@@ -284,9 +296,12 @@ spec:
                             type: string
                         required:
                         - configHash
-                        - remoteKeyID
+                        - failedAttempts
                         - status
                         type: object
+                        x-kubernetes-validations:
+                        - message: remoteKeyID is required when status is Succeeded
+                          rule: self.status != 'Succeeded' || has(self.remoteKeyID)
                     required:
                     - observedConfigHash
                     type: object
