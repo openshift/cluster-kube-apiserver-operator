@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -127,7 +128,28 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			apiserver.ObserveGoawayChance,
 			apiserver.ObserveAdmissionPlugins,
 			apiserver.NewObserveEventTTL(featureGateAccessor),
-			libgoapiserver.ObserveTLSSecurityProfile,
+			func(listers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+				featureGate, err := featureGateAccessor.CurrentFeatureGates()
+				if err != nil {
+					return existingConfig, append(errs, err)
+				}
+				if featureGate.Enabled(features.FeatureGateTLSGroupPreferences) {
+					return libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
+						listers,
+						recorder,
+						existingConfig,
+						[]string{"servingInfo", "minTLSVersion"},
+						[]string{"servingInfo", "cipherSuites"},
+						[]string{"servingInfo", "groups"},
+					)
+				} else {
+					return libgoapiserver.ObserveTLSSecurityProfile(
+						listers,
+						recorder,
+						existingConfig,
+					)
+				}
+			},
 			auth.NewObserveAuthMetadata(featureGateAccessor),
 			auth.ObserveServiceAccountIssuer,
 			auth.NewObserveWebhookTokenAuthenticator(featureGateAccessor),
