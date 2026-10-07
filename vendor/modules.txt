@@ -437,7 +437,7 @@ github.com/openshift/client-go/security/informers/externalversions/internalinter
 github.com/openshift/client-go/security/informers/externalversions/security
 github.com/openshift/client-go/security/informers/externalversions/security/v1
 github.com/openshift/client-go/security/listers/security/v1
-# github.com/openshift/library-go v0.0.0-20261001122802-5800ac435548
+# github.com/openshift/library-go v0.0.0-20261001122802-5800ac435548 => github.com/ardaguclu/library-go v0.0.0-20261007091523-d335ea68a7e6
 ## explicit; go 1.26.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/assets
@@ -1777,3 +1777,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260922200432-2b15107f443d
+# github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20261007091523-d335ea68a7e6
