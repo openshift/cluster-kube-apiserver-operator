@@ -82,8 +82,6 @@ func testKubeAPIServerOperatorNetworkPolicyEnforcement() {
 	g.By("Creating test service accounts in required namespaces")
 	_, cleanupMonitoring := ensureTestServiceAccount(ctx, kubeClient, "openshift-monitoring")
 	g.DeferCleanup(cleanupMonitoring)
-	_, cleanupConsole := ensureTestServiceAccount(ctx, kubeClient, "openshift-console")
-	g.DeferCleanup(cleanupConsole)
 	_, cleanupDefault := ensureTestServiceAccount(ctx, kubeClient, "default")
 	g.DeferCleanup(cleanupDefault)
 
@@ -101,9 +99,10 @@ func testKubeAPIServerOperatorNetworkPolicyEnforcement() {
 	g.By("Verifying monitoring namespace with any label can access operator metrics")
 	expectConnectivity(ctx, kubeClient, "openshift-monitoring", map[string]string{"app": "any-label"}, kasOperatorIPs, 8443, true)
 
-	g.By("Verifying console namespace can access operator metrics")
-	expectConnectivity(ctx, kubeClient, "openshift-console", map[string]string{"custom-app": "test-client"}, kasOperatorIPs, 8443, true)
-
+	// Probe from default rather than openshift-console: console ships a namespace-wide
+	// default-deny NetworkPolicy with egress only for console UI pods (OCPSTRAT-3567 /
+	// console-operator#1227), so arbitrary test clients there time out on egress and
+	// cannot validate operator metrics ingress.
 	g.By("Verifying default namespace can access operator metrics")
 	expectConnectivity(ctx, kubeClient, "default", map[string]string{"test": "client"}, kasOperatorIPs, 8443, true)
 }
