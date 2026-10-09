@@ -22,6 +22,10 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSEncryptionInPlaceUpdate(ctx, g.GinkgoTB())
 	})
+
+	g.It("TestKMSPreflightNegative [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+		testKMSPreflightNegative(ctx, g.GinkgoTB())
+	})
 })
 
 // testKMSEncryptionKMSToKMSMigration tests migration between two distinct KMS providers
@@ -47,4 +51,8 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 // then switches encryption back to identity.
 func testKMSEncryptionInPlaceUpdate(ctx context.Context, t testing.TB) {
 	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateScenarios(ctx, t)...)
+}
+
+func testKMSPreflightNegative(ctx context.Context, t testing.TB) {
+	library.TestKMSPreflightNegative(ctx, t, librarykms.KMSPreflightNegativeScenarios(ctx, t))
 }
