@@ -61,13 +61,13 @@ func (o *externalOIDC) ObserveExternalOIDC(genericListers configobserver.Listers
 		return existingConfig, nil
 	}
 
-	// When the ExternalOIDCExternalClaimsSourcing feature gate is enabled, the kube-apiserver
+	// When the webhook-based External OIDC architecture is enabled, the kube-apiserver
 	// should not have the built-in Structured Authentication Configuration feature configured,
 	// which this configobserver handles.
 	// Once this feature has gone GA and sufficient time has passed for migrations to have occurred,
 	// this configobserver should be removed as it will no longer be necessary.
 	// This cleanup work is tracked by https://redhat.atlassian.net/browse/CNTRLPLANE-3208
-	if featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing) {
+	if externalOIDCWebhookArchitectureRequired(featureGates) {
 		// In the event the older approach of the external OIDC configuration has been used,
 		// lets clean it up so that we don't end up with competing behaviors.
 		listers := genericListers.(configobservation.Listers)
@@ -166,4 +166,12 @@ func validateSourceConfigMap(listers configobservation.Listers) (*corev1.ConfigM
 	}
 
 	return sourceAuthConfig, nil
+}
+
+// externalOIDCWebhookArchitectureRequired returns true if either ExternalOIDCAsWebhook or
+// ExternalOIDCExternalClaimsSourcing is enabled, since external claims sourcing
+// depends on the webhook architecture being active.
+func externalOIDCWebhookArchitectureRequired(featureGates featuregates.FeatureGate) bool {
+	return featureGates.Enabled(features.FeatureGateExternalOIDCAsWebhook) ||
+		featureGates.Enabled(features.FeatureGateExternalOIDCExternalClaimsSourcing)
 }
