@@ -302,6 +302,78 @@ func AssertKMSKeyPluginImage(t testing.TB, clientSet ClientSet, namespace, keyNa
 	require.NoError(t, err, "KMS plugin image was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastImage, expectedImage)
 }
 
+// AssertKMSKeyVaultTLSBundleRef verifies the write-key Secret embeds the expected Vault TLS CA
+// ConfigMap reference after an in-place carry-over update.
+func AssertKMSKeyVaultTLSBundleRef(t testing.TB, clientSet ClientSet, namespace, keyName, expectedConfigMapName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.TLS.CABundle.Name
+		return lastName == expectedConfigMapName, nil
+	})
+	require.NoError(t, err, "TLS CA bundle reference was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedConfigMapName)
+}
+
+// AssertKMSKeyVaultTLSServerName verifies the write-key Secret embeds the expected Vault TLS SNI
+// after an in-place carry-over update.
+func AssertKMSKeyVaultTLSServerName(t testing.TB, clientSet ClientSet, namespace, keyName, expectedServerName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.TLS.ServerName
+		return lastName == expectedServerName, nil
+	})
+	require.NoError(t, err, "TLS serverName was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedServerName)
+}
+
+// AssertKMSKeyVaultAppRoleSecretRef verifies the write-key Secret embeds the expected AppRole
+// Secret reference after an in-place carry-over update.
+func AssertKMSKeyVaultAppRoleSecretRef(t testing.TB, clientSet ClientSet, namespace, keyName, expectedSecretName string) {
+	t.Helper()
+	const pluginConfigDataKey = "encryption.apiserver.operator.openshift.io-kms-plugin-config"
+	var lastName string
+	err := wait.PollUntilContextTimeout(context.TODO(), 15*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, keyName, metav1.GetOptions{})
+		if err != nil {
+			if transientAPIError(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		pluginConfig, err := encoding.DecodeKMSPluginConfig(secret.Data[pluginConfigDataKey])
+		if err != nil {
+			return false, err
+		}
+		lastName = pluginConfig.Vault.Authentication.AppRole.Secret.Name
+		return lastName == expectedSecretName, nil
+	})
+	require.NoError(t, err, "AppRole secret reference was not carried into key %s/%s in place; last observed %q, want %q", namespace, keyName, lastName, expectedSecretName)
+}
+
 // AssertKMSPluginImageRolledOut verifies the operator actually rolled out the updated KMS plugin
 // image: it waits until an operand apiserver pod (selector apiserver=true in operandNamespace) runs
 // the write key's KMS plugin sidecar (vault-kms-plugin-<keyID>) with expectedImage, started and
@@ -580,4 +652,58 @@ func assertKMSPreflightSucceeded(ctx context.Context, t testing.TB, dynamicClien
 		cr.gvr.Resource, name, degradedFalse, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, preflight.Result.RemoteKeyID,
 		previous.ObservedConfigHash, previous.Result.RemoteKeyID)
 	return preflight.ObservedConfigHash
+}
+
+func waitForFreshKMSPreflightStatus(ctx context.Context, clientSet ClientSet, cr kmsOperatorCR, previous operatorv1.KMSPreflightCheck, matches func(kmsOperatorStatus) bool) (kmsOperatorStatus, error) {
+	var status kmsOperatorStatus
+	err := wait.PollUntilContextTimeout(ctx, waitPollInterval, waitPollTimeout, true, func(ctx context.Context) (bool, error) {
+		obj, err := clientSet.DynamicClient.Resource(cr.gvr).Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		status, err = cr.decodeKMSOperatorStatus(obj.Object)
+		if err != nil {
+			return false, err
+		}
+		preflight := status.EncryptionStatus.Preflight
+		fresh := preflight.ObservedConfigHash != "" && preflight.ObservedConfigHash != previous.ObservedConfigHash
+		return fresh && matches(status), nil
+	})
+	return status, err
+}
+
+// AssertKMSPreflightCheckerFailedForOperator waits for the preflight checker to
+// explicitly report Result.Status=Failed (the checker ran but the KMS endpoint
+// was unreachable or returned an error). Use this for cases like an invalid Vault
+// address where the pod starts but the health-check fails.
+func AssertKMSPreflightCheckerFailedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	status, err := waitForFreshKMSPreflightStatus(ctx, clientSet, cr, previous, func(status kmsOperatorStatus) bool {
+		preflight := status.EncryptionStatus.Preflight
+		failed := preflight.Result.Status == operatorv1.KMSPreflightResultFailed &&
+			preflight.Result.ConfigHash != "" && preflight.Result.ConfigHash == preflight.ObservedConfigHash
+		return failed
+	})
+	preflight := status.EncryptionStatus.Preflight
+	require.NoErrorf(t, err,
+		"KMS preflight checker failure (Result.Status=Failed) not observed for %s/cluster: result.status=%q configHash=%q observed=%q (previous observed=%q)",
+		cr.gvr.Resource, preflight.Result.Status, preflight.Result.ConfigHash, preflight.ObservedConfigHash, previous.ObservedConfigHash)
+}
+
+// AssertKMSPreflightDegradedForOperator waits for the preflight controller to
+// set EncryptionKMSPreflightControllerDegraded=True (the KMS plugin pod never
+// started, e.g. because of an invalid image). Use this for cases like an invalid
+// KMS plugin image where the pod enters ImagePullBackOff.
+func AssertKMSPreflightDegradedForOperator(ctx context.Context, t testing.TB, clientSet ClientSet, operatorNamespace string, previous operatorv1.KMSPreflightCheck) {
+	t.Helper()
+	cr := operatorCRForNamespace(t, operatorNamespace)
+	status, err := waitForFreshKMSPreflightStatus(ctx, clientSet, cr, previous, func(status kmsOperatorStatus) bool {
+		return v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+	})
+	preflight := status.EncryptionStatus.Preflight
+	degradedTrue := v1helpers.IsOperatorConditionTrue(status.Conditions, preflightDegradedConditionType)
+	require.NoErrorf(t, err,
+		"KMS preflight Degraded=True not observed for %s/cluster: degradedTrue=%t observed=%q (previous observed=%q)",
+		cr.gvr.Resource, degradedTrue, preflight.ObservedConfigHash, previous.ObservedConfigHash)
 }

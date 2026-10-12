@@ -47,4 +47,7 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 // then switches encryption back to identity.
 func testKMSEncryptionInPlaceUpdate(ctx context.Context, t testing.TB) {
 	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateScenarios(ctx, t)...)
+	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateTLSScenarios(ctx, t)...)
+	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateAppRoleScenarios(ctx, t)...)
+	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateTLSServerNameScenarios(ctx, t)...)
 }
