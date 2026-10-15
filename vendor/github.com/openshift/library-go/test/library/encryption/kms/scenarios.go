@@ -7,10 +7,8 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/clock"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -128,6 +126,79 @@ func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []libra
 	}
 }
 
+// EncryptionRotationScenarios returns ready-to-use KAS/Auth/OAS remote-key rotation scenarios.
+// Only KAS supplies the shared provider and Vault rotation callback. Each operator
+// waits for its own migration and verifies its resource was re-encrypted.
+func EncryptionRotationScenarios(ctx context.Context, t testing.TB) []library.RotationScenario {
+	return []library.RotationScenario{
+		kasRotationScenario(ctx, t),
+		authRotationScenario(ctx),
+		oasRotationScenario(ctx),
+	}
+}
+
+func kasRotationScenario(ctx context.Context, t testing.TB) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(kubeAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", kubeAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               kubeAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownKASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownSecretsAndConfigMaps,
+		},
+		ResourceName:                "SecretOfLife",
+		CreateResourceFunc:          library.CreateAndStoreWellKnownSecretOfLife,
+		GetRawResourceFunc:          library.GetRawWellKnownSecretOfLife,
+		EncryptionProvider:          DefaultVaultEncryptionProvider(ctx, t),
+		ForceRotationFunc:           ForceVaultKeyRotation(),
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
+func authRotationScenario(ctx context.Context) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(oauthAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", oauthAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               authenticationOperatorNamespace,
+			TargetGRs:                       library.WellKnownAuthTargetGRs,
+			AssertFunc:                      library.AssertWellKnownTokens,
+		},
+		ResourceName: "TokenOfLife",
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) runtime.Object {
+			return library.CreateAndStoreWellKnownTokenOfLife(ctx, t, clientSet)
+		},
+		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
+			return library.GetRawWellKnownTokenOfLife(t, clientSet)
+		},
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
+func oasRotationScenario(ctx context.Context) library.RotationScenario {
+	return library.RotationScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:                       globalMachineSpecifiedConfigNamespace,
+			LabelSelector:                   encryptionComponentLabelSelector(openshiftAPIServerComponent),
+			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", openshiftAPIServerComponent),
+			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
+			OperatorNamespace:               openshiftAPIServerOperatorNamespace,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
+		},
+		ResourceName: "RouteOfLife",
+		CreateResourceFunc: func(t testing.TB, clientSet library.ClientSet, ns string) runtime.Object {
+			return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, clientSet, ns)
+		},
+		GetRawResourceFunc:          library.GetRawWellKnownRouteOfLife,
+		WaitForRotationCompleteFunc: library.WaitForKMSRemoteKeyRotationComplete(),
+	}
+}
+
 // assertKMSInPlaceUpdate asserts the operator applied the in-place image update: the write key Secret
 // carries updateImage, and the operand (operandNamespace) rolled out a new revision whose KMS plugin
 // sidecar runs that image.
@@ -202,64 +273,32 @@ func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.I
 	}
 }
 
-// KMSPreflightNegativeScenarios returns batches of preflight-negative scenarios (invalid Vault
-// address, invalid plugin image) for KAS, Auth, and OAS.
-func KMSPreflightNegativeScenarios(ctx context.Context, t testing.TB) [][]library.KMSPreflightNegativeScenario {
+// KMSPreflightLifecycleScenarios returns KAS/Auth/OAS lifecycle scenarios.
+// Only KAS supplies the cluster-wide providers, matching the on/off scenarios.
+// Every operator verifies invalid configurations, recovery, and the in-place update.
+func KMSPreflightLifecycleScenarios(ctx context.Context, t testing.TB) []library.KMSPreflightLifecycleScenario {
 	t.Helper()
-
-	type opDef struct {
-		component string
-		opNS      string
-		targetGRs []schema.GroupResource
-		assertFn  func(testing.TB, library.ClientSet, configv1.EncryptionType, string, string)
+	updateImage := resolveVaultKMSPluginImageUpdate(t)
+	invalidAddress := InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")
+	invalidImage := InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000")
+	inPlaceScenarios := []library.InPlaceUpdateScenario{
+		kasInPlaceUpdateScenario(ctx, t, updateImage),
+		authInPlaceUpdateScenario(ctx, updateImage),
+		oasInPlaceUpdateScenario(ctx, updateImage),
 	}
-	ops := []opDef{
-		{kubeAPIServerComponent, kubeAPIServerOperatorNamespace, library.WellKnownKASTargetGRs, library.AssertWellKnownSecretsAndConfigMaps},
-		{oauthAPIServerComponent, authenticationOperatorNamespace, library.WellKnownAuthTargetGRs, library.AssertWellKnownTokens},
-		{openshiftAPIServerComponent, openshiftAPIServerOperatorNamespace, library.WellKnownOASTargetGRs, library.AssertWellKnownRoutes},
+	scenarios := make([]library.KMSPreflightLifecycleScenario, 0, len(inPlaceScenarios))
+	for _, scenario := range inPlaceScenarios {
+		scenarios = append(scenarios, library.KMSPreflightLifecycleScenario{
+			InPlaceUpdateScenario: scenario,
+			InvalidConfigs: []library.KMSPreflightNegativeScenario{
+				{Name: "invalid-vault-address", AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator},
+				{Name: "invalid-image", AssertFailedFunc: library.AssertKMSPreflightDegradedForOperator},
+			},
+		})
 	}
-
-	basicFor := func(op opDef) library.BasicScenario {
-		return library.BasicScenario{
-			Namespace:                       globalMachineSpecifiedConfigNamespace,
-			LabelSelector:                   encryptionComponentLabelSelector(op.component),
-			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", op.component),
-			EncryptionConfigSecretNamespace: globalMachineSpecifiedConfigNamespace,
-			OperatorNamespace:               op.opNS,
-			TargetGRs:                       op.targetGRs,
-			AssertFunc:                      op.assertFn,
-		}
-	}
-
-	// Cluster-wide APIServer config — set InvalidProvider on exactly one scenario per batch
-	// (same pattern as OnOffScenario.EncryptionProvider).
-	invalidAddrBatch := make([]library.KMSPreflightNegativeScenario, 0, len(ops))
-	for i, op := range ops {
-		s := library.KMSPreflightNegativeScenario{
-			BasicScenario:    basicFor(op),
-			Name:             "invalid-vault-address",
-			AssertFailedFunc: library.AssertKMSPreflightCheckerFailedForOperator,
-		}
-		if i == 0 {
-			s.InvalidProvider = InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "")
-		}
-		invalidAddrBatch = append(invalidAddrBatch, s)
-	}
-
-	invalidImgBatch := make([]library.KMSPreflightNegativeScenario, 0, len(ops))
-	for i, op := range ops {
-		s := library.KMSPreflightNegativeScenario{
-			BasicScenario:    basicFor(op),
-			Name:             "invalid-image",
-			AssertFailedFunc: library.AssertKMSPreflightDegradedForOperator,
-		}
-		if i == 0 {
-			s.InvalidProvider = InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000")
-		}
-		invalidImgBatch = append(invalidImgBatch, s)
-	}
-
-	return [][]library.KMSPreflightNegativeScenario{invalidAddrBatch, invalidImgBatch}
+	scenarios[0].InvalidConfigs[0].InvalidProvider = invalidAddress
+	scenarios[0].InvalidConfigs[1].InvalidProvider = invalidImage
+	return scenarios
 }
 
 func kasOnOffScenario(provider library.EncryptionProvider) library.OnOffScenario {
