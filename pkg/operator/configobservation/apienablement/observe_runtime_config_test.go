@@ -2,6 +2,7 @@ package apienablement
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/blang/semver/v4"
@@ -176,6 +177,20 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 }
 
 func TestRuntimeConfigFromFeatureGates(t *testing.T) {
+	allFeatureGates := []configv1.FeatureGateName{
+		"DRADeviceTaintRules", "GenericWorkload", "WorkloadWithJob", "PodGroupPreemptionPolicy",
+		"CompositePodGroup", "TopologyAwareWorkloadScheduling", "DRAWorkloadResourceClaims",
+	}
+	newFeatureGate := func(enabled ...configv1.FeatureGateName) featuregates.FeatureGate {
+		var disabled []configv1.FeatureGateName
+		for _, gate := range allFeatureGates {
+			if !slices.Contains(enabled, gate) {
+				disabled = append(disabled, gate)
+			}
+		}
+		return featuregates.NewFeatureGate(enabled, disabled)
+	}
+
 	mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse("1.36.0"))
 	if err != nil {
 		t.Fatal(err)
@@ -197,24 +212,52 @@ func TestRuntimeConfigFromFeatureGates(t *testing.T) {
 	}{
 		{
 			name:         "disabled gate",
-			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{"DRADeviceTaintRules"}),
+			featureGates: newFeatureGate(),
 			mappings:     mappings,
 		},
 		{
 			name:           "enabled gate",
-			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			featureGates:   newFeatureGate("DRADeviceTaintRules"),
 			mappings:       mappings,
 			expectedConfig: []string{"resource.k8s.io/v1beta2=true"},
 		},
 		{
 			name:         "version-filtered gate before Kubernetes 1.36",
-			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			featureGates: newFeatureGate("DRADeviceTaintRules"),
 			mappings:     filteredMappings,
 		},
 		{
 			name:         "version-filtered gate after Kubernetes 1.36",
-			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{"DRADeviceTaintRules"}, nil),
+			featureGates: newFeatureGate("DRADeviceTaintRules"),
 			mappings:     graduatedMappings,
+		},
+		{
+			name:           "generic workload enables the beta scheduling API",
+			featureGates:   newFeatureGate("GenericWorkload"),
+			mappings:       graduatedMappings,
+			expectedConfig: []string{"scheduling.k8s.io/v1beta1=true"},
+		},
+		{
+			name:           "composite pod group enables the alpha scheduling API",
+			featureGates:   newFeatureGate("CompositePodGroup"),
+			mappings:       graduatedMappings,
+			expectedConfig: []string{"scheduling.k8s.io/v1alpha3=true"},
+		},
+		{
+			name: "all workload gates enable their APIs",
+			featureGates: newFeatureGate(
+				"GenericWorkload", "WorkloadWithJob", "PodGroupPreemptionPolicy",
+				"CompositePodGroup", "TopologyAwareWorkloadScheduling", "DRAWorkloadResourceClaims",
+			),
+			mappings:       graduatedMappings,
+			expectedConfig: []string{"scheduling.k8s.io/v1alpha3=true", "scheduling.k8s.io/v1beta1=true"},
+		},
+		{
+			name: "workload APIs are not enabled before Kubernetes 1.37",
+			featureGates: newFeatureGate(
+				"GenericWorkload", "CompositePodGroup",
+			),
+			mappings: filteredMappings,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

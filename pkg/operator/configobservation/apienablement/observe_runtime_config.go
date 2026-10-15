@@ -16,6 +16,16 @@ import (
 )
 
 var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion{
+	// Workload and PodGroup are served from v1beta1 starting in Kubernetes 1.37.
+	// Remove this mapping when GenericWorkload is removed from Tech Preview and graduates to GA.
+	"GenericWorkload": {
+		{KubeVersionRange: semver.MustParseRange(">=1.37.0"), GroupVersion: schema.GroupVersion{Group: "scheduling.k8s.io", Version: "v1beta1"}, Kinds: []string{"Workload", "PodGroup"}},
+	},
+	// CompositePodGroup is only served from v1alpha3, even though Workload and PodGroup have a beta API.
+	// Remove this mapping when CompositePodGroup is removed from Tech Preview and graduates to GA.
+	"CompositePodGroup": {
+		{KubeVersionRange: semver.MustParseRange(">=1.37.0"), GroupVersion: schema.GroupVersion{Group: "scheduling.k8s.io", Version: "v1alpha3"}, Kinds: []string{"CompositePodGroup"}},
+	},
 	// Remove this mapping on the Kubernetes 1.37 rebase, when DeviceTaintRule is served from v1 by default.
 	// RuntimeConfigFromFeatureGates maps group versions, so v1beta2 is enabled version-wide.
 	"DRADeviceTaintRules": {
