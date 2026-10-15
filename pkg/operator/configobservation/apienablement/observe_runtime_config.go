@@ -32,12 +32,13 @@ var defaultGroupVersionsByFeatureGate = map[configv1.FeatureGateName][]groupVers
 		{KubeVersionRange: semver.MustParseRange(">=1.36.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1beta2"}, Kinds: []string{"DeviceTaintRule"}},
 	},
 	"PodCertificateRequest": {
-		{KubeVersionRange: semver.MustParseRange(">=1.35.0"), GroupVersion: schema.GroupVersion{Group: "certificates.k8s.io", Version: "v1beta1"}, Kinds: []string{"PodCertificateRequest"}},
+		{KubeVersionRange: semver.MustParseRange(">=1.35.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "certificates.k8s.io", Version: "v1beta1"}, Resource: "podcertificaterequests", Kinds: []string{"PodCertificateRequest"}},
 	},
 }
 
 type groupVersionKindsByOpenshiftVersion struct {
 	schema.GroupVersion
+	Resource         string
 	KubeVersionRange semver.Range
 	// Kinds lists the specific resource kinds this entry is about. When set,
 	// staleness checks can verify per-kind whether the API has graduated to v1
@@ -46,21 +47,21 @@ type groupVersionKindsByOpenshiftVersion struct {
 	Kinds []string
 }
 
-func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
-	result := make(map[configv1.FeatureGateName][]schema.GroupVersion, len(groupVersionsByFeatureGate))
+func getGroupVersionByFeatureGate(groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion, kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersionResource, error) {
+	result := make(map[configv1.FeatureGateName][]schema.GroupVersionResource, len(groupVersionsByFeatureGate))
 	groupByVersions := map[string][]string{}
 	for featureGate, APIGroups := range groupVersionsByFeatureGate {
 		for _, group := range APIGroups {
 			if group.KubeVersionRange == nil || group.KubeVersionRange(kubeVersion) {
 				groupByVersions[group.Group] = append(groupByVersions[group.Group], group.Version)
-				result[featureGate] = append(result[featureGate], group.GroupVersion)
+				result[featureGate] = append(result[featureGate], group.GroupVersion.WithResource(group.Resource))
 			}
 		}
 	}
 	return result, nil
 }
 
-func GetDefaultGroupVersionByFeatureGate(kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersion, error) {
+func GetDefaultGroupVersionByFeatureGate(kubeVersion semver.Version) (map[configv1.FeatureGateName][]schema.GroupVersionResource, error) {
 	return getGroupVersionByFeatureGate(defaultGroupVersionsByFeatureGate, kubeVersion)
 }
 
@@ -74,7 +75,7 @@ var (
 // mismatch between these two options can result in an unstable config, the observed value for
 // either will only be set if both can be successfully set. Otherwise, the existing config is
 // returned pruned but otherwise unmodified.
-func NewFeatureGateObserverWithRuntimeConfig(featureWhitelist sets.Set[configv1.FeatureGateName], featureBlacklist sets.Set[configv1.FeatureGateName], featureGateAccessor featuregates.FeatureGateAccess, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) configobserver.ObserveConfigFunc {
+func NewFeatureGateObserverWithRuntimeConfig(featureWhitelist sets.Set[configv1.FeatureGateName], featureBlacklist sets.Set[configv1.FeatureGateName], featureGateAccessor featuregates.FeatureGateAccess, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersionResource) configobserver.ObserveConfigFunc {
 	featureGateObserver := featuregates.NewObserveFeatureFlagsFunc(
 		featureWhitelist,
 		featureBlacklist,
@@ -85,7 +86,7 @@ func NewFeatureGateObserverWithRuntimeConfig(featureWhitelist sets.Set[configv1.
 	return newFeatureGateObserverWithRuntimeConfig(featureGateObserver, featureGateAccessor, groupVersionsByFeatureGate)
 }
 
-func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.ObserveConfigFunc, featureGateAccessor featuregates.FeatureGateAccess, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) configobserver.ObserveConfigFunc {
+func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.ObserveConfigFunc, featureGateAccessor featuregates.FeatureGateAccess, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersionResource) configobserver.ObserveConfigFunc {
 	return func(listers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
 		defer func() {
 			observedConfig = configobserver.Pruned(observedConfig, featureGatesPath, runtimeConfigPath)
@@ -116,7 +117,7 @@ func newFeatureGateObserverWithRuntimeConfig(featureGateObserver configobserver.
 	}
 }
 
-func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) []string {
+func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersionResource) []string {
 	var entries []string
 	knownFeatures := sets.New(featureGates.KnownFeatures()...)
 	for name, gvs := range groupVersionsByFeatureGate {
@@ -124,7 +125,11 @@ func RuntimeConfigFromFeatureGates(featureGates featuregates.FeatureGate, groupV
 			continue
 		}
 		for _, gv := range gvs {
-			entries = append(entries, fmt.Sprintf("%s=true", gv.String()))
+			key := gv.GroupVersion().String()
+			if gv.Resource != "" {
+				key += "/" + gv.Resource
+			}
+			entries = append(entries, fmt.Sprintf("%s=true", key))
 		}
 	}
 	sort.Strings(entries)

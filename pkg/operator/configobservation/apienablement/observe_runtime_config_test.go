@@ -3,13 +3,18 @@ package apienablement
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/blang/semver/v4"
 	"github.com/google/go-cmp/cmp"
 
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/resourceconfig"
+	"k8s.io/apiserver/pkg/server/storage"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	cliflag "k8s.io/component-base/cli/flag"
 	componentbaseversion "k8s.io/component-base/version"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -28,7 +33,7 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name                       string
 		featureGates               featuregates.FeatureGateAccess
-		groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
+		groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersionResource
 		delegatedObserver          configobserver.ObserveConfigFunc
 		existingConfig             map[string]interface{}
 		expectedConfig             map[string]interface{}
@@ -106,7 +111,7 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 		{
 			name:                       "return existing config on failure to apply runtime-config",
 			featureGates:               featuregates.NewHardcodedFeatureGateAccess([]configv1.FeatureGateName{"TestFeature"}, nil),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]schema.GroupVersion{"TestFeature": {{Version: "v6"}}},
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]schema.GroupVersionResource{"TestFeature": {{Version: "v6"}}},
 			delegatedObserver: staticObserver(
 				map[string]interface{}{
 					"apiServerArguments": int64(42),
@@ -134,7 +139,7 @@ func TestFeatureGateObserverWithRuntimeConfig(t *testing.T) {
 				[]configv1.FeatureGateName{"TestEnabledFeature"},
 				[]configv1.FeatureGateName{"TestDisabledFeature"},
 			),
-			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]schema.GroupVersion{
+			groupVersionsByFeatureGate: map[configv1.FeatureGateName][]schema.GroupVersionResource{
 				"TestEnabledFeature":  {{Version: "v6"}},
 				"TestDisabledFeature": {{Version: "v7"}},
 			},
@@ -233,11 +238,38 @@ func TestRuntimeConfigFromFeatureGates(t *testing.T) {
 			name:           "includes registered enabled PodCertificateRequest at 1.35",
 			kubeVersion:    semver.MustParse("1.35.0"),
 			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
-			expectedConfig: []string{"certificates.k8s.io/v1beta1=true"},
+			expectedConfig: []string{"certificates.k8s.io/v1beta1/podcertificaterequests=true"},
+		},
+		{
+			name:           "includes registered enabled PodCertificateRequest at 1.36",
+			kubeVersion:    semver.MustParse("1.36.0"),
+			featureGates:   featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
+			expectedConfig: []string{"certificates.k8s.io/v1beta1/podcertificaterequests=true"},
+		},
+		{
+			name:         "skips registered disabled PodCertificateRequest",
+			kubeVersion:  semver.MustParse("1.36.0"),
+			featureGates: featuregates.NewFeatureGate(nil, []configv1.FeatureGateName{podCertificateRequest}),
+		},
+		{
+			name:           "resource-scoped and version-wide mappings coexist",
+			kubeVersion:    semver.MustParse("1.36.0"),
+			featureGates:   newFeatureGate(podCertificateRequest, deviceTaintRules),
+			expectedConfig: []string{"certificates.k8s.io/v1beta1/podcertificaterequests=true", "resource.k8s.io/v1beta2=true"},
 		},
 		{
 			name:         "excludes registered enabled PodCertificateRequest before 1.35",
 			kubeVersion:  semver.MustParse("1.34.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
+		},
+		{
+			name:         "excludes registered enabled PodCertificateRequest at 1.37",
+			kubeVersion:  semver.MustParse("1.37.0"),
+			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
+		},
+		{
+			name:         "excludes registered enabled PodCertificateRequest after 1.37",
+			kubeVersion:  semver.MustParse("1.38.0"),
 			featureGates: featuregates.NewFeatureGate([]configv1.FeatureGateName{podCertificateRequest}, nil),
 		},
 		{
@@ -282,12 +314,42 @@ func TestRuntimeConfigFromFeatureGates(t *testing.T) {
 	}
 }
 
+func TestPodCertificateRequestRuntimeConfigDoesNotEnableSiblingResources(t *testing.T) {
+	for _, kubeVersion := range []string{"1.35.0", "1.36.0"} {
+		t.Run(kubeVersion, func(t *testing.T) {
+			mappings, err := GetDefaultGroupVersionByFeatureGate(semver.MustParse(kubeVersion))
+			if err != nil {
+				t.Fatal(err)
+			}
+			featureGates := featuregates.NewFeatureGate([]configv1.FeatureGateName{"PodCertificateRequest", "ClusterTrustBundle"}, nil)
+			overrides := cliflag.ConfigurationMap{}
+			for _, entry := range RuntimeConfigFromFeatureGates(featureGates, mappings) {
+				key, value, found := strings.Cut(entry, "=")
+				if !found {
+					t.Fatalf("invalid runtime config entry: %q", entry)
+				}
+				overrides[key] = value
+			}
+			resourceConfig, err := resourceconfig.MergeAPIResourceConfigs(storage.NewResourceConfig(), overrides, clientgoscheme.Scheme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !resourceConfig.ResourceEnabled(certificatesv1beta1.SchemeGroupVersion.WithResource("podcertificaterequests")) {
+				t.Error("PodCertificateRequest resource is not enabled")
+			}
+			if resourceConfig.ResourceEnabled(certificatesv1beta1.SchemeGroupVersion.WithResource("clustertrustbundles")) {
+				t.Error("PodCertificateRequest mapping enables sibling ClusterTrustBundle resource")
+			}
+		})
+	}
+}
+
 func TestGroupVersionsByFeatureGate(t *testing.T) {
 	for _, tc := range []struct {
 		name                       string
 		kubeVersion                semver.Version
 		groupVersionsByFeatureGate map[configv1.FeatureGateName][]groupVersionKindsByOpenshiftVersion
-		expectedGroupVersions      map[configv1.FeatureGateName][]schema.GroupVersion
+		expectedGroupVersions      map[configv1.FeatureGateName][]schema.GroupVersionResource
 		expectErrors               bool
 	}{
 		{
@@ -300,7 +362,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
 				},
 			},
-			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{
+			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersionResource{
 				"ValidatingAdmissionPolicy": {{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 				"DynamicResourceAllocation": {{Group: "resource.k8s.io", Version: "v1alpha2"}},
 			},
@@ -314,7 +376,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.0"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
 				},
 			},
-			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{
+			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersionResource{
 				"DynamicResourceAllocation": {{Group: "resource.k8s.io", Version: "v1alpha3"}},
 			},
 		},
@@ -327,7 +389,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.15"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
 				},
 			},
-			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{
+			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersionResource{
 				"DynamicResourceAllocation": {{Group: "resource.k8s.io", Version: "v1alpha3"}},
 			},
 		},
@@ -340,7 +402,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 					{KubeVersionRange: semver.MustParseRange(">= 1.31.16"), GroupVersion: schema.GroupVersion{Group: "resource.k8s.io", Version: "v1alpha3"}},
 				},
 			},
-			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{},
+			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersionResource{},
 		},
 		{
 			// Both versions are served simultaneously when their ranges overlap, as was the case for
@@ -354,7 +416,7 @@ func TestGroupVersionsByFeatureGate(t *testing.T) {
 					{KubeVersionRange: semver.MustParseRange(">=1.34.0 <1.37.0"), GroupVersion: schema.GroupVersion{Group: "admissionregistration.k8s.io", Version: "v1beta1"}},
 				},
 			},
-			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersion{
+			expectedGroupVersions: map[configv1.FeatureGateName][]schema.GroupVersionResource{
 				"MutatingAdmissionPolicy": {
 					{Group: "admissionregistration.k8s.io", Version: "v1alpha1"},
 					{Group: "admissionregistration.k8s.io", Version: "v1beta1"},

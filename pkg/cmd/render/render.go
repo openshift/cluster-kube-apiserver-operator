@@ -52,7 +52,7 @@ type renderOpts struct {
 	clusterAuthFile   string
 	infraConfigFile   string
 
-	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion
+	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersionResource
 }
 
 // NewRenderCommand creates a render command.

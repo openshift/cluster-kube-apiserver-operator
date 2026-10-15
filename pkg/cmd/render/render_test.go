@@ -253,7 +253,7 @@ func TestRenderCommand(t *testing.T) {
 			},
 			overrides: []func(*renderOpts){
 				func(opts *renderOpts) {
-					opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{
+					opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersionResource{
 						"Foo": {{Group: "foos.example.com", Version: "v4alpha7"}},
 					}
 				},
@@ -809,7 +809,7 @@ func setOutputFlags(args []string, dir string) []string {
 func runRender(args []string, overrides []func(*renderOpts)) error {
 	defaultTestOverrides := []func(*renderOpts){
 		func(opts *renderOpts) {
-			opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersion{}
+			opts.groupVersionsByFeatureGate = map[configv1.FeatureGateName][]schema.GroupVersionResource{}
 		},
 	}
 	c := newRenderCommand(append(defaultTestOverrides, overrides...)...)
