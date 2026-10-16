@@ -31,7 +31,7 @@ func TestSNOAlert(t *testing.T) {
 	}{
 		{
 			name:       "No node tuning capability",
-			goldenFile: "./testdata/alert_8_cores.yaml",
+			goldenFile: "./testdata/alert_node_cpu.yaml",
 			wantErr:    false,
 		},
 		{
@@ -40,7 +40,7 @@ func TestSNOAlert(t *testing.T) {
 				enabledCapabilities: []v1.ClusterVersionCapability{v1.ClusterVersionCapabilityNodeTuning},
 				cpuMode:             v1.CPUPartitioningNone,
 			},
-			goldenFile: "./testdata/alert_8_cores.yaml",
+			goldenFile: "./testdata/alert_node_cpu.yaml",
 			wantErr:    false,
 		},
 		{
@@ -49,7 +49,7 @@ func TestSNOAlert(t *testing.T) {
 				enabledCapabilities: []v1.ClusterVersionCapability{v1.ClusterVersionCapabilityNodeTuning},
 				cpuMode:             v1.CPUPartitioningAllNodes,
 			},
-			goldenFile: "./testdata/alert_8_cores.yaml",
+			goldenFile: "./testdata/alert_node_cpu.yaml",
 			wantErr:    false,
 		},
 		{
