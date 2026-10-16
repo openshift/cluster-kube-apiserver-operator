@@ -1,4 +1,4 @@
-package crypto
+package apiserver
 
 import (
 	"crypto/fips140"
@@ -41,14 +41,14 @@ var fipsTLSGroups = map[configv1.TLSGroup]struct{}{
 	configv1.TLSGroupSecP521r1: {},
 }
 
-// IsFIPSEnabled reports whether the Go runtime is operating in FIPS 140 mode.
-func IsFIPSEnabled() bool {
+// isFIPSEnabled reports whether the Go runtime is operating in FIPS 140 mode.
+func isFIPSEnabled() bool {
 	return fips140.Enabled()
 }
 
-// FIPSApprovedTLSGroups returns the subset of groups that are FIPS-approved,
+// fipsApprovedTLSGroups returns the subset of groups that are FIPS-approved,
 // preserving order and dropping the rest.
-func FIPSApprovedTLSGroups(groups []configv1.TLSGroup) []configv1.TLSGroup {
+func fipsApprovedTLSGroups(groups []configv1.TLSGroup) []configv1.TLSGroup {
 	approved := make([]configv1.TLSGroup, 0, len(groups))
 	for _, g := range groups {
 		if _, ok := fipsTLSGroups[g]; !ok {
