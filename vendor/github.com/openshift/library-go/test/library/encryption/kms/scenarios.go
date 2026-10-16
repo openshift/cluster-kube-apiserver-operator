@@ -6,8 +6,6 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 
@@ -39,7 +37,6 @@ func encryptionComponentLabelSelector(component string) string {
 //
 // The provider is built here (not passed in) because Vault KMS setup requires ctx and t.
 func EncryptionTurnOnAndOffScenarios(ctx context.Context, t testing.TB) []library.OnOffScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	provider := DefaultVaultEncryptionProvider(ctx, t)
 	return []library.OnOffScenario{
 		kasOnOffScenario(provider),
@@ -59,7 +56,6 @@ func EncryptionTurnOnAndOffScenarios(ctx context.Context, t testing.TB) []librar
 // is shuffled with a random AES provider (AESGCM or AESCBC) so callers get a complete
 // ready-to-run scenario.
 func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []library.ProvidersMigrationScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
 		DefaultVaultEncryptionProvider(ctx, t),
 		library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
@@ -78,7 +74,6 @@ func EncryptionProvidersMigrationScenarios(ctx context.Context, t testing.TB) []
 // EncryptionProviders. Each operator verifies its well-known resource is encrypted and that the
 // active KMS write key prefix matches the last-migrated key in the encryption config.
 func EncryptionKMSToKMSMigrationScenarios(ctx context.Context, t testing.TB) []library.ProvidersMigrationScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	providers := library.ShuffleEncryptionProviders([]library.EncryptionProvider{
 		DefaultVaultEncryptionProvider(ctx, t),
 		SecondaryVaultEncryptionProvider(ctx, t),
@@ -93,7 +88,6 @@ func EncryptionKMSToKMSMigrationScenarios(ctx context.Context, t testing.TB) []l
 // PreflightDeployScenario returns a ready-to-use KAS preflight deploy scenario that runs the
 // cluster-kube-apiserver-operator kms-preflight command against a live kube-apiserver operand.
 func PreflightDeployScenario(ctx context.Context, t testing.TB) library.PreflightDeployScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	return library.PreflightDeployScenario{
 		BasicScenario: library.BasicScenario{
 			// Preflight deploys into the operand namespace because the scenario validates the
@@ -124,7 +118,6 @@ func PreflightDeployScenario(ctx context.Context, t testing.TB) library.Prefligh
 // provider changes only the plugin image, so the operator refreshes the existing key in place
 // without minting a new key or re-encrypting.
 func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []library.InPlaceUpdateScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	updateImage := resolveVaultKMSPluginImageUpdate(t)
 	return []library.InPlaceUpdateScenario{
 		kasInPlaceUpdateScenario(ctx, t, updateImage),
@@ -137,7 +130,6 @@ func EncryptionInPlaceUpdateScenarios(ctx context.Context, t testing.TB) []libra
 // Only KAS supplies the shared provider and Vault rotation callback. Each operator
 // waits for its own migration and verifies its resource was re-encrypted.
 func EncryptionRotationScenarios(ctx context.Context, t testing.TB) []library.RotationScenario {
-	library.WaitForKubeAPIServerReady(ctx, t)
 	return []library.RotationScenario{
 		kasRotationScenario(ctx, t),
 		authRotationScenario(ctx),
@@ -289,7 +281,6 @@ func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.I
 // Every operator verifies invalid configurations, recovery, and the in-place update.
 func KMSPreflightLifecycleScenarios(ctx context.Context, t testing.TB) []library.KMSPreflightLifecycleScenario {
 	t.Helper()
-	library.WaitForKubeAPIServerReady(ctx, t)
 	updateImage := resolveVaultKMSPluginImageUpdate(t)
 	invalidAddress := InvalidVaultEncryptionProvider(ctx, t, "https://127.0.0.1:1", "", false)
 	invalidImage := InvalidVaultEncryptionProvider(ctx, t, "", "quay.io/openshifttest/vault-kube-kms@sha256:0000000000000000000000000000000000000000000000000000000000000000", false)
@@ -446,18 +437,8 @@ func oasProvidersMigrationScenario(ctx context.Context) library.ProvidersMigrati
 	}
 }
 
-func assertKMSHealth(ctx context.Context, t testing.TB, clientSet library.ClientSet, operatorNamespace string) {
-	t.Helper()
-	library.AssertKMSHealthReports(ctx, t, clientSet, operatorNamespace)
-	library.AssertOperatorConditions(ctx, t, clientSet, operatorNamespace,
-		operatorv1.OperatorCondition{Type: "KMSHealthDegraded", Status: operatorv1.ConditionFalse, Reason: "AsExpected"},
-		operatorv1.OperatorCondition{Type: "KMSHealthProgressing", Status: operatorv1.ConditionFalse, Reason: "AsExpected"},
-	)
-}
-
 func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) library.ProvidersMigrationScenario {
 	scenario := kasProvidersMigrationScenario(providers)
-	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownSecretOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownSecretOfLifeEncryptedWithKMS(t, clientSet,
@@ -470,7 +451,6 @@ func kasKMSToKMSMigrationScenario(providers []library.EncryptionProvider) librar
 
 func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	scenario := authProvidersMigrationScenario(ctx)
-	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownTokenOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownTokenOfLifeEncryptedWithKMS(t, clientSet,
@@ -483,7 +463,6 @@ func authKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrati
 
 func oasKMSToKMSMigrationScenario(ctx context.Context) library.ProvidersMigrationScenario {
 	scenario := oasProvidersMigrationScenario(ctx)
-	scenario.AssertConditionsFunc = assertKMSHealth
 	scenario.AssertResourceEncryptedFunc = func(t testing.TB, clientSet library.ClientSet, resource runtime.Object) {
 		library.AssertWellKnownRouteOfLifeEncrypted(t, clientSet, resource)
 		library.AssertWellKnownRouteOfLifeEncryptedWithKMS(t, clientSet,
