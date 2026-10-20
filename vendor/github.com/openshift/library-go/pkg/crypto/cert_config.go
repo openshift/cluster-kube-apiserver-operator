@@ -206,9 +206,9 @@ func (ca *CA) NewClientCertificate(u user.Info, keyGen KeyPairGenerator, opts ..
 	// Verifiers of client certificates should already have the root CA certificate for the old
 	// signing certificate in their trust store.
 	// "intermediate certificates" in this case are any non-self-signed CA certificates.
-	
+
 	certs := []*x509.Certificate{cert}
-	
+
 	for _, c := range ca.Config.Certs {
 		if c.IsCA == true && c.CheckSignatureFrom(c) == nil {
 			continue
