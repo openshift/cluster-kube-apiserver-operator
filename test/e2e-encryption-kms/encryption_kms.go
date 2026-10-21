@@ -15,10 +15,9 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 		testKMSEncryptionOnOff(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
-		testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
+	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+		testKMSEncryptionRotation(ctx, g.GinkgoTB())
 	})
-
 })
 
 // testKMSEncryptionOnOff tests KMS encryption on/off cycle across kube-apiserver,
@@ -33,14 +32,9 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 	library.TestEncryptionTurnOnAndOff(ctx, t, librarykms.EncryptionTurnOnAndOffScenarios(ctx, t)...)
 }
 
-// testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers
-// across kube-apiserver, oauth-apiserver, and openshift-apiserver operators.
-// This test:
-// 1. Creates SecretOfLife, TokenOfLife, and RouteOfLife test resources
-// 2. Randomly picks one AES encryption provider (AESGCM or AESCBC)
-// 3. Shuffles the selected AES provider with KMS to create a randomized migration order
-// 4. Applies one cluster-wide APIServer config update per step and waits per operator in parallel
-// 5. Verifies each resource is correctly encrypted after each migration
-func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
-	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionProvidersMigrationScenarios(ctx, t)...)
+// testKMSEncryptionRotation encrypts with Vault KMS, rotates the Vault transit
+// remote key, waits for each operator's remigration, verifies ciphertext changed,
+// and reverts to identity.
+func testKMSEncryptionRotation(ctx context.Context, t testing.TB) {
+	library.TestEncryptionRotation(ctx, t, librarykms.EncryptionRotationScenarios(ctx, t)...)
 }
