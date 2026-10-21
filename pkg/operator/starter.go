@@ -44,6 +44,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/startupmonitorreadiness"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/targetconfigcontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/terminationobserver"
+	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/tlsprofileupgradegatecontroller"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/webhooksupportabilitycontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
@@ -448,6 +449,12 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder.WithComponentSuffix("cert-rotation-controller"),
 	)
 
+	tlsProfileUpgradeGateController := tlsprofileupgradegatecontroller.NewTLSProfileUpgradeGateController(
+		kubeClient.CoreV1(),
+		configInformers.Config().V1().APIServers(),
+		controllerContext.EventRecorder,
+	)
+
 	terminationObserver := terminationobserver.NewTerminationObserver(
 		operatorclient.TargetNamespace,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -559,6 +566,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	go certRotationController.Run(ctx, 1)
 	go encryptionControllers.Run(ctx, 1)
 	go certRotationTimeUpgradeableController.Run(ctx, 1)
+	go tlsProfileUpgradeGateController.Run(ctx, 1)
 	go terminationObserver.Run(ctx, 1)
 	go eventWatcher.Run(ctx, 1)
 	go boundSATokenSignerController.Run(ctx, 1)
