@@ -28,6 +28,8 @@ $(call build-image,ocp-cluster-kube-apiserver-operator,$(IMAGE_REGISTRY)/ocp/4.3
 
 $(call verify-golang-versions,Dockerfile.rhel7)
 
+build: GO_BUILD_FLAGS += -tags=no_openssl
+
 TEST_E2E_ENCRYPTION_ROTATION_TARGETS=$(addprefix test-e2e-encryption-rotation-,$(ENCRYPTION_PROVIDERS))
 
 # these are extremely slow serial e2e encryption rotation tests that modify the cluster's global state
