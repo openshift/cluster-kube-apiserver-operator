@@ -452,6 +452,9 @@ type ProvidersMigrationScenario struct {
 	// The test will migrate through each provider in order, then always end by
 	// switching to identity (off) to verify the resource is re-written unencrypted.
 	EncryptionProviders []EncryptionProvider
+	// AssertConditionsFunc optionally verifies operator conditions after migrations
+	// between providers, excluding initial enablement and identity cleanup.
+	AssertConditionsFunc func(context.Context, testing.TB, ClientSet, string)
 }
 
 // ShuffleEncryptionProviders returns a new slice with the providers in random order,
@@ -512,6 +515,18 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 	}
 	scenarios := []testStep{inParallel(createSteps...)}
 
+	var conditionSteps []testStep
+	for _, scenario := range migrationScenarios {
+		if scenario.AssertConditionsFunc != nil {
+			conditionSteps = append(conditionSteps, testStep{
+				name: fmt.Sprintf("Assert%sConditions", scenario.ResourceName),
+				testFunc: func(t testing.TB) {
+					scenario.AssertConditionsFunc(ctx, t, GetClients(NewE(t)), scenario.OperatorNamespace)
+				},
+			})
+		}
+	}
+
 	// step 2: migrate through each provider in sequence
 	for i, provider := range providers {
 		prefix := "EncryptWith"
@@ -541,6 +556,9 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 		}
 
 		scenarios = append(scenarios, inParallel(migrateSteps...), inParallel(assertSteps...))
+		if i > 0 && len(conditionSteps) > 0 {
+			scenarios = append(scenarios, inParallel(conditionSteps...))
+		}
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
@@ -680,7 +698,7 @@ type InPlaceUpdateScenario struct {
 	ResourceFunc                func(t testing.TB, namespace string) runtime.Object
 	ResourceName                string
 	EncryptionProvider          EncryptionProvider
-	UpdatedEncryptionProvider   EncryptionProvider
+	UpdatedEncryptionProviders  []EncryptionProvider
 	AssertInPlaceUpdateFunc     func(t testing.TB, clientSet ClientSet, keyMeta EncryptionKeyMeta)
 }
 
@@ -728,26 +746,23 @@ func inPlaceUpdateTestSteps(ctx context.Context, t testing.TB, scenarios ...InPl
 		t.Fatalf("TestInPlaceUpdate requires at least one scenario")
 	}
 
-	var providers, updatedProviders []EncryptionProvider
+	var providers []EncryptionProvider
+	var updatedProviders []EncryptionProvider
 	for _, scenario := range scenarios {
 		if scenario.EncryptionProvider.Type != "" {
 			providers = append(providers, scenario.EncryptionProvider)
 		}
-		if scenario.UpdatedEncryptionProvider.Type != "" {
-			updatedProviders = append(updatedProviders, scenario.UpdatedEncryptionProvider)
+		if len(scenario.UpdatedEncryptionProviders) > 0 {
+			updatedProviders = scenario.UpdatedEncryptionProviders
 		}
 	}
-	if len(providers) != 1 || len(updatedProviders) != 1 {
-		t.Fatalf("TestInPlaceUpdate requires exactly one EncryptionProvider and one UpdatedEncryptionProvider, got %d and %d", len(providers), len(updatedProviders))
+	if len(providers) != 1 || len(updatedProviders) == 0 {
+		t.Fatalf("TestInPlaceUpdate requires exactly one EncryptionProvider and at least one UpdatedEncryptionProvider, got %d and %d", len(providers), len(updatedProviders))
 	}
 	provider := providers[0]
-	updatedProvider := updatedProviders[0]
 
-	var createSteps, encryptSteps, assertEncryptedSteps, baselineSteps, waitSteps, assertAfterSteps, assertInPlaceSteps, revertSteps []testStep
+	var createSteps, encryptSteps, assertEncryptedSteps, revertSteps []testStep
 	for _, scenario := range scenarios {
-		// baseline is captured before the shared update and read by the wait step. Each iteration owns
-		// its own baseline variable, so the parallel baseline and wait phases never race.
-		var baseline EncryptionKeyMeta
 		createSteps = append(createSteps, testStep{name: fmt.Sprintf("CreateAndStore%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
@@ -759,50 +774,62 @@ func inPlaceUpdateTestSteps(ctx context.Context, t testing.TB, scenarios ...InPl
 			e := NewE(t)
 			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}})
-		baselineSteps = append(baselineSteps, testStep{name: fmt.Sprintf("RecordKeyBaseline%s", scenario.ResourceName), testFunc: func(t testing.TB) {
-			e := NewE(t)
-			keyMeta, err := GetLastKeyMeta(e, GetClients(e).Kube, scenario.Namespace, scenario.LabelSelector)
-			require.NoError(e, err)
-			baseline = keyMeta
-		}})
-		waitSteps = append(waitSteps, testStep{name: fmt.Sprintf("WaitNoNewKey%s", scenario.ResourceName), testFunc: func(t testing.TB) {
-			e := NewE(t)
-			WaitForNoNewEncryptionKey(e, GetClients(e).Kube, baseline, scenario.Namespace, scenario.LabelSelector)
-		}})
-		assertAfterSteps = append(assertAfterSteps, testStep{name: fmt.Sprintf("Assert%sEncryptedAfterUpdate", scenario.ResourceName), testFunc: func(t testing.TB) {
-			e := NewE(t)
-			scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
-		}})
-		assertInPlaceSteps = append(assertInPlaceSteps, testStep{name: fmt.Sprintf("AssertInPlaceUpdate%s", scenario.ResourceName), testFunc: func(t testing.TB) {
-			e := NewE(t)
-			clientSet := GetClients(e)
-			keyMeta, err := GetLastKeyMeta(e, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
-			require.NoError(e, err)
-			scenario.AssertInPlaceUpdateFunc(e, clientSet, keyMeta)
-		}})
 		revertSteps = append(revertSteps, testStep{name: fmt.Sprintf("RevertToIdentity%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionTypeIdentity(ctx, t, scenario.BasicScenario)
 		}})
 	}
 
-	// Apply the shared plugin-CRD update once, after every baseline is recorded, so no baseline can
-	// include a key minted by the update. The APIServer encryption config is not touched.
-	applyInPlaceUpdate := testStep{name: "ApplyInPlaceUpdate", testFunc: func(t testing.TB) {
-		if updatedProvider.Setup != nil {
-			updatedProvider.Setup(ctx, NewE(t))
+	updateSteps := []testStep{
+		inParallel(encryptSteps...),
+		inParallel(assertEncryptedSteps...),
+	}
+
+	for idx, updatedProvider := range updatedProviders {
+		updatedProvider := updatedProvider
+		var baselineSteps, waitSteps, assertAfterSteps, assertInPlaceSteps []testStep
+		for _, scenario := range scenarios {
+			scenario := scenario
+			var baseline EncryptionKeyMeta
+			baselineSteps = append(baselineSteps, testStep{name: fmt.Sprintf("RecordKeyBaseline%s[%d]", scenario.ResourceName, idx), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				keyMeta, err := GetLastKeyMeta(e, GetClients(e).Kube, scenario.Namespace, scenario.LabelSelector)
+				require.NoError(e, err)
+				baseline = keyMeta
+			}})
+			waitSteps = append(waitSteps, testStep{name: fmt.Sprintf("WaitNoNewKey%s[%d]", scenario.ResourceName, idx), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				WaitForNoNewEncryptionKey(e, GetClients(e).Kube, baseline, scenario.Namespace, scenario.LabelSelector)
+			}})
+			assertAfterSteps = append(assertAfterSteps, testStep{name: fmt.Sprintf("Assert%sEncryptedAfterUpdate[%d]", scenario.ResourceName, idx), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				scenario.AssertResourceEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
+			}})
+			assertInPlaceSteps = append(assertInPlaceSteps, testStep{name: fmt.Sprintf("AssertInPlaceUpdate%s[%d]", scenario.ResourceName, idx), testFunc: func(t testing.TB) {
+				e := NewE(t)
+				clientSet := GetClients(e)
+				keyMeta, err := GetLastKeyMeta(e, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
+				require.NoError(e, err)
+				scenario.AssertInPlaceUpdateFunc(e, clientSet, keyMeta)
+			}})
 		}
-	}}
+
+		applyInPlaceUpdate := testStep{name: fmt.Sprintf("ApplyInPlaceUpdate[%d]", idx), testFunc: func(t testing.TB) {
+			if updatedProvider.Setup != nil {
+				updatedProvider.Setup(ctx, NewE(t))
+			}
+		}}
+
+		updateSteps = append(updateSteps,
+			inParallel(baselineSteps...),
+			applyInPlaceUpdate,
+			inParallel(waitSteps...),
+			inParallel(assertAfterSteps...),
+			inParallel(assertInPlaceSteps...),
+		)
+	}
 
 	// The configuration is cluster-wide, but migration completes independently for
 	// each operator. Wait for every scenario before the next test starts.
-	return inParallel(createSteps...), []testStep{
-		inParallel(encryptSteps...),
-		inParallel(assertEncryptedSteps...),
-		inParallel(baselineSteps...),
-		applyInPlaceUpdate,
-		inParallel(waitSteps...),
-		inParallel(assertAfterSteps...),
-		inParallel(assertInPlaceSteps...),
-		inParallel(revertSteps...),
-	}
+	updateSteps = append(updateSteps, inParallel(revertSteps...))
+	return inParallel(createSteps...), updateSteps
 }
