@@ -3,7 +3,7 @@ package startupmonitorreadiness
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -323,7 +323,7 @@ func doHTTPCheck(ctx context.Context, client *http.Client, rawURL string) (int, 
 
 	// we expect small responses from the server
 	// so it is okay to read the entire body
-	rawResponse, err := ioutil.ReadAll(resp.Body)
+	rawResponse, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, "", fmt.Errorf("error while reading body from %v, err %v", targetURL.String(), err)
 	}
