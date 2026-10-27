@@ -128,6 +128,22 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		},
 	})
 
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-rotation",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-rotation]")`,
+		},
+	})
+
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/disruptive-single-node",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:sno-disruptive]")`,
+		},
+	})
+
 	specs, err := oteginkgo.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extension test specs from ginkgo: %w", err)
