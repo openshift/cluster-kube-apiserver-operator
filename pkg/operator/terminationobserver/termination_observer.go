@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -76,7 +76,8 @@ func RegisterMetrics() {
 
 func NewTerminationObserver(
 	targetNamespace string,
-	kubeInformersForTargetNamespace informers.SharedInformerFactory,
+	podInformer corev1informers.PodInformer,
+	eventInformer corev1informers.EventInformer,
 	podsGetter corev1client.PodsGetter,
 	eventRecorder events.Recorder,
 ) *TerminationObserver {
@@ -88,11 +89,11 @@ func NewTerminationObserver(
 		apiServerTerminationTime: map[string]time.Time{},
 	}
 
-	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForTargetNamespace.Core().V1().Events().Informer().AddEventHandler(c.terminationEventRecorder())
+	podInformer.Informer().AddEventHandler(c.eventHandler())
+	eventInformer.Informer().AddEventHandler(c.terminationEventRecorder())
 
-	c.cachesToSync = append(c.cachesToSync, kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced)
-	c.cachesToSync = append(c.cachesToSync, kubeInformersForTargetNamespace.Core().V1().Events().Informer().HasSynced)
+	c.cachesToSync = append(c.cachesToSync, podInformer.Informer().HasSynced)
+	c.cachesToSync = append(c.cachesToSync, eventInformer.Informer().HasSynced)
 
 	return c
 }
