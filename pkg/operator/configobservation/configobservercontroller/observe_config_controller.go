@@ -6,8 +6,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configv1 "github.com/openshift/api/config/v1"
-	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -38,7 +38,25 @@ type ConfigObserver struct {
 	factory.Controller
 }
 
-func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces, configInformer configinformers.SharedInformerFactory, operatorInformer operatorv1informers.SharedInformerFactory, resourceSyncer resourcesynccontroller.ResourceSyncer, featureGateAccessor featuregates.FeatureGateAccess, eventRecorder events.Recorder, groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion) *ConfigObserver {
+func NewConfigObserver(
+	operatorClient v1helpers.StaticPodOperatorClient,
+	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
+	apiServerInformer configv1informers.APIServerInformer,
+	authInformer configv1informers.AuthenticationInformer,
+	featureGateInformer configv1informers.FeatureGateInformer,
+	imageInformer configv1informers.ImageInformer,
+	infraInformer configv1informers.InfrastructureInformer,
+	networkInformer configv1informers.NetworkInformer,
+	nodeInformer configv1informers.NodeInformer,
+	oauthInformer configv1informers.OAuthInformer,
+	proxyInformer configv1informers.ProxyInformer,
+	schedulerInformer configv1informers.SchedulerInformer,
+	kubeAPIServerInformer operatorv1informers.KubeAPIServerInformer,
+	resourceSyncer resourcesynccontroller.ResourceSyncer,
+	featureGateAccessor featuregates.FeatureGateAccess,
+	eventRecorder events.Recorder,
+	groupVersionsByFeatureGate map[configv1.FeatureGateName][]schema.GroupVersion,
+) *ConfigObserver {
 	interestingNamespaces := []string{
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -58,15 +76,15 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer(),
-		configInformer.Config().V1().Images().Informer(),
-		configInformer.Config().V1().Infrastructures().Informer(),
-		configInformer.Config().V1().Authentications().Informer(),
-		configInformer.Config().V1().APIServers().Informer(),
-		configInformer.Config().V1().Networks().Informer(),
-		configInformer.Config().V1().Nodes().Informer(),
-		configInformer.Config().V1().Proxies().Informer(),
-		configInformer.Config().V1().Schedulers().Informer(),
-		operatorInformer.Operator().V1().KubeAPIServers().Informer(),
+		imageInformer.Informer(),
+		infraInformer.Informer(),
+		authInformer.Informer(),
+		apiServerInformer.Informer(),
+		networkInformer.Informer(),
+		nodeInformer.Informer(),
+		proxyInformer.Informer(),
+		schedulerInformer.Informer(),
+		kubeAPIServerInformer.Informer(),
 	}
 	for _, ns := range interestingNamespaces {
 		infomers = append(infomers, kubeInformersForNamespaces.InformersFor(ns).Core().V1().ConfigMaps().Informer())
@@ -78,40 +96,40 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
-				APIServerLister_:      configInformer.Config().V1().APIServers().Lister(),
-				AuthConfigLister:      configInformer.Config().V1().Authentications().Lister(),
-				FeatureGateLister_:    configInformer.Config().V1().FeatureGates().Lister(),
-				ImageConfigLister:     configInformer.Config().V1().Images().Lister(),
-				InfrastructureLister_: configInformer.Config().V1().Infrastructures().Lister(),
-				NetworkLister:         configInformer.Config().V1().Networks().Lister(),
-				NodeLister_:           configInformer.Config().V1().Nodes().Lister(),
-				ProxyLister_:          configInformer.Config().V1().Proxies().Lister(),
-				SchedulerLister:       configInformer.Config().V1().Schedulers().Lister(),
+				APIServerLister_:      apiServerInformer.Lister(),
+				AuthConfigLister:      authInformer.Lister(),
+				FeatureGateLister_:    featureGateInformer.Lister(),
+				ImageConfigLister:     imageInformer.Lister(),
+				InfrastructureLister_: infraInformer.Lister(),
+				NetworkLister:         networkInformer.Lister(),
+				NodeLister_:           nodeInformer.Lister(),
+				ProxyLister_:          proxyInformer.Lister(),
+				SchedulerLister:       schedulerInformer.Lister(),
 
 				SecretLister_:       kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 				ConfigSecretLister_: kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
 				ConfigmapLister_:    kubeInformersForNamespaces.ConfigMapLister(),
 
-				KubeAPIServerOperatorLister_: operatorInformer.Operator().V1().KubeAPIServers().Lister(),
+				KubeAPIServerOperatorLister_: kubeAPIServerInformer.Lister(),
 
 				ResourceSync: resourceSyncer,
 				PreRunCachesSynced: append(preRunCacheSynced,
 					operatorClient.Informer().HasSynced,
-					operatorInformer.Operator().V1().KubeAPIServers().Informer().HasSynced,
+					kubeAPIServerInformer.Informer().HasSynced,
 
 					kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer().HasSynced,
 					kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer().HasSynced,
 
-					configInformer.Config().V1().APIServers().Informer().HasSynced,
-					configInformer.Config().V1().Authentications().Informer().HasSynced,
-					configInformer.Config().V1().FeatureGates().Informer().HasSynced,
-					configInformer.Config().V1().Images().Informer().HasSynced,
-					configInformer.Config().V1().Infrastructures().Informer().HasSynced,
-					configInformer.Config().V1().Networks().Informer().HasSynced,
-					configInformer.Config().V1().Nodes().Informer().HasSynced,
-					configInformer.Config().V1().OAuths().Informer().HasSynced,
-					configInformer.Config().V1().Proxies().Informer().HasSynced,
-					configInformer.Config().V1().Schedulers().Informer().HasSynced,
+					apiServerInformer.Informer().HasSynced,
+					authInformer.Informer().HasSynced,
+					featureGateInformer.Informer().HasSynced,
+					imageInformer.Informer().HasSynced,
+					infraInformer.Informer().HasSynced,
+					networkInformer.Informer().HasSynced,
+					nodeInformer.Informer().HasSynced,
+					oauthInformer.Informer().HasSynced,
+					proxyInformer.Informer().HasSynced,
+					schedulerInformer.Informer().HasSynced,
 				),
 			},
 			infomers,

@@ -352,7 +352,7 @@ func TestPodSecurityViolationController(t *testing.T) {
 
 			controller := &PodSecurityReadinessController{
 				kubeClient: fakeClient,
-				warningsHandler: &warningsHandler{
+				warningsHandler: &WarningsHandler{
 					warnings: tt.warnings,
 				},
 			}
