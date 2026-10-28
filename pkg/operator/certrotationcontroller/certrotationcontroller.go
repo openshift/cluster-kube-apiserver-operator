@@ -154,62 +154,60 @@ func newCertRotationController(
 
 	certRotator := certrotation.NewCertRotationController(
 		"AggregatorProxyClientCert",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "aggregator-client-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"aggregator-client-signer",
+			"kube-apiserver.aggregator-front-proxy-signer",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the kube-apiserver to create client certificates for aggregated apiservers to recognize as a front-proxy",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.aggregator-front-proxy-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:      "kube-apiserver-aggregator-client-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			"kube-apiserver-aggregator-client-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for aggregated apiservers to recognize kube-apiserver as front-proxy.",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "aggregator-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"aggregator-client",
+			"kube-apiserver.aggregator-front-proxy-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-apiserver to communicate to aggregated apiservers.",
 				TestName:                         "[sig-cli] oc adm new-project [apigroup:project.openshift.io][apigroup:authorization.openshift.io] [Suite:openshift/conformance/parallel]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:openshift-aggregator"},
-			},
-			CertificateName:    "kube-apiserver.aggregator-front-proxy-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:openshift-aggregator"}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -217,64 +215,60 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeAPIServerToKubeletClientCert",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-apiserver-to-kubelet-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"kube-apiserver-to-kubelet-signer",
+			"kube-apiserver.kubelet-client-signer",
+			devRotationExceptionYear,
+			devRotationExceptionTenMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the kube-apiserver-to-kubelet-client so kubelets can recognize the kube-apiserver.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: devRotationExceptionYear, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                devRotationExceptionTenMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.kubelet-client-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-apiserver-to-kubelet-client-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"kube-apiserver-to-kubelet-client-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for the kubelet to recognize the kube-apiserver client certificate.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "kubelet-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"kubelet-client",
+			"kube-apiserver.kubelet-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-apiserver to authenticate to the kubelet for requests like exec and logs.",
 				TestName:                         "[sig-cli] Kubectl logs logs should be able to retrieve and filter logs  [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}},
-			},
-			CertificateName:    "kube-apiserver.kubelet-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:kube-apiserver", Groups: []string{"kube-master"}}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -282,10 +276,16 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostServing",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "localhost-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"localhost-serving-signer",
+			"kube-apiserver.localhost-serving-signer",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via localhost.",
 				// LocalhostServing is not being tested directly, but this CA will be rotated when
@@ -293,24 +293,16 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: foreverPeriod, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.localhost-serving-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "localhost-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"localhost-serving-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via localhost.",
 				// LocalhostServing is not being tested directly, but this CA will be rotated when
@@ -318,34 +310,30 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "localhost-serving-cert-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"localhost-serving-cert-certkey",
+			"kube-apiserver.localhost-serving",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via localhost.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ServingRotation{
-				Hostnames: func() []string { return []string{"localhost", "127.0.0.1"} },
-			},
-			CertificateName:    "kube-apiserver.localhost-serving",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewServingRotation(func() []string { return []string{"localhost", "127.0.0.1"} }, nil, nil),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -353,10 +341,16 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ServiceNetworkServing",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "service-network-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"service-network-serving-signer",
+			"kube-apiserver.service-network-serving-signer",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via the service network.",
 				// ServiceNetworkServing is not being tested directly, but this CA will be rotated when
@@ -364,24 +358,16 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: foreverPeriod, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.service-network-serving-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "service-network-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"service-network-serving-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the service network (kubernetes.default.svc).",
 				// ServiceNetworkServing is not being tested directly, but this CA will be rotated when
@@ -389,35 +375,30 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "service-network-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"service-network-serving-certkey",
+			"kube-apiserver.service-network-serving",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the service network.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via service network endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ServingRotation{
-				Hostnames:        ret.serviceNetwork.GetHostnames,
-				HostnamesChanged: ret.serviceNetwork.hostnamesChanged,
-			},
-			CertificateName:    "kube-apiserver.service-network-serving",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewServingRotation(ret.serviceNetwork.GetHostnames, nil, ret.serviceNetwork.hostnamesChanged),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -425,10 +406,16 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ExternalLoadBalancerServing",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "loadbalancer-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"loadbalancer-serving-signer",
+			"kube-apiserver.loadbalancer-serving-signer",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver operator to create serving certificates for the kube-apiserver via internal and external load balancers.",
 				// ExternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -436,24 +423,16 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: foreverPeriod, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "loadbalancer-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"loadbalancer-serving-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
 				// ExternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -461,35 +440,30 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "external-loadbalancer-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"external-loadbalancer-serving-certkey",
+			"kube-apiserver.external-loadbalancer-serving",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the external load balancer.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ServingRotation{
-				Hostnames:        ret.externalLoadBalancer.GetHostnames,
-				HostnamesChanged: ret.externalLoadBalancer.hostnamesChanged,
-			},
-			CertificateName:    "kube-apiserver.external-loadbalancer-serving",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewServingRotation(ret.externalLoadBalancer.GetHostnames, nil, ret.externalLoadBalancer.hostnamesChanged),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -497,10 +471,16 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"InternalLoadBalancerServing",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "loadbalancer-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"loadbalancer-serving-signer",
+			"kube-apiserver.loadbalancer-serving-signer",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver operator to create serving certificates for the kube-apiserver via internal and external load balancers.",
 				// InternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -508,24 +488,16 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: foreverPeriod, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh:                foreverRefreshPeriod,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.loadbalancer-serving-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "loadbalancer-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"loadbalancer-serving-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the internal or external load balancers.",
 				// InternalLoadBalancerServing is not being tested directly, but this CA will be rotated when
@@ -533,35 +505,30 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "internal-loadbalancer-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"internal-loadbalancer-serving-certkey",
+			"kube-apiserver.internal-loadbalancer-serving",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Serving certificate used by the kube-apiserver to terminate requests via the internal load balancer.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] kube-apiserver should be accessible via api-int endpoint [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ServingRotation{
-				Hostnames:        ret.internalLoadBalancer.GetHostnames,
-				HostnamesChanged: ret.internalLoadBalancer.hostnamesChanged,
-			},
-			CertificateName:    "kube-apiserver.internal-loadbalancer-serving",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewServingRotation(ret.internalLoadBalancer.GetHostnames, nil, ret.internalLoadBalancer.hostnamesChanged),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -569,10 +536,16 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"LocalhostRecoveryServing",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "localhost-recovery-serving-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"localhost-recovery-serving-signer",
+			"kube-apiserver.localhost-recovery-serving-signer",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Signer used by the kube-apiserver to create serving certificates for the kube-apiserver via the service network.",
 				// LocalhostRecoveryServing is not being tested directly, but this CA will be rotated when
@@ -580,24 +553,16 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.localhost-recovery-serving-signer",
-			PKIProfileProvider:     pkiProvider,
-			Validity:               foreverPeriod, // this comes from the installer
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh:       foreverRefreshPeriod,
-			Informer:      kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:        kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:        kubeClient.CoreV1(),
-			EventRecorder: eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "localhost-recovery-serving-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"localhost-recovery-serving-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "CA for recognizing the kube-apiserver when connecting via the localhost recovery SNI ServerName.",
 				// LocalhostRecoveryServing is not being tested directly, but this CA will be rotated when
@@ -605,39 +570,31 @@ func newCertRotationController(
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "localhost-recovery-serving-certkey",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"localhost-recovery-serving-certkey",
+			"kube-apiserver.localhost-recovery-serving",
+			foreverPeriod,
+			foreverRefreshPeriod,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent: "kube-apiserver",
 				Description:   "Serving certificate used by the kube-apiserver to terminate requests via the localhost recovery SNI ServerName.",
 				// This test checks that kube-apiserver can be contacted via localhost-recovery kubeconfig
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: foreverPeriod,
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			// Given that in this case rotation will be after 8y,
-			// it means we effectively do not rotate.
-			Refresh: foreverRefreshPeriod,
-			CertCreator: &certrotation.ServingRotation{
-				Hostnames: func() []string { return []string{"localhost-recovery"} },
-			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.localhost-recovery-serving",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
+			certrotation.NewServingRotation(func() []string { return []string{"localhost-recovery"} }, nil, nil),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -645,62 +602,60 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeControllerManagerClient",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer",
+			"kube-apiserver.control-plane-client-signer",
+			2*devRotationExceptionMonth,
+			devRotationExceptionMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               2 * devRotationExceptionMonth,
-			Refresh:                devRotationExceptionMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.control-plane-client-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:      "kube-controller-manager-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			"kube-controller-manager-client-cert-key",
+			"kube-apiserver.kube-controller-manager-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-controller-manager to authenticate to the kube-apiserver.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:kube-controller-manager"},
-			},
-			CertificateName:    "kube-apiserver.kube-controller-manager-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:kube-controller-manager"}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -708,62 +663,60 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"KubeSchedulerClient",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer",
+			"kube-apiserver.control-plane-client-signer",
+			2*devRotationExceptionMonth,
+			devRotationExceptionMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               2 * devRotationExceptionMonth,
-			Refresh:                devRotationExceptionMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.control-plane-client-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			Name:      "kube-scheduler-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			"kube-scheduler-client-cert-key",
+			"kube-apiserver.kube-scheduler-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the kube-scheduler to authenticate to the kube-apiserver.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:kube-scheduler"},
-			},
-			CertificateName:    "kube-apiserver.kube-scheduler-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:kube-scheduler"}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -771,62 +724,60 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"ControlPlaneNodeAdminClient",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer",
+			"kube-apiserver.control-plane-client-signer",
+			2*devRotationExceptionMonth,
+			devRotationExceptionMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               2 * devRotationExceptionMonth,
-			Refresh:                devRotationExceptionMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.control-plane-client-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "control-plane-node-admin-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"control-plane-node-admin-client-cert-key",
+			"kube-apiserver.control-plane-node-admin-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate and key for the control plane node kubeconfig",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"control-plane-node.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:control-plane-node-admin", Groups: []string{"system:masters"}},
-			},
-			CertificateName:    "kube-apiserver.control-plane-node-admin-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:control-plane-node-admin", Groups: []string{"system:masters"}}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -834,62 +785,60 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"CheckEndpointsClient",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer",
+			"kube-apiserver.control-plane-client-signer",
+			2*devRotationExceptionMonth,
+			devRotationExceptionMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               2 * devRotationExceptionMonth,
-			Refresh:                devRotationExceptionMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.control-plane-client-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "kube-control-plane-signer-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"kube-control-plane-signer-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize the kube-controller-manager and kube-scheduler client certificates.",
 				TestName:                         "[sig-apps] Deployment RollingUpdateDeployment should delete old pods and create new ones [Conformance] [Suite:openshift/conformance/parallel/minimal] [Suite:k8s]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.TargetNamespace,
-			Name:      "check-endpoints-client-cert-key",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.TargetNamespace,
+			"check-endpoints-client-cert-key",
+			"kube-apiserver.check-endpoints-client",
+			monthPeriod,
+			monthPeriod/2,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate used by the network connectivity checker of the kube-apiserver.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"check-endpoints.kubeconfig\" should be present in all kube-apiserver containers [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity:               monthPeriod,
-			Refresh:                monthPeriod / 2,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"},
-			},
-			CertificateName:    "kube-apiserver.check-endpoints-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{Name: "system:serviceaccount:openshift-kube-apiserver:check-endpoints"}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
@@ -897,71 +846,63 @@ func newCertRotationController(
 
 	certRotator = certrotation.NewCertRotationController(
 		"NodeSystemAdminClient",
-		certrotation.RotatedSigningCASecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "node-system-admin-signer",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+		certrotation.NewRotatedSigningCASecret(
+			operatorclient.OperatorNamespace,
+			"node-system-admin-signer",
+			"kube-apiserver.node-system-admin-signer",
+			3*devRotationExceptionYear,
+			3*devRotationExceptionTenMonth,
+			refreshOnlyWhenExpired,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Signer for the per-master-debugging-client.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			Validity: 3 * devRotationExceptionYear,
-			// Refresh set to 80% of the validity.
-			// This range is consistent with most other signers defined in this pkg.
-			Refresh:                3 * devRotationExceptionTenMonth,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertificateName:        "kube-apiserver.node-system-admin-signer",
-			PKIProfileProvider:     pkiProvider,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.CABundleConfigMap{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "node-system-admin-ca",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			nil,
+			eventRecorder,
+			pkiProvider,
+		),
+		certrotation.NewCABundleConfigMap(
+			operatorclient.OperatorNamespace,
+			"node-system-admin-ca",
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "CA for kube-apiserver to recognize local system:masters rendered to each master.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			Informer:               kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
-			Lister:                 kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps().Lister(),
-			Client:                 kubeClient.CoreV1(),
-			EventRecorder:          eventRecorder,
-		},
-		certrotation.RotatedSelfSignedCertKeySecret{
-			Namespace: operatorclient.OperatorNamespace,
-			Name:      "node-system-admin-client",
-			AdditionalAnnotations: certrotation.AdditionalAnnotations{
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().ConfigMaps(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
+		certrotation.NewRotatedSelfSignedCertKeySecret(
+			operatorclient.OperatorNamespace,
+			"node-system-admin-client",
+			"kube-apiserver.node-system-admin-client",
+			2*devRotationExceptionYear,
+			monthPeriod,
+			refreshOnlyWhenExpired,
+			nil,
+			certrotation.AdditionalAnnotations{
 				JiraComponent:                    "kube-apiserver",
 				Description:                      "Client certificate (system:masters) placed on each master to allow communication to kube-apiserver for debugging.",
 				TestName:                         "[Conformance][sig-api-machinery][Feature:APIServer] local kubeconfig \"localhost-recovery.kubeconfig\" should be present on all masters and work [apigroup:config.openshift.io] [Suite:openshift/conformance/parallel/minimal]",
 				AutoRegenerateAfterOfflineExpiry: "https://github.com/openshift/cluster-kube-apiserver-operator/pull/1631",
 			},
-			// This needs to live longer then control plane certs so there is high chance that if a cluster breaks
-			// because of expired certs these are still valid to use for collecting data using localhost-recovery
-			// endpoint with long lived serving certs for localhost.
-			Validity: 2 * devRotationExceptionYear,
-			// We rotate sooner so certs are always valid for 90 days (30 days more then kube-control-plane-signer)
-			Refresh:                monthPeriod,
-			RefreshOnlyWhenExpired: refreshOnlyWhenExpired,
-			CertCreator: &certrotation.ClientRotation{
-				UserInfo: &user.DefaultInfo{
-					Name:   "system:admin",
-					Groups: []string{"system:masters"},
-				},
-			},
-			CertificateName:    "kube-apiserver.node-system-admin-client",
-			PKIProfileProvider: pkiProvider,
-			Informer:           kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
-			Lister:             kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets().Lister(),
-			Client:             kubeClient.CoreV1(),
-			EventRecorder:      eventRecorder,
-		},
+			certrotation.NewClientRotation(&user.DefaultInfo{
+				Name:   "system:admin",
+				Groups: []string{"system:masters"},
+			}),
+			pkiProvider,
+			kubeInformersForNamespaces.InformersFor(operatorclient.OperatorNamespace).Core().V1().Secrets(),
+			kubeClient.CoreV1(),
+			eventRecorder,
+		),
 		eventRecorder,
 		&certrotation.StaticPodConditionStatusReporter{OperatorClient: operatorClient},
 	)
