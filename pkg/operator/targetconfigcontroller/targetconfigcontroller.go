@@ -20,6 +20,7 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/version"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/certrotation"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
@@ -272,6 +273,57 @@ func createTargetConfig(ctx context.Context, c TargetConfigController, recorder 
 	return false, nil
 }
 
+// createCurvePreferencesOverride reads servingInfo.groups from observedConfig and creates
+// a JSON override containing servingInfo.curvePreferences to be passed to MergePrunedConfigMap.
+// This avoids modifying the observedConfig or deserializing the final ConfigMap.
+func createCurvePreferencesOverride(observedConfigRaw []byte) ([]byte, error) {
+	if len(observedConfigRaw) == 0 {
+		return nil, nil
+	}
+
+	var observedConfig map[string]interface{}
+	if err := json.Unmarshal(observedConfigRaw, &observedConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal observedConfig: %w", err)
+	}
+
+	// Check if servingInfo.groups exists
+	groups, groupsFound, err := unstructured.NestedStringSlice(observedConfig, "servingInfo", "groups")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get servingInfo.groups from observedConfig: %w", err)
+	}
+
+	if !groupsFound || len(groups) == 0 {
+		return nil, nil
+	}
+
+	// Convert groups to curve preferences
+	curvePreferences, unrecognizedGroups := crypto.TLSGroupsToCurvePreferences(groups)
+	if len(unrecognizedGroups) > 0 {
+		return nil, fmt.Errorf("unrecognized groups when reading curve preferences: %v", unrecognizedGroups)
+	}
+
+	// If conversion resulted in empty list, return nil to avoid explicitly resetting the field
+	if len(curvePreferences) == 0 {
+		return nil, nil
+	}
+
+	// Create override with servingInfo.curvePreferences and remove groups
+	// (groups is not part of the upstream Kubernetes ServingInfo type)
+	override := map[string]interface{}{
+		"servingInfo": map[string]interface{}{
+			"curvePreferences": curvePreferences,
+			"groups":           nil, // Remove groups field from final config
+		},
+	}
+
+	overrideJSON, err := json.Marshal(override)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal curvePreferences override: %w", err)
+	}
+
+	return overrideJSON, nil
+}
+
 func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorSpec *operatorv1.StaticPodOperatorSpec) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(bindata.MustAsset("assets/kube-apiserver/cm.yaml"))
 	defaultConfig := bindata.MustAsset("assets/config/defaultconfig.yaml")
@@ -292,20 +344,38 @@ func manageKubeAPIServerConfig(ctx context.Context, client coreclientv1.ConfigMa
 		return nil, false, err
 	}
 
+	// Create curve preferences override from servingInfo.groups in observedConfig
+	curvePreferencesOverride, err := createCurvePreferencesOverride(operatorSpec.ObservedConfig.Raw)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Build the list of config sources to merge
+	configSources := [][]byte{
+		defaultConfig,
+		authModeOverrideJSON,
+		configOverrides,
+		operatorSpec.ObservedConfig.Raw,
+	}
+
+	// Add curvePreferences override if it exists (after observedConfig so it takes precedence)
+	if curvePreferencesOverride != nil {
+		configSources = append(configSources, curvePreferencesOverride)
+	}
+
+	configSources = append(configSources, operatorSpec.UnsupportedConfigOverrides.Raw)
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&kubecontrolplanev1.KubeAPIServerConfig{},
 		configMap,
 		"config.yaml",
 		specialMergeRules,
-		defaultConfig,
-		authModeOverrideJSON,
-		configOverrides,
-		operatorSpec.ObservedConfig.Raw,
-		operatorSpec.UnsupportedConfigOverrides.Raw,
+		configSources...,
 	)
 	if err != nil {
 		return nil, false, err
 	}
+
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
