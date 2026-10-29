@@ -52,7 +52,7 @@ spec:
         - "--terminate-on-files=/var/run/configmaps/config/config.yaml"
         resources:
           requests:
-            memory: 50Mi
+            memory: 230Mi
             cpu: 10m
         volumeMounts:
         - mountPath: /var/run/configmaps/config
