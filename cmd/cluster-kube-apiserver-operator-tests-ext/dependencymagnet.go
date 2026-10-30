@@ -8,4 +8,6 @@ import (
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption-kms"
 	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption-perf"
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-encryption-rotation"
+	_ "github.com/openshift/cluster-kube-apiserver-operator/test/e2e-sno-disruptive"
 )

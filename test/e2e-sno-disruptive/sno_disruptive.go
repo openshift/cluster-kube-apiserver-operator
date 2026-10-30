@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	g "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/require"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -20,10 +21,18 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func TestFallback(tt *testing.T) {
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
+	g.It("TestFallback [Serial][Timeout:180m][Suite:sno-disruptive]", func(ctx context.Context) {
+		testFallback(ctx, g.GinkgoTB())
+	})
+})
+
+// testFallback breaks the kube-apiserver on purpose by feeding it an invalid
+// configuration and verifies that the startup monitor falls back to the last
+// known good revision of the static pod.
+func testFallback(ctx context.Context, tt testing.TB) {
 	t := commontesthelpers.NewE(tt)
 	cs := getClients(t)
-	ctx := context.TODO()
 
 	t.Log("Starting the fallback test")
 	clusterStateWaitPollTimeout, clusterMustBeReadyForBeforeTest, clusterMustBeReadyFor, waitForFallbackDegradedConditionTimeout := fallbackTimeoutsForCurrentPlatform(t, cs)
