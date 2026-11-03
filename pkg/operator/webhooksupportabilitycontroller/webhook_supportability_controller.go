@@ -9,7 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
+	apiextensionsv1informers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
 	apiextensionslistersv1 "k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1"
 	admissionregistrationlistersv1 "k8s.io/client-go/listers/admissionregistration/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -29,7 +29,7 @@ type webhookSupportabilityController struct {
 func NewWebhookSupportabilityController(
 	operatorClient v1helpers.StaticPodOperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	apiExtensionsInformers apiextensionsinformers.SharedInformerFactory,
+	crdInformer apiextensionsv1informers.CustomResourceDefinitionInformer,
 	recorder events.Recorder,
 ) *webhookSupportabilityController {
 	kubeInformersForAllNamespaces := kubeInformersForNamespaces.InformersFor("")
@@ -38,7 +38,7 @@ func NewWebhookSupportabilityController(
 		mutatingWebhookLister:   kubeInformersForAllNamespaces.Admissionregistration().V1().MutatingWebhookConfigurations().Lister(),
 		validatingWebhookLister: kubeInformersForAllNamespaces.Admissionregistration().V1().ValidatingWebhookConfigurations().Lister(),
 		serviceLister:           kubeInformersForAllNamespaces.Core().V1().Services().Lister(),
-		crdLister:               apiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Lister(),
+		crdLister:               crdInformer.Lister(),
 	}
 	c.Controller = factory.New().
 		WithInformers(
@@ -51,7 +51,7 @@ func NewWebhookSupportabilityController(
 				return hasCRDConversionWebhookConfiguration(crd)
 			}
 			return true // re-queue just in case, the checks are fairly cheap
-		}, apiExtensionsInformers.Apiextensions().V1().CustomResourceDefinitions().Informer()).
+		}, crdInformer.Informer()).
 		WithSync(c.sync).
 		ToController("webhookSupportabilityController", recorder)
 	return c
