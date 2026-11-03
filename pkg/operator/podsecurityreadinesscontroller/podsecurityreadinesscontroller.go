@@ -29,23 +29,17 @@ type PodSecurityReadinessController struct {
 	kubeClient     kubernetes.Interface
 	operatorClient v1helpers.OperatorClient
 
-	warningsHandler   *warningsHandler
+	warningsHandler   *WarningsHandler
 	namespaceSelector string
 	psaEvaluator      policy.Evaluator
 }
 
 func NewPodSecurityReadinessController(
-	kubeConfig *rest.Config,
+	kubeClient kubernetes.Interface,
+	wh *WarningsHandler,
 	operatorClient v1helpers.OperatorClient,
 	recorder events.Recorder,
 ) (factory.Controller, error) {
-	warningsHandler := &warningsHandler{}
-
-	kubeClient, err := newWarningAwareKubeClient(warningsHandler, kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	selector, err := nonEnforcingSelector()
 	if err != nil {
 		return nil, err
@@ -61,7 +55,7 @@ func NewPodSecurityReadinessController(
 	c := &PodSecurityReadinessController{
 		operatorClient:    operatorClient,
 		kubeClient:        kubeClient,
-		warningsHandler:   warningsHandler,
+		warningsHandler:   wh,
 		namespaceSelector: selector,
 		psaEvaluator:      psaEvaluator,
 	}
@@ -118,13 +112,21 @@ func nonEnforcingSelector() (string, error) {
 	return selector.Add(*labelsRequirement).String(), nil
 }
 
-func newWarningAwareKubeClient(warningsHandler *warningsHandler, kubeConfig *rest.Config) (*kubernetes.Clientset, error) {
+// NewWarningAwareKubeClient creates a kubernetes.Clientset configured with a
+// WarningsHandler and throttled QPS suitable for the pod security readiness
+// controller.
+func NewWarningAwareKubeClient(kubeConfig *rest.Config) (*kubernetes.Clientset, *WarningsHandler, error) {
+	wh := &WarningsHandler{}
 	kubeClientCopy := rest.CopyConfig(kubeConfig)
-	kubeClientCopy.WarningHandler = warningsHandler
+	kubeClientCopy.WarningHandler = wh
 	// We don't want to overwhelm the apiserver with requests. On a cluster with
 	// 10k namespaces, we would send 10k + 1 requests to the apiserver.
 	kubeClientCopy.QPS = 2
 	kubeClientCopy.Burst = 2
 
-	return kubernetes.NewForConfig(kubeClientCopy)
+	client, err := kubernetes.NewForConfig(kubeClientCopy)
+	if err != nil {
+		return nil, nil, err
+	}
+	return client, wh, nil
 }
