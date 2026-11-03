@@ -16,8 +16,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	cache "k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -61,23 +61,21 @@ type KubeletVersionSkewController interface {
 
 func NewKubeletVersionSkewController(
 	operatorClient v1helpers.OperatorClient,
-	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
-	nodeLister corev1listers.NodeLister,
-	nodeInformer cache.SharedIndexInformer,
+	nodeInformer corev1informers.NodeInformer,
 	recorder events.Recorder,
 ) *kubeletVersionSkewController {
 	openShiftVersion := semver.MustParse(status.VersionForOperatorFromEnv())
 	nextOpenShiftVersion := semver.Version{Major: openShiftVersion.Major, Minor: openShiftVersion.Minor + 1}
 	c := &kubeletVersionSkewController{
 		operatorClient:              operatorClient,
-		nodeLister:                  nodeLister,
+		nodeLister:                  nodeInformer.Lister(),
 		apiServerVersion:            semver.MustParse(status.VersionForOperandFromEnv()),
 		minSupportedSkew:            minSupportedKubeletSkewForOpenShiftVersion(openShiftVersion),
 		minSupportedSkewNextVersion: minSupportedKubeletSkewForOpenShiftVersion(nextOpenShiftVersion),
 	}
 	c.Controller = factory.New().
 		WithSync(c.sync).
-		WithInformers(nodeInformer).
+		WithInformers(nodeInformer.Informer()).
 		ToController("KubeletVersionSkewController", recorder.WithComponentSuffix("kubelet-version-skew-controller"))
 	return c
 }
