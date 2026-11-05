@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -17,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
@@ -1368,6 +1370,119 @@ func TestCheckEndpointsBindIPFromConfig(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, test.expectedIP, ip)
+		})
+	}
+}
+
+func TestCreateCurvePreferencesOverride(t *testing.T) {
+	tests := []struct {
+		name                     string
+		inputObservedConfig      map[string]interface{}
+		expectedCurvePreferences []int32
+		expectOverride           bool
+		expectedError            string
+	}{
+		{
+			name: "creates override with curve preferences from groups",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:6443",
+					"groups":      []interface{}{"X25519", "secp256r1", "secp384r1"},
+				},
+			},
+			expectedCurvePreferences: []int32{29, 23, 24},
+			expectOverride:           true,
+		},
+		{
+			name: "no groups field - no override",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:6443",
+				},
+			},
+			expectOverride: false,
+		},
+		{
+			name: "empty groups array - no override",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:6443",
+					"groups":      []interface{}{},
+				},
+			},
+			expectOverride: false,
+		},
+		{
+			name: "unrecognized groups - error",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:6443",
+					"groups":      []interface{}{"invalid-group"},
+				},
+			},
+			expectedError: "unrecognized groups when reading curve preferences",
+		},
+		{
+			name:           "empty observed config - no override",
+			expectOverride: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var inputRaw []byte
+			var err error
+			if tt.inputObservedConfig != nil {
+				inputRaw, err = json.Marshal(tt.inputObservedConfig)
+				require.NoError(t, err)
+			}
+
+			overrideRaw, err := createCurvePreferencesOverride(inputRaw)
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+
+			if !tt.expectOverride {
+				require.Nil(t, overrideRaw)
+				return
+			}
+
+			require.NotNil(t, overrideRaw)
+
+			// Parse the override
+			var override map[string]interface{}
+			err = json.Unmarshal(overrideRaw, &override)
+			require.NoError(t, err)
+
+			// Check that it only contains servingInfo.curvePreferences
+			curvePrefs, found, err := unstructured.NestedSlice(override, "servingInfo", "curvePreferences")
+			require.NoError(t, err)
+			require.True(t, found, "curvePreferences should be set in servingInfo")
+
+			var curvePrefsInt32 []int32
+			for _, v := range curvePrefs {
+				// JSON unmarshaling makes numbers float64
+				if f, ok := v.(float64); ok {
+					curvePrefsInt32 = append(curvePrefsInt32, int32(f))
+				} else {
+					t.Fatalf("unexpected type for curve preference: %T", v)
+				}
+			}
+			require.Equal(t, tt.expectedCurvePreferences, curvePrefsInt32)
+
+			// Verify that groups is set to nil in the override to remove it from final config
+			servingInfo, found, err := unstructured.NestedMap(override, "servingInfo")
+			require.NoError(t, err)
+			require.True(t, found)
+
+			groupsValue, exists := servingInfo["groups"]
+			require.True(t, exists, "groups field should exist in override")
+			require.Nil(t, groupsValue, "groups should be set to nil to remove it from final config")
 		})
 	}
 }
