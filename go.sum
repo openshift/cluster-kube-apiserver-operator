@@ -150,6 +150,8 @@ github.com/imdario/mergo v0.3.8 h1:CGgOkSJeqMRmt0D9XLWExdT4m4F1vd3FV3VPt+0VxkQ=
 github.com/imdario/mergo v0.3.8/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
+github.com/ingvagabund/library-go v0.0.0-20261107114602-9a40119b0d79 h1:LqF2dQ2s7PEvjn++KW0+d179N0vBEip+5tdOw2yZZNM=
+github.com/ingvagabund/library-go v0.0.0-20261107114602-9a40119b0d79/go.mod h1:SOmIJLGV4ubkJnA2rXH0M5davuY1QpattP3zotdIY3E=
 github.com/jonboulle/clockwork v0.5.0 h1:Hyh9A8u51kptdkR+cqRpT1EebBwTn1oK9YfGYbdFz6I=
 github.com/jonboulle/clockwork v0.5.0/go.mod h1:3mZlmanh0g2NDKO5TWZVJAfofYk64M7XN3SzBPjZF60=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
@@ -192,8 +194,6 @@ github.com/openshift/build-machinery-go v0.0.0-20260902143904-520f675c892b h1:Er
 github.com/openshift/build-machinery-go v0.0.0-20260902143904-520f675c892b/go.mod h1:8jcm8UPtg2mCAsxfqKil1xrmRMI3a+XU2TZ9fF8A7TE=
 github.com/openshift/client-go v0.0.0-20261026144452-41e357d76bc8 h1:KUkcyYLx4I3xN7psi2QYT/E1APt6l8+I+UTrTQywZqI=
 github.com/openshift/client-go v0.0.0-20261026144452-41e357d76bc8/go.mod h1:RV0r6eBQ57WE9EyuY9rMmAYm0YtohgZNDb2fJ0TPyaU=
-github.com/openshift/library-go v0.0.0-20261104211517-aac77769db66 h1:SiCq6UDm03cbn97zz+Av7UConRvT/xqf0fU/96VoC0c=
-github.com/openshift/library-go v0.0.0-20261104211517-aac77769db66/go.mod h1:SOmIJLGV4ubkJnA2rXH0M5davuY1QpattP3zotdIY3E=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260922200432-2b15107f443d h1:2O9xSYFrc/HQImfnBvqww4tO94TWuuoBzBcCUX5g+1U=
 github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260922200432-2b15107f443d/go.mod h1:+aXOY+vzZ5mu2iI2HpTZUPmM//oQfsNFX6gU9kNcA44=
 github.com/orisano/pixelmatch v0.0.0-20220722002657-fb0b55479cde/go.mod h1:nZgzbfBr3hhjoZnS66nKrHmduYNpc34ny7RK4z5/HM0=
