@@ -1,6 +1,9 @@
 package configobservercontroller
 
 import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
@@ -10,6 +13,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider"
@@ -31,6 +35,12 @@ import (
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/node"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/configobservation/scheduler"
 	"github.com/openshift/cluster-kube-apiserver-operator/pkg/operator/operatorclient"
+)
+
+const (
+	// tempKASGroupsField is a temporary field used during TLS groups observation.
+	// It stores group names temporarily for change detection, then is removed from the final config.
+	tempKASGroupsField = "tempKASServingInfoGroupsIgnore"
 )
 
 var FeatureBlacklist sets.Set[configv1.FeatureGateName]
@@ -133,22 +143,43 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 				if err != nil {
 					return existingConfig, append(errs, err)
 				}
-				if featureGate.Enabled(features.FeatureGateTLSGroupPreferences) {
-					return libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
-						listers,
-						recorder,
-						existingConfig,
-						[]string{"servingInfo", "minTLSVersion"},
-						[]string{"servingInfo", "cipherSuites"},
-						[]string{"servingInfo", "groups"},
-					)
-				} else {
+				if !featureGate.Enabled(features.FeatureGateTLSGroupPreferences) {
 					return libgoapiserver.ObserveTLSSecurityProfile(
 						listers,
 						recorder,
 						existingConfig,
 					)
 				}
+
+				// Reconstruct temp groups from existing curvePreferences to prevent spurious events
+				if _, err := crypto.CurvePreferencesToGroups[int64](existingConfig, []string{"servingInfo", "curvePreferences"}, []string{tempKASGroupsField}); err != nil {
+					return existingConfig, []error{err}
+				}
+
+				defer func() {
+					unstructured.RemoveNestedField(observedConfig, tempKASGroupsField)
+				}()
+
+				observedConfig, errs = libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
+					listers,
+					recorder,
+					existingConfig,
+					[]string{"servingInfo", "minTLSVersion"},
+					[]string{"servingInfo", "cipherSuites"},
+					[]string{tempKASGroupsField},
+				)
+				if len(errs) > 0 {
+					return observedConfig, errs
+				}
+
+				// Convert groups to curvePreferences (as int64 for servingInfo)
+				if unrecognizedGroups, err := crypto.GroupsToCurvePreferences[int64](observedConfig, []string{tempKASGroupsField}, []string{"servingInfo", "curvePreferences"}); err != nil {
+					return observedConfig, []error{err}
+				} else if len(unrecognizedGroups) > 0 {
+					return observedConfig, []error{fmt.Errorf("unrecognized TLS groups: %v", unrecognizedGroups)}
+				}
+
+				return observedConfig, errs
 			},
 			auth.NewObserveAuthMetadata(featureGateAccessor),
 			auth.ObserveServiceAccountIssuer,
