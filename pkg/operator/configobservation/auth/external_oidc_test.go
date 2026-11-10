@@ -142,6 +142,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		cmIndexer        cache.Indexer
 		listerErrorForNS sets.Set[string]
 		syncerError      error
+		cleanupReady     bool
 
 		expectedConfig map[string]interface{}
 		expectedSynced map[string]string
@@ -330,18 +331,17 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:                    "ExternalOIDCAsWebhook enabled with no target configmap",
 			featureGates:            featureGatesWithWebhook,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: nil,
 			expectedConfig:          nil,
-			expectedSynced: map[string]string{
-				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
-			},
-			expectEvents: false,
-			expectErrors: false,
+			expectEvents:            false,
+			expectErrors:            false,
 		},
 		{
 			name:                    "ExternalOIDCAsWebhook enabled with existing target configmap",
 			featureGates:            featureGatesWithWebhook,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			expectedConfig:          nil,
@@ -354,6 +354,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:             "ExternalOIDCAsWebhook enabled with target configmap lister error",
 			featureGates:     featureGatesWithWebhook,
+			cleanupReady:     true,
 			existingConfig:   baseConfig,
 			listerErrorForNS: sets.New("openshift-kube-apiserver"),
 			expectedConfig:   baseConfig,
@@ -364,6 +365,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:                    "ExternalOIDCAsWebhook enabled with syncer error",
 			featureGates:            featureGatesWithWebhook,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			syncerError:             fmt.Errorf("syncer error"),
@@ -375,14 +377,13 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:           "claims sourcing alone with no target configmap",
 			featureGates:   featureGatesWithExternalClaimsSourcing,
+			cleanupReady:   true,
 			existingConfig: baseConfig,
-			expectedSynced: map[string]string{
-				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
-			},
 		},
 		{
 			name:                    "claims sourcing alone removes direct OIDC config",
 			featureGates:            featureGatesWithExternalClaimsSourcing,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			expectedSynced: map[string]string{
@@ -393,6 +394,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:             "claims sourcing alone with target configmap lister error",
 			featureGates:     featureGatesWithExternalClaimsSourcing,
+			cleanupReady:     true,
 			existingConfig:   baseConfig,
 			listerErrorForNS: sets.New("openshift-kube-apiserver"),
 			expectedConfig:   baseConfig,
@@ -401,6 +403,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:                    "claims sourcing alone with syncer error",
 			featureGates:            featureGatesWithExternalClaimsSourcing,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			syncerError:             fmt.Errorf("syncer error"),
@@ -410,14 +413,13 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:           "both webhook architecture gates with no target configmap",
 			featureGates:   featureGatesWithWebhookAndExternalClaimsSourcing,
+			cleanupReady:   true,
 			existingConfig: baseConfig,
-			expectedSynced: map[string]string{
-				"configmap/auth-config.openshift-kube-apiserver": "DELETE",
-			},
 		},
 		{
 			name:                    "both webhook architecture gates remove direct OIDC config",
 			featureGates:            featureGatesWithWebhookAndExternalClaimsSourcing,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			expectedSynced: map[string]string{
@@ -428,6 +430,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:             "both webhook architecture gates with target configmap lister error",
 			featureGates:     featureGatesWithWebhookAndExternalClaimsSourcing,
+			cleanupReady:     true,
 			existingConfig:   baseConfig,
 			listerErrorForNS: sets.New("openshift-kube-apiserver"),
 			expectedConfig:   baseConfig,
@@ -436,6 +439,7 @@ func TestObserveExternalOIDC(t *testing.T) {
 		{
 			name:                    "both webhook architecture gates with syncer error",
 			featureGates:            featureGatesWithWebhookAndExternalClaimsSourcing,
+			cleanupReady:            true,
 			existingConfig:          baseConfig,
 			existingTargetConfigMap: &baseTargetConfigMap,
 			syncerError:             fmt.Errorf("syncer error"),
@@ -469,9 +473,23 @@ func TestObserveExternalOIDC(t *testing.T) {
 				tt.cmIndexer.Add(tt.existingTargetConfigMap)
 			}
 
+			secretIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if tt.cleanupReady {
+				configMaps, secret := newDirectOIDCCleanupObjects(t)
+				for _, cm := range configMaps {
+					if err := tt.cmIndexer.Add(cm); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := secretIndexer.Add(secret); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			listers := configobservation.Listers{
 				AuthConfigLister: configlistersv1.NewAuthenticationLister(tt.authIndexer),
 				ConfigmapLister_: newFakeConfigMapLister(tt.listerErrorForNS, tt.cmIndexer),
+				SecretLister_:    corelistersv1.NewSecretLister(secretIndexer),
 				ResourceSync:     &mockResourceSyncer{t: t, synced: synced, error: tt.syncerError},
 			}
 

@@ -68,12 +68,22 @@ func (o *externalOIDC) ObserveExternalOIDC(genericListers configobserver.Listers
 	// this configobserver should be removed as it will no longer be necessary.
 	// This cleanup work is tracked by https://redhat.atlassian.net/browse/CNTRLPLANE-3208
 	if externalOIDCWebhookArchitectureRequired(featureGates) {
-		// In the event the older approach of the external OIDC configuration has been used,
-		// lets clean it up so that we don't end up with competing behaviors.
+		// Stop publishing the direct argument immediately, but retain its source
+		// until revision assembly can no longer need it.
 		listers := genericListers.(configobservation.Listers)
 		targetAuthConfig, err := listers.ConfigMapLister().ConfigMaps(operatorclient.TargetNamespace).Get(AuthConfigCMName)
-		if err != nil && !errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		if err != nil {
 			return existingConfig, []error{err}
+		}
+		canRemove, err := canRemoveDirectOIDCConfig(listers)
+		if err != nil {
+			return nil, []error{err}
+		}
+		if !canRemove {
+			return nil, nil
 		}
 
 		// empty source name/namespace effectively deletes target configmap
