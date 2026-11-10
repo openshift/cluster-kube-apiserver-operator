@@ -62,13 +62,17 @@ func testEncryptionRotation(ctx context.Context, t testing.TB) {
 		EncryptionProvider:          library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: encType}},
 	})
 
-	// The dependent operators (oauth-apiserver, openshift-apiserver) roll out
-	// asynchronously after the final revert-to-identity step. Wait for them to
-	// settle so the post-test artifact gathering runs against a stable cluster,
-	// otherwise the job fails in its post phase even though this test passed
-	// (must-gather cannot create pods while the API plane is still rolling out,
-	// which is guaranteed to happen on a single-node cluster).
-	operatorencryption.WaitForDependentEncryptionOperatorsStable(ctx, t, 20*time.Minute)
+	// Every encryption transition ends with one more deferred kube-apiserver
+	// revision roll (the encryption controllers drop the stale read key right
+	// after the final key migration completes) and the dependent operators
+	// (oauth-apiserver, openshift-apiserver) roll out asynchronously after the
+	// final revert-to-identity step. Wait for all of them to settle so the
+	// cluster is actually stable when the test exits: the post-suite
+	// e2e-analysis check (verify operator conditions kube-apiserver) fails on
+	// the transient Progressing condition otherwise (OCPBUGS-139148), and on
+	// single-node clusters the post-phase artifact gathering fails because
+	// must-gather cannot create pods while the API plane is still rolling out.
+	operatorencryption.WaitForEncryptionOperatorsStable(ctx, t, 30*time.Minute)
 
 	// The post-phase gathering also needs the default service account to be
 	// provisioned in the fresh namespaces must-gather creates, otherwise its

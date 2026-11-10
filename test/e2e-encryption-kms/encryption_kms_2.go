@@ -11,15 +11,15 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSEncryptionKMSToKMSMigration(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSPreflightDeploy(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSEncryptionInPlaceUpdate(ctx, g.GinkgoTB())
 	})
 })
@@ -35,10 +35,12 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // 5. Switches to identity (off) to verify the resources are re-written unencrypted
 func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionKMSToKMSMigrationScenarios(ctx, t)...)
+	waitForEncryptionOperatorsStable(ctx, t)
 }
 
 func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, librarykms.PreflightDeployScenario(ctx, t))
+	waitForEncryptionOperatorsStable(ctx, t)
 }
 
 // testKMSEncryptionInPlaceUpdate updates the Vault KMS plugin image across
@@ -47,4 +49,5 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 // then switches encryption back to identity.
 func testKMSEncryptionInPlaceUpdate(ctx context.Context, t testing.TB) {
 	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateScenarios(ctx, t)...)
+	waitForEncryptionOperatorsStable(ctx, t)
 }

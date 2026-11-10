@@ -16,7 +16,7 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSPerfEncryption [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-perf]", func(ctx context.Context) {
+	g.It("TestKMSPerfEncryption [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-perf]", func(ctx context.Context) {
 		testKMSPerfEncryption(ctx, g.GinkgoTB())
 	})
 })
@@ -66,4 +66,12 @@ func testKMSPerfEncryption(ctx context.Context, t testing.TB) {
 			library.DBLoaderRepeatParallel(5010, 50, false, operatorencryption.CreateConfigMap, operatorencryption.ReportConfigMap),
 			library.DBLoaderRepeatParallel(9010, 50, false, operatorencryption.CreateSecret, operatorencryption.ReportSecret)),
 	})...)
+
+	// The migration timing is measured while the library scenario runs above,
+	// so waiting for the operators to settle afterwards does not affect it.
+	// The final key migration still leaves one deferred kube-apiserver
+	// revision roll in flight (the stale read key is dropped right after the
+	// migration is reported complete), which the post-suite e2e-analysis
+	// check would otherwise observe as Progressing=True, see OCPBUGS-139148.
+	waitForEncryptionOperatorsStable(ctx, t)
 }

@@ -11,11 +11,11 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSPreflightLifecycle [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
+	g.It("TestKMSPreflightLifecycle [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-3]", func(ctx context.Context) {
 		testKMSPreflightLifecycle(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:150m][Suite:encryption-kms-3]", func(ctx context.Context) {
 		testKMSEncryptionRotation(ctx, g.GinkgoTB())
 	})
 })
@@ -30,6 +30,7 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 // 5. Switches to identity (off) to verify resources are re-written unencrypted
 func testKMSPreflightLifecycle(ctx context.Context, t testing.TB) {
 	library.TestKMSPreflightLifecycle(ctx, t, librarykms.KMSPreflightLifecycleScenarios(ctx, t)...)
+	waitForEncryptionOperatorsStable(ctx, t)
 }
 
 // testKMSEncryptionRotation encrypts with Vault KMS, rotates the Vault transit
@@ -37,4 +38,5 @@ func testKMSPreflightLifecycle(ctx context.Context, t testing.TB) {
 // and reverts to identity.
 func testKMSEncryptionRotation(ctx context.Context, t testing.TB) {
 	library.TestEncryptionRotation(ctx, t, librarykms.EncryptionRotationScenarios(ctx, t)...)
+	waitForEncryptionOperatorsStable(ctx, t)
 }
