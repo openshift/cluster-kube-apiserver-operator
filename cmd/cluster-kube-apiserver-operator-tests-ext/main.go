@@ -90,7 +90,7 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Suite:encryption-kms]") && !name.contains("[Suite:encryption-kms-2]") && !name.contains("[Suite:encryption-kms-3]") && !name.contains("[Suite:encryption-kms-migration]") && !name.contains("[Suite:encryption-kms-lifecycle]") && !name.contains("[Suite:encryption-kms-diagnostic]") && !name.contains("[Suite:encryption-kms-perf]")`,
+			`name.contains("[Suite:encryption-kms]") && !name.contains("[Suite:encryption-kms-2]") && !name.contains("[Suite:encryption-kms-3]") && !name.contains("[Suite:encryption-kms-migration]") && !name.contains("[Suite:encryption-kms-lifecycle]") && !name.contains("[Suite:encryption-kms-perf]")`,
 		},
 	})
 
@@ -127,15 +127,6 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Parallelism: 1,
 		Qualifiers: []string{
 			`name.contains("[Suite:encryption-kms-lifecycle]")`,
-		},
-	})
-
-	// Standalone predecessors for investigation/rollback; not under openshift/kms.
-	extension.AddSuite(oteextension.Suite{
-		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms-diagnostic",
-		Parallelism: 1,
-		Qualifiers: []string{
-			`name.contains("[Suite:encryption-kms-diagnostic]")`,
 		},
 	})
 
