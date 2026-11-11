@@ -358,11 +358,11 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 	}
 
 	if !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission) {
-		if err := auth.SetPodSecurityAdmissionToEnforcePrivileged(defaultConfig); err != nil {
+		if err := auth.SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(defaultConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := auth.SetPodSecurityAdmissionToEnforceRestricted(defaultConfig); err != nil {
+		if err := auth.SetPodSecurityAdmissionToPrivileged(defaultConfig); err != nil {
 			return nil, err
 		}
 	}

@@ -16,38 +16,30 @@ type FeatureGateLister interface {
 
 var configPath = []string{"admission", "pluginConfig", "PodSecurity", "configuration", "defaults"}
 
-// We want this:
-/*
-	admission:
-		pluginConfig:
-			PodSecurity:
-				configuration:
-					kind: PodSecurityConfiguration
-					apiVersion: pod-security.admission.config.k8s.io/v1
-					defaults:
-						enforce: "restricted"
-						enforce-version: "latest"
-*/
-func SetPodSecurityAdmissionToEnforceRestricted(config map[string]interface{}) error {
-	psaEnforceRestricted := map[string]interface{}{
-		"enforce":         "restricted",
+// SetPodSecurityAdmissionToPrivileged sets the PSA defaults to privileged:
+// nothing is rejected and nothing is reported.
+func SetPodSecurityAdmissionToPrivileged(config map[string]any) error {
+	psaPrivileged := map[string]any{
+		"enforce":         "privileged",
 		"enforce-version": "latest",
-		"audit":           "restricted",
+		"audit":           "privileged",
 		"audit-version":   "latest",
-		"warn":            "restricted",
+		"warn":            "privileged",
 		"warn-version":    "latest",
 	}
 
 	unstructured.RemoveNestedField(config, configPath...)
-	if err := unstructured.SetNestedMap(config, psaEnforceRestricted, configPath...); err != nil {
-		return fmt.Errorf("failed to set PodSecurity to enforce restricted: %w", err)
+	if err := unstructured.SetNestedMap(config, psaPrivileged, configPath...); err != nil {
+		return fmt.Errorf("failed to set PodSecurity to privileged: %w", err)
 	}
 
 	return nil
 }
 
-func SetPodSecurityAdmissionToEnforcePrivileged(config map[string]interface{}) error {
-	psaEnforceRestricted := map[string]interface{}{
+// SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted sets the PSA
+// defaults to reject nothing, but to warn and audit at restricted.
+func SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(config map[string]any) error {
+	psaEnforcePrivileged := map[string]any{
 		"enforce":         "privileged",
 		"enforce-version": "latest",
 		"audit":           "restricted",
@@ -57,8 +49,8 @@ func SetPodSecurityAdmissionToEnforcePrivileged(config map[string]interface{}) e
 	}
 
 	unstructured.RemoveNestedField(config, configPath...)
-	if err := unstructured.SetNestedMap(config, psaEnforceRestricted, configPath...); err != nil {
-		return fmt.Errorf("failed to set PodSecurity to enforce restricted: %w", err)
+	if err := unstructured.SetNestedMap(config, psaEnforcePrivileged, configPath...); err != nil {
+		return fmt.Errorf("failed to set PodSecurity to enforce privileged and report restricted: %w", err)
 	}
 
 	return nil
@@ -74,12 +66,14 @@ type psaEnforcement struct {
 	featureGateAccessor featuregates.FeatureGateAccess
 }
 
-// ObserveFeatureFlags fills in --feature-flags for the kube-apiserver
-func (o *psaEnforcement) ObservePodSecurityAdmissionEnforcement(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+// ObservePodSecurityAdmissionEnforcement sets the kube-apiserver's PSA defaults.
+// It must never leave them unset: defaultconfig.yaml ships placeholders that the
+// kube-apiserver refuses to start with, in this release and in rollback targets.
+func (o *psaEnforcement) ObservePodSecurityAdmissionEnforcement(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]any) (ret map[string]any, _ []error) {
 	return observePodSecurityAdmissionEnforcement(o.featureGateAccessor, recorder, existingConfig)
 }
 
-func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.FeatureGateAccess, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
+func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.FeatureGateAccess, recorder events.Recorder, existingConfig map[string]any) (ret map[string]any, _ []error) {
 	defer func() {
 		ret = configobserver.Pruned(ret, configPath)
 	}()
@@ -96,14 +90,15 @@ func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.Fea
 		return existingConfig, append(errs, err)
 	}
 
-	observedConfig := map[string]interface{}{}
+	observedConfig := map[string]any{}
 	switch {
 	case !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission):
-		if err := SetPodSecurityAdmissionToEnforcePrivileged(observedConfig); err != nil {
+		if err := SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	default:
-		if err := SetPodSecurityAdmissionToEnforceRestricted(observedConfig); err != nil {
+		// Deliberately privileged with the gate on: PSA is moving to the APIServer config.
+		if err := SetPodSecurityAdmissionToPrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	}
