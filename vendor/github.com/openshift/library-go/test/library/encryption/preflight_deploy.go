@@ -71,11 +71,13 @@ func TestPreflightDeployAndPodMatchesOperand(ctx context.Context, t testing.TB, 
 	secret := scenario.CreateEncryptionConfigFunc(ctx, t, clientSet, scenario.Namespace, scenario.EncryptionProvider.KMS)
 	require.NotNil(t, secret)
 
-	t.Cleanup(func() {
+	// Clean up before returning so grouped callers can reuse the preflight pod name
+	// in a later phase. Standalone callers are unaffected: this function is the whole test.
+	defer func() {
 		if err := deployer.Cleanup(context.Background()); err != nil {
 			t.Errorf("preflight Cleanup: %v", err)
 		}
-	})
+	}()
 
 	require.NoError(t, deployer.Deploy(ctx, preflightDeployConfigHash, secret))
 	scenario.AssertDeployFunc(ctx, t, clientSet, scenario.Namespace, deployer)

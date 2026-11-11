@@ -338,6 +338,22 @@ func oasInPlaceUpdateScenario(ctx context.Context, updateImage string) library.I
 	}
 }
 
+// LifecycleGroupScenarios returns lifecycle and rotation scenarios for
+// library.TestKMSLifecycleGroup. Rotation continues from the updated primary KMS
+// state produced by lifecycle; callers must not re-run standalone rotation setup.
+func LifecycleGroupScenarios(ctx context.Context, t testing.TB) (lifecycle []library.KMSPreflightLifecycleScenario, rotation []library.RotationScenario) {
+	t.Helper()
+	return KMSPreflightLifecycleScenarios(ctx, t), EncryptionRotationScenarios(ctx, t)
+}
+
+// MigrationGroupScenarios returns preflight-deploy and KMS↔KMS migration scenarios
+// for library.TestKMSMigrationGroup. Standalone in-place update is intentionally omitted;
+// that coverage lives in the lifecycle group.
+func MigrationGroupScenarios(ctx context.Context, t testing.TB) (library.PreflightDeployScenario, []library.ProvidersMigrationScenario) {
+	t.Helper()
+	return PreflightDeployScenario(ctx, t), EncryptionKMSToKMSMigrationScenarios(ctx, t)
+}
+
 // KMSPreflightLifecycleScenarios returns KAS/Auth/OAS lifecycle scenarios.
 // Only KAS supplies the cluster-wide providers, matching the on/off scenarios.
 // Every operator verifies invalid configurations, recovery, and the in-place update.
