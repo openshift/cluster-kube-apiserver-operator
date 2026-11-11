@@ -59,6 +59,8 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 		operatorClient.Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().Endpoints().Informer(),
 		kubeInformersForNamespaces.InformersFor("openshift-etcd").Core().V1().ConfigMaps().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace).Core().V1().Secrets().Informer(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Informer(),
 		configInformer.Config().V1().Images().Informer(),
 		configInformer.Config().V1().Infrastructures().Informer(),
 		configInformer.Config().V1().Authentications().Informer(),
@@ -152,8 +154,7 @@ func NewConfigObserver(operatorClient v1helpers.StaticPodOperatorClient, kubeInf
 			},
 			auth.NewObserveAuthMetadata(featureGateAccessor),
 			auth.ObserveServiceAccountIssuer,
-			auth.NewObserveWebhookTokenAuthenticator(featureGateAccessor),
-			auth.NewObserveExternalOIDC(featureGateAccessor),
+			auth.NewAuthenticationObserver(featureGateAccessor),
 			auth.NewObservePodSecurityAdmissionEnforcementFunc(featureGateAccessor),
 			encryption.NewEncryptionConfigObserver(
 				operatorclient.TargetNamespace,

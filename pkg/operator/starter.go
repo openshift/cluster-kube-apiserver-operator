@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	configv1 "github.com/openshift/api/config/v1"
+	kubecontrolplanev1 "github.com/openshift/api/kubecontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions"
@@ -88,6 +89,7 @@ import (
 	"k8s.io/utils/ptr"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
+	"sigs.k8s.io/yaml"
 )
 
 func RunOperator(ctx context.Context, controllerContext *controllercmd.ControllerContext) error {
@@ -339,6 +341,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 	versionRecorder.SetVersion("raw-internal", status.VersionForOperatorFromEnv())
 
+	kmsRevisionReadinessCheckFunc := kmsRevisionReadinessCheck(kubeClient, featureGateAccessor, os.Getenv("OPERATOR_IMAGE"))
 	staticPodControllers, err := staticpod.NewBuilder(operatorClient, kubeClient, kubeInformersForNamespaces, clusterInformers.InformersFor(""), configInformers, controllerContext.Clock).
 		WithEvents(controllerContext.EventRecorder).
 		WithCustomInstaller([]string{"cluster-kube-apiserver-operator", "installer"}, installerErrorInjector(operatorClient)).
@@ -361,7 +364,13 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 			},
 		).
 		WithOperandPodLabelSelector(labels.Set{"apiserver": "true"}.AsSelector()).
-		WithRevisionControllerReadinessCheck(kmsRevisionReadinessCheck(kubeClient, featureGateAccessor, os.Getenv("OPERATOR_IMAGE"))).
+		WithRevisionControllerReadinessCheck(func(ctx context.Context, revision int32) (bool, error) {
+			if kmsReady, err := kmsRevisionReadinessCheckFunc(ctx, revision); !kmsReady || err != nil {
+				return false, err
+			}
+
+			return oidcAuthConfigReadinessCheck(ctx, kubeClient, revision)
+		}).
 		ToControllers()
 	if err != nil {
 		return err
@@ -668,6 +677,40 @@ func installerErrorInjector(operatorClient v1helpers.StaticPodOperatorClient) fu
 
 		return nil
 	}
+}
+
+// oidcAuthConfigReadinessCheck ensures that an assembled revision referencing an authentication config
+// contains a nonempty auth-config.json before it can be marked ready for deployment.
+func oidcAuthConfigReadinessCheck(ctx context.Context, kubeClient kubernetes.Interface, revision int32) (bool, error) {
+	cmName := fmt.Sprintf("config-%d", revision)
+	cm, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).Get(ctx, cmName, metav1.GetOptions{})
+	if err != nil {
+		return false, fmt.Errorf("getting configmap %s: %w", cmName, err)
+	}
+
+	raw := cm.Data["config.yaml"]
+	if len(raw) == 0 {
+		return false, fmt.Errorf("configmap %s data key \"config.yaml\" is missing or empty", cm.Name)
+	}
+
+	var config kubecontrolplanev1.KubeAPIServerConfig
+	if err := yaml.Unmarshal([]byte(raw), &config); err != nil {
+		return false, fmt.Errorf("parsing configmap %s: %w", cm.Name, err)
+	}
+
+	if len(config.APIServerArguments["authentication-config"]) > 0 {
+		authCMName := fmt.Sprintf("auth-config-%d", revision)
+		authCM, err := kubeClient.CoreV1().ConfigMaps(operatorclient.TargetNamespace).Get(ctx, authCMName, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("getting configmap %s: %w", authCMName, err)
+		}
+
+		if len(authCM.Data["auth-config.json"]) == 0 {
+			return false, fmt.Errorf("configmap %s data key \"auth-config.json\" is missing or empty", authCM.Name)
+		}
+	}
+
+	return true, nil
 }
 
 // kmsRevisionReadinessCheck is a revision controller readiness check: it reports a revision ready only if its static pod already has the KMS plugin sidecar it should have.
