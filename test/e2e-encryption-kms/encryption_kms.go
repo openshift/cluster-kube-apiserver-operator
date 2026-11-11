@@ -11,11 +11,11 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms]", func(ctx context.Context) {
 		testKMSEncryptionOnOff(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms]", func(ctx context.Context) {
 		testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
 	})
 

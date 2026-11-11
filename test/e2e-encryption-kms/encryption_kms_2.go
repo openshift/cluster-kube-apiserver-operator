@@ -11,18 +11,32 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	// Scheduled composite for encryption-kms-2 / encryption-kms-migration.
+	// In-place update coverage lives in the lifecycle group, not here.
+	g.It("TestKMSEncryptionMigrationGroup [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2][Suite:encryption-kms-migration]", func(ctx context.Context) {
+		testKMSEncryptionMigrationGroup(ctx, g.GinkgoTB())
+	})
+
+	// Standalone specs retained for diagnostics / rollback only.
+	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-diagnostic]", func(ctx context.Context) {
 		testKMSEncryptionKMSToKMSMigration(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-diagnostic]", func(ctx context.Context) {
 		testKMSPreflightDeploy(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-diagnostic]", func(ctx context.Context) {
 		testKMSEncryptionInPlaceUpdate(ctx, g.GinkgoTB())
 	})
 })
+
+// testKMSEncryptionMigrationGroup runs manual preflight deploy then KMS↔KMS
+// migration as one ordered composite, leaving the final KMS provider enabled.
+func testKMSEncryptionMigrationGroup(ctx context.Context, t testing.TB) {
+	deploy, migration := librarykms.MigrationGroupScenarios(ctx, t)
+	library.TestKMSMigrationGroup(ctx, t, deploy, migration...)
+}
 
 // testKMSEncryptionKMSToKMSMigration tests migration between two distinct KMS providers
 // (default Vault instance and secondary Vault instance) across kube-apiserver,

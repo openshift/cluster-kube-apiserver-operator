@@ -11,14 +11,27 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSPreflightLifecycle [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
+	// Scheduled composite for encryption-kms-3 / encryption-kms-lifecycle.
+	g.It("TestKMSEncryptionLifecycleGroup [OCPFeatureGate:KMSEncryption][Serial][Timeout:180m][Suite:encryption-kms-3][Suite:encryption-kms-lifecycle]", func(ctx context.Context) {
+		testKMSEncryptionLifecycleGroup(ctx, g.GinkgoTB())
+	})
+
+	// Standalone specs retained for diagnostics / rollback only.
+	g.It("TestKMSPreflightLifecycle [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-diagnostic]", func(ctx context.Context) {
 		testKMSPreflightLifecycle(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
+	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-diagnostic]", func(ctx context.Context) {
 		testKMSEncryptionRotation(ctx, g.GinkgoTB())
 	})
 })
+
+// testKMSEncryptionLifecycleGroup runs negatives → valid KMS → in-place updates →
+// remote-key rotation as one ordered composite, leaving KMS enabled on success.
+func testKMSEncryptionLifecycleGroup(ctx context.Context, t testing.TB) {
+	lifecycle, rotation := librarykms.LifecycleGroupScenarios(ctx, t)
+	library.TestKMSLifecycleGroup(ctx, t, lifecycle, rotation)
+}
 
 // testKMSPreflightLifecycle tests the full KMS preflight lifecycle across
 // kube-apiserver, oauth-apiserver, and openshift-apiserver operators.
