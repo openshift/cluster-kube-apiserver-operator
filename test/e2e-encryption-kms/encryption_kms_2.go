@@ -11,40 +11,15 @@ import (
 )
 
 var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
-		testKMSEncryptionKMSToKMSMigration(ctx, g.GinkgoTB())
-	})
-
-	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
-		testKMSPreflightDeploy(ctx, g.GinkgoTB())
-	})
-
-	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
-		testKMSEncryptionInPlaceUpdate(ctx, g.GinkgoTB())
+	g.It("TestKMSEncryptionMigrationGroup [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2][Suite:encryption-kms-migration]", func(ctx context.Context) {
+		testKMSEncryptionMigrationGroup(ctx, g.GinkgoTB())
 	})
 })
 
-// testKMSEncryptionKMSToKMSMigration tests migration between two distinct KMS providers
-// (default Vault instance and secondary Vault instance) across kube-apiserver,
-// oauth-apiserver, and openshift-apiserver operators.
-// This test:
-// 1. Creates SecretOfLife, TokenOfLife, and RouteOfLife test resources
-// 2. Shuffles the two KMS providers to create a randomized migration order
-// 3. Migrates between the two KMS providers (KMS-to-KMS) in the shuffled order
-// 4. Verifies each resource is correctly encrypted with the active KMS provider after each migration
-// 5. Switches to identity (off) to verify the resources are re-written unencrypted
-func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
-	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionKMSToKMSMigrationScenarios(ctx, t)...)
-}
-
-func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
-	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, librarykms.PreflightDeployScenario(ctx, t))
-}
-
-// testKMSEncryptionInPlaceUpdate updates the Vault KMS plugin image across
-// kube-apiserver, oauth-apiserver, and openshift-apiserver. It verifies the image
-// rolls out while existing resources remain encrypted and no new key is created,
-// then switches encryption back to identity.
-func testKMSEncryptionInPlaceUpdate(ctx context.Context, t testing.TB) {
-	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateScenarios(ctx, t)...)
+// testKMSEncryptionMigrationGroup runs manual preflight deploy then KMS↔KMS
+// migration as one ordered composite, leaving the final KMS provider enabled.
+// In-place update coverage lives in the lifecycle group.
+func testKMSEncryptionMigrationGroup(ctx context.Context, t testing.TB) {
+	deploy, migration := librarykms.MigrationGroupScenarios(ctx, t)
+	library.TestKMSMigrationGroup(ctx, t, deploy, migration...)
 }

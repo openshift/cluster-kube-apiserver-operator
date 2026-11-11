@@ -78,13 +78,41 @@ type KMSPreflightLifecycleScenario struct {
 func TestKMSPreflightLifecycle(ctx context.Context, t testing.TB, scenarios ...KMSPreflightLifecycleScenario) {
 	t.Helper()
 	require.NotEmpty(t, scenarios, "TestKMSPreflightLifecycle requires at least one scenario")
+	e := NewE(t, PrintEventsOnFailure(scenarios[0].OperatorNamespace))
+	requireEncryptionOff(ctx, e)
+
+	steps, cleanupSteps := kmsPreflightLifecycleTestSteps(ctx, t, kmsPreflightLifecycleOptions{includeFinalIdentity: true}, scenarios...)
+
+	// Always restore identity even if a step fails and returns early, so later
+	// encryption tests still see encryption-off at start.
+	t.Cleanup(func() {
+		inParallel(cleanupSteps...).testFunc(e)
+	})
+
+	runTestSteps(e, steps)
+}
+
+type kmsPreflightLifecycleOptions struct {
+	// includeFinalIdentity appends the successful RevertToIdentity steps.
+	includeFinalIdentity bool
+	// afterValidKMS runs immediately after valid KMS recovery succeeds and before
+	// in-place updates (e.g. clear failure-recovery flags for grouped execution).
+	afterValidKMS []testStep
+}
+
+// kmsPreflightLifecycleTestSteps builds negatives → valid KMS recovery → in-place
+// updates. Callers that share encryption state with later phases pass
+// includeFinalIdentity=false and append their own terminal identity step.
+func kmsPreflightLifecycleTestSteps(ctx context.Context, t testing.TB, opts kmsPreflightLifecycleOptions, scenarios ...KMSPreflightLifecycleScenario) (steps []testStep, cleanupSteps []testStep) {
+	t.Helper()
+	require.NotEmpty(t, scenarios, "KMS preflight lifecycle requires at least one scenario")
 
 	numInvalid := len(scenarios[0].InvalidConfigs)
 	require.NotZero(t, numInvalid, "KMSPreflightLifecycleScenario requires at least one InvalidConfig")
 
 	var inPlaceScenarios []InPlaceUpdateScenario
 	var provider EncryptionProvider
-	var revertSteps, cleanupSteps []testStep
+	var revertSteps []testStep
 	for _, scenario := range scenarios {
 		require.Len(t, scenario.InvalidConfigs, numInvalid, "all scenarios must have the same number of InvalidConfigs")
 		inPlaceScenarios = append(inPlaceScenarios, scenario.InPlaceUpdateScenario)
@@ -99,18 +127,10 @@ func TestKMSPreflightLifecycle(ctx context.Context, t testing.TB, scenarios ...K
 		}})
 	}
 
-	createStep, updateSteps := inPlaceUpdateTestSteps(ctx, t, inPlaceScenarios...)
+	createStep, updateSteps := inPlaceUpdateTestSteps(ctx, t, opts.includeFinalIdentity, inPlaceScenarios...)
 	require.Equal(t, configv1.EncryptionTypeKMS, provider.Type, "preflight lifecycle requires a KMS provider")
 
-	e := NewE(t, PrintEventsOnFailure(scenarios[0].OperatorNamespace))
-	clients := GetClients(e)
-
-	apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(e, err)
-	require.Truef(e, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
-		"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
-
-	steps := []testStep{createStep}
+	steps = []testStep{createStep}
 	for idx := 0; idx < numInvalid; idx++ {
 		batch := make([]KMSPreflightNegativeScenario, 0, len(scenarios))
 		for _, scenario := range scenarios {
@@ -122,7 +142,7 @@ func TestKMSPreflightLifecycle(ctx context.Context, t testing.TB, scenarios ...K
 		var snapshotSteps, assertFailureSteps []testStep
 		for _, scenario := range batch {
 			require.NotNilf(t, scenario.AssertFailedFunc, "KMS preflight negative scenario %q for %s requires AssertFailedFunc", scenario.Name, scenario.OperatorNamespace)
-			snapshot, assertFailure := kmsPreflightNegativeSteps(ctx, clients, name, scenario)
+			snapshot, assertFailure := kmsPreflightNegativeSteps(ctx, name, scenario)
 			snapshotSteps = append(snapshotSteps, snapshot)
 			assertFailureSteps = append(assertFailureSteps, assertFailure)
 		}
@@ -184,19 +204,27 @@ func TestKMSPreflightLifecycle(ctx context.Context, t testing.TB, scenarios ...K
 		}},
 		inParallel(encryptSteps...),
 	)
+	steps = append(steps, opts.afterValidKMS...)
 	// Recovery replaces the builder's first step (initial encryption). Reuse
-	// its remaining assertions, in-place update, and final identity reset.
+	// remaining assertions, in-place updates, and optional final identity.
 	steps = append(steps, updateSteps[1:]...)
+	return steps, cleanupSteps
+}
 
-	// Always restore identity even if a step fails and returns early, so later
-	// encryption tests still see encryption-off at start.
-	t.Cleanup(func() {
-		inParallel(cleanupSteps...).testFunc(e)
-	})
+func requireEncryptionOff(ctx context.Context, t testing.TB) {
+	t.Helper()
+	clients := GetClients(t)
+	apiServer, err := clients.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Truef(t, apiServer.Spec.Encryption.Type == "" || apiServer.Spec.Encryption.Type == configv1.EncryptionTypeIdentity,
+		"expected encryption off at start, got type=%q", apiServer.Spec.Encryption.Type)
+}
 
+func runTestSteps(t testing.TB, steps []testStep) {
+	t.Helper()
 	for _, step := range steps {
 		t.Logf("=== STEP: %s ===", step.name)
-		step.testFunc(e)
+		step.testFunc(t)
 		if t.Failed() {
 			t.Errorf("stopping the test as %q step failed", step.name)
 			return
@@ -228,13 +256,14 @@ func resolveKMSPreflightNegativeBatch(t testing.TB, scenarios []KMSPreflightNega
 // kmsPreflightNegativeSteps returns a snapshot step (key + preflight baseline) and an assert
 // step (failure + no new key). The assert step closes over values written by the snapshot
 // step, so snapshot must run before assert for the same scenario.
-func kmsPreflightNegativeSteps(ctx context.Context, clients ClientSet, name string, scenario KMSPreflightNegativeScenario) (testStep, testStep) {
+func kmsPreflightNegativeSteps(ctx context.Context, name string, scenario KMSPreflightNegativeScenario) (testStep, testStep) {
 	var baseline EncryptionKeyMeta
 	var previousPreflight operatorv1.KMSPreflightCheck
 
 	snapshotStep := testStep{
 		name: fmt.Sprintf("Snapshot %s for %s", name, scenario.OperatorNamespace),
 		testFunc: func(t testing.TB) {
+			clients := GetClients(t)
 			var err error
 			baseline, err = GetLastKeyMeta(t, clients.Kube, scenario.Namespace, scenario.LabelSelector)
 			require.NoError(t, err)
@@ -245,6 +274,7 @@ func kmsPreflightNegativeSteps(ctx context.Context, clients ClientSet, name stri
 	assertFailureStep := testStep{
 		name: fmt.Sprintf("Assert %s for %s", name, scenario.OperatorNamespace),
 		testFunc: func(t testing.TB) {
+			clients := GetClients(t)
 			scenario.AssertFailedFunc(ctx, t, clients, scenario.OperatorNamespace, previousPreflight)
 			WaitForNoNewEncryptionKey(t, clients.Kube, baseline, scenario.Namespace, scenario.LabelSelector)
 		},
@@ -449,8 +479,8 @@ type ProvidersMigrationScenario struct {
 	ResourceFunc                   func(t testing.TB, namespace string) runtime.Object
 	ResourceName                   string
 	// EncryptionProviders is the list of encryption providers to migrate through.
-	// The test will migrate through each provider in order, then always end by
-	// switching to identity (off) to verify the resource is re-written unencrypted.
+	// The standalone runner migrates through each provider in order, then ends by
+	// switching to identity (off). Grouped callers may omit that terminal identity.
 	EncryptionProviders []EncryptionProvider
 	// AssertConditionsFunc optionally verifies operator conditions after migrations
 	// between providers, excluding initial enablement and identity cleanup.
@@ -471,10 +501,22 @@ func ShuffleEncryptionProviders(providers []EncryptionProvider) []EncryptionProv
 // TestEncryptionProvidersMigration tests migration between given encryption providers.
 // It creates a resource, migrates through each provider,
 // verifies the resource is encrypted after each migration, and finally
-// switches to identity (off).
+// switches to identity (off). On/off coverage of identity remains in
+// TestEncryptionTurnOnAndOff; grouped callers omit the terminal identity via
+// providersMigrationTestSteps.
 // Pass one scenario for a single operator, or multiple scenarios to run
 // KAS/Auth/OAS migration together. Only one scenario should provide EncryptionProviders.
 func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrationScenarios ...ProvidersMigrationScenario) {
+	t.Helper()
+	runTestSteps(t, providersMigrationTestSteps(ctx, t, providersMigrationOptions{includeFinalIdentity: true}, migrationScenarios...))
+}
+
+type providersMigrationOptions struct {
+	includeFinalIdentity bool
+}
+
+func providersMigrationTestSteps(ctx context.Context, t testing.TB, opts providersMigrationOptions, migrationScenarios ...ProvidersMigrationScenario) []testStep {
+	t.Helper()
 	if len(migrationScenarios) == 0 {
 		t.Fatalf("TestEncryptionProvidersMigration requires at least one scenario")
 	}
@@ -513,7 +555,7 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 			scenario.CreateResourceFunc(e, GetClients(e), scenario.Namespace)
 		}})
 	}
-	scenarios := []testStep{inParallel(createSteps...)}
+	steps := []testStep{inParallel(createSteps...)}
 
 	var conditionSteps []testStep
 	for _, scenario := range migrationScenarios {
@@ -555,10 +597,14 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 			})
 		}
 
-		scenarios = append(scenarios, inParallel(migrateSteps...), inParallel(assertSteps...))
+		steps = append(steps, inParallel(migrateSteps...), inParallel(assertSteps...))
 		if i > 0 && len(conditionSteps) > 0 {
-			scenarios = append(scenarios, inParallel(conditionSteps...))
+			steps = append(steps, inParallel(conditionSteps...))
 		}
+	}
+
+	if !opts.includeFinalIdentity {
+		return steps
 	}
 
 	// step 3: switch to identity (off) to verify the resource is re-written unencrypted
@@ -570,17 +616,7 @@ func TestEncryptionProvidersMigration(ctx context.Context, t testing.TB, migrati
 			scenario.AssertResourceNotEncryptedFunc(e, GetClients(e), scenario.ResourceFunc(e, scenario.Namespace))
 		}})
 	}
-	scenarios = append(scenarios, inParallel(offSteps...))
-
-	// run scenarios
-	for _, testScenario := range scenarios {
-		t.Logf("=== STEP: %s ===", testScenario.name)
-		testScenario.testFunc(t)
-		if t.Failed() {
-			t.Errorf("stopping the test as %q scenario failed", testScenario.name)
-			return
-		}
-	}
+	return append(steps, inParallel(offSteps...))
 }
 
 type RotationScenario struct {
@@ -601,20 +637,23 @@ type RotationScenario struct {
 // shared rotation; every scenario supplies its own completion wait and assertions.
 func TestEncryptionRotation(ctx context.Context, t testing.TB, scenarios ...RotationScenario) {
 	t.Helper()
-	steps := rotationTestSteps(ctx, t, scenarios...)
-	for _, step := range steps {
-		t.Logf("=== STEP: %s ===", step.name)
-		step.testFunc(t)
-		if t.Failed() {
-			t.Errorf("stopping the test as %q step failed", step.name)
-			return
-		}
-	}
+	runTestSteps(t, rotationTestSteps(ctx, t, rotationStepOptions{
+		includeCreateEncrypt: true,
+		includeFinalIdentity: true,
+	}, scenarios...))
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
 }
 
-func rotationTestSteps(ctx context.Context, t testing.TB, scenarios ...RotationScenario) []testStep {
+type rotationStepOptions struct {
+	// includeCreateEncrypt creates resources and enables encryption. When false,
+	// the cluster is assumed already encrypted and AssertEncryptionTypeContinued runs instead.
+	includeCreateEncrypt bool
+	// includeFinalIdentity appends RevertToIdentity after rotation assertions.
+	includeFinalIdentity bool
+}
+
+func rotationTestSteps(ctx context.Context, t testing.TB, opts rotationStepOptions, scenarios ...RotationScenario) []testStep {
 	t.Helper()
 	if len(scenarios) == 0 {
 		t.Fatalf("TestEncryptionRotation requires at least one scenario")
@@ -630,13 +669,26 @@ func rotationTestSteps(ctx context.Context, t testing.TB, scenarios ...RotationS
 			rotations = append(rotations, scenario.ForceRotationFunc)
 		}
 	}
-	if len(providers) != 1 || len(rotations) != 1 {
-		t.Fatalf("TestEncryptionRotation requires exactly one EncryptionProvider and one ForceRotationFunc, got %d and %d", len(providers), len(rotations))
+	if len(rotations) != 1 {
+		t.Fatalf("TestEncryptionRotation requires exactly one ForceRotationFunc, got %d", len(rotations))
 	}
-	provider := providers[0]
 	forceRotation := rotations[0]
 
-	var createSteps, encryptSteps, baselineSteps, waitSteps, assertSteps, revertSteps []testStep
+	var provider EncryptionProvider
+	switch {
+	case opts.includeCreateEncrypt:
+		if len(providers) != 1 {
+			t.Fatalf("TestEncryptionRotation requires exactly one EncryptionProvider when enabling encryption, got %d", len(providers))
+		}
+		provider = providers[0]
+	case len(providers) == 1:
+		provider = providers[0]
+	default:
+		// Continuation reuses active KMS; provider type is only needed for AssertFunc.
+		provider = EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS}}
+	}
+
+	var createSteps, encryptSteps, continueSteps, baselineSteps, waitSteps, assertSteps, revertSteps []testStep
 	for _, scenario := range scenarios {
 		// Each scenario owns its baseline and ciphertext sample. All baselines are
 		// recorded before the shared rotation can change any operator's key.
@@ -648,6 +700,9 @@ func rotationTestSteps(ctx context.Context, t testing.TB, scenarios ...RotationS
 		}})
 		encryptSteps = append(encryptSteps, testStep{name: fmt.Sprintf("EncryptWith%s%s", strings.ToUpper(string(provider.Type)), scenario.ResourceName), testFunc: func(t testing.TB) {
 			TestEncryptionType(ctx, t, scenario.BasicScenario, provider)
+		}})
+		continueSteps = append(continueSteps, testStep{name: fmt.Sprintf("ContinueEncrypted%s", scenario.ResourceName), testFunc: func(t testing.TB) {
+			AssertEncryptionTypeContinued(ctx, t, scenario.BasicScenario, provider.Type)
 		}})
 		baselineSteps = append(baselineSteps, testStep{name: fmt.Sprintf("RecordKeyBaseline%s", scenario.ResourceName), testFunc: func(t testing.TB) {
 			e := NewE(t)
@@ -675,17 +730,47 @@ func rotationTestSteps(ctx context.Context, t testing.TB, scenarios ...RotationS
 		}})
 	}
 
-	return []testStep{
-		inParallel(createSteps...),
-		inParallel(encryptSteps...),
+	var steps []testStep
+	if opts.includeCreateEncrypt {
+		steps = append(steps, inParallel(createSteps...), inParallel(encryptSteps...))
+	} else {
+		steps = append(steps, inParallel(continueSteps...))
+	}
+	steps = append(steps,
 		inParallel(baselineSteps...),
-		{name: "ForceKeyRotation", testFunc: func(t testing.TB) {
+		testStep{name: "ForceKeyRotation", testFunc: func(t testing.TB) {
 			forceRotation(NewE(t), ctx)
 		}},
 		inParallel(waitSteps...),
 		inParallel(assertSteps...),
-		inParallel(revertSteps...),
+	)
+	if opts.includeFinalIdentity {
+		steps = append(steps, inParallel(revertSteps...))
 	}
+	return steps
+}
+
+// AssertEncryptionTypeContinued checks that encryption is already active at expectedMode
+// without requesting a new key or a fresh KMS preflight. Used when a grouped phase
+// continues from a prior valid-KMS phase.
+func AssertEncryptionTypeContinued(ctx context.Context, t testing.TB, scenario BasicScenario, expectedMode configv1.EncryptionType) {
+	t.Helper()
+	e := NewE(t, PrintEventsOnFailure(scenario.OperatorNamespace))
+	clientSet := GetClients(e)
+
+	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+	require.NoError(e, err)
+	require.Equalf(e, expectedMode, apiServer.Spec.Encryption.Type,
+		"expected encryption type %q to already be active for continuation", expectedMode)
+
+	keyMeta, err := GetLastKeyMeta(e, clientSet.Kube, scenario.Namespace, scenario.LabelSelector)
+	require.NoError(e, err)
+	require.NotEmpty(e, keyMeta.Name, "expected a migrated encryption key for continuation")
+	require.Equalf(e, string(expectedMode), keyMeta.Mode, "expected write key mode %q for continuation", expectedMode)
+	WaitForCurrentKeyMigrated(e, clientSet.Kube, keyMeta, scenario.TargetGRs, scenario.Namespace, scenario.LabelSelector)
+
+	scenario.AssertFunc(e, clientSet, expectedMode, scenario.Namespace, scenario.LabelSelector)
+	AssertEncryptionConfig(e, clientSet, scenario.EncryptionConfigSecretName, scenario.EncryptionConfigSecretNamespace, scenario.TargetGRs)
 }
 
 // InPlaceUpdateScenario tests that updating a config field that does not affect
@@ -725,22 +810,15 @@ type InPlaceUpdateScenario struct {
 // minted by the update.
 func TestInPlaceUpdate(ctx context.Context, t testing.TB, scenarios ...InPlaceUpdateScenario) {
 	t.Helper()
-	createStep, updateSteps := inPlaceUpdateTestSteps(ctx, t, scenarios...)
-	steps := append([]testStep{createStep}, updateSteps...)
-
-	for _, step := range steps {
-		t.Logf("=== STEP: %s ===", step.name)
-		step.testFunc(t)
-		if t.Failed() {
-			t.Errorf("stopping the test as %q step failed", step.name)
-			return
-		}
-	}
+	createStep, updateSteps := inPlaceUpdateTestSteps(ctx, t, true, scenarios...)
+	runTestSteps(t, append([]testStep{createStep}, updateSteps...))
 }
 
 // inPlaceUpdateTestSteps separates resource creation from encryption so lifecycle
 // tests can insert preflight checks before enabling encryption.
-func inPlaceUpdateTestSteps(ctx context.Context, t testing.TB, scenarios ...InPlaceUpdateScenario) (testStep, []testStep) {
+// When includeFinalIdentity is false, the terminal RevertToIdentity step is omitted
+// so callers can continue from the updated KMS state.
+func inPlaceUpdateTestSteps(ctx context.Context, t testing.TB, includeFinalIdentity bool, scenarios ...InPlaceUpdateScenario) (testStep, []testStep) {
 	t.Helper()
 	if len(scenarios) == 0 {
 		t.Fatalf("TestInPlaceUpdate requires at least one scenario")
@@ -830,6 +908,8 @@ func inPlaceUpdateTestSteps(ctx context.Context, t testing.TB, scenarios ...InPl
 
 	// The configuration is cluster-wide, but migration completes independently for
 	// each operator. Wait for every scenario before the next test starts.
-	updateSteps = append(updateSteps, inParallel(revertSteps...))
+	if includeFinalIdentity {
+		updateSteps = append(updateSteps, inParallel(revertSteps...))
+	}
 	return inParallel(createSteps...), updateSteps
 }

@@ -90,16 +90,26 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("KMSEncryption") && !name.contains("[Suite:encryption-kms-2]") && !name.contains("[Suite:encryption-kms-3]") && !name.contains("[Suite:encryption-kms-perf]")`,
+			`name.contains("[Suite:encryption-kms]") && !name.contains("[Suite:encryption-kms-2]") && !name.contains("[Suite:encryption-kms-3]") && !name.contains("[Suite:encryption-kms-migration]") && !name.contains("[Suite:encryption-kms-lifecycle]") && !name.contains("[Suite:encryption-kms-perf]")`,
 		},
 	})
 
+	// Numeric suite kept for existing Prow jobs; semantic alias selects the same composite.
 	extension.AddSuite(oteextension.Suite{
 		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms-2",
 		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Suite:encryption-kms-2]")`,
+			`name.contains("[Suite:encryption-kms-2]") || name.contains("[Suite:encryption-kms-migration]")`,
+		},
+	})
+	// Semantic alias for explicit TEST_SUITE selection; no openshift/kms parent to
+	// avoid duplicating the composite already selected by encryption-kms-2.
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms-migration",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-kms-migration]")`,
 		},
 	})
 
@@ -108,7 +118,15 @@ func prepareOperatorTestsRegistry() (*oteextension.Registry, error) {
 		Parents:     []string{"openshift/kms"},
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Suite:encryption-kms-3]")`,
+			`name.contains("[Suite:encryption-kms-3]") || name.contains("[Suite:encryption-kms-lifecycle]")`,
+		},
+	})
+	// Semantic alias; no openshift/kms parent (see encryption-kms-migration).
+	extension.AddSuite(oteextension.Suite{
+		Name:        "openshift/cluster-kube-apiserver-operator/encryption-kms-lifecycle",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-kms-lifecycle]")`,
 		},
 	})
 
