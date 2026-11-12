@@ -357,12 +357,12 @@ func bootstrapDefaultConfig(featureGates featuregates.FeatureGate) ([]byte, erro
 		return nil, fmt.Errorf("failed to add audit policy into default config - %s", err)
 	}
 
-	if !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission) {
-		if err := auth.SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(defaultConfig); err != nil {
+	if featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission) {
+		if err := auth.SetPodSecurityAdmissionToPrivileged(defaultConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := auth.SetPodSecurityAdmissionToPrivileged(defaultConfig); err != nil {
+		if err := auth.SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(defaultConfig); err != nil {
 			return nil, err
 		}
 	}

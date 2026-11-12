@@ -92,13 +92,13 @@ func observePodSecurityAdmissionEnforcement(featureGateAccessor featuregates.Fea
 
 	observedConfig := map[string]any{}
 	switch {
-	case !featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission):
-		if err := SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(observedConfig); err != nil {
+	case featureGates.Enabled(features.FeatureGateOpenShiftPodSecurityAdmission):
+		// Deliberately privileged with the gate on: PSA is moving to the APIServer config.
+		if err := SetPodSecurityAdmissionToPrivileged(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	default:
-		// Deliberately privileged with the gate on: PSA is moving to the APIServer config.
-		if err := SetPodSecurityAdmissionToPrivileged(observedConfig); err != nil {
+		if err := SetPodSecurityAdmissionToEnforcePrivilegedReportRestricted(observedConfig); err != nil {
 			return existingConfig, append(errs, err)
 		}
 	}
