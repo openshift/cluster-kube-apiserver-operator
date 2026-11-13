@@ -128,7 +128,7 @@ func TestObserveEventTTL(t *testing.T) {
 			name: "feature gate enabled, no change needed when already at default, returning empty",
 			existingKubeAPIConfig: map[string]interface{}{
 				"apiServerArguments": map[string]interface{}{
-					"event-ttl": []interface{}{"3h"},
+					"event-ttl": []interface{}{"1h"},
 				},
 			},
 			expectedKubeAPIConfig: map[string]interface{}{},

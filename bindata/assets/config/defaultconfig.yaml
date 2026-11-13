@@ -111,7 +111,7 @@ apiServerArguments:
   etcd-readycheck-timeout:
     - 9s
   event-ttl:
-    - 3h
+    - 1h
   goaway-chance:
     - "0.001"
   http2-max-streams-per-connection:
