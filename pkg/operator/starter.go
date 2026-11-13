@@ -199,6 +199,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
 		kubeInformersForNamespaces,
+		clusterInformers.InformersFor(""),
 		configInformers,
 		operatorInformers,
 		resourceSyncController,
