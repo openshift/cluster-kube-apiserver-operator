@@ -102,13 +102,19 @@ func TestLocalhostServingRotationWithFakeClock(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		_ = secretIndexer.Add(signerSecret)
+		if err := secretIndexer.Add(signerSecret); err != nil {
+			return nil, err
+		}
 		caBundleConfigMap, err := client.CoreV1().ConfigMaps(operatorclient.OperatorNamespace).Get(context.TODO(), "localhost-serving-ca", metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		_ = configMapIndexer.Add(caBundleConfigMap)
-		_ = secretIndexer.Add(secret)
+		if err := configMapIndexer.Add(caBundleConfigMap); err != nil {
+			return nil, err
+		}
+		if err := secretIndexer.Add(secret); err != nil {
+			return nil, err
+		}
 		return secret, nil
 	}
 
