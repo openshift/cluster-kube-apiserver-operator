@@ -773,6 +773,56 @@ func TestGetDefaultConfigWithAuditPolicy(t *testing.T) {
 	require.True(t, isEqual)
 }
 
+func TestBootstrapDefaultConfigPodSecurity(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enabled  []configv1.FeatureGateName
+		disabled []configv1.FeatureGateName
+		expected map[string]any
+	}{
+		{
+			name:    "OpenShiftPodSecurityAdmission enabled",
+			enabled: []configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission},
+			expected: map[string]any{
+				"enforce":         "privileged",
+				"enforce-version": "latest",
+				"audit":           "privileged",
+				"audit-version":   "latest",
+				"warn":            "privileged",
+				"warn-version":    "latest",
+			},
+		},
+		{
+			name:     "OpenShiftPodSecurityAdmission disabled",
+			disabled: []configv1.FeatureGateName{features.FeatureGateOpenShiftPodSecurityAdmission},
+			expected: map[string]any{
+				"enforce":         "privileged",
+				"enforce-version": "latest",
+				"audit":           "restricted",
+				"audit-version":   "latest",
+				"warn":            "restricted",
+				"warn-version":    "latest",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// bootstrapDefaultConfig also checks MinimumKubeletVersion, and Enabled()
+			// panics on a gate it does not know.
+			disabled := append([]configv1.FeatureGateName{features.FeatureGateMinimumKubeletVersion}, tc.disabled...)
+			raw, err := bootstrapDefaultConfig(featuregates.NewFeatureGate(tc.enabled, disabled))
+			require.NoError(t, err)
+
+			config := map[string]any{}
+			require.NoError(t, json.Unmarshal(raw, &config))
+
+			defaults, found, err := unstructured.NestedMap(config, "admission", "pluginConfig", "PodSecurity", "configuration", "defaults")
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, tc.expected, defaults)
+		})
+	}
+}
+
 func setupAssetOutputDir(testName string) (teardown func(), outputDir string, err error) {
 	outputDir, err = ioutil.TempDir("", testName)
 	if err != nil {
