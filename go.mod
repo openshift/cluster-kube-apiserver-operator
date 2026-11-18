@@ -15,9 +15,9 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.40.0
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-	github.com/openshift/api v0.0.0-20261023091600-9809689a2448
+	github.com/openshift/api v0.0.0-20261109181719-0a8bc04b7618
 	github.com/openshift/build-machinery-go v0.0.0-20260902143904-520f675c892b
-	github.com/openshift/client-go v0.0.0-20261026144452-41e357d76bc8
+	github.com/openshift/client-go v0.0.0-20261109191322-505de3dc15d7
 	github.com/openshift/library-go v0.0.0-20261116152229-66d935b53707
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/prometheus/client_golang v1.24.0
@@ -145,3 +145,7 @@ require (
 )
 
 replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260922200432-2b15107f443d
+
+replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20261109191322-505de3dc15d7
+
+replace github.com/openshift/library-go => github.com/sanchezl/library-go v0.0.0-20261118023314-2eeef84716f7
