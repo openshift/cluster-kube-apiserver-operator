@@ -10,100 +10,156 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
-	g.It("[Serial][Operator][Feature:NetworkPolicy] should enforce NetworkPolicy allow/deny basics in a test namespace", func() {
-		testGenericNetworkPolicyEnforcement()
+var _ = g.Describe("[sig-api-machinery] kube-apiserver operator [Serial][Operator][Feature:NetworkPolicy] enforcement", func() {
+	var (
+		ctx        context.Context
+		kubeClient kubernetes.Interface
+	)
+
+	g.BeforeEach(func() {
+		ctx = context.Background()
+		config := getClientConfigForTest()
+		var err error
+		kubeClient, err = kubernetes.NewForConfig(config)
+		o.Expect(err).NotTo(o.HaveOccurred())
 	})
-	g.It("[Serial][Operator][Feature:NetworkPolicy] should enforce kube-apiserver-operator NetworkPolicies for cross-namespace traffic", func() {
-		testKubeAPIServerOperatorNetworkPolicyEnforcement()
+
+	withServiceAccount := func(namespace string) {
+		g.GinkgoHelper()
+		_, cleanup := ensureTestServiceAccount(ctx, kubeClient, namespace)
+		g.DeferCleanup(cleanup)
+	}
+
+	g.Context("cross-namespace connectivity to operator metrics port", func() {
+		var operatorPodIPs []string
+
+		g.BeforeEach(func() {
+			g.By("Getting operator pod IPs")
+			pods, err := kubeClient.CoreV1().Pods(kasOperatorNamespace).List(ctx,
+				metav1.ListOptions{LabelSelector: "app=kube-apiserver-operator"})
+			o.Expect(err).NotTo(o.HaveOccurred())
+			o.Expect(pods.Items).NotTo(o.BeEmpty(), "expected at least one operator pod")
+			operatorPodIPs = podIPs(&pods.Items[0])
+		})
+
+		type connectivityCase struct {
+			sourceNS string
+			labels   map[string]string
+			port     int32
+			allowed  bool
+		}
+
+		g.DescribeTable("",
+			func(tc connectivityCase) {
+				withServiceAccount(tc.sourceNS)
+				expectConnectivity(ctx, kubeClient, tc.sourceNS, tc.labels,
+					operatorPodIPs, tc.port, tc.allowed)
+			},
+			g.Entry("monitoring (prometheus) → :8443 (allowed: open ingress, monitoring permits egress)",
+				connectivityCase{
+					sourceNS: "openshift-monitoring",
+					labels:   map[string]string{"app.kubernetes.io/name": "prometheus"},
+					port:     8443,
+					allowed:  true,
+				}),
+			g.Entry("monitoring (any label) → :8443 (allowed: open ingress on 8443)",
+				connectivityCase{
+					sourceNS: "openshift-monitoring",
+					labels:   map[string]string{"app": "any-label"},
+					port:     8443,
+					allowed:  true,
+				}),
+			g.Entry("console → :8443 (allowed: console permits egress)",
+				connectivityCase{
+					sourceNS: "openshift-console",
+					labels:   map[string]string{"custom-app": "test-client"},
+					port:     8443,
+					allowed:  true,
+				}),
+			g.Entry("default → :8443 (allowed: no egress restrictions in default namespace)",
+				connectivityCase{
+					sourceNS: "default",
+					labels:   map[string]string{"test": "client"},
+					port:     8443,
+					allowed:  true,
+				}),
+		)
+	})
+
+	g.Context("basic NetworkPolicy enforcement in a test namespace", func() {
+		var nsName string
+
+		g.BeforeEach(func() {
+			nsName = createTestNamespace(kubeClient.CoreV1().Namespaces(), "np-test-")
+			g.DeferCleanup(func() {
+				_ = kubeClient.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
+			})
+			ensureTestServiceAccount(ctx, kubeClient, nsName)
+		})
+
+		g.It("should allow all traffic when no policies exist", func() {
+			serverIPs, cleanup := createServerPod(ctx, kubeClient, nsName,
+				"server", map[string]string{"app": "server"}, 8080)
+			g.DeferCleanup(cleanup)
+
+			expectConnectivity(ctx, kubeClient, nsName,
+				map[string]string{"app": "client"}, serverIPs, 8080, true)
+		})
+
+		g.It("should block traffic after applying default-deny", func() {
+			serverIPs, cleanup := createServerPod(ctx, kubeClient, nsName,
+				"server", map[string]string{"app": "server"}, 8080)
+			g.DeferCleanup(cleanup)
+
+			g.By("Applying default-deny policy")
+			_, err := kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx,
+				defaultDenyPolicy("default-deny", nsName), metav1.CreateOptions{})
+			o.Expect(err).NotTo(o.HaveOccurred())
+
+			expectConnectivity(ctx, kubeClient, nsName,
+				map[string]string{"app": "client"}, serverIPs, 8080, false)
+		})
+
+		g.It("should allow traffic when both ingress and egress rules match", func() {
+			serverLabels := map[string]string{"app": "server"}
+			clientLabels := map[string]string{"app": "client"}
+
+			serverIPs, cleanup := createServerPod(ctx, kubeClient, nsName,
+				"server", serverLabels, 8080)
+			g.DeferCleanup(cleanup)
+
+			g.By("Applying default-deny, then ingress+egress allow rules")
+			_, err := kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx,
+				defaultDenyPolicy("default-deny", nsName), metav1.CreateOptions{})
+			o.Expect(err).NotTo(o.HaveOccurred())
+			_, err = kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx,
+				allowIngressPolicy("allow-in", nsName, serverLabels, clientLabels, 8080),
+				metav1.CreateOptions{})
+			o.Expect(err).NotTo(o.HaveOccurred())
+			_, err = kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx,
+				allowEgressPolicy("allow-out", nsName, clientLabels, serverLabels, 8080),
+				metav1.CreateOptions{})
+			o.Expect(err).NotTo(o.HaveOccurred())
+
+			expectConnectivity(ctx, kubeClient, nsName,
+				clientLabels, serverIPs, 8080, true)
+		})
 	})
 })
 
-func testGenericNetworkPolicyEnforcement() {
-	ctx := context.Background()
-	kubeConfig := getClientConfigForTest()
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
+func createServerPod(ctx context.Context, client kubernetes.Interface, namespace, name string, labels map[string]string, port int32) ([]string, func()) {
+	g.GinkgoHelper()
+	pod := netexecPod(name, namespace, labels, port)
+	_, err := client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	o.Expect(err).NotTo(o.HaveOccurred())
+	o.Expect(waitForPodReady(ctx, client, namespace, name)).NotTo(o.HaveOccurred())
 
-	g.By("Creating a temporary namespace for policy enforcement checks")
-	nsName := createTestNamespace(kubeClient.CoreV1().Namespaces(), "np-enforcement-")
-	g.DeferCleanup(func() {
-		g.GinkgoWriter.Printf("deleting test namespace %s\n", nsName)
-		_ = kubeClient.CoreV1().Namespaces().Delete(ctx, nsName, metav1.DeleteOptions{})
-	})
-
-	g.By("Creating test service account")
-	_, _ = ensureTestServiceAccount(ctx, kubeClient, nsName)
-	// No need to defer cleanup - the entire namespace will be deleted
-
-	serverName := "np-server"
-	clientLabels := map[string]string{"app": "np-client"}
-	serverLabels := map[string]string{"app": "np-server"}
-
-	g.GinkgoWriter.Printf("creating netexec server pod %s/%s\n", nsName, serverName)
-	serverPod := netexecPod(serverName, nsName, serverLabels, 8080)
-	_, err = kubeClient.CoreV1().Pods(nsName).Create(ctx, serverPod, metav1.CreateOptions{})
+	created, err := client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{})
 	o.Expect(err).NotTo(o.HaveOccurred())
-	o.Expect(waitForPodReady(ctx, kubeClient, nsName, serverName)).NotTo(o.HaveOccurred())
+	o.Expect(created.Status.PodIPs).NotTo(o.BeEmpty())
 
-	server, err := kubeClient.CoreV1().Pods(nsName).Get(ctx, serverName, metav1.GetOptions{})
-	o.Expect(err).NotTo(o.HaveOccurred())
-	o.Expect(server.Status.PodIPs).NotTo(o.BeEmpty())
-	serverIPs := podIPs(server)
-	g.GinkgoWriter.Printf("server pod %s/%s ips=%v\n", nsName, serverName, serverIPs)
-
-	g.By("Verifying allow-all when no policies select the pod")
-	expectConnectivity(ctx, kubeClient, nsName, clientLabels, serverIPs, 8080, true)
-
-	g.By("Applying default deny and verifying traffic is blocked")
-	g.GinkgoWriter.Printf("creating default-deny policy in %s\n", nsName)
-	_, err = kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx, defaultDenyPolicy("default-deny", nsName), metav1.CreateOptions{})
-	o.Expect(err).NotTo(o.HaveOccurred())
-
-	g.By("Adding ingress allow only and verifying traffic is still blocked")
-	g.GinkgoWriter.Printf("creating allow-ingress policy in %s\n", nsName)
-	_, err = kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx, allowIngressPolicy("allow-ingress", nsName, serverLabels, clientLabels, 8080), metav1.CreateOptions{})
-	o.Expect(err).NotTo(o.HaveOccurred())
-	expectConnectivity(ctx, kubeClient, nsName, clientLabels, serverIPs, 8080, false)
-
-	g.By("Adding egress allow and verifying traffic is permitted")
-	g.GinkgoWriter.Printf("creating allow-egress policy in %s\n", nsName)
-	_, err = kubeClient.NetworkingV1().NetworkPolicies(nsName).Create(ctx, allowEgressPolicy("allow-egress", nsName, clientLabels, serverLabels, 8080), metav1.CreateOptions{})
-	o.Expect(err).NotTo(o.HaveOccurred())
-	expectConnectivity(ctx, kubeClient, nsName, clientLabels, serverIPs, 8080, true)
-}
-
-func testKubeAPIServerOperatorNetworkPolicyEnforcement() {
-	ctx := context.Background()
-	kubeConfig := getClientConfigForTest()
-	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
-	o.Expect(err).NotTo(o.HaveOccurred())
-
-	g.By("Creating test service accounts in required namespaces")
-	_, cleanupMonitoring := ensureTestServiceAccount(ctx, kubeClient, "openshift-monitoring")
-	g.DeferCleanup(cleanupMonitoring)
-	_, cleanupConsole := ensureTestServiceAccount(ctx, kubeClient, "openshift-console")
-	g.DeferCleanup(cleanupConsole)
-	_, cleanupDefault := ensureTestServiceAccount(ctx, kubeClient, "default")
-	g.DeferCleanup(cleanupDefault)
-
-	g.By("Getting IP of real kube-apiserver-operator pod")
-	pods, err := kubeClient.CoreV1().Pods("openshift-kube-apiserver-operator").List(ctx, metav1.ListOptions{
-		LabelSelector: "app=kube-apiserver-operator",
-	})
-	o.Expect(err).NotTo(o.HaveOccurred())
-	o.Expect(pods.Items).NotTo(o.BeEmpty(), "should have at least one operator pod")
-	kasOperatorIPs := podIPs(&pods.Items[0])
-
-	g.By("Verifying monitoring namespace with prometheus label can access operator metrics")
-	expectConnectivity(ctx, kubeClient, "openshift-monitoring", map[string]string{"app.kubernetes.io/name": "prometheus"}, kasOperatorIPs, 8443, true)
-
-	g.By("Verifying monitoring namespace with any label can access operator metrics")
-	expectConnectivity(ctx, kubeClient, "openshift-monitoring", map[string]string{"app": "any-label"}, kasOperatorIPs, 8443, true)
-
-	g.By("Verifying console namespace can access operator metrics")
-	expectConnectivity(ctx, kubeClient, "openshift-console", map[string]string{"custom-app": "test-client"}, kasOperatorIPs, 8443, true)
-
-	g.By("Verifying default namespace can access operator metrics")
-	expectConnectivity(ctx, kubeClient, "default", map[string]string{"test": "client"}, kasOperatorIPs, 8443, true)
+	ips := podIPs(created)
+	return ips, func() {
+		_ = client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	}
 }
