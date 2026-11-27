@@ -15,8 +15,8 @@ var _ = g.Describe("[sig-api-machinery] kube-apiserver operator", func() {
 		testKMSPreflightLifecycle(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionRotation [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
-		testKMSEncryptionRotation(ctx, g.GinkgoTB())
+	g.It("TestKMSEncryptionInPlaceUpdate [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-3]", func(ctx context.Context) {
+		testKMSEncryptionInPlaceUpdate(ctx, g.GinkgoTB())
 	})
 })
 
@@ -32,9 +32,10 @@ func testKMSPreflightLifecycle(ctx context.Context, t testing.TB) {
 	library.TestKMSPreflightLifecycle(ctx, t, librarykms.KMSPreflightLifecycleScenarios(ctx, t)...)
 }
 
-// testKMSEncryptionRotation encrypts with Vault KMS, rotates the Vault transit
-// remote key, waits for each operator's remigration, verifies ciphertext changed,
-// and reverts to identity.
-func testKMSEncryptionRotation(ctx context.Context, t testing.TB) {
-	library.TestEncryptionRotation(ctx, t, librarykms.EncryptionRotationScenarios(ctx, t)...)
+// testKMSEncryptionInPlaceUpdate updates the Vault KMS plugin image across
+// kube-apiserver, oauth-apiserver, and openshift-apiserver. It verifies the image
+// rolls out while existing resources remain encrypted and no new key is created,
+// then switches encryption back to identity.
+func testKMSEncryptionInPlaceUpdate(ctx context.Context, t testing.TB) {
+	library.TestInPlaceUpdate(ctx, t, librarykms.EncryptionInPlaceUpdateScenarios(ctx, t)...)
 }
