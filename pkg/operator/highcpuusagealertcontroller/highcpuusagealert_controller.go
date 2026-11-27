@@ -23,9 +23,6 @@ import (
 	"k8s.io/utils/cpuset"
 )
 
-// default and taken from the docs
-const defaultCoresNum = 8
-
 var performanceGroup = schema.GroupVersionResource{Group: "performance.openshift.io", Version: "v2", Resource: "performanceprofiles"}
 
 type highCPUUsageAlertController struct {
@@ -95,29 +92,21 @@ func (c *highCPUUsageAlertController) sync(ctx context.Context, syncCtx factory.
 }
 
 func snoAlert(ctx context.Context, client dynamic.Interface, enabledCapabilities []configv1.ClusterVersionCapability, cpuMode configv1.CPUPartitioningMode) ([]byte, error) {
-	cores := defaultCoresNum
-
-	// if NodeTuning capability disabled, there are no PerformanceProfile, so we proceed
-	// with default value.
 	if sets.New(enabledCapabilities...).Has(configv1.ClusterVersionCapabilityNodeTuning) && cpuMode == configv1.CPUPartitioningAllNodes {
 		foundCores, found, err := performanceProfileControlPlaneCores(ctx, client)
 		if err != nil {
 			return nil, err
 		}
-		// set cores from PerformanceProfile if expectedToFindCores
-		// if not, proceed with default values
 		if found {
-			cores = foundCores
+			fileData, err := bindata.Asset("assets/alerts/cpu-utilization-sno-partitioned.yaml")
+			if err != nil {
+				return nil, err
+			}
+			return bytes.ReplaceAll(fileData, []byte(`${CPU-COUNT}`), []byte(strconv.Itoa(foundCores))), nil
 		}
 	}
 
-	fileData, err := bindata.Asset("assets/alerts/cpu-utilization-sno.yaml")
-	if err != nil {
-		return nil, err
-	}
-	fileData = bytes.ReplaceAll(fileData, []byte(`${CPU-COUNT}`), []byte(strconv.Itoa(cores)))
-
-	return fileData, nil
+	return bindata.Asset("assets/alerts/cpu-utilization-sno.yaml")
 }
 
 // performanceProfileControlPlaneCores returns cores allocated for control plane pods via
