@@ -10,3 +10,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-hyperkube:v4.0
+  - name: cli
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-cli:v4.0
